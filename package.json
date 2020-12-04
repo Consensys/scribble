@@ -1,5 +1,5 @@
 {
-    "name": "@consensys/scribble",
+    "name": "@cdili/scribble",
     "version": "0.3.2",
     "description": "A Solidity runtime verification tool for property based testing",
     "keywords": [],
