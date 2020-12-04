@@ -1,4 +1,4 @@
-import { ContractDefinition, SourceUnit } from "@consensys/solc-typed-ast";
+import { ContractDefinition, SourceUnit } from "solc-typed-ast";
 import { getOr, intersection, assert, eq, forAll } from "../util";
 import { Logger } from "../logger";
 import { pp } from "../util/pp";

@@ -4,7 +4,7 @@ import {
     FunctionCall,
     FunctionDefinition,
     SourceUnit
-} from "@consensys/solc-typed-ast";
+} from "solc-typed-ast";
 import expect from "expect";
 import { print as printUnits, rewriteImports } from "../../src/ast_to_source_printer";
 import {

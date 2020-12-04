@@ -6,7 +6,7 @@ import {
     SourceUnit,
     StateVariableVisibility,
     VariableDeclaration
-} from "@consensys/solc-typed-ast";
+} from "solc-typed-ast";
 import expect from "expect";
 import fse from "fs-extra";
 import { searchRecursive, toAst } from "./utils";

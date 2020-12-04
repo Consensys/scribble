@@ -53,7 +53,7 @@ import {
     VariableDeclaration,
     VariableDeclarationStatement,
     WhileStatement
-} from "@consensys/solc-typed-ast";
+} from "solc-typed-ast";
 import { assert, getOrInit } from "../util/misc";
 
 /**

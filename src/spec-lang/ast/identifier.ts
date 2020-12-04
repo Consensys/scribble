@@ -1,5 +1,5 @@
 import { SNode, Range } from "./node";
-import { VariableDeclaration } from "@consensys/solc-typed-ast";
+import { VariableDeclaration } from "solc-typed-ast";
 import { SLet } from ".";
 
 export type VarDefSite = VariableDeclaration | [SLet, number];

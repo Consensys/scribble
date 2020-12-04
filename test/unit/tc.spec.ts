@@ -4,7 +4,7 @@ import {
     FunctionStateMutability,
     FunctionVisibility,
     SourceUnit
-} from "@consensys/solc-typed-ast";
+} from "solc-typed-ast";
 import expect from "expect";
 import { Logger } from "../../src/logger";
 import {

@@ -4,7 +4,7 @@ import {
     FunctionDefinition,
     resolveCallable,
     SourceUnit
-} from "@consensys/solc-typed-ast";
+} from "solc-typed-ast";
 import { getOr, single } from "../util";
 
 export type FunSet = Set<FunctionDefinition>;

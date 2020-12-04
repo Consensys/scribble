@@ -1,5 +1,5 @@
 import { SType } from "./type";
-import { StructDefinition, EnumDefinition, ContractDefinition } from "@consensys/solc-typed-ast";
+import { StructDefinition, EnumDefinition, ContractDefinition } from "solc-typed-ast";
 import { Range } from "..";
 
 export type UserDefinition = StructDefinition | EnumDefinition | ContractDefinition;

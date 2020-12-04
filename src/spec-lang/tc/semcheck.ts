@@ -1,4 +1,4 @@
-import { FunctionStateMutability, VariableDeclaration } from "@consensys/solc-typed-ast";
+import { FunctionStateMutability, VariableDeclaration } from "solc-typed-ast";
 import { single } from "../../util";
 import {
     Range,

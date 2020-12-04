@@ -1,5 +1,5 @@
 import { SType } from "./type";
-import { FunctionVisibility, FunctionStateMutability } from "@consensys/solc-typed-ast";
+import { FunctionVisibility, FunctionStateMutability } from "solc-typed-ast";
 import { Range } from "..";
 
 export class SFunctionType extends SType {

@@ -22,7 +22,7 @@ import {
     DataLocation,
     FunctionVisibility,
     FunctionStateMutability
-} from "@consensys/solc-typed-ast";
+} from "solc-typed-ast";
 
 function getFunctionAttributes(
     rawDecorators: string[]

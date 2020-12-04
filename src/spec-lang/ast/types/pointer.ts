@@ -1,5 +1,5 @@
 import { SType } from "./type";
-import { DataLocation } from "@consensys/solc-typed-ast";
+import { DataLocation } from "solc-typed-ast";
 import { Range } from "../node";
 
 export class SPointer extends SType {

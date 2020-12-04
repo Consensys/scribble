@@ -1,8 +1,4 @@
-import {
-    DataLocation,
-    FunctionStateMutability,
-    FunctionVisibility
-} from "@consensys/solc-typed-ast";
+import { DataLocation, FunctionStateMutability, FunctionVisibility } from "solc-typed-ast";
 import {
     SAddressType,
     SBoolType,

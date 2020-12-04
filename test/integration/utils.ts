@@ -11,7 +11,7 @@ import {
     ASTReader,
     ContractDefinition,
     FunctionDefinition
-} from "@consensys/solc-typed-ast";
+} from "solc-typed-ast";
 import { spawnSync } from "child_process";
 
 export function searchRecursive(directory: string, pattern: RegExp): string[] {

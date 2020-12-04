@@ -20,7 +20,7 @@ import {
     StateVariableVisibility,
     TypeName,
     VariableDeclaration
-} from "@consensys/solc-typed-ast";
+} from "solc-typed-ast";
 import {
     ChangeArgumentLocation,
     ChangeFunctionDocumentation,

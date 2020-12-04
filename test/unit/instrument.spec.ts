@@ -1,5 +1,5 @@
 import expect from "expect";
-import { SourceUnit, ContractDefinition, ASTReader } from "@consensys/solc-typed-ast";
+import { SourceUnit, ContractDefinition, ASTReader } from "solc-typed-ast";
 import { toAst } from "../integration/utils";
 import { findContract } from "../integration/utils";
 import { findExternalCalls } from "../../src/instrumenter/instrument";

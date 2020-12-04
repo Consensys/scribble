@@ -20,7 +20,7 @@ import {
     StructDefinition,
     StructuredDocumentation,
     VariableDeclaration
-} from "@consensys/solc-typed-ast";
+} from "solc-typed-ast";
 import "path";
 import { basename } from "path";
 import { assert } from "../util";

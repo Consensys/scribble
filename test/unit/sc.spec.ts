@@ -2,7 +2,7 @@ import { parse } from "../../src/spec-lang/expr_parser";
 import expect from "expect";
 import { eq } from "../../src/util/struct_equality";
 import { SType, SIntLiteralType, SIntType } from "../../src/spec-lang/ast";
-import { SourceUnit, ContractDefinition } from "@consensys/solc-typed-ast";
+import { SourceUnit, ContractDefinition } from "solc-typed-ast";
 import { toAst } from "../integration/utils";
 import { tc, STypingCtx, SemInfo, SemError, TypeMap } from "../../src/spec-lang/tc";
 import { sc } from "../../src/spec-lang/tc";

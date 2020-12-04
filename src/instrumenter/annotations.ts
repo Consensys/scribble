@@ -5,7 +5,7 @@ import {
     SourceUnit,
     StructuredDocumentation,
     VariableDeclaration
-} from "@consensys/solc-typed-ast";
+} from "solc-typed-ast";
 import {
     parse as parseAnnotation,
     SyntaxError as AnnotationPEGSSyntaxError

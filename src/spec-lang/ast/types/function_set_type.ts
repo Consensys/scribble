@@ -1,9 +1,5 @@
 import { SType } from "./type";
-import {
-    FunctionDefinition,
-    VariableDeclaration,
-    ContractDefinition
-} from "@consensys/solc-typed-ast";
+import { FunctionDefinition, VariableDeclaration, ContractDefinition } from "solc-typed-ast";
 import { SNode, Range } from "../node";
 
 export class SFunctionSetType extends SType {

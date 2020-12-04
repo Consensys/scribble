@@ -4,7 +4,7 @@ import {
     VariableDeclaration,
     FunctionDefinition,
     ContractDefinition
-} from "@consensys/solc-typed-ast";
+} from "solc-typed-ast";
 import expect from "expect";
 import fse from "fs-extra";
 import { toAst, searchRecursive } from "./utils";

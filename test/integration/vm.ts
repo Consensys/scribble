@@ -1,4 +1,4 @@
-import { compileSol } from "@consensys/solc-typed-ast";
+import { compileSol } from "solc-typed-ast";
 import BN from "bn.js";
 import crypto from "crypto";
 import Account from "ethereumjs-account";

@@ -1,4 +1,4 @@
-import { ASTReader, compileSol, ContractDefinition } from "@consensys/solc-typed-ast";
+import { ASTReader, compileSol, ContractDefinition } from "solc-typed-ast";
 import expect from "expect";
 import { CallGraph, getCallGraph } from "../../src/instrumenter/callgraph";
 

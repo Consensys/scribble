@@ -9,7 +9,7 @@ import {
     VariableDeclaration,
     SourceUnit,
     ContractDefinition
-} from "@consensys/solc-typed-ast";
+} from "solc-typed-ast";
 
 export function nodeToSource(main: ASTNode, targetCompilerVersion = "0.6.0"): string {
     const formatter = new PrettyFormatter(4);

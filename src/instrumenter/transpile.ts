@@ -10,7 +10,7 @@ import {
     StructDefinition,
     TypeName,
     VariableDeclaration
-} from "@consensys/solc-typed-ast";
+} from "solc-typed-ast";
 import {
     SAddressType,
     SArrayType,

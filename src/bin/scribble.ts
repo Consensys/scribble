@@ -20,7 +20,7 @@ import {
     StructDefinition,
     UserDefinedTypeName,
     VariableDeclaration
-} from "@consensys/solc-typed-ast";
+} from "solc-typed-ast";
 import fse from "fs-extra";
 import path, { dirname, relative } from "path";
 import { print, rewriteImports } from "../ast_to_source_printer";

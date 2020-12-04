@@ -7,7 +7,7 @@ import {
     PrettyFormatter,
     SourceUnit,
     SymbolAlias
-} from "@consensys/solc-typed-ast";
+} from "solc-typed-ast";
 import { ImportDirectiveDesc } from "./rewriter/import_directive_header";
 import { parse as parseImportDirective } from "./rewriter/import_directive_parser";
 import { assert } from "./util/misc";

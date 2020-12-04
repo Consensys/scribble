@@ -1,4 +1,4 @@
-import { ContractDefinition } from "@consensys/solc-typed-ast";
+import { ContractDefinition } from "solc-typed-ast";
 
 export interface PPAble {
     pp(): string;

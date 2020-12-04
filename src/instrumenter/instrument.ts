@@ -26,7 +26,7 @@ import {
     VariableDeclaration,
     EmitStatement,
     Literal
-} from "@consensys/solc-typed-ast";
+} from "solc-typed-ast";
 import {
     AddBaseContract,
     AddConstructor,

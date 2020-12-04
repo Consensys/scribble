@@ -18,7 +18,7 @@ import {
     UserDefinedTypeName,
     VariableDeclaration,
     VariableDeclarationStatement
-} from "@consensys/solc-typed-ast";
+} from "solc-typed-ast";
 import { Logger } from "../../logger";
 import { assert } from "../../util";
 import { eq } from "../../util/struct_equality";

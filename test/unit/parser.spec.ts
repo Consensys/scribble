@@ -28,11 +28,7 @@ import {
 } from "../../src/spec-lang/ast";
 import { eq } from "../../src/util/struct_equality";
 import bigInt from "big-integer";
-import {
-    DataLocation,
-    FunctionVisibility,
-    FunctionStateMutability
-} from "@consensys/solc-typed-ast";
+import { DataLocation, FunctionVisibility, FunctionStateMutability } from "solc-typed-ast";
 import { Logger } from "../../src/logger";
 
 describe("Expression Parser Unit Tests", () => {

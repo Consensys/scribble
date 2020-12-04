@@ -53,7 +53,7 @@ import {
     VariableDeclaration,
     VariableDeclarationStatement,
     WhileStatement
-} from "@consensys/solc-typed-ast";
+} from "solc-typed-ast";
 import { assert } from "../util/misc";
 
 export function inCtx(arg: ASTNode | ASTNode[], ctx: ASTContext): boolean {
