@@ -1,0 +1,27 @@
+{
+    "file": "test/samples/contract_pos.instrumented.sol",
+    "steps": [
+        {
+            "act": "createUser",
+            "alias": "owner",
+            "options": {
+                "balance": 1000e18
+            }
+        },
+        {
+            "act": "deployContract",
+            "contract": "Foo",
+            "user": "owner",
+            "alias": "instance1"
+        },
+        {
+            "act": "txCall",
+            "user": "owner",
+            "contract": "instance1",
+
+            "method": "fail",
+            "logs": [["string"], ["uint"]],
+            "onLogs": [["0: "], ["57896044618658097711785492504343953926634992332820282019728792003956564819968"]]
+        }
+    ]
+}

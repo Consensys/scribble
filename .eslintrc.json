@@ -1,0 +1,41 @@
+{
+    "parser": "@typescript-eslint/parser",
+    "env": {
+        "node": true,
+        "es6": true
+    },
+    "plugins": ["@typescript-eslint"],
+    "extends": [
+        "eslint:recommended",
+        "plugin:@typescript-eslint/eslint-recommended",
+        "plugin:@typescript-eslint/recommended",
+        "plugin:prettier/recommended",
+        "prettier/@typescript-eslint"
+    ],
+    "rules": {
+        "no-var": "error",
+        "no-constant-condition": "off",
+        "comma-dangle": ["error", "never"],
+
+        "@typescript-eslint/no-explicit-any": "off",
+        "@typescript-eslint/no-var-requires": "off",
+        "@typescript-eslint/no-this-alias": "off",
+        "@typescript-eslint/explicit-function-return-type": "off",
+        "@typescript-eslint/array-type": ["error", { "default": "array-simple" }],
+        "@typescript-eslint/no-use-before-define": ["error", { "functions": false }],
+        "@typescript-eslint/explicit-module-boundary-types": [
+            "error",
+            { "allowArgumentsExplicitlyTypedAsAny": true }
+        ]
+    },
+    "ignorePatterns": [
+        "src/spec-lang/expr_parser_header.ts",
+        "src/spec-lang/expr_parser.ts",
+        "src/spec-lang/annotation_parser_header.ts",
+        "src/spec-lang/annotation_parser.ts",
+        "src/spec-lang/type_parser_header.ts",
+        "src/spec-lang/type_parser.ts",
+        "src/rewriter/import_directive_parser.ts",
+        "src/rewriter/import_directive_header.ts"
+    ]
+}

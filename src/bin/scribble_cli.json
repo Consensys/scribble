@@ -1,0 +1,124 @@
+[
+    {
+        "header": "Scribble",
+        "content": "A Solidity runtime verification tool for property based testing."
+    },
+    {
+        "header": "Options",
+        "optionList": [
+            {
+                "name": "help",
+                "alias": "h",
+                "type": "Boolean",
+                "description": "Print help message"
+            },
+            {
+                "name": "version",
+                "alias": "v",
+                "type": "Boolean",
+                "description": "Print package version"
+            },
+            {
+                "name": "quiet",
+                "alias": "q",
+                "type": "Boolean",
+                "description": "Don't output anything to stderr"
+            },
+            {
+                "name": "input-mode",
+                "alias": "i",
+                "type": "String",
+                "defaultValue": "source",
+                "description": "Input mode. Either 'source' or 'json'. When 'source' is specified, input assumed to be a raw Solidity source code. When 'json' is specified, input assumed to be a Solc output JSON artifact."
+            },
+            {
+                "name": "output-mode",
+                "alias": "m",
+                "type": "String",
+                "defaultValue": "flat",
+                "description": "Output mode. Either 'flat', 'files' or 'json'. When 'flat' is specified, output all instrumented contracts toghether. When 'files' is specified, for every file Foo.sol that contains an annotated contract emit a Foo.sol.instrumetned with the instrumented contract. When 'json' is specified, a JSON object including the original sources, the flattened bytecode, and a map from property IDs to their locations."
+            },
+            {
+                "name": "keep-instrumented",
+                "alias": "k",
+                "type": "Boolean",
+                "defaultValue": false,
+                "description": "Keep instrumented files after disarming."
+            },
+            {
+                "name": "output",
+                "alias": "o",
+                "type": "String",
+                "defaultValue": "--",
+                "description": "When the output mode if 'flat' or 'json' specifies where to dump the flattened contracts. Either a path to a file, or '--' for stdout."
+            },
+            {
+                "name": "utils-output-path",
+                "type": "String",
+                "description": "Path to a folder where the ReentrancyUtils.sol contract should be emitted. This option is required with '--mode files' and ignore otherwise."
+            },
+            {
+                "name": "property-map-file",
+                "type": "String",
+                "description": "If specified, output the property map (in JSON format) in the specified file."
+            },
+            {
+                "name": "path-remapping",
+                "type": "String",
+                "description": "Path remapping input for Solc. A semicolon separate list of remappings 'prefix=target'"
+            },
+            {
+                "name": "compiler-version",
+                "type": "String",
+                "description": "If given, specifies the exact compiler version to use"
+            },
+            {
+                "name": "no-assert",
+                "type": "Boolean",
+                "description": "If specified execution will not halt when an invariant is violated (only an event will be emitted)."
+            },
+            {
+                "name": "filter-type",
+                "type": "String",
+                "description": "If specified instrumentation will happen only for annotations, whose types are matching supplied regular expression."
+            },
+            {
+                "name": "filter-message",
+                "type": "String",
+                "description": "If specified instrumentation will happen only for annotations, whose messages are matching supplied regular expression."
+            },
+            {
+                "name": "arm",
+                "type": "Boolean",
+                "description": "When instrumenting files in-place ('--output-mode files') also swap the instrumented files with the original."
+            },
+            {
+                "name": "disarm",
+                "type": "Boolean",
+                "description": "Find all dependencies of the traget that have been swapped with their instrumented version (all foo.sol s.t. there is a foo.sol.instrumented and foo.sol.original) and swap them back for the original."
+            },
+            {
+                "name": "debug-events",
+                "type": "Boolean",
+                "description": "When specified for every failure an additional debug event with values of variables in the failing predicate is emitted."
+            },
+            {
+                "name": "user-assert-mode",
+                "type": "String",
+                "defaultValue": "log",
+                "description": "Describe how scribble signals user assertion failures to Myhtril/Harvey. Must be either 'log' or 'mstore'. See wiki for more details."
+            },
+            {
+                "name": "solFiles",
+                "type": "String",
+                "defaultOption": true,
+                "multiple": true,
+                "description": "List of solidity files to instrument. Either a list of paths to files, or '--' for stdin."
+            }
+        ]
+    },
+    {
+        "header": "Project home",
+        "content": "{underline https://github.com/ConsenSys/scribble}"
+    }
+]

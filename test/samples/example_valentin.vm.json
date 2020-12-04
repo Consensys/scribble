@@ -1,0 +1,44 @@
+{
+    "file": "test/samples/example_valentin.sol",
+    "steps": [
+        {
+            "act": "createUser",
+            "alias": "owner",
+            "options": {
+                "balance": 1000e18
+            }
+        },
+        {
+            "act": "createUser",
+            "alias": "other",
+            "options": {
+                "balance": 1e18
+            }
+        },
+        {
+            "act": "deployContract",
+            "contract": "FooToken",
+            "user": "owner",
+            "alias": "instance1"
+        },
+        {
+            "act": "staticCall",
+            "user": "owner",
+            "contract": "instance1",
+
+            "method": "balanceOf",
+            "returns": ["uint"],
+
+            "args": {
+                "types": ["address"],
+                "values": [{ "alias": "owner" }]
+            },
+
+            "onReturns": [
+                {
+                    "expect": "1000000"
+                }
+            ]
+        }
+    ]
+}

@@ -1,0 +1,44 @@
+pragma solidity 0.6.11;
+
+import { Base } from "./base.sol";
+import "./__scribble_ReentrancyUtils.sol";
+
+contract Child2 is __scribble_ReentrancyUtils, Base {
+    struct vars4 {
+        uint256 old_1;
+        bool __scribble_check_invs_at_end;
+    }
+
+    function double() public {
+        vars4 memory _v;
+        _v.__scribble_check_invs_at_end = __scribble_out_of_contract;
+        __scribble_out_of_contract = false;
+        _v.old_1 = x;
+        _original_Child2_double();
+        if ((!((x == (2 * _v.old_1))))) {
+            emit AssertionFailed("2: P2");
+            assert(false);
+        }
+        if (_v.__scribble_check_invs_at_end) __scribble_check_state_invariants();
+        __scribble_out_of_contract = _v.__scribble_check_invs_at_end;
+    }
+
+    function _original_Child2_double() private {
+        x *= 2;
+    }
+
+    /// Check only the current contract's state invariants
+    function __scribble_Child2_check_state_invariants_internal() internal {}
+
+    /// Check the state invariant for the current contract and all its bases
+    function __scribble_check_state_invariants() virtual override internal {
+        __scribble_Child2_check_state_invariants_internal();
+        __scribble_Base_check_state_invariants_internal();
+    }
+
+    constructor() public {
+        __scribble_out_of_contract = false;
+        __scribble_check_state_invariants();
+        __scribble_out_of_contract = true;
+    }
+}

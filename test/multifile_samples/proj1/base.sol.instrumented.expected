@@ -1,0 +1,29 @@
+pragma solidity 0.6.11;
+
+import "./__scribble_ReentrancyUtils.sol";
+
+/// invariant {:msg "P0"} x > 0;
+contract Base is __scribble_ReentrancyUtils {
+    event AssertionFailed(string message);
+
+    uint internal x = 1;
+
+    /// Check only the current contract's state invariants
+    function __scribble_Base_check_state_invariants_internal() internal {
+        if ((!((x > 0)))) {
+            emit AssertionFailed("0: P0");
+            assert(false);
+        }
+    }
+
+    /// Check the state invariant for the current contract and all its bases
+    function __scribble_check_state_invariants() virtual internal {
+        __scribble_Base_check_state_invariants_internal();
+    }
+
+    constructor() public {
+        __scribble_out_of_contract = false;
+        __scribble_check_state_invariants();
+        __scribble_out_of_contract = true;
+    }
+}

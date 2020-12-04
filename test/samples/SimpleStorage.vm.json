@@ -1,0 +1,86 @@
+{
+    "file": "test/samples/SimpleStorage.sol",
+    "steps": [
+        {
+            "act": "createUser",
+            "alias": "owner",
+            "options": {
+                "balance": 1000e18
+            }
+        },
+        {
+            "act": "createUser",
+            "alias": "other",
+            "options": {
+                "balance": 1e18
+            }
+        },
+        {
+            "act": "deployContract",
+            "contract": "SimpleStorage",
+            "user": "owner",
+            "alias": "instance1",
+            "args": {
+                "types": ["uint"],
+                "values": [1]
+            }
+        },
+        {
+            "act": "staticCall",
+            "user": "owner",
+            "contract": "instance1",
+
+            "method": "get",
+            "returns": ["uint"],
+
+            "onReturns": [
+                {
+                    "expect": "1"
+                }
+            ]
+        },
+        {
+            "act": "txCall",
+            "user": "owner",
+            "contract": "instance1",
+
+            "method": "set",
+            "args": {
+                "types": ["uint"],
+                "values": ["10"]
+            },
+            "returns": ["uint"],
+            "logs": [["uint", "string"]],
+
+            "onReturns": [
+                {
+                    "expect": "10"
+                }
+            ],
+
+            "onLogs": [["10", "set"]]
+        },
+        {
+            "act": "staticCall",
+            "user": "other",
+            "contract": "instance1",
+
+            "method": "get",
+            "returns": ["uint"],
+
+            "onReturns": [
+                {
+                    "expect": "10"
+                }
+            ]
+        },
+        {
+            "act": "staticCall",
+            "user": "other",
+            "contract": "instance1",
+
+            "method": "fail",
+            "failure": "*"
+        }
+    ]
+}

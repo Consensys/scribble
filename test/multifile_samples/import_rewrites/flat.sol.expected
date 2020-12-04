@@ -1,0 +1,21 @@
+pragma solidity 0.6.11;
+
+struct Struct1 {
+    uint256 x;
+}
+enum Enum1 { A, B, C }
+
+enum Enum2 { E, F, G }
+
+enum Struct1_1 { H, I, J }
+/// Utility contract holding a stack counter
+contract __scribble_ReentrancyUtils {
+    bool __scribble_out_of_contract = true;
+}
+contract Imp1 {}
+contract Foo is Imp1 {
+    Struct1 internal s;
+    Enum1 internal e1;
+    Enum2 internal fe;
+    Struct1_1 internal e3;
+}

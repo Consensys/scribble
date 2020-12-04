@@ -1,0 +1,78 @@
+pragma solidity 0.6.11;
+
+/// Utility contract holding a stack counter
+contract __scribble_ReentrancyUtils {
+    bool __scribble_out_of_contract = true;
+}
+contract A is __scribble_ReentrancyUtils {
+    /// Check only the current contract's state invariants
+    function __scribble_A_check_state_invariants_internal() internal {}
+
+    /// Check the state invariant for the current contract and all its bases
+    function __scribble_check_state_invariants() virtual internal {
+        __scribble_A_check_state_invariants_internal();
+    }
+
+    constructor() public {
+        __scribble_out_of_contract = false;
+        __scribble_check_state_invariants();
+        __scribble_out_of_contract = true;
+    }
+}
+contract B is __scribble_ReentrancyUtils {
+    /// Check only the current contract's state invariants
+    function __scribble_B_check_state_invariants_internal() internal {}
+
+    /// Check the state invariant for the current contract and all its bases
+    function __scribble_check_state_invariants() virtual internal {
+        __scribble_B_check_state_invariants_internal();
+    }
+
+    constructor() public {
+        __scribble_out_of_contract = false;
+        __scribble_check_state_invariants();
+        __scribble_out_of_contract = true;
+    }
+}
+/// if_succeeds {:msg "P1"} true;
+contract C is __scribble_ReentrancyUtils, B, A {
+    event AssertionFailed(string message);
+
+    /// Check only the current contract's state invariants
+    function __scribble_C_check_state_invariants_internal() internal {
+        if ((!(true))) {
+            emit AssertionFailed("0: P1");
+            assert(false);
+        }
+    }
+
+    /// Check the state invariant for the current contract and all its bases
+    function __scribble_check_state_invariants() virtual override(B, A) internal {
+        __scribble_C_check_state_invariants_internal();
+        __scribble_A_check_state_invariants_internal();
+        __scribble_B_check_state_invariants_internal();
+    }
+
+    constructor() public {
+        __scribble_out_of_contract = false;
+        __scribble_check_state_invariants();
+        __scribble_out_of_contract = true;
+    }
+}
+contract D is __scribble_ReentrancyUtils, B, A {
+    /// Check only the current contract's state invariants
+    function __scribble_D_check_state_invariants_internal() internal {}
+
+    /// Check the state invariant for the current contract and all its bases
+    function __scribble_check_state_invariants() virtual override(B, A) internal {
+        __scribble_D_check_state_invariants_internal();
+        __scribble_A_check_state_invariants_internal();
+        __scribble_B_check_state_invariants_internal();
+    }
+
+    constructor() public {
+        __scribble_out_of_contract = false;
+        __scribble_check_state_invariants();
+        __scribble_out_of_contract = true;
+    }
+}

@@ -1,0 +1,19 @@
+{
+    "file": "test/samples/contract_pos_constructor_fail.instrumented.sol",
+    "steps": [
+        {
+            "act": "createUser",
+            "alias": "owner",
+            "options": {
+                "balance": 1000e18
+            }
+        },
+        {
+            "act": "deployContract",
+            "contract": "Foo",
+            "user": "owner",
+            "alias": "instance1",
+            "failure": "*"
+        }
+    ]
+}

@@ -1,0 +1,36 @@
+{
+    "file": "test/samples/increment_inherited3_v06.sol",
+    "steps": [
+        {
+            "act": "createUser",
+            "alias": "owner",
+            "options": {
+                "balance": 1000e18
+            }
+        },
+        {
+            "act": "deployContract",
+            "contract": "Foo",
+            "user": "owner",
+            "alias": "instance1"
+        },
+        {
+            "act": "txCall",
+            "user": "owner",
+            "contract": "instance1",
+
+            "method": "foo",
+            "returns": ["uint"],
+
+            "args": {
+                "types": ["uint"],
+                "values": ["42"]
+            },
+            "onReturns": [
+                {
+                    "expect": "43"
+                }
+            ]
+        }
+    ]
+}
