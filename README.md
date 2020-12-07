@@ -26,6 +26,11 @@ Scribble is able to capture 95% of the properties that users *want* to express.
 
 ## Usage
 
+Install Scribble with npm:
+```
+npm install -g scribble
+```
+
 Use CLI tool with the Solidity source file:
 
 ```sh
