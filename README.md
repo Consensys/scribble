@@ -29,7 +29,7 @@ Scribble is able to capture 95% of the properties that users *want* to express.
 
 Install Scribble with npm:
 ```
-npm install -g scribble
+npm install -g eth-scribble
 ```
 
 Use CLI tool with the Solidity source file:
@@ -47,7 +47,7 @@ For more information on the Scribble specification language, and any other docum
 ## Development installation
 
 -   Install prerequisites:
-    -   NodeJS version **10.x** or newer.
+    -   NodeJS version **10.x** - **12.x**.
     -   NPM version **6.9.0** or newer.
 -   Clone repository:
     ```sh
