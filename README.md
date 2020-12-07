@@ -4,6 +4,7 @@
 
 
 [![Build Status](https://drone.infra.mythx.io/api/badges/ConsenSys/scribble/status.svg)](https://drone.infra.mythx.io/ConsenSys/scribble)
+[![Documentation](https://aleen42.github.io/badges/src/gitbook_2.svg)](https://docs.scribble.codes)
 
 A Solidity runtime verification tool for property based testing.
 
@@ -38,6 +39,10 @@ scribble sample.sol
 ```
 
 Use `--help` to see all available features.
+
+## Documentation
+
+For more information on the Scribble specification language, and any other documentation, go to: [Scribble Documentation](https://docs.scribble.codes)
 
 ## Development installation
 
