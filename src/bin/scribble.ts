@@ -653,12 +653,17 @@ function makeUtilsUnit(
     factory: ASTNodeFactory,
     version: string
 ): SourceUnit {
-    const utilsPath = path.join(utilsOutputDir, "__scribble_ReentrancyUtils.sol");
+    let utilsPath = "__scribble_ReentrancyUtils.sol";
+    let utilsAbsPath = "__scribble_ReentrancyUtils.sol";
 
-    const utilsAbsPath = path.join(
-        fse.realpathSync(utilsOutputDir),
-        "__scribble_ReentrancyUtils.sol"
-    );
+    if (utilsOutputDir !== "--") {
+        utilsPath = path.join(utilsOutputDir, "__scribble_ReentrancyUtils.sol");
+
+        utilsAbsPath = path.join(
+            fse.realpathSync(utilsOutputDir),
+            "__scribble_ReentrancyUtils.sol"
+        );
+    }
 
     return generateUtilsContract(factory, utilsPath, utilsAbsPath, version);
 }
@@ -737,7 +742,10 @@ if ("version" in options) {
         filterOptions.message = options["filter-message"];
     }
 
-    const targetDir = relative(process.cwd(), dirname(fse.realpathSync(targets[0])));
+    const targetDir =
+        targets[0] !== "--"
+            ? relative(process.cwd(), dirname(fse.realpathSync(targets[0])))
+            : targets[0];
     const utilsOutputDir =
         options["utils-output-path"] === undefined ? targetDir : options["utils-output-path"];
 
