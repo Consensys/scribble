@@ -3,6 +3,7 @@
 </p>
 
 [![Build Status](https://drone.infra.mythx.io/api/badges/ConsenSys/scribble/status.svg)](https://drone.infra.mythx.io/ConsenSys/scribble)
+[![Coverage](https://codecov.io/gh/ConsenSys/scribble/branch/develop/graph/badge.svg?token=yVZzF90k9k)](https://codecov.io/gh/ConsenSys/scribble)
 [![Documentation](https://aleen42.github.io/badges/src/gitbook_2.svg)](https://docs.scribble.codes)
 [![npm](https://img.shields.io/npm/v/eth-scribble)](https://www.npmjs.com/package/eth-scribble)
 [![License](https://img.shields.io/badge/License-Apache%202.0-blue.svg)](https://opensource.org/licenses/Apache-2.0)
