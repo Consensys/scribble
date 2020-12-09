@@ -86,6 +86,10 @@ Keyword
     / NONPAYABLE
     / RESULT
 
+// Number units
+NumberUnit = 'wei' / 'gwei' / 'ether' / 'seconds' 
+          / 'minutes' / 'hours' / 'days' / 'weeks'
+
 // expression
 
 Expression =
@@ -105,7 +109,7 @@ HexNumber =
       if (digits.length === 40) {
         return new SAddressLiteral('0x' + num, location())
       } else {
-        return new SNumber(bigInt(digits.join(''), 16), 16, text(), location())
+        return new SNumber(bigInt(num, 16), 16, location())
       }
     }
 
@@ -125,7 +129,16 @@ DecNumber =
     DecDigit+ ExponentPart? { return new SNumber(bigInt(text()), 10, location()); }
 
 Number =
-    HexNumber / DecNumber
+    value: (HexNumber / DecNumber) unit: (__ NumberUnit)? 
+    { 
+      if(unit == null) return value
+
+      if (value instanceof SAddressLiteral || value.radix == 16) {
+          throw new Error(`Cannot use units with hex literals`);
+      }
+      
+      return new SNumber(bigInt(value.num), value.radix, location(), unit[1])
+    }
 
 BooleanLiteral =
     val: (TRUE / FALSE) { return new SBooleanLiteral(text() == "true", location())}

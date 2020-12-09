@@ -36,7 +36,14 @@ describe("Expression Parser Unit Tests", () => {
         // Literals
         ["abcd", new SId("abcd")],
         ["1234", new SNumber(bigInt(1234), 10)],
-        ["0x123abc", new SNumber(bigInt(0x123abc), 16)],
+        ["10 wei", new SNumber(bigInt(10), 10)],
+        ["10 gwei", new SNumber(bigInt(1e10), 10)],
+        ["1 ether", new SNumber(bigInt(1e18), 10)],
+        ["100 seconds", new SNumber(bigInt(100), 10)],
+        ["100 \n\n\n minutes", new SNumber(bigInt(6000), 10)],
+        ["100 hours", new SNumber(bigInt(360000), 10)],
+        ["100 days", new SNumber(bigInt(8640000), 10)],
+        ["100 weeks", new SNumber(bigInt(60480000), 10)],
         ["true", new SBooleanLiteral(true)],
         ["false", new SBooleanLiteral(false)],
         // ops
@@ -564,6 +571,8 @@ describe("Expression Parser Unit Tests", () => {
 
     const badSamples: string[] = [
         "0asdf",
+        "100 satoshi",
+        "0x10ab gwei",
         "0x123av",
         "123a",
         "a.1",
