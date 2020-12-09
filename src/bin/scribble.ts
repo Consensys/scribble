@@ -769,7 +769,7 @@ if ("version" in options) {
     const ctxtsMap: Map<string, ASTContext> = new Map();
     const filesMap: Map<string, Map<string, string>> = new Map();
     const originalFiles: Set<string> = new Set();
-    const instrumentedFiles: Set<string> = new Set();
+    const instrumentationFiles: Set<string> = new Set();
 
     /**
      * Try to compile each target.
@@ -803,16 +803,27 @@ if ("version" in options) {
             }
 
             if (options["disarm"]) {
-                for (const [path] of targetResult.files) {
-                    const originalFileName = path + ".original";
-                    const instrFileName = path + ".instrumented";
+                for (const [targetName] of targetResult.files) {
+                    const originalFileName = targetName + ".original";
+                    const instrFileName = targetName + ".instrumented";
 
                     if (fse.existsSync(originalFileName)) {
                         originalFiles.add(originalFileName);
                     }
 
                     if (fse.existsSync(instrFileName)) {
-                        instrumentedFiles.add(instrFileName);
+                        instrumentationFiles.add(instrFileName);
+                    }
+                }
+
+                if (utilsOutputDir !== "--") {
+                    const helperFileName = path.join(
+                        utilsOutputDir,
+                        "__scribble_ReentrancyUtils.sol"
+                    );
+
+                    if (fse.existsSync(helperFileName)) {
+                        instrumentationFiles.add(helperFileName);
                     }
                 }
 
@@ -861,7 +872,7 @@ if ("version" in options) {
             move(originalFileName, originalFileName.replace(".sol.original", ".sol"), options);
         }
         if (!options["keep-instrumented"]) {
-            for (const instrFileName of instrumentedFiles) {
+            for (const instrFileName of instrumentationFiles) {
                 remove(instrFileName, options);
             }
         }
