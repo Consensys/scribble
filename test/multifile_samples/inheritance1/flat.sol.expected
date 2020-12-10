@@ -34,7 +34,7 @@ contract B is __scribble_ReentrancyUtils {
         __scribble_out_of_contract = true;
     }
 }
-/// if_succeeds {:msg "P1"} true;
+/// invariant {:msg "P1"} true;
 contract C is __scribble_ReentrancyUtils, B, A {
     event AssertionFailed(string message);
 

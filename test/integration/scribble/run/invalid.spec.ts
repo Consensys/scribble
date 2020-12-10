@@ -10,6 +10,10 @@ describe(`Command "scribble <filename>" is failing as expected`, () => {
         [
             "test/samples/annotation_syntax_error.invalid.sol",
             /^test\/samples\/annotation_syntax_error.invalid.sol:5:34 SyntaxError: Expected (.|\s)+ but (.|\s)+ found/m
+        ],
+        [
+            "test/samples/if_succeeds_on_contract.invalid.sol",
+            /^Annotation type "if_succeeds" is not applicable to contracts \(specified for .+\)/m
         ]
     ];
 

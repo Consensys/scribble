@@ -206,6 +206,12 @@ function computeContractInvs(
                 error(`Unsupported contract annotations on ${contract.kind} ${contract.name}`);
             }
 
+            if (annotations.some((annotation) => annotation.type === AnnotationType.IfSucceeds)) {
+                error(
+                    `Annotation type "${AnnotationType.IfSucceeds}" is not applicable to contracts (specified for ${contract.kind} ${contract.name})`
+                );
+            }
+
             contractAnnotMap.set(contract, annotations);
         }
     });
