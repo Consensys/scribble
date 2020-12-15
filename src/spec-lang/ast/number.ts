@@ -2,7 +2,7 @@ import { SNode, Range } from "./node";
 import { BigInteger } from "big-integer";
 import bigInt from "big-integer";
 
-const units = new Map<string, BigInteger>([
+const unitMultiplier = new Map<string, BigInteger>([
     ["wei", bigInt(1)],
     ["gwei", bigInt(1e9)],
     ["ether", bigInt(1e18)],
@@ -16,13 +16,12 @@ const units = new Map<string, BigInteger>([
 export class SNumber extends SNode {
     public readonly num: BigInteger;
     public readonly radix: number;
-    private readonly conversionMultipler: Map<string, BigInteger> = units;
 
     constructor(num: BigInteger, radix: number, src?: Range, type?: string) {
         super(src);
         this.radix = radix;
         if (type) {
-            const multiplier = this.conversionMultipler.get(type);
+            const multiplier = unitMultiplier.get(type);
             if (multiplier === undefined) {
                 throw new Error("Unknown denomination unit: " + type);
             }
