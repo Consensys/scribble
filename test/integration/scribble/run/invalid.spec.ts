@@ -13,7 +13,15 @@ describe(`Command "scribble <filename>" is failing as expected`, () => {
         ],
         [
             "test/samples/if_succeeds_on_contract.invalid.sol",
-            /^Annotation type "if_succeeds" is not applicable to contracts \(specified for .+\)/m
+            /^test\/samples\/if_succeeds_on_contract.invalid.sol:1:4 UnsupportedByTargetError: Annotation type "if_succeeds" is not applicable to a target/m
+        ],
+        [
+            "test/samples/invariant_on_function.invalid.sol",
+            /^test\/samples\/invariant_on_function.invalid.sol:2:8 UnsupportedByTargetError: Annotation type "invariant" is not applicable to a target/m
+        ],
+        [
+            "test/samples/if_succeeds_on_free_function.invalid.sol",
+            /^test\/samples\/if_succeeds_on_free_function.invalid.sol:3:4 UnsupportedByTargetError: Instrumenting free functions is not supported/m
         ]
     ];
 
