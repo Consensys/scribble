@@ -264,6 +264,9 @@ function instrumentFiles(
         assert(contents !== undefined, `Missing source for ${unit.absolutePath}`);
 
         for (const fun of unit.vFunctions) {
+            /**
+             * We call `getAnnotationsOrDie()` here to make sure there are no annotations on free functions.
+             */
             getAnnotationsOrDie(fun, ctx.files, filters);
         }
 

@@ -273,7 +273,7 @@ export class AnnotationExtractor {
         if (target instanceof ContractDefinition) {
             if (annotation.type !== AnnotationType.Invariant) {
                 throw new UnsupportedByTargetError(
-                    `Annotation type "${annotation.type}" is not applicable to a target`,
+                    `The "${annotation.type}" annotation is not applicable to contracts`,
                     annotation.original,
                     annotation.annotationFileLoc(source)
                 );
@@ -289,7 +289,7 @@ export class AnnotationExtractor {
         } else if (target instanceof FunctionDefinition) {
             if (annotation.type !== AnnotationType.IfSucceeds) {
                 throw new UnsupportedByTargetError(
-                    `Annotation type "${annotation.type}" is not applicable to a target`,
+                    `The "${annotation.type}" annotation is not applicable to functions`,
                     annotation.original,
                     annotation.annotationFileLoc(source)
                 );

@@ -13,11 +13,11 @@ describe(`Command "scribble <filename>" is failing as expected`, () => {
         ],
         [
             "test/samples/if_succeeds_on_contract.invalid.sol",
-            /^test\/samples\/if_succeeds_on_contract.invalid.sol:2:4 UnsupportedByTargetError: Annotation type "if_succeeds" is not applicable to a target/m
+            /^test\/samples\/if_succeeds_on_contract.invalid.sol:2:4 UnsupportedByTargetError: The "if_succeeds" annotation is not applicable to contracts/m
         ],
         [
             "test/samples/invariant_on_function.invalid.sol",
-            /^test\/samples\/invariant_on_function.invalid.sol:2:8 UnsupportedByTargetError: Annotation type "invariant" is not applicable to a target/m
+            /^test\/samples\/invariant_on_function.invalid.sol:2:8 UnsupportedByTargetError: The "invariant" annotation is not applicable to functions/m
         ],
         [
             "test/samples/if_succeeds_on_free_function.invalid.sol",
