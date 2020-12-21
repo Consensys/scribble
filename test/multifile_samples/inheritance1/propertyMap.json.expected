@@ -4,7 +4,7 @@
       "id": 0,
       "contract": "C",
       "filename": "test/multifile_samples/inheritance1/C.sol",
-      "propertySource": "64:4:2",
+      "propertySource": "62:4:2",
       "target": "contract",
       "targetName": "C",
       "message": "P1",

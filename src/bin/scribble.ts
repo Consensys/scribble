@@ -1,4 +1,6 @@
 #!/usr/bin/env node
+import fse from "fs-extra";
+import path, { dirname, relative } from "path";
 import {
     ASTContext,
     ASTNodeFactory,
@@ -21,14 +23,12 @@ import {
     UserDefinedTypeName,
     VariableDeclaration
 } from "solc-typed-ast";
-import fse from "fs-extra";
-import path, { dirname, relative } from "path";
 import { print, rewriteImports } from "../ast_to_source_printer";
 import {
     Annotation,
     AnnotationExtractor,
-    AnnotationType,
-    SyntaxError
+    SyntaxError,
+    UnsupportedByTargetError
 } from "../instrumenter/annotations";
 import { getCallGraph } from "../instrumenter/callgraph";
 import { CHA, chaDFS, getCHA } from "../instrumenter/cha";
@@ -95,17 +95,18 @@ function prettyError(
 function getAnnotationsOrDie(
     node: ContractDefinition | FunctionDefinition,
     sources: Map<string, string>,
-    filterOptions: AnnotationFilterOptions
+    filters: AnnotationFilterOptions
 ): Annotation[] {
     try {
         const extractor = new AnnotationExtractor();
+        const annotations = extractor.extract(node, sources, filters);
 
-        return extractor.extract(node, sources, filterOptions);
+        return annotations;
     } catch (e) {
-        if (e instanceof SyntaxError) {
+        if (e instanceof SyntaxError || e instanceof UnsupportedByTargetError) {
             const unit = getScopeUnit(node);
 
-            prettyError("SyntaxError", e.message, unit, e.range.start, e.annotation);
+            prettyError(e.constructor.name, e.message, unit, e.range.start, e.annotation);
         }
 
         throw e;
@@ -202,10 +203,6 @@ function computeContractInvs(
         const annotations = getAnnotationsOrDie(contract, files, filterOptions);
 
         if (annotations.length > 0) {
-            if ([ContractKind.Interface, ContractKind.Library].includes(contract.kind)) {
-                error(`Unsupported contract annotations on ${contract.kind} ${contract.name}`);
-            }
-
             contractAnnotMap.set(contract, annotations);
         }
     });
@@ -252,7 +249,7 @@ function instrumentFiles(
     contractsNeedingInstr: Set<ContractDefinition>
 ): [SourceUnit[], SourceUnit[]] {
     const units = ctx.units;
-    const filterOptions = ctx.filterOptions;
+    const filters = ctx.filterOptions;
 
     const worklist: Array<[ContractDefinition, FunctionDefinition | undefined, Annotation[]]> = [];
     const typing: TypeMap = new Map();
@@ -267,25 +264,17 @@ function instrumentFiles(
         assert(contents !== undefined, `Missing source for ${unit.absolutePath}`);
 
         for (const fun of unit.vFunctions) {
-            const annotations = getAnnotationsOrDie(fun, ctx.files, filterOptions);
-
-            if (annotations.length > 0) {
-                const annotation = annotations[0];
-
-                prettyError(
-                    "UnsupportedError",
-                    "Instrumenting free functions is not supported yet",
-                    unit,
-                    annotation.predicateFileLoc(contents),
-                    annotation.original
-                );
-            }
+            /**
+             * We call `getAnnotationsOrDie()` here to make sure there are no annotations on free functions.
+             */
+            getAnnotationsOrDie(fun, ctx.files, filters);
         }
 
         for (const contract of unit.vContracts) {
             const typeCtx: STypingCtx = [units, contract];
 
             let contractAnnot = contractInvMap.get(contract);
+
             if (contractAnnot === undefined) {
                 contractAnnot = [];
             }
@@ -318,11 +307,9 @@ function instrumentFiles(
                 }
 
                 const typeCtx: STypingCtx = [units, contract, fun];
-                const funAnnot = getAnnotationsOrDie(fun, ctx.files, filterOptions);
+                const annotations = getAnnotationsOrDie(fun, ctx.files, filters);
 
-                const ifSucceeds = funAnnot.filter((x) => x.type === AnnotationType.IfSucceeds);
-
-                for (const annot of ifSucceeds) {
+                for (const annot of annotations) {
                     tcOrDie(annot, typeCtx, typing, semInfo, fun, contract, contents);
                 }
 
@@ -334,7 +321,7 @@ function instrumentFiles(
                  * Note: Constructors are instrumented in instrumentContract, not by instrumentFunction. fallback() and receive() don't check state invariants.
                  */
                 if (
-                    ifSucceeds.length > 0 ||
+                    annotations.length > 0 ||
                     (needsContrInstr &&
                         isExternallyVisible(fun) &&
                         isChangingState(fun) &&
@@ -343,8 +330,8 @@ function instrumentFiles(
                 ) {
                     changed = true;
 
-                    worklist.push([contract, fun, ifSucceeds]);
-                    ctx.annotations.push(...ifSucceeds);
+                    worklist.push([contract, fun, annotations]);
+                    ctx.annotations.push(...annotations);
                 }
             }
         }
