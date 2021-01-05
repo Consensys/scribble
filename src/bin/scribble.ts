@@ -3,6 +3,7 @@ import fse from "fs-extra";
 import path, { dirname, relative } from "path";
 import {
     ASTContext,
+    ASTNode,
     ASTNodeFactory,
     ASTReader,
     CompileFailedError,
@@ -394,6 +395,34 @@ function fixNameConflicts(units: SourceUnit[]): void {
     }
 }
 
+function getTypeScope(n: ASTNode): SourceUnit | ContractDefinition {
+    const typeScope = n.getClosestParentBySelector(
+        (p: ASTNode) => p instanceof SourceUnit || p instanceof ContractDefinition
+    ) as SourceUnit | ContractDefinition;
+    return typeScope;
+}
+
+function getFQName(
+    def: ContractDefinition | FunctionDefinition | StructDefinition | EnumDefinition,
+    atUseSite: ASTNode
+): string {
+    if (def instanceof ContractDefinition) {
+        return def.name;
+    }
+
+    const scope = def.vScope;
+
+    if (scope instanceof SourceUnit) {
+        return def.name;
+    } else {
+        if (def instanceof FunctionDefinition && getTypeScope(def) === getTypeScope(atUseSite)) {
+            return def.name;
+        }
+
+        return scope.name + "." + def.name;
+    }
+}
+
 /**
  * When flattening units, sometimes we can break Identifier/UserDefinedType names. There are
  * 2 general cases:
@@ -427,8 +456,10 @@ function fixRenamingErrors(units: SourceUnit[]): void {
                 continue;
             }
 
-            if (def.name !== namedNode.name) {
-                namedNode.name = def.name;
+            const fqDefName = getFQName(def, namedNode);
+
+            if (fqDefName !== namedNode.name) {
+                namedNode.name = fqDefName;
             }
         }
     }
