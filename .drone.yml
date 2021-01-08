@@ -7,7 +7,7 @@ platform:
 
 steps:
     - name: build_test
-      image: node:10
+      image: node:12
       environment:
           CODECOV_TOKEN:
               from_secret: CODECOV_TOKEN
