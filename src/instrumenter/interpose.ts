@@ -163,7 +163,8 @@ function changeDependentsMutabilty(
  */
 export function interpose(
     fun: FunctionDefinition,
-    ctx: InstrumentationContext
+    ctx: InstrumentationContext,
+    func_names: Set<string>
 ): [Recipe, FunctionDefinition] {
     assert(
         fun.vScope instanceof ContractDefinition,
@@ -176,10 +177,14 @@ export function interpose(
     ctx.wrapperMap.set(fun, stub);
 
     const name = fun.kind === FunctionKind.Function ? fun.name : fun.kind;
-
+    const rename_prefix = `_original_${fun.vScope.name}_${name}_`;
+    let id = 1;
+    while (func_names.has(rename_prefix + String(id))) {
+        id += 1;
+    }
     const recipe: Recipe = [
         new InsertFunctionBefore(factory, fun, stub),
-        new Rename(factory, fun, `_original_${fun.vScope.name}_${name}`)
+        new Rename(factory, fun, rename_prefix + String(id))
     ];
 
     if (!isChangingState(stub) && changesMutability(ctx)) {

@@ -127,6 +127,14 @@ const CHECK_STATE_INVS_FUN = "__scribble_check_state_invariants";
 const OUT_OF_CONTRACT = "__scribble_out_of_contract";
 const CHECK_INVS_AT_END = "__scribble_check_invs_at_end";
 
+export function getNameSet(contract: ContractDefinition): Set<string> {
+    const nameSet: Set<string> = new Set();
+    for (const v of contract.getChildren()) {
+        if ("name" in v) nameSet.add(v["name"]);
+    }
+    return nameSet;
+}
+
 export function findExternalCalls(node: ContractDefinition | FunctionDefinition): FunctionCall[] {
     const res: FunctionCall[] = [];
 
@@ -530,7 +538,13 @@ export function generateExpressions(
     // Step 1: Define struct holding all the temporary variables neccessary
     const exprs = annotations.map((annot) => annot.expression);
     const factory = ctx.factory;
-    const structName = uid.get("vars");
+    const nameSet = getNameSet(contract);
+    let possibleStructName = uid.get("vars");
+    while (nameSet.has(possibleStructName)) {
+        possibleStructName = uid.get("vars");
+    }
+
+    const structName = possibleStructName;
     const canonicalStructName = `${contract.name}.${structName}`;
     const struct = factory.makeStructDefinition(
         structName,
@@ -1404,8 +1418,8 @@ export class FunctionInstrumenter {
         needsContractInvInstr: boolean
     ): void {
         const factory = ctx.factory;
-
-        const [interposeRecipe, stub] = interpose(fn, ctx);
+        const nameSet = getNameSet(contract);
+        const [interposeRecipe, stub] = interpose(fn, ctx, nameSet);
 
         cook(interposeRecipe);
 
