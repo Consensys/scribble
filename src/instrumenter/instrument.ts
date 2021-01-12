@@ -134,6 +134,14 @@ export function getNameSet(contract: ContractDefinition): Set<string> {
     }
     return nameSet;
 }
+export function getVarsInScope(contract: ContractDefinition, fn: FunctionDefinition): Set<string> {
+    let globalVars: Set<string> = new Set();
+    for (const v of contract.children) {
+        if ("name" in v) globalVars.add(v["name"]);
+    }
+    const funcVars = new Set(fn.getChildrenByType(VariableDeclaration).map(item => item.name))
+    return new Set([...globalVars, ...funcVars]);
+}
 
 export function findExternalCalls(node: ContractDefinition | FunctionDefinition): FunctionCall[] {
     const res: FunctionCall[] = [];
@@ -294,7 +302,7 @@ export function flattenExpr(
     };
 
     const getTmpVar = (name: string, oldN: SNode, src?: Range) => {
-        const id = new SId(SCRIBBLE_VAR);
+        const id = new SId(varStruct.name);
 
         id.defSite = varStruct;
 
@@ -539,6 +547,7 @@ export function generateExpressions(
     const exprs = annotations.map((annot) => annot.expression);
     const factory = ctx.factory;
     const nameSet = getNameSet(contract);
+
     let possibleStructName = uid.get("vars");
     while (nameSet.has(possibleStructName)) {
         possibleStructName = uid.get("vars");
@@ -570,11 +579,15 @@ export function generateExpressions(
         );
         struct.appendChild(decl);
     }
-
+    const vars = getVarsInScope(contract, fn)
+    let idx = 0
+    while ( vars.has(SCRIBBLE_VAR+`_${idx}`)  ) {
+        idx += 1
+    }
     const structLocalVariable = factory.makeVariableDeclaration(
         false,
         false,
-        SCRIBBLE_VAR,
+        SCRIBBLE_VAR+`_${idx}`,
         fn.id,
         false,
         DataLocation.Memory,
@@ -1419,7 +1432,8 @@ export class FunctionInstrumenter {
     ): void {
         const factory = ctx.factory;
         const nameSet = getNameSet(contract);
-        const [interposeRecipe, stub] = interpose(fn, ctx, nameSet);
+        const varsInScope = getVarsInScope(contract, fn);
+        const [interposeRecipe, stub] = interpose(fn, ctx, nameSet, varsInScope);
 
         cook(interposeRecipe);
 

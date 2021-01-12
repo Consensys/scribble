@@ -82,16 +82,21 @@ function callOriginal(
     return factory.makeExpressionStatement(assignment);
 }
 
-function renameReturns(factory: ASTNodeFactory, stub: FunctionDefinition): Recipe {
-    return stub.vReturnParameters.vParameters
-        .filter((ret) => ret.name === "")
-        .map((_, idx) => new RenameReturn(factory, stub, idx, `RET_${idx}`));
+function renameReturns(factory: ASTNodeFactory, stub: FunctionDefinition, varsInScope: Set<String>): Recipe {
+    let returnVars = stub.vReturnParameters.vParameters.filter((ret) => ret.name === "")
+    let varId = 0
+    let renamedVars = []
+    for ( let i = 0; i < returnVars.length; i++) {
+        if( varsInScope.has(`RET_${varId}`) ) varId += 1
+        renamedVars.push(new RenameReturn(factory, stub, i, `RET_${varId}`));
+    }
+    return renamedVars;
 }
 
 /**
  * Makes copy of a passed function with an empty body block
  */
-function makeStub(fun: FunctionDefinition, factory: ASTNodeFactory): FunctionDefinition {
+function makeStub(fun: FunctionDefinition, factory: ASTNodeFactory, varsInScope: Set<String>): FunctionDefinition {
     const stub = factory.copy(fun);
 
     /**
@@ -110,7 +115,7 @@ function makeStub(fun: FunctionDefinition, factory: ASTNodeFactory): FunctionDef
 
     for (const param of stub.vParameters.vParameters) {
         if (param.name !== "") continue;
-
+        while (varsInScope.has(`_DUMMY_ARG_${idx}`)) idx++;
         // TODO: Check for accidental shadowing
         param.name = `_DUMMY_ARG_${idx++}`;
     }
@@ -164,7 +169,8 @@ function changeDependentsMutabilty(
 export function interpose(
     fun: FunctionDefinition,
     ctx: InstrumentationContext,
-    func_names: Set<string>
+    funcNames: Set<string>,
+    varsInScope: Set<string>
 ): [Recipe, FunctionDefinition] {
     assert(
         fun.vScope instanceof ContractDefinition,
@@ -172,14 +178,14 @@ export function interpose(
     );
 
     const factory = ctx.factory;
-    const stub = makeStub(fun, factory);
+    const stub = makeStub(fun, factory, varsInScope);
 
     ctx.wrapperMap.set(fun, stub);
 
     const name = fun.kind === FunctionKind.Function ? fun.name : fun.kind;
     const rename_prefix = `_original_${fun.vScope.name}_${name}_`;
     let id = 1;
-    while (func_names.has(rename_prefix + String(id))) {
+    while (funcNames.has(rename_prefix + String(id))) {
         id += 1;
     }
     const recipe: Recipe = [
@@ -201,7 +207,7 @@ export function interpose(
         new ChangeFunctionDocumentation(factory, fun, undefined),
         new ChangeFunctionDocumentation(factory, stub, undefined),
         new ChangeVisibility(factory, fun, FunctionVisibility.Private),
-        ...renameReturns(factory, stub),
+        ...renameReturns(factory, stub, varsInScope),
         new ChangeFunctionModifiers(factory, stub, []),
         new InsertStatement(
             factory,
