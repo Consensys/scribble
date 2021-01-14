@@ -82,12 +82,16 @@ function callOriginal(
     return factory.makeExpressionStatement(assignment);
 }
 
-function renameReturns(factory: ASTNodeFactory, stub: FunctionDefinition, varsInScope: Set<String>): Recipe {
-    let returnVars = stub.vReturnParameters.vParameters.filter((ret) => ret.name === "")
-    let varId = 0
-    let renamedVars = []
-    for ( let i = 0; i < returnVars.length; i++) {
-        if( varsInScope.has(`RET_${varId}`) ) varId += 1
+function renameReturns(
+    factory: ASTNodeFactory,
+    stub: FunctionDefinition,
+    varsInScope: Set<string>
+): Recipe {
+    const returnVars = stub.vReturnParameters.vParameters.filter((ret) => ret.name === "");
+    let varId = 0;
+    const renamedVars = [];
+    for (let i = 0; i < returnVars.length; i++) {
+        if (varsInScope.has(`RET_${varId}`)) varId += 1;
         renamedVars.push(new RenameReturn(factory, stub, i, `RET_${varId}`));
     }
     return renamedVars;
@@ -96,7 +100,11 @@ function renameReturns(factory: ASTNodeFactory, stub: FunctionDefinition, varsIn
 /**
  * Makes copy of a passed function with an empty body block
  */
-function makeStub(fun: FunctionDefinition, factory: ASTNodeFactory, varsInScope: Set<String>): FunctionDefinition {
+function makeStub(
+    fun: FunctionDefinition,
+    factory: ASTNodeFactory,
+    varsInScope: Set<string>
+): FunctionDefinition {
     const stub = factory.copy(fun);
 
     /**

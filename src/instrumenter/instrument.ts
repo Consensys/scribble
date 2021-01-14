@@ -135,11 +135,11 @@ export function getNameSet(contract: ContractDefinition): Set<string> {
     return nameSet;
 }
 export function getVarsInScope(contract: ContractDefinition, fn: FunctionDefinition): Set<string> {
-    let globalVars: Set<string> = new Set();
+    const globalVars: Set<string> = new Set();
     for (const v of contract.children) {
         if ("name" in v) globalVars.add(v["name"]);
     }
-    const funcVars = new Set(fn.getChildrenByType(VariableDeclaration).map(item => item.name))
+    const funcVars = new Set(fn.getChildrenByType(VariableDeclaration).map((item) => item.name));
     return new Set([...globalVars, ...funcVars]);
 }
 
@@ -579,15 +579,15 @@ export function generateExpressions(
         );
         struct.appendChild(decl);
     }
-    const vars = getVarsInScope(contract, fn)
-    let idx = 0
-    while ( vars.has(SCRIBBLE_VAR+`_${idx}`)  ) {
-        idx += 1
+    const vars = getVarsInScope(contract, fn);
+    let idx = 0;
+    while (vars.has(SCRIBBLE_VAR + `_${idx}`)) {
+        idx += 1;
     }
     const structLocalVariable = factory.makeVariableDeclaration(
         false,
         false,
-        SCRIBBLE_VAR+`_${idx}`,
+        SCRIBBLE_VAR + `_${idx}`,
         fn.id,
         false,
         DataLocation.Memory,
@@ -893,7 +893,6 @@ export function getAssertionFailedEvent(
     contract: ContractDefinition
 ): EventDefinition {
     const events = resolveByName(contract, EventDefinition, "AssertionFailed");
-
     if (events.length > 0) {
         return events[0];
     }
