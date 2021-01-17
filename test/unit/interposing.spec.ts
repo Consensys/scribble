@@ -318,7 +318,7 @@ contract Foo {
                 assertionMode,
                 compilerVersion
             );
-            const [recipe] = interpose(fun, ctx, new Set(),  new Set());
+            const [recipe] = interpose(fun, ctx, new Set(), new Set());
             cook(recipe);
 
             const instrumented = print(sources, [content], "0.6.0").get(sources[0]);
