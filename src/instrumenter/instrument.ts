@@ -479,7 +479,7 @@ export function flattenExpr(
             if (flatRHS instanceof SResult) {
                 assert(
                     expr.lhs.length === target.vReturnParameters.vParameters.length &&
-                    expr.lhs.length === rhsT.elements.length,
+                        expr.lhs.length === rhsT.elements.length,
                     `Internal error: mismatch between let lhs and righ-hand side $result`
                 );
 
@@ -1605,11 +1605,11 @@ export class FunctionInstrumenter {
                 stub.visibility === FunctionVisibility.External
                     ? factory.makeLiteral("bool", LiteralKind.Bool, "", "true")
                     : factory.makeMemberAccess(
-                        "bool",
-                        factory.makeIdentifierFor(instrResult.structLocalVariable),
-                        CHECK_INVS_AT_END,
-                        -1
-                    )
+                          "bool",
+                          factory.makeIdentifierFor(instrResult.structLocalVariable),
+                          CHECK_INVS_AT_END,
+                          -1
+                      )
             )
         );
 
