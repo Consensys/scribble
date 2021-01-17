@@ -105,7 +105,7 @@ function renameReturns(
 function makeStub(
     fun: FunctionDefinition,
     factory: ASTNodeFactory,
-    varsInScope: Set<string>
+    namesInFuncScope: Set<string>
 ): FunctionDefinition {
     const stub = factory.copy(fun);
 
@@ -125,7 +125,7 @@ function makeStub(
 
     for (const param of stub.vParameters.vParameters) {
         if (param.name !== "") continue;
-        while (varsInScope.has(`_DUMMY_ARG_${idx}`)) idx++;
+        while (namesInFuncScope.has(`_DUMMY_ARG_${idx}`)) idx++;
         // TODO: Check for accidental shadowing
         param.name = `_DUMMY_ARG_${idx++}`;
     }
@@ -179,8 +179,8 @@ function changeDependentsMutabilty(
 export function interpose(
     fun: FunctionDefinition,
     ctx: InstrumentationContext,
-    funcNames: Set<string>,
-    varsInScope: Set<string>
+    allNames: Set<string>,
+    namesInFuncScope: Set<string>
 ): [Recipe, FunctionDefinition] {
     assert(
         fun.vScope instanceof ContractDefinition,
@@ -188,16 +188,16 @@ export function interpose(
     );
 
     const factory = ctx.factory;
-    const stub = makeStub(fun, factory, varsInScope);
+    const stub = makeStub(fun, factory, namesInFuncScope);
 
     ctx.wrapperMap.set(fun, stub);
 
     const name = fun.kind === FunctionKind.Function ? fun.name : fun.kind;
     let renamePrefix = `_original_${fun.vScope.name}_${name}`;
 
-    if (funcNames.has(renamePrefix)) {
+    if (allNames.has(renamePrefix)) {
         let id = 0;
-        while (funcNames.has(renamePrefix + "_" + String(id))) {
+        while (allNames.has(renamePrefix + "_" + String(id))) {
             id += 1;
         }
         renamePrefix += "_" + String(id);
@@ -222,7 +222,7 @@ export function interpose(
         new ChangeFunctionDocumentation(factory, fun, undefined),
         new ChangeFunctionDocumentation(factory, stub, undefined),
         new ChangeVisibility(factory, fun, FunctionVisibility.Private),
-        ...renameReturns(factory, stub, varsInScope),
+        ...renameReturns(factory, stub, namesInFuncScope),
         new ChangeFunctionModifiers(factory, stub, []),
         new InsertStatement(
             factory,

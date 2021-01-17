@@ -127,20 +127,27 @@ const CHECK_STATE_INVS_FUN = "__scribble_check_state_invariants";
 const OUT_OF_CONTRACT = "__scribble_out_of_contract";
 const CHECK_INVS_AT_END = "__scribble_check_invs_at_end";
 
-export function getNameSet(contract: ContractDefinition): Set<string> {
+export function getAllNames(contract: ContractDefinition): Set<string> {
     const nameSet: Set<string> = new Set();
     for (const v of contract.getChildren()) {
         if ("name" in v) nameSet.add(v["name"]);
     }
     return nameSet;
 }
-export function getVarsInScope(contract: ContractDefinition, fn: FunctionDefinition): Set<string> {
-    const globalVars: Set<string> = new Set();
-    for (const v of contract.children) {
-        if ("name" in v) globalVars.add(v["name"]);
-    }
-    const funcVars = new Set(fn.getChildrenByType(VariableDeclaration).map((item) => item.name));
-    return new Set([...globalVars, ...funcVars]);
+
+export function getNamesInFuncScope(
+    contract: ContractDefinition,
+    fn: FunctionDefinition
+): Set<string> {
+    const stateVarSet: Set<string> = new Set(contract.vStateVariables.map((item) => item.name));
+    const globalNamesInScope: Set<string> = new Set([
+        ...stateVarSet,
+        ...contract.vFunctions.map((item) => item.name)
+    ]);
+    return new Set([
+        ...globalNamesInScope,
+        ...fn.getChildrenByType(VariableDeclaration).map((item) => item.name)
+    ]);
 }
 
 export function findExternalCalls(node: ContractDefinition | FunctionDefinition): FunctionCall[] {
@@ -546,10 +553,10 @@ export function generateExpressions(
     // Step 1: Define struct holding all the temporary variables neccessary
     const exprs = annotations.map((annot) => annot.expression);
     const factory = ctx.factory;
-    const nameSet = getNameSet(contract);
+    const allNames = getAllNames(contract);
 
     let possibleStructName = uid.get("vars");
-    while (nameSet.has(possibleStructName)) {
+    while (allNames.has(possibleStructName)) {
         possibleStructName = uid.get("vars");
     }
 
@@ -579,15 +586,21 @@ export function generateExpressions(
         );
         struct.appendChild(decl);
     }
-    const vars = getVarsInScope(contract, fn);
-    let idx = 1;
-    while (vars.has(SCRIBBLE_VAR + `_${idx}`)) {
-        idx += 1;
+
+    const namesInFuncScope = getNamesInFuncScope(contract, fn);
+    let varName = SCRIBBLE_VAR;
+    if (namesInFuncScope.has(varName)) {
+        let idx = 1;
+        while (namesInFuncScope.has(varName + `_${idx}`)) {
+            idx += 1;
+        }
+        varName += `_${idx}`;
     }
+
     const structLocalVariable = factory.makeVariableDeclaration(
         false,
         false,
-        SCRIBBLE_VAR + `_${idx}`,
+        varName,
         fn.id,
         false,
         DataLocation.Memory,
@@ -1430,9 +1443,9 @@ export class FunctionInstrumenter {
         needsContractInvInstr: boolean
     ): void {
         const factory = ctx.factory;
-        const nameSet = getNameSet(contract);
-        const varsInScope = getVarsInScope(contract, fn);
-        const [interposeRecipe, stub] = interpose(fn, ctx, nameSet, varsInScope);
+        const nameSet = getAllNames(contract);
+        const varsInFunc = getNamesInFuncScope(contract, fn);
+        const [interposeRecipe, stub] = interpose(fn, ctx, nameSet, varsInFunc);
 
         cook(interposeRecipe);
 
