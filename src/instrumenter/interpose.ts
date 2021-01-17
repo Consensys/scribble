@@ -92,7 +92,9 @@ function renameReturns(
     const renamedVars = [];
     for (let i = 0; i < returnVars.length; i++) {
         if (varsInScope.has(`RET_${varId}`)) varId += 1;
-        renamedVars.push(new RenameReturn(factory, stub, i, `RET_${varId}`));
+        const varName = `RET_${varId}`;
+        varsInScope.add(varName);
+        renamedVars.push(new RenameReturn(factory, stub, i, varName));
     }
     return renamedVars;
 }
@@ -191,14 +193,19 @@ export function interpose(
     ctx.wrapperMap.set(fun, stub);
 
     const name = fun.kind === FunctionKind.Function ? fun.name : fun.kind;
-    const rename_prefix = `_original_${fun.vScope.name}_${name}_`;
-    let id = 1;
-    while (funcNames.has(rename_prefix + String(id))) {
-        id += 1;
+    var renamePrefix = `_original_${fun.vScope.name}_${name}`;
+    
+    if (funcNames.has(renamePrefix)) {
+        let id = 0;
+        while (funcNames.has(renamePrefix + "_" + String(id))) {
+            id += 1;
+        }
+        renamePrefix += "_" + String(id);
     }
+
     const recipe: Recipe = [
         new InsertFunctionBefore(factory, fun, stub),
-        new Rename(factory, fun, rename_prefix + String(id))
+        new Rename(factory, fun, renamePrefix)
     ];
 
     if (!isChangingState(stub) && changesMutability(ctx)) {

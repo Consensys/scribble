@@ -479,7 +479,7 @@ export function flattenExpr(
             if (flatRHS instanceof SResult) {
                 assert(
                     expr.lhs.length === target.vReturnParameters.vParameters.length &&
-                        expr.lhs.length === rhsT.elements.length,
+                    expr.lhs.length === rhsT.elements.length,
                     `Internal error: mismatch between let lhs and righ-hand side $result`
                 );
 
@@ -580,7 +580,7 @@ export function generateExpressions(
         struct.appendChild(decl);
     }
     const vars = getVarsInScope(contract, fn);
-    let idx = 0;
+    let idx = 1;
     while (vars.has(SCRIBBLE_VAR + `_${idx}`)) {
         idx += 1;
     }
@@ -1605,11 +1605,11 @@ export class FunctionInstrumenter {
                 stub.visibility === FunctionVisibility.External
                     ? factory.makeLiteral("bool", LiteralKind.Bool, "", "true")
                     : factory.makeMemberAccess(
-                          "bool",
-                          factory.makeIdentifierFor(instrResult.structLocalVariable),
-                          CHECK_INVS_AT_END,
-                          -1
-                      )
+                        "bool",
+                        factory.makeIdentifierFor(instrResult.structLocalVariable),
+                        CHECK_INVS_AT_END,
+                        -1
+                    )
             )
         );
 
