@@ -193,7 +193,7 @@ export function interpose(
     ctx.wrapperMap.set(fun, stub);
 
     const name = fun.kind === FunctionKind.Function ? fun.name : fun.kind;
-    var renamePrefix = `_original_${fun.vScope.name}_${name}`;
+    var renamePrefix: string = `_original_${fun.vScope.name}_${name}`;
     
     if (funcNames.has(renamePrefix)) {
         let id = 0;
