@@ -91,7 +91,11 @@ function renameReturns(
     let varId = 0;
     const renamedVars = [];
     for (let i = 0; i < returnVars.length; i++) {
-        if (varsInScope.has(`RET_${varId}`)) varId += 1;
+        
+        while (varsInScope.has(`RET_${varId}`)) {
+            varId += 1;
+        }
+        
         const varName = `RET_${varId}`;
         varsInScope.add(varName);
         renamedVars.push(new RenameReturn(factory, stub, i, varName));
@@ -124,8 +128,12 @@ function makeStub(
     let idx = 0;
 
     for (const param of stub.vParameters.vParameters) {
-        if (param.name !== "") continue;
-        while (namesInFuncScope.has(`_DUMMY_ARG_${idx}`)) idx++;
+        if (param.name !== "") {
+            continue;
+        }
+        while (namesInFuncScope.has(`_DUMMY_ARG_${idx}`)) {
+            idx++;
+        } 
 
         param.name = `_DUMMY_ARG_${idx++}`;
     }

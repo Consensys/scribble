@@ -419,6 +419,34 @@ contract Moo is Foo {
 }`,
             new Set(["_original_Foo_add", "_original_Foo_add_1"]),
             new Set(["_original_Foo_add", "_original_Foo_add_1"])
+        ],
+        [
+            "interpose_arg_collision.sol",
+            `pragma solidity 0.6.0;
+contract Foo {
+    uint _DUMMY_ARG_1;
+    uint RET_0;
+    uint RET_1;
+    function add(int8 , int8) internal returns(uint64 ) {
+    }
+}`,
+            "log",
+            ["Foo", "add"],
+            `pragma solidity 0.6.0;
+
+contract Foo {
+    uint internal _DUMMY_ARG_1;
+    uint internal RET_0;
+    uint internal RET_1;
+
+    function add(int8 _DUMMY_ARG_0, int8 _DUMMY_ARG_2) internal returns (uint64 RET_2) {
+        RET_2 = _original_Foo_add(_DUMMY_ARG_0, _DUMMY_ARG_2);
+    }
+
+    function _original_Foo_add(int8, int8) private returns (uint64) {}
+}`,
+            new Set(["_DUMMY_ARG_1", "RET_0", "RET_1"]),
+            new Set(["_DUMMY_ARG_1", "RET_0", "RET_1"])
         ]
     ];
     for (const [
