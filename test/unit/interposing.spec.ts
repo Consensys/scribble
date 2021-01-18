@@ -327,6 +327,131 @@ contract Foo {
     }
 });
 
+describe("Function interposing with Collisions Unit Tests", () => {
+    const goodSamples: Array<
+        [string, string, "log" | "mstore", LocationDesc, string, Set<string>, Set<string>]
+    > = [
+        [
+            "internal_interpose_collision.sol",
+            `pragma solidity 0.6.0;
+contract Foo {
+    function add(int8 x, uint64 y) internal returns(uint64 add) {
+        uint64 _original_Foo_add = uint64(x) + y;
+        return _original_Foo_add;
+    }
+}`,
+            "log",
+            ["Foo", "add"],
+            `pragma solidity 0.6.0;
+
+contract Foo {
+    function add(int8 x, uint64 y) internal returns (uint64 add) {
+        add = _original_Foo_add_1(x, y);
+    }
+
+    function _original_Foo_add_1(int8 x, uint64 y) private returns (uint64 add) {
+        uint64 _original_Foo_add = (uint64(x) + y);
+        return _original_Foo_add;
+    }
+}`,
+            new Set(["_original_Foo_add"]),
+            new Set(["_original_Foo_add"])
+        ],
+        [
+            // Interposing on public functions generates 2 wrappers and renames internal calls to the internal wrapper
+
+            "public_interpose_collision.sol",
+            `pragma solidity 0.6.0;
+contract Foo {
+    uint internal _original_Foo_add;
+
+    function main() public {
+        add(5,6);
+        this.add(6,7);
+    }
+    function _original_Foo_add_1(int8 x, uint64 y) private returns (uint64 add) {
+        return 0;
+    }
+    function add(int8 x, uint64 y) public returns(uint64 add) {
+        return uint64(x) + y;
+    }
+}
+
+contract Moo is Foo {
+    function main1() public {
+        add(8,9);
+        Foo.add(10,11);
+        this.add(12,13);
+    }
+}
+`,
+            "log",
+            ["Foo", "add"],
+            `pragma solidity 0.6.0;
+
+contract Foo {
+    uint internal _original_Foo_add;
+
+    function main() public {
+        add(5, 6);
+        this.add(6, 7);
+    }
+
+    function _original_Foo_add_1(int8 x, uint64 y) private returns (uint64 add) {
+        return 0;
+    }
+
+    function add(int8 x, uint64 y) public returns (uint64 add) {
+        add = _original_Foo_add_2(x, y);
+    }
+
+    function _original_Foo_add_2(int8 x, uint64 y) private returns (uint64 add) {
+        return (uint64(x) + y);
+    }
+}
+
+contract Moo is Foo {
+    function main1() public {
+        add(8, 9);
+        Foo.add(10, 11);
+        this.add(12, 13);
+    }
+}`,
+            new Set(["_original_Foo_add", "_original_Foo_add_1"]),
+            new Set(["_original_Foo_add", "_original_Foo_add_1"])
+        ]
+    ];
+    for (const [
+        fileName,
+        content,
+        assertionMode,
+        [contractName, funName],
+        expectedInstrumented,
+        allNames,
+        namesInFuncScope
+    ] of goodSamples) {
+        it(`Interpose on ${contractName}.${funName} in #${fileName}`, () => {
+            const [sources, reader, files, compilerVersion] = toAst(fileName, content);
+            const contract: ContractDefinition = findContract(contractName, sources);
+            const fun: FunctionDefinition = findFunction(funName, contract);
+            const factory = new ASTNodeFactory(reader.context);
+
+            const ctx = makeInstrumentationCtx(
+                sources,
+                factory,
+                files,
+                assertionMode,
+                compilerVersion
+            );
+            const [recipe] = interpose(fun, ctx, allNames, namesInFuncScope);
+            cook(recipe);
+
+            const instrumented = print(sources, [content], "0.6.0").get(sources[0]);
+            expect(instrumented).toEqual(expectedInstrumented);
+        });
+    }
+});
+
 describe("Contract state invariants interposing unit tests", () => {
     const goodSamples: Array<[string, string, "mstore" | "log", string, string]> = [
         [

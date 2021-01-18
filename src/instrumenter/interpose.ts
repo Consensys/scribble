@@ -126,7 +126,7 @@ function makeStub(
     for (const param of stub.vParameters.vParameters) {
         if (param.name !== "") continue;
         while (namesInFuncScope.has(`_DUMMY_ARG_${idx}`)) idx++;
-        // TODO: Check for accidental shadowing
+
         param.name = `_DUMMY_ARG_${idx++}`;
     }
 
@@ -196,7 +196,7 @@ export function interpose(
     let renamePrefix = `_original_${fun.vScope.name}_${name}`;
 
     if (allNames.has(renamePrefix)) {
-        let id = 0;
+        let id = 1;
         while (allNames.has(renamePrefix + "_" + String(id))) {
             id += 1;
         }
