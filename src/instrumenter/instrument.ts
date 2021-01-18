@@ -1017,7 +1017,12 @@ function insertVarsStruct(
 }
 
 function getCheckStateInvsFuncs(contract: ContractDefinition): FunctionDefinition {
-    return single(contract.vFunctions.filter((fn) => (fn.name === CHECK_STATE_INVS_FUN || fn.name.slice(0, -2) === CHECK_STATE_INVS_FUN)));
+    return single(
+        contract.vFunctions.filter(
+            (fn) =>
+                fn.name === CHECK_STATE_INVS_FUN || fn.name.slice(0, -2) === CHECK_STATE_INVS_FUN
+        )
+    );
 }
 
 function isPublic(fn: FunctionDefinition): boolean {
@@ -1026,16 +1031,16 @@ function isPublic(fn: FunctionDefinition): boolean {
 
 function getInternalCheckInvsFun(contract: ContractDefinition): string {
     const allNames = getAllNames(contract);
-    var funcName = `__scribble_${contract.name}_check_state_invariants_internal`;
-    if(!allNames.has(funcName)) { 
+    const funcName = `__scribble_${contract.name}_check_state_invariants_internal`;
+    if (!allNames.has(funcName)) {
         return funcName;
     }
-    
-    var idx = 0;
-    while(allNames.has(`${funcName}_${idx}`)) {
+
+    let idx = 0;
+    while (allNames.has(`${funcName}_${idx}`)) {
         idx++;
     }
-    
+
     return funcName;
 }
 
@@ -1193,7 +1198,7 @@ export class ContractInstrumenter {
     private makeGeneralInvariantChecker(
         ctx: InstrumentationContext,
         contract: ContractDefinition,
-        internalInvChecker: FunctionDefinition,
+        internalInvChecker: FunctionDefinition
     ): [FunctionDefinition, Recipe] {
         const factory = ctx.factory;
         const directBases = (ctx.cha.parents.get(contract) as ContractDefinition[])?.filter(
@@ -1217,10 +1222,10 @@ export class ContractInstrumenter {
             );
         }
         const namesInScope = getAllNames(contract);
-        var funcName = CHECK_STATE_INVS_FUN
-        if(namesInScope.has(funcName)) {
-            var idx = 1;
-            while(namesInScope.has(`${funcName}_${idx}`)) {
+        let funcName = CHECK_STATE_INVS_FUN;
+        if (namesInScope.has(funcName)) {
+            let idx = 1;
+            while (namesInScope.has(`${funcName}_${idx}`)) {
                 idx++;
             }
 
