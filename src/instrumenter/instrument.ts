@@ -1231,7 +1231,7 @@ export class ContractInstrumenter {
 
             funcName += `_${idx}`;
         }
-        console.log(funcName, typeof funcName);
+
         const mut = changesMutability(ctx)
             ? FunctionStateMutability.NonPayable
             : FunctionStateMutability.View;

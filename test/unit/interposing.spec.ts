@@ -573,6 +573,154 @@ contract Foo is __scribble_ReentrancyUtils {
         (ret0) = fPtr();
     }
 }`
+        ],
+        [
+            "mstore_collision_invariant.sol",
+            `pragma solidity 0.6.0;
+contract Foo {
+    uint x;
+    uint __scribble_check_state_invariants;
+    uint __scribble_Foo_check_state_invariants_internal;
+    function __scribble_check_state_invariants_1(uint id) public pure returns (uint) { return 0; }
+    function __scribble_Foo_check_state_invariants_internal_1(uint id) public pure returns (uint) { return 0; }
+    function pureF(uint id) public pure returns (uint) { return id; }
+    function viewF() public view returns (uint) { return x; }
+    function mainView(uint y) public view returns (uint) {
+        return this.viewF() + this.pureF(y);
+    }
+}`,
+            "mstore",
+            "Foo",
+            `pragma solidity 0.6.0;
+
+import "./scribble_utils.sol";
+
+contract Foo is __scribble_ReentrancyUtils {
+    struct vars2 {
+        uint256 __mstore_scratch__;
+    }
+
+    uint internal x;
+    uint internal __scribble_check_state_invariants;
+    uint internal __scribble_Foo_check_state_invariants_internal;
+
+    function __scribble_check_state_invariants_1(uint id) public pure returns (uint) {
+        return 0;
+    }
+
+    function __scribble_Foo_check_state_invariants_internal_1(uint id) public pure returns (uint) {
+        return 0;
+    }
+
+    function pureF(uint id) public pure returns (uint) {
+        return id;
+    }
+
+    function viewF() public view returns (uint) {
+        return x;
+    }
+
+    function mainView(uint y) public view returns (uint) {
+        return (_callsite_54(this.viewF) + this.pureF(y));
+    }
+
+    /// Check only the current contract's state invariants
+    function __scribble_Foo_check_state_invariants_internal() internal view {
+        vars2 memory _v;
+    }
+
+    /// Check the state invariant for the current contract and all its bases
+    function __scribble_check_state_invariants_2() virtual internal view {
+        __scribble_Foo_check_state_invariants_internal();
+    }
+
+    constructor() public {
+        __scribble_out_of_contract = false;
+        __scribble_check_state_invariants_2();
+        __scribble_out_of_contract = true;
+    }
+
+    function _callsite_54(function() external view returns (uint) fPtr) private view returns (uint ret0) {
+        __scribble_check_state_invariants_2();
+        (ret0) = fPtr();
+    }
+}`
+        ],
+        [
+            "mstore_collision_internal_vars.sol",
+            `pragma solidity 0.6.0;
+contract Foo {
+    uint _v;
+    uint _v_1;
+    uint vars3;
+    uint __scribble_check_state_invariants;
+    uint __scribble_Foo_check_state_invariants_internal;
+    function __scribble_check_state_invariants_1(uint id) public pure returns (uint) { return 0; }
+    function __scribble_Foo_check_state_invariants_internal_1(uint id) public pure returns (uint) { return 0; }
+    function pureF(uint id) public pure returns (uint) { return id; }
+    function viewF() public view returns (uint) { return _v; }
+    function mainView(uint y) public view returns (uint) {
+        return this.viewF() + this.pureF(y);
+    }
+}`,
+            "mstore",
+            "Foo",
+            `pragma solidity 0.6.0;
+
+import "./scribble_utils.sol";
+
+contract Foo is __scribble_ReentrancyUtils {
+    struct vars4 {
+        uint256 __mstore_scratch__;
+    }
+
+    uint internal _v;
+    uint internal _v_1;
+    uint internal vars3;
+    uint internal __scribble_check_state_invariants;
+    uint internal __scribble_Foo_check_state_invariants_internal;
+
+    function __scribble_check_state_invariants_1(uint id) public pure returns (uint) {
+        return 0;
+    }
+
+    function __scribble_Foo_check_state_invariants_internal_1(uint id) public pure returns (uint) {
+        return 0;
+    }
+
+    function pureF(uint id) public pure returns (uint) {
+        return id;
+    }
+
+    function viewF() public view returns (uint) {
+        return _v;
+    }
+
+    function mainView(uint y) public view returns (uint) {
+        return (_callsite_58(this.viewF) + this.pureF(y));
+    }
+
+    /// Check only the current contract's state invariants
+    function __scribble_Foo_check_state_invariants_internal() internal view {
+        vars4 memory _v_2;
+    }
+
+    /// Check the state invariant for the current contract and all its bases
+    function __scribble_check_state_invariants_2() virtual internal view {
+        __scribble_Foo_check_state_invariants_internal();
+    }
+
+    constructor() public {
+        __scribble_out_of_contract = false;
+        __scribble_check_state_invariants_2();
+        __scribble_out_of_contract = true;
+    }
+
+    function _callsite_58(function() external view returns (uint) fPtr) private view returns (uint ret0) {
+        __scribble_check_state_invariants_2();
+        (ret0) = fPtr();
+    }
+}`
         ]
     ];
 
