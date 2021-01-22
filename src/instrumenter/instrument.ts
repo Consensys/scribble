@@ -68,7 +68,7 @@ import {
 import { TypeMap, SemMap } from "../spec-lang/tc";
 import { parse as parseType } from "../spec-lang/type_parser";
 import { UIDGenerator } from "../uid_generator";
-import { assert, isChangingState, isExternallyVisible, single } from "../util";
+import { assert, isChangingState, isExternallyVisible, single, getNewVarName } from "../util";
 import { Annotation } from "./annotations";
 import { CallGraph, FunSet } from "./callgraph";
 import { CHA } from "./cha";
@@ -590,11 +590,7 @@ export function generateExpressions(
     const namesInFuncScope = getNamesInFuncScope(contract, fn);
     let varName = SCRIBBLE_VAR;
     if (namesInFuncScope.has(varName)) {
-        let idx = 1;
-        while (namesInFuncScope.has(varName + `_${idx}`)) {
-            idx += 1;
-        }
-        varName += `_${idx}`;
+        varName = getNewVarName(namesInFuncScope, `${varName}_`);
     }
 
     const structLocalVariable = factory.makeVariableDeclaration(
@@ -1035,13 +1031,7 @@ function getInternalCheckInvsFun(contract: ContractDefinition): string {
     if (!allNames.has(funcName)) {
         return funcName;
     }
-
-    let idx = 0;
-    while (allNames.has(`${funcName}_${idx}`)) {
-        idx++;
-    }
-
-    return funcName;
+    return getNewVarName(allNames, `${funcName}_`);
 }
 
 export class ContractInstrumenter {
@@ -1224,12 +1214,7 @@ export class ContractInstrumenter {
         const namesInScope = getAllNames(contract);
         let funcName = CHECK_STATE_INVS_FUN;
         if (namesInScope.has(funcName)) {
-            let idx = 1;
-            while (namesInScope.has(`${funcName}_${idx}`)) {
-                idx++;
-            }
-
-            funcName += `_${idx}`;
+            funcName = getNewVarName(namesInScope, `${funcName}_`);
         }
 
         const mut = changesMutability(ctx)

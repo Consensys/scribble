@@ -625,13 +625,13 @@ contract Foo is __scribble_ReentrancyUtils {
     }
 
     /// Check only the current contract's state invariants
-    function __scribble_Foo_check_state_invariants_internal() internal view {
+    function __scribble_Foo_check_state_invariants_internal_2() internal view {
         vars2 memory _v;
     }
 
     /// Check the state invariant for the current contract and all its bases
     function __scribble_check_state_invariants_2() virtual internal view {
-        __scribble_Foo_check_state_invariants_internal();
+        __scribble_Foo_check_state_invariants_internal_2();
     }
 
     constructor() public {
@@ -701,13 +701,13 @@ contract Foo is __scribble_ReentrancyUtils {
     }
 
     /// Check only the current contract's state invariants
-    function __scribble_Foo_check_state_invariants_internal() internal view {
+    function __scribble_Foo_check_state_invariants_internal_2() internal view {
         vars4 memory _v_2;
     }
 
     /// Check the state invariant for the current contract and all its bases
     function __scribble_check_state_invariants_2() virtual internal view {
-        __scribble_Foo_check_state_invariants_internal();
+        __scribble_Foo_check_state_invariants_internal_2();
     }
 
     constructor() public {

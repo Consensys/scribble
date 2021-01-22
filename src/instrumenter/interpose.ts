@@ -41,7 +41,7 @@ import {
 } from "../rewriter";
 import { SAddressType, SFunctionType, SPointer, SType } from "../spec-lang/ast";
 import { parse as parseType } from "../spec-lang/type_parser";
-import { assert, getScopeFun, isChangingState, single } from "../util";
+import { assert, getNewVarName, getScopeFun, isChangingState, single } from "../util";
 import { FunSet } from "./callgraph";
 import { changesMutability, InstrumentationContext } from "./instrument";
 import { generateTypeAst } from "./transpile";
@@ -203,11 +203,7 @@ export function interpose(
     let renamePrefix = `_original_${fun.vScope.name}_${name}`;
 
     if (allNames.has(renamePrefix)) {
-        let id = 1;
-        while (allNames.has(renamePrefix + "_" + String(id))) {
-            id += 1;
-        }
-        renamePrefix += "_" + String(id);
+        renamePrefix = getNewVarName(allNames, `${renamePrefix}_`);
     }
 
     const recipe: Recipe = [

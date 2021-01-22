@@ -141,3 +141,11 @@ export function getScopeUnit(
 
     return node.vScope.vScope;
 }
+
+export function getNewVarName(namesSet: Set<string>, stringName: string): string {
+    let idx = 1;
+    while (namesSet.has(`${stringName}${idx}`)) {
+        idx++;
+    }
+    return `${stringName}${idx}`;
+}
