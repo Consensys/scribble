@@ -127,7 +127,9 @@ const CHECK_STATE_INVS_FUN = "__scribble_check_state_invariants";
 const OUT_OF_CONTRACT = "__scribble_out_of_contract";
 const CHECK_INVS_AT_END = "__scribble_check_invs_at_end";
 
-export function getAllNames(contract: ContractDefinition): Set<string> {
+const contractInvariantName: Map<string, string> = new Map();
+
+function getAllNames(contract: ContractDefinition): Set<string> {
     const nameSet: Set<string> = new Set();
     for (const v of contract.getChildren()) {
         if ("name" in v) nameSet.add(v["name"]);
@@ -135,10 +137,7 @@ export function getAllNames(contract: ContractDefinition): Set<string> {
     return nameSet;
 }
 
-export function getNamesInFuncScope(
-    contract: ContractDefinition,
-    fn: FunctionDefinition
-): Set<string> {
+function getNamesInFuncScope(contract: ContractDefinition, fn: FunctionDefinition): Set<string> {
     const stateVarSet: Set<string> = new Set(contract.vStateVariables.map((item) => item.name));
     const globalNamesInScope: Set<string> = new Set([
         ...stateVarSet,
@@ -1027,11 +1026,16 @@ function isPublic(fn: FunctionDefinition): boolean {
 
 function getInternalCheckInvsFun(contract: ContractDefinition): string {
     const allNames = getAllNames(contract);
-    const funcName = `__scribble_${contract.name}_check_state_invariants_internal`;
+
+    let funcName = `__scribble_${contract.name}_check_state_invariants_internal`;
     if (!allNames.has(funcName)) {
         return funcName;
     }
-    return getNewVarName(allNames, `${funcName}_`);
+
+    funcName = getNewVarName(allNames, `${funcName}_`);
+    contractInvariantName.set(contract.name, funcName);
+
+    return funcName;
 }
 
 export class ContractInstrumenter {
