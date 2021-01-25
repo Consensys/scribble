@@ -68,7 +68,14 @@ import {
 import { TypeMap, SemMap } from "../spec-lang/tc";
 import { parse as parseType } from "../spec-lang/type_parser";
 import { UIDGenerator } from "../uid_generator";
-import { assert, isChangingState, isExternallyVisible, single, getNewVarName, ContractInvariantsData } from "../util";
+import {
+    assert,
+    isChangingState,
+    isExternallyVisible,
+    single,
+    getNewVarName,
+    ContractInvariantsData
+} from "../util";
 import { Annotation } from "./annotations";
 import { CallGraph, FunSet } from "./callgraph";
 import { CHA } from "./cha";
@@ -126,7 +133,6 @@ const REENTRANCY_UTILS_CONTRACT = "__scribble_ReentrancyUtils";
 const CHECK_STATE_INVS_FUN = "__scribble_check_state_invariants";
 const OUT_OF_CONTRACT = "__scribble_out_of_contract";
 const CHECK_INVS_AT_END = "__scribble_check_invs_at_end";
-
 
 function getAllNames(contract: ContractDefinition): Set<string> {
     const nameSet: Set<string> = new Set();
@@ -1023,14 +1029,17 @@ function isPublic(fn: FunctionDefinition): boolean {
     return [FunctionVisibility.Default, FunctionVisibility.Public].includes(fn.visibility);
 }
 
-function getInternalCheckInvsFun(contract: ContractDefinition, contractInvariantsData: ContractInvariantsData | undefined) {
+function getInternalCheckInvsFun(
+    contract: ContractDefinition,
+    contractInvariantsData: ContractInvariantsData | undefined
+) {
     if (contractInvariantsData) {
         contractInvariantsData.internalInvariantFunction;
     }
-    
+
     const allNames = getAllNames(contract);
     let funcName = `__scribble_${contract.name}_check_state_invariants_internal`;
-    
+
     if (!allNames.has(funcName)) {
         return funcName;
     }
@@ -1038,7 +1047,6 @@ function getInternalCheckInvsFun(contract: ContractDefinition, contractInvariant
     funcName = getNewVarName(allNames, `${funcName}_`);
     return funcName;
 }
-
 
 export class ContractInstrumenter {
     /**
@@ -1076,10 +1084,9 @@ export class ContractInstrumenter {
             instrumentedInvariantData
         );
         instrumentedInvariantData.set(contract.name, {
-                invariantFunction: internalInvChecker.name, 
-                internalInvariantFunction: generalInvChecker.name
-            }
-        );
+            invariantFunction: internalInvChecker.name,
+            internalInvariantFunction: generalInvChecker.name
+        });
         recipe.push(
             new AddBaseContract(ctx.factory, contract, ctx.utilsContract, "start"),
             ...internalCheckerRecipe,
@@ -1127,10 +1134,16 @@ export class ContractInstrumenter {
         const mut = changesMutability(ctx)
             ? FunctionStateMutability.NonPayable
             : FunctionStateMutability.View;
-        
-        let internalInvFuncName = getInternalCheckInvsFun(contract, instrumentedInvariantData.get(contract.name));
-        if(instrumentedInvariantData.has(contract.name)) {
-            internalInvFuncName = instrumentedInvariantData.get(contract.name)?.internalInvariantFunction!;
+
+        let internalInvFuncName = getInternalCheckInvsFun(
+            contract,
+            instrumentedInvariantData.get(contract.name)
+        );
+        const instrumentedData: ContractInvariantsData | undefined = instrumentedInvariantData.get(
+            contract.name
+        );
+        if (instrumentedData != undefined) {
+            internalInvFuncName = instrumentedData.internalInvariantFunction;
         }
         const checker = factory.makeFunctionDefinition(
             contract.id,
@@ -1231,11 +1244,14 @@ export class ContractInstrumenter {
                 )
             );
         }
-        var funcName: string;
-        if(instrumentedInvariantData.get(contract.name)) {
-            funcName = instrumentedInvariantData.get(contract.name)?.invariantFunction!
-        }
-        else {
+
+        let funcName: string;
+        const instrumentedData: ContractInvariantsData | undefined = instrumentedInvariantData.get(
+            contract.name
+        );
+        if (instrumentedData != undefined) {
+            funcName = instrumentedData.invariantFunction!;
+        } else {
             const namesInScope = getAllNames(contract);
             funcName = CHECK_STATE_INVS_FUN;
             if (namesInScope.has(funcName)) {
@@ -1278,8 +1294,11 @@ export class ContractInstrumenter {
             const callExpr =
                 base === contract
                     ? factory.makeIdentifierFor(internalInvChecker)
-                    : factory.makeIdentifier("<missing>", getInternalCheckInvsFun(base, 
-                        instrumentedInvariantData.get(base.name)), -1);
+                    : factory.makeIdentifier(
+                          "<missing>",
+                          getInternalCheckInvsFun(base, instrumentedInvariantData.get(base.name)),
+                          -1
+                      );
 
             const callInternalCheckInvs = factory.makeExpressionStatement(
                 factory.makeFunctionCall("<missing>", FunctionCallKind.FunctionCall, callExpr, [])

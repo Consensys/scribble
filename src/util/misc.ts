@@ -153,4 +153,4 @@ export function getNewVarName(namesSet: Set<string>, stringName: string): string
 export type ContractInvariantsData = {
     invariantFunction: string;
     internalInvariantFunction: string;
-}
+};
