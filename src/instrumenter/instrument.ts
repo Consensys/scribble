@@ -1084,8 +1084,8 @@ export class ContractInstrumenter {
             instrumentedInvariantData
         );
         instrumentedInvariantData.set(contract.name, {
-            invariantFunction: internalInvChecker.name,
-            internalInvariantFunction: generalInvChecker.name
+            invariantFunction: generalInvChecker.name,
+            internalInvariantFunction: internalInvChecker.name
         });
         recipe.push(
             new AddBaseContract(ctx.factory, contract, ctx.utilsContract, "start"),
@@ -1135,16 +1135,11 @@ export class ContractInstrumenter {
             ? FunctionStateMutability.NonPayable
             : FunctionStateMutability.View;
 
-        let internalInvFuncName = getInternalCheckInvsFun(
+        const internalInvFuncName = getInternalCheckInvsFun(
             contract,
             instrumentedInvariantData.get(contract.name)
         );
-        const instrumentedData: ContractInvariantsData | undefined = instrumentedInvariantData.get(
-            contract.name
-        );
-        if (instrumentedData != undefined) {
-            internalInvFuncName = instrumentedData.internalInvariantFunction;
-        }
+
         const checker = factory.makeFunctionDefinition(
             contract.id,
             FunctionKind.Function,
