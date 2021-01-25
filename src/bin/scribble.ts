@@ -59,7 +59,8 @@ import {
     getScopeUnit,
     isChangingState,
     isExternallyVisible,
-    single
+    single,
+    ContractInvariantsData
 } from "../util";
 import cli from "./scribble_cli.json";
 
@@ -344,10 +345,10 @@ function instrumentFiles(
 
     const contractInstrumenter = new ContractInstrumenter();
     const functionInstrumenter = new FunctionInstrumenter();
-
+    let instrumentedInvariantData: Map<string, ContractInvariantsData > = new Map();
     for (const [contract, fn, annotations] of worklist) {
         if (fn === undefined) {
-            contractInstrumenter.instrument(ctx, typing, semInfo, annotations, contract);
+            contractInstrumenter.instrument(ctx, typing, semInfo, annotations, contract, instrumentedInvariantData);
         } else {
             functionInstrumenter.instrument(
                 ctx,

@@ -68,7 +68,7 @@ import {
 import { TypeMap, SemMap } from "../spec-lang/tc";
 import { parse as parseType } from "../spec-lang/type_parser";
 import { UIDGenerator } from "../uid_generator";
-import { assert, isChangingState, isExternallyVisible, single, getNewVarName } from "../util";
+import { assert, isChangingState, isExternallyVisible, single, getNewVarName, ContractInvariantsData } from "../util";
 import { Annotation } from "./annotations";
 import { CallGraph, FunSet } from "./callgraph";
 import { CHA } from "./cha";
@@ -127,7 +127,6 @@ const CHECK_STATE_INVS_FUN = "__scribble_check_state_invariants";
 const OUT_OF_CONTRACT = "__scribble_out_of_contract";
 const CHECK_INVS_AT_END = "__scribble_check_invs_at_end";
 
-const contractInvariantName: Map<string, string> = new Map();
 
 function getAllNames(contract: ContractDefinition): Set<string> {
     const nameSet: Set<string> = new Set();
@@ -1024,19 +1023,22 @@ function isPublic(fn: FunctionDefinition): boolean {
     return [FunctionVisibility.Default, FunctionVisibility.Public].includes(fn.visibility);
 }
 
-function getInternalCheckInvsFun(contract: ContractDefinition): string {
+function getInternalCheckInvsFun(contract: ContractDefinition, contractInvariantsData: ContractInvariantsData | undefined) {
+    if (contractInvariantsData) {
+        contractInvariantsData.internalInvariantFunction;
+    }
+    
     const allNames = getAllNames(contract);
-
     let funcName = `__scribble_${contract.name}_check_state_invariants_internal`;
+    
     if (!allNames.has(funcName)) {
         return funcName;
     }
 
     funcName = getNewVarName(allNames, `${funcName}_`);
-    contractInvariantName.set(contract.name, funcName);
-
     return funcName;
 }
+
 
 export class ContractInstrumenter {
     /**
@@ -1053,7 +1055,8 @@ export class ContractInstrumenter {
         typing: TypeMap,
         semInfo: SemMap,
         annotations: Annotation[],
-        contract: ContractDefinition
+        contract: ContractDefinition,
+        instrumentedInvariantData: Map<string, ContractInvariantsData>
     ): void {
         const recipe: Recipe = [];
 
@@ -1062,15 +1065,21 @@ export class ContractInstrumenter {
             typing,
             semInfo,
             annotations,
-            contract
+            contract,
+            instrumentedInvariantData
         );
 
         const [generalInvChecker, generalCheckerRecipe] = this.makeGeneralInvariantChecker(
             ctx,
             contract,
-            internalInvChecker
+            internalInvChecker,
+            instrumentedInvariantData
         );
-
+        instrumentedInvariantData.set(contract.name, {
+                invariantFunction: internalInvChecker.name, 
+                internalInvariantFunction: generalInvChecker.name
+            }
+        );
         recipe.push(
             new AddBaseContract(ctx.factory, contract, ctx.utilsContract, "start"),
             ...internalCheckerRecipe,
@@ -1108,7 +1117,8 @@ export class ContractInstrumenter {
         typing: TypeMap,
         semInfo: SemMap,
         annotations: Annotation[],
-        contract: ContractDefinition
+        contract: ContractDefinition,
+        instrumentedInvariantData: Map<string, ContractInvariantsData>
     ): [FunctionDefinition, Recipe] {
         const factory = ctx.factory;
         const recipe: Recipe = [];
@@ -1117,10 +1127,15 @@ export class ContractInstrumenter {
         const mut = changesMutability(ctx)
             ? FunctionStateMutability.NonPayable
             : FunctionStateMutability.View;
+        
+        let internalInvFuncName = getInternalCheckInvsFun(contract, instrumentedInvariantData.get(contract.name));
+        if(instrumentedInvariantData.has(contract.name)) {
+            internalInvFuncName = instrumentedInvariantData.get(contract.name)?.internalInvariantFunction!;
+        }
         const checker = factory.makeFunctionDefinition(
             contract.id,
             FunctionKind.Function,
-            getInternalCheckInvsFun(contract),
+            internalInvFuncName,
             false,
             FunctionVisibility.Internal,
             mut,
@@ -1192,7 +1207,8 @@ export class ContractInstrumenter {
     private makeGeneralInvariantChecker(
         ctx: InstrumentationContext,
         contract: ContractDefinition,
-        internalInvChecker: FunctionDefinition
+        internalInvChecker: FunctionDefinition,
+        instrumentedInvariantData: Map<string, ContractInvariantsData>
     ): [FunctionDefinition, Recipe] {
         const factory = ctx.factory;
         const directBases = (ctx.cha.parents.get(contract) as ContractDefinition[])?.filter(
@@ -1215,12 +1231,17 @@ export class ContractInstrumenter {
                 )
             );
         }
-        const namesInScope = getAllNames(contract);
-        let funcName = CHECK_STATE_INVS_FUN;
-        if (namesInScope.has(funcName)) {
-            funcName = getNewVarName(namesInScope, `${funcName}_`);
+        var funcName: string;
+        if(instrumentedInvariantData.get(contract.name)) {
+            funcName = instrumentedInvariantData.get(contract.name)?.invariantFunction!
         }
-
+        else {
+            const namesInScope = getAllNames(contract);
+            funcName = CHECK_STATE_INVS_FUN;
+            if (namesInScope.has(funcName)) {
+                funcName = getNewVarName(namesInScope, `${funcName}_`);
+            }
+        }
         const mut = changesMutability(ctx)
             ? FunctionStateMutability.NonPayable
             : FunctionStateMutability.View;
@@ -1257,7 +1278,8 @@ export class ContractInstrumenter {
             const callExpr =
                 base === contract
                     ? factory.makeIdentifierFor(internalInvChecker)
-                    : factory.makeIdentifier("<missing>", getInternalCheckInvsFun(base), -1);
+                    : factory.makeIdentifier("<missing>", getInternalCheckInvsFun(base, 
+                        instrumentedInvariantData.get(base.name)), -1);
 
             const callInternalCheckInvs = factory.makeExpressionStatement(
                 factory.makeFunctionCall("<missing>", FunctionCallKind.FunctionCall, callExpr, [])
