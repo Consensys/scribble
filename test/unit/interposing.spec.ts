@@ -16,7 +16,7 @@ import {
     InstrumentationContext
 } from "../../src/instrumenter";
 import { cook } from "../../src/rewriter";
-import { single } from "../../src/util";
+import { single, ContractInvariantsData } from "../../src/util";
 import { findContract, findFunction, toAst } from "../integration/utils";
 import { getCallGraph } from "../../src/instrumenter/callgraph";
 import { getCHA } from "../../src/instrumenter/cha";
@@ -745,7 +745,7 @@ contract Foo is __scribble_ReentrancyUtils {
                 assertionMode,
                 compilerVersion
             );
-            contractInstrumenter.instrument(ctx, new Map(), new Map(), [], contract);
+            contractInstrumenter.instrument(ctx, new Map(), new Map(), [], contract, new Map<string, ContractInvariantsData>());
 
             const instrumented = print(sources, [content], "0.6.0").get(sources[0]);
 
