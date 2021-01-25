@@ -1034,7 +1034,7 @@ function getInternalCheckInvsFun(
     contractInvariantsData: ContractInvariantsData | undefined
 ) {
     if (contractInvariantsData) {
-        contractInvariantsData.internalInvariantFunction;
+        return contractInvariantsData.internalInvariantFunction;
     }
 
     const allNames = getAllNames(contract);
