@@ -745,7 +745,14 @@ contract Foo is __scribble_ReentrancyUtils {
                 assertionMode,
                 compilerVersion
             );
-            contractInstrumenter.instrument(ctx, new Map(), new Map(), [], contract, new Map<string, ContractInvariantsData>());
+            contractInstrumenter.instrument(
+                ctx,
+                new Map(),
+                new Map(),
+                [],
+                contract,
+                new Map<string, ContractInvariantsData>()
+            );
 
             const instrumented = print(sources, [content], "0.6.0").get(sources[0]);
 
