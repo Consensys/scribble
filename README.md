@@ -1,5 +1,5 @@
 <p align="center">
-  <img width="460" height="300" src="logo.png">
+  <img width="460" height="300" src="static/logo.png">
 </p>
 
 [![Build Status](https://drone.infra.mythx.io/api/badges/ConsenSys/scribble/status.svg)](https://drone.infra.mythx.io/ConsenSys/scribble)
