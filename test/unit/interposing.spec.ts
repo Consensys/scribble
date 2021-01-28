@@ -381,7 +381,7 @@ contract Foo {
 import "./scribble_utils.sol";
 
 contract Foo is __scribble_ReentrancyUtils {
-    struct vars1 {
+    struct vars0 {
         uint256 __mstore_scratch__;
     }
 
@@ -401,7 +401,7 @@ contract Foo is __scribble_ReentrancyUtils {
 
     /// Check only the current contract's state invariants
     function __scribble_Foo_check_state_invariants_internal() internal view {
-        vars1 memory _v;
+        vars0 memory _v;
     }
 
     /// Check the state invariant for the current contract and all its bases

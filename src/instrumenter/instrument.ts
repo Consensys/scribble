@@ -67,7 +67,6 @@ import {
 } from "../spec-lang/ast";
 import { TypeMap, SemMap } from "../spec-lang/tc";
 import { parse as parseType } from "../spec-lang/type_parser";
-import { UIDGenerator } from "../uid_generator";
 import { assert, isChangingState, isExternallyVisible, single } from "../util";
 import { Annotation } from "./annotations";
 import { walk } from "../spec-lang/walk";
@@ -99,7 +98,6 @@ export function changesMutability(ctx: InstrumentationContext): boolean {
     return ctx.assertionMode === "log";
 }
 
-const uid = new UIDGenerator();
 const SCRIBBLE_VAR = "_v";
 const MSTORE_SCRATCH_FIELD = "__mstore_scratch__";
 const DUMMY_PREFIX = "dummy_";
@@ -253,7 +251,8 @@ export function flattenExpr(
     typing: TypeMap,
     semInfo: SemMap,
     target: FunctionDefinition,
-    varStruct: VariableDeclaration
+    varStruct: VariableDeclaration,
+    ctx: InstrumentationContext
 ): [SNode, SBindings] {
     /**
      * Register the new flattened node `newN`, which corresponds to an old unflattened node `oldN` in the typing map.
@@ -295,13 +294,21 @@ export function flattenExpr(
     }
 
     if (expr instanceof SIndexAccess) {
-        const [flatBase, baseBindings] = flattenExpr(expr.base, typing, semInfo, target, varStruct);
+        const [flatBase, baseBindings] = flattenExpr(
+            expr.base,
+            typing,
+            semInfo,
+            target,
+            varStruct,
+            ctx
+        );
         const [flatIndex, indexBindings] = flattenExpr(
             expr.index,
             typing,
             semInfo,
             target,
-            varStruct
+            varStruct,
+            ctx
         );
 
         return [
@@ -311,7 +318,14 @@ export function flattenExpr(
     }
 
     if (expr instanceof SMemberAccess) {
-        const [flatBase, baseBindings] = flattenExpr(expr.base, typing, semInfo, target, varStruct);
+        const [flatBase, baseBindings] = flattenExpr(
+            expr.base,
+            typing,
+            semInfo,
+            target,
+            varStruct,
+            ctx
+        );
         const flattenedExpr = new SMemberAccess(flatBase, expr.member, expr.src);
 
         return [_registerNode(flattenedExpr, expr), baseBindings];
@@ -323,11 +337,12 @@ export function flattenExpr(
             typing,
             semInfo,
             target,
-            varStruct
+            varStruct,
+            ctx
         );
 
         if (expr.op === "old") {
-            const tmpName = uid.get("old_");
+            const tmpName = ctx.nameGenerator.getFresh("old_");
             const tmpType = typing.get(expr) as SType;
 
             subexpBindings.push([tmpName, tmpType, flatSubexp, true]);
@@ -342,13 +357,21 @@ export function flattenExpr(
     }
 
     if (expr instanceof SBinaryOperation) {
-        const [flatLeft, leftBindings] = flattenExpr(expr.left, typing, semInfo, target, varStruct);
+        const [flatLeft, leftBindings] = flattenExpr(
+            expr.left,
+            typing,
+            semInfo,
+            target,
+            varStruct,
+            ctx
+        );
         const [flatRight, rightBindings] = flattenExpr(
             expr.right,
             typing,
             semInfo,
             target,
-            varStruct
+            varStruct,
+            ctx
         );
 
         return [
@@ -363,21 +386,24 @@ export function flattenExpr(
             typing,
             semInfo,
             target,
-            varStruct
+            varStruct,
+            ctx
         );
         const [flatTrue, trueBindings] = flattenExpr(
             expr.trueExp,
             typing,
             semInfo,
             target,
-            varStruct
+            varStruct,
+            ctx
         );
         const [flatFalse, falseBindings] = flattenExpr(
             expr.falseExp,
             typing,
             semInfo,
             target,
-            varStruct
+            varStruct,
+            ctx
         );
 
         return [
@@ -392,13 +418,14 @@ export function flattenExpr(
             typing,
             semInfo,
             target,
-            varStruct
+            varStruct,
+            ctx
         );
         const flatArgs: SNode[] = [];
         const argBindings: SBindings[] = [];
 
         expr.args.forEach((arg: SNode) => {
-            const [flatArg, argBinding] = flattenExpr(arg, typing, semInfo, target, varStruct);
+            const [flatArg, argBinding] = flattenExpr(arg, typing, semInfo, target, varStruct, ctx);
 
             flatArgs.push(flatArg);
 
@@ -412,7 +439,8 @@ export function flattenExpr(
     }
 
     if (expr instanceof SLet) {
-        const bindingName = (name: string) => (name === "_" ? uid.get(DUMMY_PREFIX) : name);
+        const bindingName = (name: string) =>
+            name === "_" ? ctx.nameGenerator.getFresh(DUMMY_PREFIX) : name;
 
         const rhsT = typing.get(expr.rhs) as SType;
         // Hack to support old(fun()) where fun returns multiple types. Should be
@@ -430,10 +458,11 @@ export function flattenExpr(
                 typing,
                 semInfo,
                 target,
-                varStruct
+                varStruct,
+                ctx
             );
         } else {
-            [flatRHS, rhsBindings] = flattenExpr(expr.rhs, typing, semInfo, target, varStruct);
+            [flatRHS, rhsBindings] = flattenExpr(expr.rhs, typing, semInfo, target, varStruct, ctx);
         }
 
         let bindings: SBindings;
@@ -468,10 +497,10 @@ export function flattenExpr(
             bindings = [[bindingName(single(expr.lhs).name), rhsT, flatRHS, rhsSemInfo.isOld]];
         }
 
-        const [flatIn, inBindings] = flattenExpr(expr.in, typing, semInfo, target, varStruct);
+        const [flatIn, inBindings] = flattenExpr(expr.in, typing, semInfo, target, varStruct, ctx);
 
         const letBindings = rhsBindings.concat(bindings).concat(inBindings);
-        const tmpName = uid.get("let_");
+        const tmpName = ctx.nameGenerator.getFresh("let_");
         const tmpType = typing.get(expr) as SType;
 
         const inSemInfo = semInfo.get(expr.in);
@@ -511,7 +540,7 @@ export function generateExpressions(
     // Step 1: Define struct holding all the temporary variables neccessary
     const exprs = annotations.map((annot) => annot.expression);
     const factory = ctx.factory;
-    const structName = uid.get("vars");
+    const structName = ctx.nameGenerator.getFresh("vars");
     const canonicalStructName = `${contract.name}.${structName}`;
     const struct = factory.makeStructDefinition(
         structName,
@@ -557,7 +586,14 @@ export function generateExpressions(
     const bindings: SBindings = [];
 
     for (const expr of exprs) {
-        const [flatExpr, oneBindings] = flattenExpr(expr, typing, semInfo, fn, structLocalVariable);
+        const [flatExpr, oneBindings] = flattenExpr(
+            expr,
+            typing,
+            semInfo,
+            fn,
+            structLocalVariable,
+            ctx
+        );
 
         flatExprs.push(flatExpr);
 
