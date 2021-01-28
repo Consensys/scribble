@@ -13,10 +13,19 @@ export class NameGenerator {
      * previous names returned by this function/
      *
      * @param prefix
+     * @param skipIdxOnFirst - if true, given a prefix `foo` it generates the sequence [`foo`, `foo1`, ...] instead of [`foo0`, `foo1`, ...]
      */
-    getFresh(prefix: string): string {
+    getFresh(prefix: string, skipIdxOnFirst = false): string {
         if (!(prefix in this.counters)) {
-            this.counters[prefix] = 0;
+            if (skipIdxOnFirst) {
+                this.counters[prefix] = 1;
+
+                if (!this.existingNames.has(prefix)) {
+                    return prefix;
+                }
+            } else {
+                this.counters[prefix] = 0;
+            }
         }
 
         let res: string;

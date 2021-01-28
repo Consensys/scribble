@@ -30,16 +30,11 @@ function makeInstrumentationCtx(
     assertionMode: "log" | "mstore",
     compilerVersion: string
 ): InstrumentationContext {
-    const utilsContract = single(
-        generateUtilsContract(factory, "", "scribble_utils.sol", compilerVersion).vContracts
-    );
-
-    return new InstrumentationContext(
+    const ctx = new InstrumentationContext(
         factory,
         sources,
         assertionMode,
         true,
-        utilsContract,
         getCallGraph(sources),
         getCHA(sources),
         new Set(),
@@ -51,6 +46,9 @@ function makeInstrumentationCtx(
         false,
         new Map()
     );
+
+    generateUtilsContract(factory, "", "scribble_utils.sol", compilerVersion, ctx).vContracts;
+    return ctx;
 }
 
 function print(units: SourceUnit[], contents: string[], version: string): Map<SourceUnit, string> {

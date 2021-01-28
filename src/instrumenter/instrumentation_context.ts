@@ -61,13 +61,23 @@ function getAllNames(units: SourceUnit[]): Set<string> {
 
 export class InstrumentationContext {
     public readonly nameGenerator: NameGenerator;
+    public readonly structVar: string;
+    public readonly checkStateInvsFuncName: string;
+    public readonly outOfContractFlagName: string;
+    public readonly utilsContractName: string;
+
+    /**
+     * Bit of a hack - this is set by `generateUtilsContract`. We need an
+     * InstrumentationContext already present for `generateUtilsContract` to be able
+     * to use `ctx.nameGenerator`.
+     */
+    public utilsContract!: ContractDefinition;
 
     constructor(
         public readonly factory: ASTNodeFactory,
         public readonly units: SourceUnit[],
         public readonly assertionMode: "log" | "mstore",
         public readonly addAssert: boolean,
-        public readonly utilsContract: ContractDefinition,
         public readonly callgraph: CallGraph,
         public readonly cha: CHA<ContractDefinition>,
         public readonly funsToChangeMutability: FunSet,
@@ -80,5 +90,15 @@ export class InstrumentationContext {
         public readonly debugEventDefs: Map<number, EventDefinition>
     ) {
         this.nameGenerator = new NameGenerator(getAllNames(units));
+        this.structVar = this.nameGenerator.getFresh("_v", true);
+        this.checkStateInvsFuncName = this.nameGenerator.getFresh(
+            "__scribble_check_state_invariants",
+            true
+        );
+        this.outOfContractFlagName = this.nameGenerator.getFresh(
+            "__scribble_out_of_contract",
+            true
+        );
+        this.utilsContractName = this.nameGenerator.getFresh("__scribble_ReentrancyUtils", true);
     }
 }

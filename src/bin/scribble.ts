@@ -669,7 +669,8 @@ function writeOut(contents: string, fileName: string) {
 function makeUtilsUnit(
     utilsOutputDir: string,
     factory: ASTNodeFactory,
-    version: string
+    version: string,
+    ctx: InstrumentationContext
 ): SourceUnit {
     let utilsPath = "__scribble_ReentrancyUtils.sol";
     let utilsAbsPath = "__scribble_ReentrancyUtils.sol";
@@ -683,7 +684,7 @@ function makeUtilsUnit(
         );
     }
 
-    return generateUtilsContract(factory, utilsPath, utilsAbsPath, version);
+    return generateUtilsContract(factory, utilsPath, utilsAbsPath, version, ctx);
 }
 
 function copy(from: string, to: string, options: any): void {
@@ -947,7 +948,6 @@ if ("version" in options) {
         const compilerVersionUsed = pickVersion(compilerVersionUsedMap);
 
         const factory = new ASTNodeFactory(mergedCtx);
-        const utilsUnit = makeUtilsUnit(utilsOutputDir, factory, compilerVersionUsed);
 
         if (outputMode === "flat" || outputMode === "json") {
             // In flat/json mode fix-up any naming issues due to 'import {a as
@@ -956,13 +956,13 @@ if ("version" in options) {
             fixRenamingErrors(mergedUnits);
         }
         /**
-         * Next try to instrument the merged SourceUnits.         */
+         * Next try to instrument the merged SourceUnits.
+         */
         const instrCtx = new InstrumentationContext(
             factory,
             mergedUnits,
             assertionMode,
             addAssert,
-            single(utilsUnit.vContracts),
             callgraph,
             cha,
             new Set<FunctionDefinition>(),
@@ -974,6 +974,8 @@ if ("version" in options) {
             debugEvents,
             new Map()
         );
+
+        const utilsUnit = makeUtilsUnit(utilsOutputDir, factory, compilerVersionUsed, instrCtx);
 
         const [allUnits, changedUnits] = instrumentFiles(
             instrCtx,

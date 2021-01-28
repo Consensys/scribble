@@ -98,12 +98,8 @@ export function changesMutability(ctx: InstrumentationContext): boolean {
     return ctx.assertionMode === "log";
 }
 
-const SCRIBBLE_VAR = "_v";
 const MSTORE_SCRATCH_FIELD = "__mstore_scratch__";
 const DUMMY_PREFIX = "dummy_";
-const REENTRANCY_UTILS_CONTRACT = "__scribble_ReentrancyUtils";
-const CHECK_STATE_INVS_FUN = "__scribble_check_state_invariants";
-const OUT_OF_CONTRACT = "__scribble_out_of_contract";
 const CHECK_INVS_AT_END = "__scribble_check_invs_at_end";
 
 export function findExternalCalls(node: ContractDefinition | FunctionDefinition): FunctionCall[] {
@@ -144,14 +140,15 @@ export function generateUtilsContract(
     factory: ASTNodeFactory,
     sourceEntryKey: string,
     path: string,
-    version: string
+    version: string,
+    ctx: InstrumentationContext
 ): SourceUnit {
     const exportedSymbols = new Map();
     const sourceUnit = factory.makeSourceUnit(sourceEntryKey, -1, path, exportedSymbols);
     sourceUnit.appendChild(factory.makePragmaDirective(["solidity", version]));
 
     const contract = factory.makeContractDefinition(
-        REENTRANCY_UTILS_CONTRACT,
+        ctx.utilsContractName,
         sourceUnit.id,
         ContractKind.Contract,
         false,
@@ -162,10 +159,10 @@ export function generateUtilsContract(
 
     sourceUnit.appendChild(contract);
 
-    const counter = factory.makeVariableDeclaration(
+    const flag = factory.makeVariableDeclaration(
         false,
         false,
-        OUT_OF_CONTRACT,
+        ctx.outOfContractFlagName,
         contract.id,
         true,
         DataLocation.Default,
@@ -178,7 +175,9 @@ export function generateUtilsContract(
         factory.makeLiteral("bool", LiteralKind.Bool, "", "true")
     );
 
-    contract.appendChild(counter);
+    contract.appendChild(flag);
+
+    ctx.utilsContract = contract;
 
     return sourceUnit;
 }
@@ -266,7 +265,7 @@ export function flattenExpr(
     };
 
     const getTmpVar = (name: string, oldN: SNode, src?: Range) => {
-        const id = new SId(SCRIBBLE_VAR);
+        const id = new SId(ctx.structVar);
 
         id.defSite = varStruct;
 
@@ -570,7 +569,7 @@ export function generateExpressions(
     const structLocalVariable = factory.makeVariableDeclaration(
         false,
         false,
-        SCRIBBLE_VAR,
+        ctx.structVar,
         fn.id,
         false,
         DataLocation.Memory,
@@ -994,8 +993,11 @@ function insertVarsStruct(
     ];
 }
 
-function getCheckStateInvsFuncs(contract: ContractDefinition): FunctionDefinition {
-    return single(contract.vFunctions.filter((fn) => fn.name === CHECK_STATE_INVS_FUN));
+function getCheckStateInvsFuncs(
+    contract: ContractDefinition,
+    ctx: InstrumentationContext
+): FunctionDefinition {
+    return single(contract.vFunctions.filter((fn) => fn.name === ctx.checkStateInvsFuncName));
 }
 
 function isPublic(fn: FunctionDefinition): boolean {
@@ -1191,7 +1193,7 @@ export class ContractInstrumenter {
         const checker = factory.makeFunctionDefinition(
             contract.id,
             FunctionKind.Function,
-            CHECK_STATE_INVS_FUN,
+            ctx.checkStateInvsFuncName,
             true, // general invariant checker is always virtual
             FunctionVisibility.Internal,
             mut,
@@ -1280,7 +1282,7 @@ export class ContractInstrumenter {
                     factory.makeAssignment(
                         "<missing>",
                         "=",
-                        factory.makeIdentifier("bool", OUT_OF_CONTRACT, -1),
+                        factory.makeIdentifier("bool", ctx.outOfContractFlagName, -1),
                         factory.makeLiteral("bool", LiteralKind.Bool, "", "false")
                     )
                 ),
@@ -1306,7 +1308,7 @@ export class ContractInstrumenter {
                     factory.makeAssignment(
                         "<missing>",
                         "=",
-                        factory.makeIdentifier("bool", OUT_OF_CONTRACT, -1),
+                        factory.makeIdentifier("bool", ctx.outOfContractFlagName, -1),
                         factory.makeLiteral("bool", LiteralKind.Bool, "", "true")
                     )
                 ),
@@ -1382,7 +1384,7 @@ export class ContractInstrumenter {
                         factory.makeAssignment(
                             "<missing>",
                             "=",
-                            factory.makeIdentifier("bool", OUT_OF_CONTRACT, -1),
+                            factory.makeIdentifier("bool", ctx.outOfContractFlagName, -1),
                             factory.makeLiteral("bool", LiteralKind.Bool, "", "true")
                         )
                     )
@@ -1392,7 +1394,7 @@ export class ContractInstrumenter {
                         factory.makeAssignment(
                             "<missing>",
                             "=",
-                            factory.makeIdentifier("bool", OUT_OF_CONTRACT, -1),
+                            factory.makeIdentifier("bool", ctx.outOfContractFlagName, -1),
                             factory.makeLiteral("bool", LiteralKind.Bool, "", "false")
                         )
                     )
@@ -1459,7 +1461,7 @@ export class FunctionInstrumenter {
         }
 
         if (checkStateInvs) {
-            recipe.push(...this.insertEnterMarker(factory, instrResult, stub, originalCall));
+            recipe.push(...this.insertEnterMarker(factory, instrResult, stub, originalCall, ctx));
         }
 
         recipe.push(
@@ -1477,7 +1479,7 @@ export class FunctionInstrumenter {
         );
 
         if (checkStateInvs) {
-            recipe.push(...this.insertExitMarker(factory, instrResult, contract, stub));
+            recipe.push(...this.insertExitMarker(factory, instrResult, contract, stub, ctx));
         }
 
         cook(recipe);
@@ -1487,7 +1489,8 @@ export class FunctionInstrumenter {
         factory: ASTNodeFactory,
         instrResult: InstrumentationResult,
         stub: FunctionDefinition,
-        originalCall: Statement
+        originalCall: Statement,
+        ctx: InstrumentationContext
     ): Recipe {
         const body = stub.vBody as Block;
 
@@ -1498,7 +1501,7 @@ export class FunctionInstrumenter {
                 factory.makeAssignment(
                     "<missing>",
                     "=",
-                    factory.makeIdentifier("<missing>", OUT_OF_CONTRACT, -1),
+                    factory.makeIdentifier("<missing>", ctx.outOfContractFlagName, -1),
                     factory.makeLiteral("<missing>", LiteralKind.Bool, "", "false")
                 )
             );
@@ -1531,7 +1534,7 @@ export class FunctionInstrumenter {
                         CHECK_INVS_AT_END,
                         -1
                     ),
-                    factory.makeIdentifier("<missing>", OUT_OF_CONTRACT, -1)
+                    factory.makeIdentifier("<missing>", ctx.outOfContractFlagName, -1)
                 )
             );
 
@@ -1541,7 +1544,7 @@ export class FunctionInstrumenter {
                 factory.makeAssignment(
                     "<missing>",
                     "=",
-                    factory.makeIdentifier("<missing>", OUT_OF_CONTRACT, -1),
+                    factory.makeIdentifier("<missing>", ctx.outOfContractFlagName, -1),
                     factory.makeLiteral("<missing>", LiteralKind.Bool, "", "false")
                 )
             );
@@ -1556,7 +1559,8 @@ export class FunctionInstrumenter {
         factory: ASTNodeFactory,
         instrResult: InstrumentationResult,
         contract: ContractDefinition,
-        stub: FunctionDefinition
+        stub: FunctionDefinition,
+        ctx: InstrumentationContext
     ): Recipe {
         const body = stub.vBody as Block;
 
@@ -1566,7 +1570,7 @@ export class FunctionInstrumenter {
             factory.makeFunctionCall(
                 "<missing>",
                 FunctionCallKind.FunctionCall,
-                factory.makeIdentifierFor(getCheckStateInvsFuncs(contract)),
+                factory.makeIdentifierFor(getCheckStateInvsFuncs(contract, ctx)),
                 []
             )
         );
@@ -1591,7 +1595,7 @@ export class FunctionInstrumenter {
             factory.makeAssignment(
                 "<missing>",
                 "=",
-                factory.makeIdentifier("<missing>", OUT_OF_CONTRACT, -1),
+                factory.makeIdentifier("<missing>", ctx.outOfContractFlagName, -1),
                 stub.visibility === FunctionVisibility.External
                     ? factory.makeLiteral("bool", LiteralKind.Bool, "", "true")
                     : factory.makeMemberAccess(
