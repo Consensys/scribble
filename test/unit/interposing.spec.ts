@@ -12,14 +12,14 @@ import {
     findExternalCalls,
     generateUtilsContract,
     interpose,
-    interposeCall,
-    InstrumentationContext
+    interposeCall
 } from "../../src/instrumenter";
 import { cook } from "../../src/rewriter";
 import { single } from "../../src/util";
 import { findContract, findFunction, toAst } from "../integration/utils";
 import { getCallGraph } from "../../src/instrumenter/callgraph";
 import { getCHA } from "../../src/instrumenter/cha";
+import { InstrumentationContext } from "../../src/instrumenter/instrumentation_context";
 
 export type LocationDesc = [string, string];
 
@@ -34,23 +34,23 @@ function makeInstrumentationCtx(
         generateUtilsContract(factory, "", "scribble_utils.sol", compilerVersion).vContracts
     );
 
-    return {
-        factory: factory,
-        units: sources,
+    return new InstrumentationContext(
+        factory,
+        sources,
         assertionMode,
-        utilsContract: utilsContract,
-        addAssert: true,
-        callgraph: getCallGraph(sources),
-        cha: getCHA(sources),
-        funsToChangeMutability: new Set(),
-        filterOptions: {},
-        annotations: [],
-        wrapperMap: new Map(),
+        true,
+        utilsContract,
+        getCallGraph(sources),
+        getCHA(sources),
+        new Set(),
+        {},
+        [],
+        new Map(),
         files,
         compilerVersion,
-        debugEvents: false,
-        debugEventDefs: new Map()
-    };
+        false,
+        new Map()
+    );
 }
 
 function print(units: SourceUnit[], contents: string[], version: string): Map<SourceUnit, string> {

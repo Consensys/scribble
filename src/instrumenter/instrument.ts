@@ -70,12 +70,11 @@ import { parse as parseType } from "../spec-lang/type_parser";
 import { UIDGenerator } from "../uid_generator";
 import { assert, isChangingState, isExternallyVisible, single } from "../util";
 import { Annotation } from "./annotations";
-import { CallGraph, FunSet } from "./callgraph";
-import { CHA } from "./cha";
 import { walk } from "../spec-lang/walk";
 import { interpose, interposeCall } from "./interpose";
 import { generateExprAST, generateTypeAst } from "./transpile";
 import { dirname, relative } from "path";
+import { InstrumentationContext } from "./instrumentation_context";
 
 export type SBinding = [string | string[], SType, SNode, boolean];
 export type SBindings = SBinding[];
@@ -84,24 +83,6 @@ export type AnnotationFilterOptions = {
     type?: string;
     message?: string;
 };
-
-export interface InstrumentationContext {
-    factory: ASTNodeFactory;
-    units: SourceUnit[];
-    assertionMode: "log" | "mstore";
-    addAssert: boolean;
-    utilsContract: ContractDefinition;
-    callgraph: CallGraph;
-    cha: CHA<ContractDefinition>;
-    funsToChangeMutability: FunSet;
-    filterOptions: AnnotationFilterOptions;
-    annotations: Annotation[];
-    wrapperMap: Map<FunctionDefinition, FunctionDefinition>;
-    files: Map<string, string>;
-    compilerVersion: string;
-    debugEvents: boolean;
-    debugEventDefs: Map<number, EventDefinition>;
-}
 
 export interface InstrumentationResult {
     struct: StructDefinition;

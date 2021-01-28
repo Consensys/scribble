@@ -37,9 +37,9 @@ import {
     AnnotationFilterOptions,
     ContractInstrumenter,
     FunctionInstrumenter,
-    generateUtilsContract,
-    InstrumentationContext
+    generateUtilsContract
 } from "../instrumenter/instrument";
+import { InstrumentationContext } from "../instrumenter/instrumentation_context";
 import { merge } from "../rewriter/merge";
 import { isSane } from "../rewriter/sanity";
 import { Location, Range, SBoolType, SType } from "../spec-lang/ast";
@@ -957,23 +957,23 @@ if ("version" in options) {
         }
         /**
          * Next try to instrument the merged SourceUnits.         */
-        const instrCtx: InstrumentationContext = {
+        const instrCtx = new InstrumentationContext(
             factory,
-            units: mergedUnits,
+            mergedUnits,
             assertionMode,
-            utilsContract: single(utilsUnit.vContracts),
             addAssert,
-            callgraph: callgraph,
-            cha: cha,
-            funsToChangeMutability: new Set<FunctionDefinition>(),
+            single(utilsUnit.vContracts),
+            callgraph,
+            cha,
+            new Set<FunctionDefinition>(),
             filterOptions,
-            annotations: [],
-            wrapperMap: new Map(),
-            files: contentsMap,
-            compilerVersion: compilerVersionUsed,
+            [],
+            new Map(),
+            contentsMap,
+            compilerVersionUsed,
             debugEvents,
-            debugEventDefs: new Map()
-        };
+            new Map()
+        );
 
         const [allUnits, changedUnits] = instrumentFiles(
             instrCtx,

@@ -43,7 +43,8 @@ import { SAddressType, SFunctionType, SPointer, SType } from "../spec-lang/ast";
 import { parse as parseType } from "../spec-lang/type_parser";
 import { assert, getScopeFun, isChangingState, single } from "../util";
 import { FunSet } from "./callgraph";
-import { changesMutability, InstrumentationContext } from "./instrument";
+import { changesMutability } from "./instrument";
+import { InstrumentationContext } from "./instrumentation_context";
 import { generateTypeAst } from "./transpile";
 
 const semver = require("semver");
