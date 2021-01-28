@@ -180,7 +180,11 @@ export function interpose(
 
     const recipe: Recipe = [
         new InsertFunctionBefore(factory, fun, stub),
-        new Rename(factory, fun, `_original_${fun.vScope.name}_${name}`)
+        new Rename(
+            factory,
+            fun,
+            ctx.nameGenerator.getFresh(`_original_${fun.vScope.name}_${name}`, true)
+        )
     ];
 
     if (!isChangingState(stub) && changesMutability(ctx)) {

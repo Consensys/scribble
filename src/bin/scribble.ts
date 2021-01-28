@@ -53,14 +53,7 @@ import {
     tc,
     TypeMap
 } from "../spec-lang/tc";
-import {
-    assert,
-    getOrInit,
-    getScopeUnit,
-    isChangingState,
-    isExternallyVisible,
-    single
-} from "../util";
+import { assert, getOrInit, getScopeUnit, isChangingState, isExternallyVisible } from "../util";
 import cli from "./scribble_cli.json";
 
 const commandLineArgs = require("command-line-args");

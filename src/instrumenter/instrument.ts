@@ -1004,10 +1004,6 @@ function isPublic(fn: FunctionDefinition): boolean {
     return [FunctionVisibility.Default, FunctionVisibility.Public].includes(fn.visibility);
 }
 
-function getInternalCheckInvsFun(contract: ContractDefinition): string {
-    return `__scribble_${contract.name}_check_state_invariants_internal`;
-}
-
 export class ContractInstrumenter {
     /**
      * Instrument the contract  `contract` with checks for the contract-level invariants in `annotations`.
@@ -1090,7 +1086,7 @@ export class ContractInstrumenter {
         const checker = factory.makeFunctionDefinition(
             contract.id,
             FunctionKind.Function,
-            getInternalCheckInvsFun(contract),
+            ctx.getInternalInvariantCheckerName(contract),
             false,
             FunctionVisibility.Internal,
             mut,
@@ -1222,7 +1218,11 @@ export class ContractInstrumenter {
             const callExpr =
                 base === contract
                     ? factory.makeIdentifierFor(internalInvChecker)
-                    : factory.makeIdentifier("<missing>", getInternalCheckInvsFun(base), -1);
+                    : factory.makeIdentifier(
+                          "<missing>",
+                          ctx.getInternalInvariantCheckerName(base),
+                          -1
+                      );
 
             const callInternalCheckInvs = factory.makeExpressionStatement(
                 factory.makeFunctionCall("<missing>", FunctionCallKind.FunctionCall, callExpr, [])

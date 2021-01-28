@@ -65,6 +65,7 @@ export class InstrumentationContext {
     public readonly checkStateInvsFuncName: string;
     public readonly outOfContractFlagName: string;
     public readonly utilsContractName: string;
+    private internalInvariantCheckers: Map<ContractDefinition, string> = new Map();
 
     /**
      * Bit of a hack - this is set by `generateUtilsContract`. We need an
@@ -100,5 +101,19 @@ export class InstrumentationContext {
             true
         );
         this.utilsContractName = this.nameGenerator.getFresh("__scribble_ReentrancyUtils", true);
+    }
+
+    getInternalInvariantCheckerName(contract: ContractDefinition): string {
+        if (!this.internalInvariantCheckers.has(contract)) {
+            this.internalInvariantCheckers.set(
+                contract,
+                this.nameGenerator.getFresh(
+                    `__scribble_${contract.name}_check_state_invariants_internal`,
+                    true
+                )
+            );
+        }
+
+        return this.internalInvariantCheckers.get(contract) as string;
     }
 }
