@@ -26,7 +26,10 @@ abstract contract __scribble_ReentrancyUtils {
         assert(false);
     }
 
-    /// if_succeeds {:msg "P0"} y == _v+1;
+    /// if_succeeds {:msg "P0"} let foo := y in 
+    ///         let  __mstore_scratch__ := foo in
+    ///             let __scribble_check_invs_at_end := __mstore_scratch__ in
+    ///                 __scribble_check_invs_at_end == _v+1;
     function foo(uint256 _v) virtual public returns (uint256 y);
 
     function _original_Foo_foo(uint256 _v) private returns (uint256 y) {

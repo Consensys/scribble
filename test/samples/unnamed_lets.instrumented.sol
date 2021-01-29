@@ -4,6 +4,7 @@ contract Foo {
     event AssertionFailed(string message);
 
     struct vars0 {
+        uint256 dummy_;
         uint256 x;
         bool let_0;
     }
@@ -15,7 +16,7 @@ contract Foo {
     function foo(uint v) public {
         vars0 memory _v;
         _original_Foo_foo(v);
-        (, _v.x) = snd(v);
+        (_v.dummy_, _v.x) = snd(v);
         _v.let_0 = (_v.x == 2);
         if ((!(_v.let_0))) {
             emit AssertionFailed("0: P0");

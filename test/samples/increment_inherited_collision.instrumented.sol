@@ -49,7 +49,10 @@ abstract contract __scribble_ReentrancyUtils is __scribble_ReentrancyUtils1 {
         assert(false);
     }
 
-    /// if_succeeds {:msg "P0"} y == _v+1;
+    /// if_succeeds {:msg "P0"} let foo := y in 
+    ///          let  __mstore_scratch__ := foo in
+    ///              let __scribble_check_invs_at_end := __mstore_scratch__ in
+    ///                  __scribble_check_invs_at_end == _v+1;
     function foo(uint256 _v) virtual public returns (uint256 y);
 
     function _original_Foo_foo(uint256 _v) private returns (uint256 y) {
@@ -76,6 +79,12 @@ contract Foo is __scribble_ReentrancyUtils1, __scribble_ReentrancyUtils {
     event AssertionFailed(string message);
 
     struct vars7 {
+        uint256 foo1;
+        uint256 __mstore_scratch__1;
+        uint256 __scribble_check_invs_at_end1;
+        bool let_0;
+        bool let_1;
+        bool let_2;
         bool __scribble_check_invs_at_end;
     }
 
@@ -86,7 +95,13 @@ contract Foo is __scribble_ReentrancyUtils1, __scribble_ReentrancyUtils {
         _v1.__scribble_check_invs_at_end = __scribble_out_of_contract1;
         __scribble_out_of_contract1 = false;
         y = _original_Foo_foo1(_v);
-        if ((!((y == (_v + 1))))) {
+        _v1.foo1 = y;
+        _v1.__mstore_scratch__1 = _v1.foo1;
+        _v1.__scribble_check_invs_at_end1 = _v1.__mstore_scratch__1;
+        _v1.let_0 = (_v1.__scribble_check_invs_at_end1 == (_v + 1));
+        _v1.let_1 = _v1.let_0;
+        _v1.let_2 = _v1.let_1;
+        if ((!(_v1.let_2))) {
             emit AssertionFailed("1: P0");
             assert(false);
         }
