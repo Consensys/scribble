@@ -51,7 +51,11 @@ describe("Property map test", () => {
      * strings. So we need to skip any files with multiline invariants, or
      * invariants with a semicolon in string literals.
      */
-    const skip = ["increment_multiline.sol", "semicolon_in_string.sol"];
+    const skip = [
+        "increment_multiline.sol",
+        "semicolon_in_string.sol",
+        "increment_inherited_collision.sol"
+    ];
     const samples = searchRecursive(samplesDir, /(?<=\.instrumented)\.sol$/)
         .map((fileName) => fileName.replace(".instrumented.sol", ".sol"))
         .filter((x) => {

@@ -37,9 +37,9 @@ import {
     AnnotationFilterOptions,
     ContractInstrumenter,
     FunctionInstrumenter,
-    generateUtilsContract,
-    InstrumentationContext
+    generateUtilsContract
 } from "../instrumenter/instrument";
+import { InstrumentationContext } from "../instrumenter/instrumentation_context";
 import { merge } from "../rewriter/merge";
 import { isSane } from "../rewriter/sanity";
 import { Location, Range, SBoolType, SType } from "../spec-lang/ast";
@@ -53,14 +53,7 @@ import {
     tc,
     TypeMap
 } from "../spec-lang/tc";
-import {
-    assert,
-    getOrInit,
-    getScopeUnit,
-    isChangingState,
-    isExternallyVisible,
-    single
-} from "../util";
+import { assert, getOrInit, getScopeUnit, isChangingState, isExternallyVisible } from "../util";
 import cli from "./scribble_cli.json";
 
 const commandLineArgs = require("command-line-args");
@@ -669,7 +662,8 @@ function writeOut(contents: string, fileName: string) {
 function makeUtilsUnit(
     utilsOutputDir: string,
     factory: ASTNodeFactory,
-    version: string
+    version: string,
+    ctx: InstrumentationContext
 ): SourceUnit {
     let utilsPath = "__scribble_ReentrancyUtils.sol";
     let utilsAbsPath = "__scribble_ReentrancyUtils.sol";
@@ -683,7 +677,7 @@ function makeUtilsUnit(
         );
     }
 
-    return generateUtilsContract(factory, utilsPath, utilsAbsPath, version);
+    return generateUtilsContract(factory, utilsPath, utilsAbsPath, version, ctx);
 }
 
 function copy(from: string, to: string, options: any): void {
@@ -947,7 +941,6 @@ if ("version" in options) {
         const compilerVersionUsed = pickVersion(compilerVersionUsedMap);
 
         const factory = new ASTNodeFactory(mergedCtx);
-        const utilsUnit = makeUtilsUnit(utilsOutputDir, factory, compilerVersionUsed);
 
         if (outputMode === "flat" || outputMode === "json") {
             // In flat/json mode fix-up any naming issues due to 'import {a as
@@ -956,24 +949,26 @@ if ("version" in options) {
             fixRenamingErrors(mergedUnits);
         }
         /**
-         * Next try to instrument the merged SourceUnits.         */
-        const instrCtx: InstrumentationContext = {
+         * Next try to instrument the merged SourceUnits.
+         */
+        const instrCtx = new InstrumentationContext(
             factory,
-            units: mergedUnits,
+            mergedUnits,
             assertionMode,
-            utilsContract: single(utilsUnit.vContracts),
             addAssert,
-            callgraph: callgraph,
-            cha: cha,
-            funsToChangeMutability: new Set<FunctionDefinition>(),
+            callgraph,
+            cha,
+            new Set<FunctionDefinition>(),
             filterOptions,
-            annotations: [],
-            wrapperMap: new Map(),
-            files: contentsMap,
-            compilerVersion: compilerVersionUsed,
+            [],
+            new Map(),
+            contentsMap,
+            compilerVersionUsed,
             debugEvents,
-            debugEventDefs: new Map()
-        };
+            new Map()
+        );
+
+        const utilsUnit = makeUtilsUnit(utilsOutputDir, factory, compilerVersionUsed, instrCtx);
 
         const [allUnits, changedUnits] = instrumentFiles(
             instrCtx,

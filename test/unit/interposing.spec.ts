@@ -12,14 +12,14 @@ import {
     findExternalCalls,
     generateUtilsContract,
     interpose,
-    interposeCall,
-    InstrumentationContext
+    interposeCall
 } from "../../src/instrumenter";
 import { cook } from "../../src/rewriter";
 import { single } from "../../src/util";
 import { findContract, findFunction, toAst } from "../integration/utils";
 import { getCallGraph } from "../../src/instrumenter/callgraph";
 import { getCHA } from "../../src/instrumenter/cha";
+import { InstrumentationContext } from "../../src/instrumenter/instrumentation_context";
 
 export type LocationDesc = [string, string];
 
@@ -30,27 +30,25 @@ function makeInstrumentationCtx(
     assertionMode: "log" | "mstore",
     compilerVersion: string
 ): InstrumentationContext {
-    const utilsContract = single(
-        generateUtilsContract(factory, "", "scribble_utils.sol", compilerVersion).vContracts
-    );
-
-    return {
-        factory: factory,
-        units: sources,
+    const ctx = new InstrumentationContext(
+        factory,
+        sources,
         assertionMode,
-        utilsContract: utilsContract,
-        addAssert: true,
-        callgraph: getCallGraph(sources),
-        cha: getCHA(sources),
-        funsToChangeMutability: new Set(),
-        filterOptions: {},
-        annotations: [],
-        wrapperMap: new Map(),
+        true,
+        getCallGraph(sources),
+        getCHA(sources),
+        new Set(),
+        {},
+        [],
+        new Map(),
         files,
         compilerVersion,
-        debugEvents: false,
-        debugEventDefs: new Map()
-    };
+        false,
+        new Map()
+    );
+
+    generateUtilsContract(factory, "", "scribble_utils.sol", compilerVersion, ctx).vContracts;
+    return ctx;
 }
 
 function print(units: SourceUnit[], contents: string[], version: string): Map<SourceUnit, string> {
@@ -381,7 +379,7 @@ contract Foo {
 import "./scribble_utils.sol";
 
 contract Foo is __scribble_ReentrancyUtils {
-    struct vars1 {
+    struct vars0 {
         uint256 __mstore_scratch__;
     }
 
@@ -401,7 +399,7 @@ contract Foo is __scribble_ReentrancyUtils {
 
     /// Check only the current contract's state invariants
     function __scribble_Foo_check_state_invariants_internal() internal view {
-        vars1 memory _v;
+        vars0 memory _v;
     }
 
     /// Check the state invariant for the current contract and all its bases

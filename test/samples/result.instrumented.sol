@@ -4,13 +4,13 @@ contract Foo {
     event AssertionFailed(string message);
 
     struct vars1 {
-        uint256 t;
+        uint256 t1;
         bool let_0;
     }
 
     struct vars2 {
-        uint256 a;
-        uint256 b;
+        uint256 a1;
+        uint256 b1;
         bool let_1;
     }
 
@@ -29,8 +29,8 @@ contract Foo {
     function b() public returns (uint x) {
         vars1 memory _v;
         x = _original_Foo_b();
-        _v.t = x;
-        _v.let_0 = (_v.t == x);
+        _v.t1 = x;
+        _v.let_0 = (_v.t1 == x);
         if ((!((x == x)))) {
             emit AssertionFailed("1: ");
             assert(false);
@@ -48,9 +48,9 @@ contract Foo {
     function d() public returns (uint RET_0, uint t) {
         vars2 memory _v;
         (RET_0, t) = _original_Foo_d();
-        _v.a = RET_0;
-        _v.b = t;
-        _v.let_1 = (((_v.a == 1) && (_v.b == 2)) && (t == _v.b));
+        _v.a1 = RET_0;
+        _v.b1 = t;
+        _v.let_1 = (((_v.a1 == 1) && (_v.b1 == 2)) && (t == _v.b1));
         if ((!(_v.let_1))) {
             emit AssertionFailed("3: ");
             assert(false);
