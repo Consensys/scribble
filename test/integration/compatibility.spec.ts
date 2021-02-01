@@ -2,7 +2,6 @@ import {
     ContractDefinition,
     FunctionDefinition,
     FunctionVisibility,
-    ParameterList,
     SourceUnit,
     StateVariableVisibility,
     VariableDeclaration
@@ -31,29 +30,6 @@ function compareVars(a: VariableDeclaration, b: VariableDeclaration, ignoreNames
         a.stateVariable === b.stateVariable &&
         a.visibility === b.visibility &&
         a.storageLocation === b.storageLocation
-    );
-}
-
-function compareParams(a: ParameterList, b: ParameterList, ignoreNames = false): boolean {
-    if (a.vParameters.length !== b.vParameters.length) {
-        return false;
-    }
-
-    for (let i = 0; i < a.vParameters.length; i++) {
-        if (!compareVars(a.vParameters[i], b.vParameters[i], ignoreNames)) {
-            return false;
-        }
-    }
-
-    return true;
-}
-
-function compareFns(a: FunctionDefinition, b: FunctionDefinition): boolean {
-    return (
-        a.name === b.name &&
-        a.canonicalSignatureHash === b.canonicalSignatureHash &&
-        compareParams(a.vParameters, b.vParameters) &&
-        compareParams(a.vReturnParameters, b.vReturnParameters, true)
     );
 }
 
@@ -94,7 +70,8 @@ function findCorrespondigFn(
         if (
             member instanceof FunctionDefinition &&
             fn.name === member.name &&
-            fn.kind === member.kind
+            fn.kind === member.kind &&
+            fn.canonicalSignature === member.canonicalSignature
         ) {
             return member;
         }
@@ -141,14 +118,6 @@ function checkCompatibility(a: ContractDefinition, b: ContractDefinition) {
             if (memberB === undefined) {
                 throw new Error(
                     `Unable to find corresponding definition "${a.name}.${memberA.name}" (${memberA.kind}) in instrumented version`
-                );
-            }
-
-            if (!compareFns(memberA, memberB)) {
-                throw new Error(
-                    `Function definition "${a.name}.${
-                        memberA.name
-                    }" is not compatible instrumented member.\nSample: ${memberA.print()}\nResult: ${memberB.print()}`
                 );
             }
         } else {

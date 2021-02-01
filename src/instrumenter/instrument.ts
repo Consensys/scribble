@@ -67,15 +67,14 @@ import {
 } from "../spec-lang/ast";
 import { TypeMap, SemMap } from "../spec-lang/tc";
 import { parse as parseType } from "../spec-lang/type_parser";
-import { UIDGenerator } from "../uid_generator";
 import { assert, isChangingState, isExternallyVisible, single } from "../util";
 import { Annotation } from "./annotations";
-import { CallGraph, FunSet } from "./callgraph";
-import { CHA } from "./cha";
 import { walk } from "../spec-lang/walk";
 import { interpose, interposeCall } from "./interpose";
 import { generateExprAST, generateTypeAst } from "./transpile";
 import { dirname, relative } from "path";
+import { InstrumentationContext } from "./instrumentation_context";
+import { TranspilingContext } from "./transpiling_context";
 
 export type SBinding = [string | string[], SType, SNode, boolean];
 export type SBindings = SBinding[];
@@ -84,24 +83,6 @@ export type AnnotationFilterOptions = {
     type?: string;
     message?: string;
 };
-
-export interface InstrumentationContext {
-    factory: ASTNodeFactory;
-    units: SourceUnit[];
-    assertionMode: "log" | "mstore";
-    addAssert: boolean;
-    utilsContract: ContractDefinition;
-    callgraph: CallGraph;
-    cha: CHA<ContractDefinition>;
-    funsToChangeMutability: FunSet;
-    filterOptions: AnnotationFilterOptions;
-    annotations: Annotation[];
-    wrapperMap: Map<FunctionDefinition, FunctionDefinition>;
-    files: Map<string, string>;
-    compilerVersion: string;
-    debugEvents: boolean;
-    debugEventDefs: Map<number, EventDefinition>;
-}
 
 export interface InstrumentationResult {
     struct: StructDefinition;
@@ -117,15 +98,6 @@ export interface InstrumentationResult {
 export function changesMutability(ctx: InstrumentationContext): boolean {
     return ctx.assertionMode === "log";
 }
-
-const uid = new UIDGenerator();
-const SCRIBBLE_VAR = "_v";
-const MSTORE_SCRATCH_FIELD = "__mstore_scratch__";
-const DUMMY_PREFIX = "dummy_";
-const REENTRANCY_UTILS_CONTRACT = "__scribble_ReentrancyUtils";
-const CHECK_STATE_INVS_FUN = "__scribble_check_state_invariants";
-const OUT_OF_CONTRACT = "__scribble_out_of_contract";
-const CHECK_INVS_AT_END = "__scribble_check_invs_at_end";
 
 export function findExternalCalls(node: ContractDefinition | FunctionDefinition): FunctionCall[] {
     const res: FunctionCall[] = [];
@@ -165,14 +137,15 @@ export function generateUtilsContract(
     factory: ASTNodeFactory,
     sourceEntryKey: string,
     path: string,
-    version: string
+    version: string,
+    ctx: InstrumentationContext
 ): SourceUnit {
     const exportedSymbols = new Map();
     const sourceUnit = factory.makeSourceUnit(sourceEntryKey, -1, path, exportedSymbols);
     sourceUnit.appendChild(factory.makePragmaDirective(["solidity", version]));
 
     const contract = factory.makeContractDefinition(
-        REENTRANCY_UTILS_CONTRACT,
+        ctx.utilsContractName,
         sourceUnit.id,
         ContractKind.Contract,
         false,
@@ -183,10 +156,10 @@ export function generateUtilsContract(
 
     sourceUnit.appendChild(contract);
 
-    const counter = factory.makeVariableDeclaration(
+    const flag = factory.makeVariableDeclaration(
         false,
         false,
-        OUT_OF_CONTRACT,
+        ctx.outOfContractFlagName,
         contract.id,
         true,
         DataLocation.Default,
@@ -199,7 +172,9 @@ export function generateUtilsContract(
         factory.makeLiteral("bool", LiteralKind.Bool, "", "true")
     );
 
-    contract.appendChild(counter);
+    contract.appendChild(flag);
+
+    ctx.utilsContract = contract;
 
     return sourceUnit;
 }
@@ -267,13 +242,7 @@ function registerNode(newN: SNode, oldN: SNode, typing: TypeMap): SNode {
  * @param expr - specification expression
  * @param typing - type map including typings for all subexpressions in `expr`
  */
-export function flattenExpr(
-    expr: SNode,
-    typing: TypeMap,
-    semInfo: SemMap,
-    target: FunctionDefinition,
-    varStruct: VariableDeclaration
-): [SNode, SBindings] {
+export function flattenExpr(expr: SNode, ctx: TranspilingContext): [SNode, SBindings] {
     /**
      * Register the new flattened node `newN`, which corresponds to an old unflattened node `oldN` in the typing map.
      * If `oldN` has a type in `typing` assign the same type to `newN`.
@@ -282,21 +251,22 @@ export function flattenExpr(
      * @param oldN {SNode} - corresponding old node
      */
     const _registerNode = (newN: SNode, oldN: SNode): SNode => {
-        return registerNode(newN, oldN, typing);
+        return registerNode(newN, oldN, ctx.typing);
     };
 
     const getTmpVar = (name: string, oldN: SNode, src?: Range) => {
-        const id = new SId(SCRIBBLE_VAR);
+        const id = new SId(ctx.bindingsVar.name);
 
-        id.defSite = varStruct;
+        id.defSite = ctx.bindingsVar;
 
         return _registerNode(new SMemberAccess(id, name, src), oldN);
     };
 
     if (expr instanceof SId) {
-        // Case when the id is a let variable part of a function tuple return (e.g. `x` in `let x, y:= foo() in x`)
+        // Case when the id is a let variable (e.g. `x` in `let x := 1 in x` or `y` in `let y, z := foo() in y+z`)
         if (expr.defSite instanceof Array) {
-            return [getTmpVar(expr.name, expr, expr.src), []];
+            const field = ctx.getLetBinding(expr.defSite);
+            return [getTmpVar(field, expr, expr.src), []];
         }
 
         return [expr, []];
@@ -314,14 +284,8 @@ export function flattenExpr(
     }
 
     if (expr instanceof SIndexAccess) {
-        const [flatBase, baseBindings] = flattenExpr(expr.base, typing, semInfo, target, varStruct);
-        const [flatIndex, indexBindings] = flattenExpr(
-            expr.index,
-            typing,
-            semInfo,
-            target,
-            varStruct
-        );
+        const [flatBase, baseBindings] = flattenExpr(expr.base, ctx);
+        const [flatIndex, indexBindings] = flattenExpr(expr.index, ctx);
 
         return [
             _registerNode(new SIndexAccess(flatBase, flatIndex, expr.src), expr),
@@ -330,24 +294,18 @@ export function flattenExpr(
     }
 
     if (expr instanceof SMemberAccess) {
-        const [flatBase, baseBindings] = flattenExpr(expr.base, typing, semInfo, target, varStruct);
+        const [flatBase, baseBindings] = flattenExpr(expr.base, ctx);
         const flattenedExpr = new SMemberAccess(flatBase, expr.member, expr.src);
 
         return [_registerNode(flattenedExpr, expr), baseBindings];
     }
 
     if (expr instanceof SUnaryOperation) {
-        const [flatSubexp, subexpBindings] = flattenExpr(
-            expr.subexp,
-            typing,
-            semInfo,
-            target,
-            varStruct
-        );
+        const [flatSubexp, subexpBindings] = flattenExpr(expr.subexp, ctx);
 
         if (expr.op === "old") {
-            const tmpName = uid.get("old_");
-            const tmpType = typing.get(expr) as SType;
+            const tmpName = ctx.getOldVar(expr);
+            const tmpType = ctx.typing.get(expr) as SType;
 
             subexpBindings.push([tmpName, tmpType, flatSubexp, true]);
 
@@ -361,14 +319,8 @@ export function flattenExpr(
     }
 
     if (expr instanceof SBinaryOperation) {
-        const [flatLeft, leftBindings] = flattenExpr(expr.left, typing, semInfo, target, varStruct);
-        const [flatRight, rightBindings] = flattenExpr(
-            expr.right,
-            typing,
-            semInfo,
-            target,
-            varStruct
-        );
+        const [flatLeft, leftBindings] = flattenExpr(expr.left, ctx);
+        const [flatRight, rightBindings] = flattenExpr(expr.right, ctx);
 
         return [
             _registerNode(new SBinaryOperation(flatLeft, expr.op, flatRight, expr.src), expr),
@@ -377,27 +329,9 @@ export function flattenExpr(
     }
 
     if (expr instanceof SConditional) {
-        const [flatCond, condBindings] = flattenExpr(
-            expr.condition,
-            typing,
-            semInfo,
-            target,
-            varStruct
-        );
-        const [flatTrue, trueBindings] = flattenExpr(
-            expr.trueExp,
-            typing,
-            semInfo,
-            target,
-            varStruct
-        );
-        const [flatFalse, falseBindings] = flattenExpr(
-            expr.falseExp,
-            typing,
-            semInfo,
-            target,
-            varStruct
-        );
+        const [flatCond, condBindings] = flattenExpr(expr.condition, ctx);
+        const [flatTrue, trueBindings] = flattenExpr(expr.trueExp, ctx);
+        const [flatFalse, falseBindings] = flattenExpr(expr.falseExp, ctx);
 
         return [
             _registerNode(new SConditional(flatCond, flatTrue, flatFalse, expr.src), expr),
@@ -406,18 +340,12 @@ export function flattenExpr(
     }
 
     if (expr instanceof SFunctionCall) {
-        const [flatCallee, calleeBindings] = flattenExpr(
-            expr.callee,
-            typing,
-            semInfo,
-            target,
-            varStruct
-        );
+        const [flatCallee, calleeBindings] = flattenExpr(expr.callee, ctx);
         const flatArgs: SNode[] = [];
         const argBindings: SBindings[] = [];
 
         expr.args.forEach((arg: SNode) => {
-            const [flatArg, argBinding] = flattenExpr(arg, typing, semInfo, target, varStruct);
+            const [flatArg, argBinding] = flattenExpr(arg, ctx);
 
             flatArgs.push(flatArg);
 
@@ -431,9 +359,7 @@ export function flattenExpr(
     }
 
     if (expr instanceof SLet) {
-        const bindingName = (name: string) => (name === "_" ? uid.get(DUMMY_PREFIX) : name);
-
-        const rhsT = typing.get(expr.rhs) as SType;
+        const rhsT = ctx.typing.get(expr.rhs) as SType;
         // Hack to support old(fun()) where fun returns multiple types. Should be
         // removed when we get propper tuples support.
         let flatRHS: SNode;
@@ -444,35 +370,34 @@ export function flattenExpr(
             expr.rhs instanceof SUnaryOperation &&
             expr.rhs.op === "old"
         ) {
-            [flatRHS, rhsBindings] = flattenExpr(
-                expr.rhs.subexp,
-                typing,
-                semInfo,
-                target,
-                varStruct
-            );
+            [flatRHS, rhsBindings] = flattenExpr(expr.rhs.subexp, ctx);
         } else {
-            [flatRHS, rhsBindings] = flattenExpr(expr.rhs, typing, semInfo, target, varStruct);
+            [flatRHS, rhsBindings] = flattenExpr(expr.rhs, ctx);
         }
 
         let bindings: SBindings;
-        const rhsSemInfo = semInfo.get(expr.rhs);
+        const rhsSemInfo = ctx.semInfo.get(expr.rhs);
         assert(rhsSemInfo !== undefined, `Missing sem info for let rhs-expr in ${expr.pp()}`);
 
         if (rhsT instanceof STupleType) {
             if (flatRHS instanceof SResult) {
                 assert(
-                    expr.lhs.length === target.vReturnParameters.vParameters.length &&
+                    ctx.container instanceof FunctionDefinition,
+                    `$result only defined on function annotations.`
+                );
+
+                assert(
+                    expr.lhs.length === ctx.container.vReturnParameters.vParameters.length &&
                         expr.lhs.length === rhsT.elements.length,
                     `Internal error: mismatch between let lhs and righ-hand side $result`
                 );
 
                 bindings = [];
                 for (let i = 0; i < expr.lhs.length; i++) {
-                    const rhs = new SId(target.vReturnParameters.vParameters[i].name);
-                    rhs.defSite = target.vReturnParameters.vParameters[i];
+                    const rhs = new SId(ctx.container.vReturnParameters.vParameters[i].name);
+                    rhs.defSite = ctx.container.vReturnParameters.vParameters[i];
                     bindings.push([
-                        bindingName(expr.lhs[i].name),
+                        ctx.getLetBinding([expr, i]),
                         rhsT.elements[i],
                         rhs,
                         rhsSemInfo.isOld
@@ -480,20 +405,25 @@ export function flattenExpr(
                 }
             } else {
                 bindings = [
-                    [expr.lhs.map((id) => bindingName(id.name)), rhsT, flatRHS, rhsSemInfo.isOld]
+                    [
+                        expr.lhs.map((id, idx) => ctx.getLetBinding([expr, idx])),
+                        rhsT,
+                        flatRHS,
+                        rhsSemInfo.isOld
+                    ]
                 ];
             }
         } else {
-            bindings = [[bindingName(single(expr.lhs).name), rhsT, flatRHS, rhsSemInfo.isOld]];
+            bindings = [[ctx.getLetBinding([expr, 0]), rhsT, flatRHS, rhsSemInfo.isOld]];
         }
 
-        const [flatIn, inBindings] = flattenExpr(expr.in, typing, semInfo, target, varStruct);
+        const [flatIn, inBindings] = flattenExpr(expr.in, ctx);
 
         const letBindings = rhsBindings.concat(bindings).concat(inBindings);
-        const tmpName = uid.get("let_");
-        const tmpType = typing.get(expr) as SType;
+        const tmpName = ctx.getLetVar(expr);
+        const tmpType = ctx.typing.get(expr) as SType;
 
-        const inSemInfo = semInfo.get(expr.in);
+        const inSemInfo = ctx.semInfo.get(expr.in);
         assert(inSemInfo !== undefined, `Missing sem info for let in-expr in ${expr.pp()}`);
         letBindings.push([tmpName, tmpType, flatIn, inSemInfo.isOld]);
 
@@ -512,7 +442,7 @@ export function flattenExpr(
 }
 
 /**
- * Generate all the neccessary AST nodes to evaluate a given spec expression.
+ * Generate all the neccessary AST nodes to evaluate a given list of spec expressions.
  *
  * @param exprs - specification expression to evaluate
  * @param typing - type map
@@ -521,62 +451,29 @@ export function flattenExpr(
  */
 export function generateExpressions(
     annotations: Annotation[],
-    ctx: InstrumentationContext,
-    typing: TypeMap,
-    semInfo: SemMap,
-    contract: ContractDefinition,
-    fn: FunctionDefinition
+    transCtx: TranspilingContext
 ): InstrumentationResult {
     // Step 1: Define struct holding all the temporary variables neccessary
     const exprs = annotations.map((annot) => annot.expression);
-    const factory = ctx.factory;
-    const structName = uid.get("vars");
-    const canonicalStructName = `${contract.name}.${structName}`;
-    const struct = factory.makeStructDefinition(
-        structName,
-        canonicalStructName,
-        contract.id,
-        FunctionVisibility.Private,
-        []
-    );
+    const instrCtx = transCtx.instrCtx;
+    const factory = instrCtx.factory;
+    const fn = transCtx.container;
+    const contract = fn.vScope;
+    assert(contract instanceof ContractDefinition, `Instrumentation doesn't go in free functions`);
 
-    if (ctx.assertionMode === "mstore") {
-        const decl = factory.makeVariableDeclaration(
-            false,
-            false,
-            MSTORE_SCRATCH_FIELD,
-            struct.id,
-            false,
-            DataLocation.Default,
-            StateVariableVisibility.Default,
-            Mutability.Mutable,
-            "<missing>",
-            undefined,
+    if (instrCtx.assertionMode === "mstore") {
+        transCtx.addBinding(
+            transCtx.scratchField,
             factory.makeElementaryTypeName("<missing>", "uint256")
         );
-        struct.appendChild(decl);
     }
-
-    const structLocalVariable = factory.makeVariableDeclaration(
-        false,
-        false,
-        SCRIBBLE_VAR,
-        fn.id,
-        false,
-        DataLocation.Memory,
-        StateVariableVisibility.Default,
-        Mutability.Mutable,
-        "<missing>",
-        undefined,
-        factory.makeUserDefinedTypeName("<missing>", structName, struct.id)
-    );
 
     // Step 2: Flatten all predicates, turning let-bindings and old-keywords to temporary variables
     const flatExprs: SNode[] = [];
     const bindings: SBindings = [];
 
     for (const expr of exprs) {
-        const [flatExpr, oneBindings] = flattenExpr(expr, typing, semInfo, fn, structLocalVariable);
+        const [flatExpr, oneBindings] = flattenExpr(expr, transCtx);
 
         flatExprs.push(flatExpr);
 
@@ -586,21 +483,21 @@ export function generateExpressions(
     // Step 2.5: If `--debug-events` is specified compute the debug event for
     // every annotation.
     const debugEventsInfo: Array<[EventDefinition, EmitStatement] | undefined> = [];
-    if (ctx.debugEvents) {
+    if (instrCtx.debugEvents) {
         for (const annot of annotations) {
             const dbgVars: Array<SId | SMemberAccess> = [];
             // First create the actual expression corresponding to each variable
             // to be traced
-            for (const id of gatherDebugIds(annot.expression, typing)) {
-                const info = semInfo.get(id);
-                const idType = typing.get(id);
+            for (const id of gatherDebugIds(annot.expression, transCtx.typing)) {
+                const info = transCtx.semInfo.get(id);
+                const idType = transCtx.typing.get(id);
                 assert(
                     info !== undefined && idType !== undefined,
                     `Internal: No type or seminfo computed for ${id.pp()}`
                 );
 
-                const baseVar = new SId(structLocalVariable.name);
-                baseVar.defSite = structLocalVariable;
+                const baseVar = new SId(transCtx.bindingsVar.name);
+                baseVar.defSite = transCtx.bindingsVar;
 
                 if (info.isOld && id.defSite instanceof VariableDeclaration) {
                     const tmpName = `dbg_old_${id.name}`;
@@ -610,15 +507,16 @@ export function generateExpressions(
                         registerNode(
                             new SMemberAccess(baseVar, tmpName),
                             id,
-                            typing
+                            transCtx.typing
                         ) as SMemberAccess
                     );
                 } else if (id.defSite instanceof Array) {
+                    const letVarField = transCtx.getLetBinding(id);
                     dbgVars.push(
                         registerNode(
-                            new SMemberAccess(baseVar, id.name),
+                            new SMemberAccess(baseVar, letVarField),
                             id,
-                            typing
+                            transCtx.typing
                         ) as SMemberAccess
                     );
                 } else {
@@ -631,7 +529,7 @@ export function generateExpressions(
             } else {
                 // Next construct the parameters for the event
                 const evtParams = dbgVars.map((v) => {
-                    const vType = typing.get(v) as SType;
+                    const vType = transCtx.typing.get(v) as SType;
                     const type = generateTypeAst(vType, factory);
                     const name = v instanceof SId ? v.name : v.member;
                     const typeString = vType instanceof SPointer ? vType.to.pp() : vType.pp();
@@ -658,10 +556,10 @@ export function generateExpressions(
                     factory.makeParameterList(evtParams)
                 );
 
-                ctx.debugEventDefs.set(annot.id, evtDef);
+                instrCtx.debugEventDefs.set(annot.id, evtDef);
 
                 const evtArgs = dbgVars.map((v) =>
-                    generateExprAST(v, typing, factory, [contract, fn])
+                    generateExprAST(v, transCtx.typing, factory, [contract, fn])
                 );
 
                 // Finally construct the emit statement for the debug event.
@@ -694,34 +592,15 @@ export function generateExpressions(
     const memberDeclMap: Map<string, VariableDeclaration> = new Map();
 
     for (const [name, sType] of bindingMap) {
-        if (name.startsWith(DUMMY_PREFIX)) {
-            continue;
-        }
-
         const astType = generateTypeAst(sType, factory);
-        const decl = factory.makeVariableDeclaration(
-            false,
-            false,
-            name,
-            struct.id,
-            false,
-            DataLocation.Default,
-            StateVariableVisibility.Default,
-            Mutability.Mutable,
-            "<missing>",
-            undefined,
-            astType
-        );
-
-        struct.appendChild(decl);
-
+        const decl = transCtx.addBinding(name, astType);
         memberDeclMap.set(name, decl);
     }
 
     const getTmpVar = (name: string): MemberAccess =>
         factory.makeMemberAccess(
             "<missing>",
-            factory.makeIdentifierFor(structLocalVariable),
+            factory.makeIdentifierFor(transCtx.bindingsVar),
             name,
             (memberDeclMap.get(name) as VariableDeclaration).id
         );
@@ -734,20 +613,12 @@ export function generateExpressions(
         let lhs: Expression;
 
         if (typeof names === "string") {
-            if (names.startsWith(DUMMY_PREFIX)) {
-                continue;
-            }
-
             lhs = getTmpVar(names);
         } else {
-            lhs = factory.makeTupleExpression(
-                "<missing>",
-                false,
-                names.map((name) => (name.startsWith(DUMMY_PREFIX) ? null : getTmpVar(name)))
-            );
+            lhs = factory.makeTupleExpression("<missing>", false, names.map(getTmpVar));
         }
 
-        const rhs = generateExprAST(expr, typing, factory, [contract, fn]);
+        const rhs = generateExprAST(expr, transCtx.typing, factory, [contract, fn]);
         const assignment = factory.makeAssignment("<missing>", "=", lhs, rhs);
 
         (isOld ? oldAssignments : newAssignments).push(assignment);
@@ -755,12 +626,12 @@ export function generateExpressions(
 
     // Step 5: Build the assertion predicates
     const transpiledPredicates = flatExprs.map((flatExpr) =>
-        generateExprAST(flatExpr, typing, factory, [contract, fn])
+        generateExprAST(flatExpr, transCtx.typing, factory, [contract, fn])
     );
 
     return {
-        struct,
-        structLocalVariable,
+        struct: transCtx.bindingsStructDef,
+        structLocalVariable: transCtx.bindingsVar,
         oldAssignments,
         newAssignments,
         transpiledPredicates,
@@ -779,18 +650,19 @@ function getBitPattern(factory: ASTNodeFactory, id: number): Literal {
 }
 
 function emitAssert(
-    ctx: InstrumentationContext,
+    transCtx: TranspilingContext,
     expr: Expression,
     annotation: Annotation,
     event: EventDefinition,
     structLocalVar: VariableDeclaration,
     emitStmt?: EmitStatement
 ): Statement {
-    const factory = ctx.factory;
+    const instrCtx = transCtx.instrCtx;
+    const factory = instrCtx.factory;
     let userAssertFailed: Statement;
     let userAssertionHit: Statement | undefined;
 
-    if (ctx.assertionMode === "log") {
+    if (instrCtx.assertionMode === "log") {
         const strMessage = `${annotation.id}: ${annotation.message}`;
         const message = factory.makeLiteral("<missing>", LiteralKind.String, "", strMessage);
         userAssertFailed = factory.makeEmitStatement(
@@ -808,7 +680,7 @@ function emitAssert(
             factory.makeAssignment(
                 "<missing>",
                 "=",
-                factory.makeMemberAccess("<missing>", id, MSTORE_SCRATCH_FIELD, -1),
+                factory.makeMemberAccess("<missing>", id, transCtx.scratchField, -1),
                 failBitPattern
             )
         );
@@ -821,7 +693,7 @@ function emitAssert(
             factory.makeAssignment(
                 "<missing>",
                 "=",
-                factory.makeMemberAccess("<missing>", id, MSTORE_SCRATCH_FIELD, -1),
+                factory.makeMemberAccess("<missing>", id, transCtx.scratchField, -1),
                 successBitPattern
             )
         );
@@ -832,7 +704,7 @@ function emitAssert(
         ifBody.push(emitStmt);
     }
 
-    if (ctx.addAssert) {
+    if (instrCtx.addAssert) {
         ifBody.push(
             factory.makeExpressionStatement(
                 factory.makeFunctionCall(
@@ -899,7 +771,7 @@ export function getAssertionFailedEvent(
 }
 
 function insertInvChecks(
-    ctx: InstrumentationContext,
+    transCtx: TranspilingContext,
     invExprs: Expression[],
     annotations: Annotation[],
     contract: ContractDefinition,
@@ -907,7 +779,8 @@ function insertInvChecks(
     structLocalVar: VariableDeclaration,
     debugEventInfo: Array<[EventDefinition, EmitStatement] | undefined>
 ): Recipe {
-    const factory = ctx.factory;
+    const instrCtx = transCtx.instrCtx;
+    const factory = instrCtx.factory;
 
     const recipe: Recipe = [];
 
@@ -917,7 +790,14 @@ function insertInvChecks(
         const event = getAssertionFailedEvent(factory, contract);
         const dbgInfo = debugEventInfo[i];
         const emitStmt = dbgInfo !== undefined ? dbgInfo[1] : undefined;
-        const check = emitAssert(ctx, predicate, annotations[i], event, structLocalVar, emitStmt);
+        const check = emitAssert(
+            transCtx,
+            predicate,
+            annotations[i],
+            event,
+            structLocalVar,
+            emitStmt
+        );
 
         recipe.push(new InsertStatement(factory, check, "end", body));
     }
@@ -977,16 +857,15 @@ function insertVarsStruct(
     ];
 }
 
-function getCheckStateInvsFuncs(contract: ContractDefinition): FunctionDefinition {
-    return single(contract.vFunctions.filter((fn) => fn.name === CHECK_STATE_INVS_FUN));
+function getCheckStateInvsFuncs(
+    contract: ContractDefinition,
+    ctx: InstrumentationContext
+): FunctionDefinition {
+    return single(contract.vFunctions.filter((fn) => fn.name === ctx.checkStateInvsFuncName));
 }
 
 function isPublic(fn: FunctionDefinition): boolean {
     return [FunctionVisibility.Default, FunctionVisibility.Public].includes(fn.visibility);
-}
-
-function getInternalCheckInvsFun(contract: ContractDefinition): string {
-    return `__scribble_${contract.name}_check_state_invariants_internal`;
 }
 
 export class ContractInstrumenter {
@@ -1071,7 +950,7 @@ export class ContractInstrumenter {
         const checker = factory.makeFunctionDefinition(
             contract.id,
             FunctionKind.Function,
-            getInternalCheckInvsFun(contract),
+            ctx.getInternalInvariantCheckerName(contract),
             false,
             FunctionVisibility.Internal,
             mut,
@@ -1086,14 +965,9 @@ export class ContractInstrumenter {
             )
         );
 
-        const instrResult = generateExpressions(
-            annotations,
-            ctx,
-            typing,
-            semInfo,
-            contract,
-            checker
-        );
+        const transCtx = new TranspilingContext(typing, semInfo, checker, ctx);
+
+        const instrResult = generateExpressions(annotations, transCtx);
 
         assert(instrResult.oldAssignments.length === 0, ``);
 
@@ -1114,7 +988,7 @@ export class ContractInstrumenter {
         recipe.push(
             ...insertAssignments(factory, instrResult.newAssignments, body),
             ...insertInvChecks(
-                ctx,
+                transCtx,
                 instrResult.transpiledPredicates,
                 annotations,
                 contract,
@@ -1174,7 +1048,7 @@ export class ContractInstrumenter {
         const checker = factory.makeFunctionDefinition(
             contract.id,
             FunctionKind.Function,
-            CHECK_STATE_INVS_FUN,
+            ctx.checkStateInvsFuncName,
             true, // general invariant checker is always virtual
             FunctionVisibility.Internal,
             mut,
@@ -1203,7 +1077,11 @@ export class ContractInstrumenter {
             const callExpr =
                 base === contract
                     ? factory.makeIdentifierFor(internalInvChecker)
-                    : factory.makeIdentifier("<missing>", getInternalCheckInvsFun(base), -1);
+                    : factory.makeIdentifier(
+                          "<missing>",
+                          ctx.getInternalInvariantCheckerName(base),
+                          -1
+                      );
 
             const callInternalCheckInvs = factory.makeExpressionStatement(
                 factory.makeFunctionCall("<missing>", FunctionCallKind.FunctionCall, callExpr, [])
@@ -1263,7 +1141,7 @@ export class ContractInstrumenter {
                     factory.makeAssignment(
                         "<missing>",
                         "=",
-                        factory.makeIdentifier("bool", OUT_OF_CONTRACT, -1),
+                        factory.makeIdentifier("bool", ctx.outOfContractFlagName, -1),
                         factory.makeLiteral("bool", LiteralKind.Bool, "", "false")
                     )
                 ),
@@ -1289,7 +1167,7 @@ export class ContractInstrumenter {
                     factory.makeAssignment(
                         "<missing>",
                         "=",
-                        factory.makeIdentifier("bool", OUT_OF_CONTRACT, -1),
+                        factory.makeIdentifier("bool", ctx.outOfContractFlagName, -1),
                         factory.makeLiteral("bool", LiteralKind.Bool, "", "true")
                     )
                 ),
@@ -1365,7 +1243,7 @@ export class ContractInstrumenter {
                         factory.makeAssignment(
                             "<missing>",
                             "=",
-                            factory.makeIdentifier("bool", OUT_OF_CONTRACT, -1),
+                            factory.makeIdentifier("bool", ctx.outOfContractFlagName, -1),
                             factory.makeLiteral("bool", LiteralKind.Bool, "", "true")
                         )
                     )
@@ -1375,7 +1253,7 @@ export class ContractInstrumenter {
                         factory.makeAssignment(
                             "<missing>",
                             "=",
-                            factory.makeIdentifier("bool", OUT_OF_CONTRACT, -1),
+                            factory.makeIdentifier("bool", ctx.outOfContractFlagName, -1),
                             factory.makeLiteral("bool", LiteralKind.Bool, "", "false")
                         )
                     )
@@ -1416,7 +1294,9 @@ export class FunctionInstrumenter {
             `Expected stub block for ${stub.name} have a single statement (call to original function), not ${body.vStatements.length}`
         );
 
-        const instrResult = generateExpressions(annotations, ctx, typing, semInfo, contract, stub);
+        const transCtx = new TranspilingContext(typing, semInfo, stub, ctx);
+
+        const instrResult = generateExpressions(annotations, transCtx);
 
         const recipe: Recipe = [];
 
@@ -1442,14 +1322,16 @@ export class FunctionInstrumenter {
         }
 
         if (checkStateInvs) {
-            recipe.push(...this.insertEnterMarker(factory, instrResult, stub, originalCall));
+            recipe.push(
+                ...this.insertEnterMarker(factory, instrResult, stub, originalCall, transCtx)
+            );
         }
 
         recipe.push(
             ...insertAssignments(factory, instrResult.oldAssignments, body, originalCall),
             ...insertAssignments(factory, instrResult.newAssignments, body),
             ...insertInvChecks(
-                ctx,
+                transCtx,
                 instrResult.transpiledPredicates,
                 annotations,
                 contract,
@@ -1460,7 +1342,7 @@ export class FunctionInstrumenter {
         );
 
         if (checkStateInvs) {
-            recipe.push(...this.insertExitMarker(factory, instrResult, contract, stub));
+            recipe.push(...this.insertExitMarker(factory, instrResult, contract, stub, transCtx));
         }
 
         cook(recipe);
@@ -1470,9 +1352,11 @@ export class FunctionInstrumenter {
         factory: ASTNodeFactory,
         instrResult: InstrumentationResult,
         stub: FunctionDefinition,
-        originalCall: Statement
+        originalCall: Statement,
+        transCtx: TranspilingContext
     ): Recipe {
         const body = stub.vBody as Block;
+        const instrCtx = transCtx.instrCtx;
 
         const recipe: Recipe = [];
 
@@ -1481,27 +1365,16 @@ export class FunctionInstrumenter {
                 factory.makeAssignment(
                     "<missing>",
                     "=",
-                    factory.makeIdentifier("<missing>", OUT_OF_CONTRACT, -1),
+                    factory.makeIdentifier("<missing>", instrCtx.outOfContractFlagName, -1),
                     factory.makeLiteral("<missing>", LiteralKind.Bool, "", "false")
                 )
             );
 
             recipe.push(new InsertStatement(factory, enter, "before", body, originalCall));
         } else if (isPublic(stub)) {
-            instrResult.struct.appendChild(
-                factory.makeVariableDeclaration(
-                    false,
-                    false,
-                    CHECK_INVS_AT_END,
-                    instrResult.struct.id,
-                    false,
-                    DataLocation.Default,
-                    StateVariableVisibility.Default,
-                    Mutability.Mutable,
-                    "bool",
-                    undefined,
-                    factory.makeElementaryTypeName("<missing>", "bool")
-                )
+            transCtx.addBinding(
+                transCtx.checkInvsFlag,
+                factory.makeElementaryTypeName("<missing>", "bool")
             );
 
             const storeEntry = factory.makeExpressionStatement(
@@ -1511,10 +1384,10 @@ export class FunctionInstrumenter {
                     factory.makeMemberAccess(
                         "<missing>",
                         factory.makeIdentifierFor(instrResult.structLocalVariable),
-                        CHECK_INVS_AT_END,
+                        transCtx.checkInvsFlag,
                         -1
                     ),
-                    factory.makeIdentifier("<missing>", OUT_OF_CONTRACT, -1)
+                    factory.makeIdentifier("<missing>", instrCtx.outOfContractFlagName, -1)
                 )
             );
 
@@ -1524,7 +1397,7 @@ export class FunctionInstrumenter {
                 factory.makeAssignment(
                     "<missing>",
                     "=",
-                    factory.makeIdentifier("<missing>", OUT_OF_CONTRACT, -1),
+                    factory.makeIdentifier("<missing>", instrCtx.outOfContractFlagName, -1),
                     factory.makeLiteral("<missing>", LiteralKind.Bool, "", "false")
                 )
             );
@@ -1539,8 +1412,10 @@ export class FunctionInstrumenter {
         factory: ASTNodeFactory,
         instrResult: InstrumentationResult,
         contract: ContractDefinition,
-        stub: FunctionDefinition
+        stub: FunctionDefinition,
+        transCtx: TranspilingContext
     ): Recipe {
+        const instrCtx = transCtx.instrCtx;
         const body = stub.vBody as Block;
 
         const recipe: Recipe = [];
@@ -1549,7 +1424,7 @@ export class FunctionInstrumenter {
             factory.makeFunctionCall(
                 "<missing>",
                 FunctionCallKind.FunctionCall,
-                factory.makeIdentifierFor(getCheckStateInvsFuncs(contract)),
+                factory.makeIdentifierFor(getCheckStateInvsFuncs(contract, instrCtx)),
                 []
             )
         );
@@ -1559,7 +1434,7 @@ export class FunctionInstrumenter {
                 factory.makeMemberAccess(
                     "bool",
                     factory.makeIdentifierFor(instrResult.structLocalVariable),
-                    CHECK_INVS_AT_END,
+                    transCtx.checkInvsFlag,
                     -1
                 ),
                 checkInvsCall
@@ -1574,13 +1449,13 @@ export class FunctionInstrumenter {
             factory.makeAssignment(
                 "<missing>",
                 "=",
-                factory.makeIdentifier("<missing>", OUT_OF_CONTRACT, -1),
+                factory.makeIdentifier("<missing>", instrCtx.outOfContractFlagName, -1),
                 stub.visibility === FunctionVisibility.External
                     ? factory.makeLiteral("bool", LiteralKind.Bool, "", "true")
                     : factory.makeMemberAccess(
                           "bool",
                           factory.makeIdentifierFor(instrResult.structLocalVariable),
-                          CHECK_INVS_AT_END,
+                          transCtx.checkInvsFlag,
                           -1
                       )
             )
