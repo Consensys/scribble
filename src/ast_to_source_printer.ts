@@ -26,10 +26,11 @@ import { assert } from "./util/misc";
  * @param from - source unit from which `name` is being imported
  * @param sources - map from absolute paths to source codes
  */
-export function findImport(
+function findImport(
     name: string,
     from: SourceUnit,
-    sources: Map<string, string>
+    sources: Map<string, string>,
+    factory: ASTNodeFactory
 ): ExportedSymbol | undefined {
     if (from.vExportedSymbols.has(name)) {
         return from.vExportedSymbols.get(name);
@@ -37,26 +38,22 @@ export function findImport(
 
     // rewriteImports is idempotent. This is a little inefficient,
     // but shouldn't cause too much trouble atm.
-    rewriteImports(from, sources);
+    rewriteImports(from, sources, factory);
 
     // Check if `from` re-exports `name`
     for (const importDir of from.vImportDirectives) {
         if (importDir.vSymbolAliases.length === 0) {
-            const importee = findImport(name, importDir.vSourceUnit, sources);
+            const importee = findImport(name, importDir.vSourceUnit, sources, factory);
 
             if (importee !== undefined) {
                 return importee;
             }
         } else {
             for (const [origin, alias] of importDir.vSymbolAliases) {
-                if (origin instanceof ImportDirective) {
-                    /**
-                     * @todo Handle reexported import directives properly
-                     */
-                    continue;
-                }
+                const originName =
+                    origin instanceof ImportDirective ? origin.unitAlias : origin.name;
 
-                if ((alias !== undefined && alias === name) || origin.name === name) {
+                if ((alias !== undefined && alias === name) || originName === name) {
                     return origin;
                 }
             }
@@ -75,7 +72,11 @@ export function findImport(
  * @param sourceUnit - source unit for which to re-write the imports.
  * @param sources - map from absolute paths to source codes
  */
-export function rewriteImports(sourceUnit: SourceUnit, sources: Map<string, string>): void {
+export function rewriteImports(
+    sourceUnit: SourceUnit,
+    sources: Map<string, string>,
+    factory: ASTNodeFactory
+): void {
     for (const importDir of sourceUnit.vImportDirectives) {
         if (importDir.symbolAliases.length === 0) {
             continue;
@@ -95,24 +96,15 @@ export function rewriteImports(sourceUnit: SourceUnit, sources: Map<string, stri
 
         assert(importDesc.symbolAliases.length === importDir.symbolAliases.length, ``);
 
-        const factory = new ASTNodeFactory(sourceUnit.context);
-
         const newSymbolAliases: SymbolAlias[] = [];
 
         for (const symDesc of importDesc.symbolAliases) {
-            const sym = findImport(symDesc.name, importedUnit, sources);
+            const sym = findImport(symDesc.name, importedUnit, sources, factory);
 
             assert(
                 sym !== undefined,
                 `Sym ${symDesc.name} not found in exports of ${importedUnit.sourceEntryKey}`
             );
-
-            if (sym instanceof ImportDirective) {
-                /**
-                 * @todo Handle reexported import directives properly
-                 */
-                continue;
-            }
 
             const id = factory.makeIdentifierFor(sym);
 

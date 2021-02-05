@@ -5,16 +5,27 @@ import { scribble } from "./utils";
 import { join } from "path";
 
 describe("Multiple-file project instrumentation", () => {
-    const samples: Array<[string, string[]]> = [
-        ["test/multifile_samples/proj1", ["child1.sol", "child2.sol"]],
+    const samples: Array<[string, string[], string]> = [
+        ["test/multifile_samples/proj1", ["child1.sol", "child2.sol"], "0.6.11"],
         [
             "test/multifile_samples/import_rewrites",
-            ["main.sol", "imp1.sol", "imp2.sol", "imp3.sol"]
+            ["main.sol", "imp1.sol", "imp2.sol", "imp3.sol"],
+            "0.6.11"
         ],
-        ["test/multifile_samples/inheritance1", ["C.sol", "D.sol"]]
+        ["test/multifile_samples/inheritance1", ["C.sol", "D.sol"], "0.6.11"],
+        [
+            "test/multifile_samples/reexported_imports",
+            ["main.sol", "imp1.sol", "imp2.sol", "imp3.sol"],
+            "0.7.5"
+        ],
+        [
+            "test/multifile_samples/reexported_imports_05",
+            ["main.sol", "imp1.sol", "imp2.sol", "imp3.sol"],
+            "0.5.0"
+        ]
     ];
 
-    for (const [dirName, solFiles] of samples) {
+    for (const [dirName, solFiles, version] of samples) {
         describe(`Multi-file Sample ${dirName}`, () => {
             const solPaths: string[] = solFiles.map((name) => join(dirName, name));
             let expectedInstrumented: Map<string, string>;
@@ -39,7 +50,7 @@ describe("Multiple-file project instrumentation", () => {
             });
 
             it("Flat mode is correct", () => {
-                const actualFlat = scribble(solPaths, "-o", "--", "--compiler-version", "0.6.11");
+                const actualFlat = scribble(solPaths, "-o", "--", "--compiler-version", version);
                 expect(actualFlat).toEqual(expectedFlat);
             });
 
@@ -50,7 +61,7 @@ describe("Multiple-file project instrumentation", () => {
                     "files",
                     "--quiet",
                     "--compiler-version",
-                    "0.6.11"
+                    version
                 );
                 for (const [fileName, expectedContents] of expectedInstrumented) {
                     const atualInstr = fse.readFileSync(
@@ -69,7 +80,7 @@ describe("Multiple-file project instrumentation", () => {
                     "--output-mode",
                     "json",
                     "--compiler-version",
-                    "0.6.11"
+                    version
                 );
                 const actualJson = JSON.parse(actualJsonStr);
                 expect(actualJson.propertyMap).toEqual(expectedPropertyMap.propertyMap);
@@ -83,7 +94,7 @@ describe("Multiple-file project instrumentation", () => {
                     "--quiet",
                     "--arm",
                     "--compiler-version",
-                    "0.6.11"
+                    version
                 );
                 for (const [fileName, expectedContents] of expectedInstrumented) {
                     const atualInstr = fse.readFileSync(
@@ -109,7 +120,7 @@ describe("Multiple-file project instrumentation", () => {
                     "--quiet",
                     "--disarm",
                     "--compiler-version",
-                    "0.6.11"
+                    version
                 );
                 for (const [fileName, expectedContents] of expectedInstrumented) {
                     const instrFileName = fileName.replace(

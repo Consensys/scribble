@@ -108,7 +108,7 @@ Identifier =
     id:([a-zA-Z_][a-zA-Z0-9_]*) {return text(); }
 
 Symbol = 
-    name: (Identifier) alias: (__ AS __ Identifier)? { return { name, alias } as SymbolDesc }
+    name: (Identifier) alias: (__ AS __ Identifier)? { return { name, alias: alias[3] } as SymbolDesc }
 
 SymbolList =
     head: Symbol

@@ -19,6 +19,8 @@ import {
     FunctionDefinition,
     FunctionKind,
     Identifier,
+    ImportDirective,
+    MemberAccess,
     SourceUnit,
     StructDefinition,
     UserDefinedTypeName,
@@ -396,7 +398,12 @@ function getTypeScope(n: ASTNode): SourceUnit | ContractDefinition {
 }
 
 function getFQName(
-    def: ContractDefinition | FunctionDefinition | StructDefinition | EnumDefinition,
+    def:
+        | ContractDefinition
+        | FunctionDefinition
+        | StructDefinition
+        | EnumDefinition
+        | VariableDeclaration,
     atUseSite: ASTNode
 ): string {
     if (def instanceof ContractDefinition) {
@@ -404,6 +411,7 @@ function getFQName(
     }
 
     const scope = def.vScope;
+    assert(scope instanceof SourceUnit || scope instanceof ContractDefinition, ``);
 
     if (scope instanceof SourceUnit) {
         return def.name;
@@ -417,42 +425,155 @@ function getFQName(
 }
 
 /**
+ * Replace the node `oldNode` in the tree with `newNode`.
+ *
+ * If `p` is the parent of `oldNode`, this function needs to find a property
+ * `propName` of `p` such that `p[propName] === oldNode`. `ASTNode`s have both
+ * own properties and getters/setters, so this function first:
+ *
+ * 1. Iterates over the own properties of `p`
+ * 2. Walks the prototype chain of `p` iterating over all getters/setters
+ *
+ * Once found, it re-assigns `p[propName] = newNode` and sets
+ * `newNode.parent=p` using `acceptChildren`. Since `children` is a getter
+ * there is nothing further to do.
+ *
+ * @param oldNode - old node to replace
+ * @param newNode - new node with which we are replacing it
+ */
+function replaceNode(oldNode: ASTNode, newNode: ASTNode): void {
+    assert(oldNode.context === newNode.context, `Context mismatch`);
+    const parent = oldNode.parent;
+
+    if (!parent) return;
+
+    // First check if parent has an OWN property with the child
+    const ownProps = Object.getOwnPropertyDescriptors(parent);
+    for (const propName in ownProps) {
+        if (ownProps[propName].value === oldNode) {
+            const tmpObj: any = {};
+            tmpObj[propName] = newNode;
+
+            Object.assign(parent, tmpObj);
+            parent.acceptChildren();
+            return;
+        }
+    }
+
+    // If not, walk up the inheritance tree, looking for a getter/setter pair that matches
+    // this child
+    let proto = Object.getPrototypeOf(parent);
+
+    while (proto) {
+        for (const name of Object.getOwnPropertyNames(proto)) {
+            if (name === "__proto__") {
+                continue;
+            }
+
+            const descriptor = Object.getOwnPropertyDescriptor(proto, name);
+
+            if (
+                descriptor &&
+                typeof descriptor.get === "function" &&
+                typeof descriptor.set === "function"
+            ) {
+                const val = descriptor.get.call(parent);
+                if (val === oldNode) {
+                    descriptor.set.call(parent, newNode);
+                    parent.acceptChildren();
+                    return;
+                }
+            }
+        }
+
+        proto = Object.getPrototypeOf(proto);
+    }
+
+    assert(
+        false,
+        `Couldn't find child ${oldNode.type}#${oldNode.id} under parent ${parent.type}#${parent.id}`
+    );
+}
+
+/**
  * When flattening units, sometimes we can break Identifier/UserDefinedType names. There are
  * 2 general cases:
  *  - An Identifier/UserDefinedType referes to an `import {a as b} ...`
  *  - An Identifier/UserDefinedType refers to a top-level definition that was renamed to avoid a name conflict.
  * @param units - units to flatten
  */
-function fixRenamingErrors(units: SourceUnit[]): void {
+function fixRenamingErrors(units: SourceUnit[], factory: ASTNodeFactory): void {
     for (const unit of units) {
         for (const child of unit.getChildrenBySelector(
-            (node) => node instanceof Identifier || node instanceof UserDefinedTypeName
+            (node) =>
+                node instanceof Identifier ||
+                node instanceof UserDefinedTypeName ||
+                node instanceof MemberAccess
         )) {
-            const namedNode = child as Identifier | UserDefinedTypeName;
-            const def = namedNode.vReferencedDeclaration;
+            const refNode = child as Identifier | UserDefinedTypeName | MemberAccess;
+            const def = refNode.vReferencedDeclaration;
 
+            // Skip builtin identifiers
             if (
-                child instanceof Identifier &&
-                child.vIdentifierType !== ExternalReferenceType.UserDefined
+                refNode instanceof Identifier &&
+                refNode.vIdentifierType !== ExternalReferenceType.UserDefined
             ) {
                 continue;
             }
 
+            // Skip identifiers not refereing to material imports
             if (
                 !(
                     def instanceof ContractDefinition ||
                     def instanceof StructDefinition ||
                     def instanceof EnumDefinition ||
-                    def instanceof FunctionDefinition
+                    def instanceof FunctionDefinition ||
+                    def instanceof VariableDeclaration
                 )
             ) {
                 continue;
             }
 
-            const fqDefName = getFQName(def, namedNode);
+            // For VariableDeclarations we only care about file-level constants
+            // and state vars with fully-qualified names. All other
+            // VariableDeclarations cannot be broken by renaming.
+            // Cases where the base is a contract name are handled by identifier-renaming.
+            if (
+                def instanceof VariableDeclaration &&
+                !(
+                    (def.vScope instanceof SourceUnit ||
+                        def.vScope instanceof ContractDefinition) &&
+                    refNode instanceof MemberAccess
+                )
+            ) {
+                continue;
+            }
 
-            if (fqDefName !== namedNode.name) {
-                namedNode.name = fqDefName;
+            const fqDefName = getFQName(def, refNode);
+
+            // For member accesses we only care about member accesses where the base is a source unit
+            if (refNode instanceof MemberAccess) {
+                const baseExp = refNode.vExpression;
+
+                if (
+                    !(
+                        baseExp instanceof Identifier &&
+                        (baseExp.vReferencedDeclaration instanceof SourceUnit ||
+                            baseExp.vReferencedDeclaration instanceof ImportDirective)
+                    )
+                ) {
+                    continue;
+                }
+
+                // Replace the base member access with the right identifier
+                const newNode = factory.makeIdentifierFor(def);
+                replaceNode(refNode, newNode);
+
+                continue;
+            }
+
+            if (fqDefName !== refNode.name) {
+                refNode.name = fqDefName;
             }
         }
     }
@@ -946,7 +1067,7 @@ if ("version" in options) {
             // In flat/json mode fix-up any naming issues due to 'import {a as
             // b} from ...' and name collisions.
             fixNameConflicts(mergedUnits);
-            fixRenamingErrors(mergedUnits);
+            fixRenamingErrors(mergedUnits, factory);
         }
         /**
          * Next try to instrument the merged SourceUnits.
@@ -985,7 +1106,7 @@ if ("version" in options) {
         // Next we re-write the imports. We want to do this here, as the imports are need by the topo sort
         allUnits.forEach((sourceUnit) => {
             if (contentsMap.has(sourceUnit.absolutePath)) {
-                rewriteImports(sourceUnit, contentsMap);
+                rewriteImports(sourceUnit, contentsMap, factory);
             }
         });
 

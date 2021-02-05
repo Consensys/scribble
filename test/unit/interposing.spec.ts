@@ -1,4 +1,5 @@
 import {
+    ASTContext,
     ASTNodeFactory,
     ContractDefinition,
     FunctionCall,
@@ -53,8 +54,10 @@ function makeInstrumentationCtx(
 
 function print(units: SourceUnit[], contents: string[], version: string): Map<SourceUnit, string> {
     const contentMap = new Map(units.map((unit, idx) => [unit.absolutePath, contents[idx]]));
+    const context = new ASTContext(...units);
+    const factory = new ASTNodeFactory(context);
 
-    units.forEach((unit) => rewriteImports(unit, contentMap));
+    units.forEach((unit) => rewriteImports(unit, contentMap, factory));
     const verMap: Map<SourceUnit, string> = new Map(units.map((unit) => [unit, version]));
 
     return printUnits(units, verMap);
