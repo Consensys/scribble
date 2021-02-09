@@ -23,7 +23,7 @@
     },
     "scripts": {
         "clean": "rm -rf dist/*",
-        "build-expr-parser": "tspegjs -o src/spec-lang/expr_parser.ts --custom-header-file src/spec-lang/expr_parser_header.ts --cache src/spec-lang/expr_grammar.pegjs",
+        "build-expr-parser": "tspegjs -o src/spec-lang/expr_parser.ts --custom-header-file src/spec-lang/expr_parser_header.ts --allowed-start-rules Annotation,Expression --cache src/spec-lang/expr_grammar.pegjs",
         "build-annotation-parser": "tspegjs -o src/spec-lang/annotation_parser.ts --custom-header-file src/spec-lang/annotation_parser_header.ts --cache src/spec-lang/annotation_grammar.pegjs",
         "build-type-parser": "tspegjs -o src/spec-lang/typeString_parser.ts --custom-header-file src/spec-lang/typeString_parser_header.ts --cache src/spec-lang/typeString_grammar.pegjs",
         "build-import-parser": "tspegjs -o src/rewriter/import_directive_parser.ts --custom-header-file src/rewriter/import_directive_header.ts --cache src/rewriter/import_directive.pegjs",
@@ -54,7 +54,7 @@
         "pegjs": "^0.10.0",
         "prettier": "2.2.0",
         "ts-node": "^9.0.0",
-        "ts-pegjs": "^0.3.0",
+        "ts-pegjs": "git@github.com:cd1m0/ts-pegjs.git",
         "typescript": "^4.1.2"
     },
     "repository": "https://github.com/ConsenSys/scribble.git",
