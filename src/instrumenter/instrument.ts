@@ -66,7 +66,7 @@ import {
     SResult
 } from "../spec-lang/ast";
 import { TypeMap, SemMap } from "../spec-lang/tc";
-import { parse as parseType } from "../spec-lang/type_parser";
+import { parse as parseType } from "../spec-lang/typeString_parser";
 import { assert, isChangingState, isExternallyVisible, single } from "../util";
 import { Annotation } from "./annotations";
 import { walk } from "../spec-lang/walk";

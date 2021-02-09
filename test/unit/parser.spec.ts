@@ -1,5 +1,5 @@
 import { parse as parseExpr } from "../../src/spec-lang/expr_parser";
-import { parse as parseType } from "../../src/spec-lang/type_parser";
+import { parse as parseType } from "../../src/spec-lang/typeString_parser";
 import expect from "expect";
 import {
     SNode,

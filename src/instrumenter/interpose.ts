@@ -40,7 +40,7 @@ import {
     ReplaceCallee
 } from "../rewriter";
 import { SAddressType, SFunctionType, SPointer, SType } from "../spec-lang/ast";
-import { parse as parseType } from "../spec-lang/type_parser";
+import { parse as parseType } from "../spec-lang/typeString_parser";
 import { assert, getScopeFun, isChangingState, single } from "../util";
 import { FunSet } from "./callgraph";
 import { changesMutability } from "./instrument";
