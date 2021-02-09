@@ -1,18 +1,10 @@
 import { Range, SNode } from "../node";
-import { SAnnotation } from "./annotation";
-
-export enum PropertyType {
-    IfSucceeds = "if_succeeds",
-    IfAborts = "if_aborts",
-    Invariant = "invariant"
-}
+import { AnnotationType, SAnnotation } from "./annotation";
 
 export class SProperty extends SAnnotation {
-    public readonly type: PropertyType;
     public readonly expression: SNode;
-    constructor(type: PropertyType, expression: SNode, label?: string, src?: Range) {
-        super(label, src);
-        this.type = type;
+    constructor(type: AnnotationType, expression: SNode, label?: string, src?: Range) {
+        super(type, label, src);
         this.expression = expression;
     }
 

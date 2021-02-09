@@ -68,7 +68,7 @@ import {
 import { TypeMap, SemMap } from "../spec-lang/tc";
 import { parse as parseTypeString } from "../spec-lang/typeString_parser";
 import { assert, isChangingState, isExternallyVisible, single } from "../util";
-import { Annotation } from "./annotations";
+import { PropertyMD } from "./annotations";
 import { walk } from "../spec-lang/walk";
 import { interpose, interposeCall } from "./interpose";
 import { generateExprAST, generateTypeAst } from "./transpile";
@@ -450,7 +450,7 @@ export function flattenExpr(expr: SNode, ctx: TranspilingContext): [SNode, SBind
  * @param loc - context where the expression is to be evaluated. Either a contract, or a particular function inside a contract.
  */
 export function generateExpressions(
-    annotations: Annotation[],
+    annotations: PropertyMD[],
     transCtx: TranspilingContext
 ): InstrumentationResult {
     // Step 1: Define struct holding all the temporary variables neccessary
@@ -652,7 +652,7 @@ function getBitPattern(factory: ASTNodeFactory, id: number): Literal {
 function emitAssert(
     transCtx: TranspilingContext,
     expr: Expression,
-    annotation: Annotation,
+    annotation: PropertyMD,
     event: EventDefinition,
     structLocalVar: VariableDeclaration,
     emitStmt?: EmitStatement
@@ -773,7 +773,7 @@ export function getAssertionFailedEvent(
 function insertInvChecks(
     transCtx: TranspilingContext,
     invExprs: Expression[],
-    annotations: Annotation[],
+    annotations: PropertyMD[],
     contract: ContractDefinition,
     body: Block,
     structLocalVar: VariableDeclaration,
@@ -882,7 +882,7 @@ export class ContractInstrumenter {
         ctx: InstrumentationContext,
         typing: TypeMap,
         semInfo: SemMap,
-        annotations: Annotation[],
+        annotations: PropertyMD[],
         contract: ContractDefinition
     ): void {
         const recipe: Recipe = [];
@@ -937,7 +937,7 @@ export class ContractInstrumenter {
         ctx: InstrumentationContext,
         typing: TypeMap,
         semInfo: SemMap,
-        annotations: Annotation[],
+        annotations: PropertyMD[],
         contract: ContractDefinition
     ): [FunctionDefinition, Recipe] {
         const factory = ctx.factory;
@@ -1276,7 +1276,7 @@ export class FunctionInstrumenter {
         ctx: InstrumentationContext,
         typing: TypeMap,
         semInfo: SemMap,
-        annotations: Annotation[],
+        annotations: PropertyMD[],
         contract: ContractDefinition,
         fn: FunctionDefinition,
         needsContractInvInstr: boolean

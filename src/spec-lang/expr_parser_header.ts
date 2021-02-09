@@ -35,6 +35,7 @@ import {
     SAddressLiteral,
     SResult,
     SProperty,
+    AnnotationType,
     SUserFunctionDefinition,
     SAnnotation
 } from "./ast";

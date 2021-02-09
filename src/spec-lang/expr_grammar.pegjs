@@ -1,8 +1,8 @@
 // Top-level rules
 Annotation
-    = Invariant
+    = StartingWhiteSpace annotation: (Invariant
     / If_Succeeds
-    / UserFunctionDefinition
+    / UserFunctionDefinition) .* { return annotation; }
 
 Expression =
     LetExpression
@@ -15,18 +15,28 @@ AnnotationStr
 AnnotationLabel = "{:msg" __  str:AnnotationStr __ "}" { return str; }
 
 TypedArgs =
-    head: (typ: Type __ name: Identifier { return [typ, name]; })
-    tail: (__ "," __ typ: Type __ name: Identifier {return [typ, name]; })*
+    head: (typ: Type __ name: Identifier { return [name, typ]; })
+    tail: (__ "," __ typ: Type __ name: Identifier {return [name, typ]; })*
     {
         return tail.reduce((acc, el) => {acc.push(el); return acc; }, [head]);
     }
 
-Invariant = type: INVARIANT __ label: AnnotationLabel? __ expr: Expression __ ";"
-If_Succeeds = type: IF_SUCCEEDS __ label: AnnotationLabel? __ expr: Expression __ ";"
+Invariant =
+  type: INVARIANT __ label: AnnotationLabel? __ expr: Expression __ ";"
+  {
+    return new SProperty(type as AnnotationType, expr, label !== null ? label : undefined, location());
+  }
+
+If_Succeeds =
+  type: IF_SUCCEEDS __ label: AnnotationLabel? __ expr: Expression __ ";"
+  {
+    return new SProperty(type as AnnotationType, expr, label !== null ? label : undefined, location());
+  }
+
 UserFunctionDefinition = 
   type: DEFINE __ label: AnnotationLabel? __ name: Identifier __ "(" __ args: TypedArgs? __ ")" __ returnType: Type __ "=" __ body: Expression
   {
-    return new SUserFunctionDefinition()
+    return new SUserFunctionDefinition(name, args === null ? [] : args, returnType, body, label !== null ? label : undefined, location());
   }
 
 // Terminals

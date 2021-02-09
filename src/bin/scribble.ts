@@ -28,7 +28,7 @@ import {
 } from "solc-typed-ast";
 import { print, rewriteImports } from "../ast_to_source_printer";
 import {
-    Annotation,
+    PropertyMD,
     AnnotationExtractor,
     SyntaxError,
     UnsupportedByTargetError
@@ -92,12 +92,16 @@ function getAnnotationsOrDie(
     node: ContractDefinition | FunctionDefinition,
     sources: Map<string, string>,
     filters: AnnotationFilterOptions
-): Annotation[] {
+): PropertyMD[] {
     try {
         const extractor = new AnnotationExtractor();
         const annotations = extractor.extract(node, sources, filters);
 
-        return annotations;
+        for (const annot of annotations) {
+            assert(annot instanceof PropertyMD, `NYI annotation ${annot.original}`);
+        }
+
+        return (annotations as unknown) as PropertyMD[];
     } catch (e) {
         if (e instanceof SyntaxError || e instanceof UnsupportedByTargetError) {
             const unit = getScopeUnit(node);
@@ -110,7 +114,7 @@ function getAnnotationsOrDie(
 }
 
 function tcOrDie(
-    annotation: Annotation,
+    annotation: PropertyMD,
     ctx: STypingCtx,
     typing: TypeMap,
     semInfo: SemMap,
@@ -188,7 +192,7 @@ function computeContractInvs(
     cha: CHA<ContractDefinition>,
     filterOptions: AnnotationFilterOptions,
     files: Map<string, string>,
-    contractAnnotMap: Map<ContractDefinition, Annotation[]>
+    contractAnnotMap: Map<ContractDefinition, PropertyMD[]>
 ): void {
     // Note: Can't use standard chaDFS as we use args/returns here more specially
     chaDFS(cha, (contract: ContractDefinition): void => {
@@ -215,7 +219,7 @@ function computeContractInvs(
  */
 function computeContractsNeedingInstr(
     cha: CHA<ContractDefinition>,
-    contractAnnotMap: Map<ContractDefinition, Annotation[]>
+    contractAnnotMap: Map<ContractDefinition, PropertyMD[]>
 ): Set<ContractDefinition> {
     // Find the contracts needing instrumentaion by doing bfs starting from the annotated contracts
     const wave = [...contractAnnotMap.keys()];
@@ -241,13 +245,13 @@ function computeContractsNeedingInstr(
 
 function instrumentFiles(
     ctx: InstrumentationContext,
-    contractInvMap: Map<ContractDefinition, Annotation[]>,
+    contractInvMap: Map<ContractDefinition, PropertyMD[]>,
     contractsNeedingInstr: Set<ContractDefinition>
 ): [SourceUnit[], SourceUnit[]] {
     const units = ctx.units;
     const filters = ctx.filterOptions;
 
-    const worklist: Array<[ContractDefinition, FunctionDefinition | undefined, Annotation[]]> = [];
+    const worklist: Array<[ContractDefinition, FunctionDefinition | undefined, PropertyMD[]]> = [];
     const typing: TypeMap = new Map();
     const semInfo: SemMap = new Map();
     const changedSourceUnits: SourceUnit[] = [];
@@ -1016,7 +1020,7 @@ if ("version" in options) {
          * Merge the CHAs and file maps computed for each target
          */
         const contentsMap: Map<string, string> = new Map();
-        const contractsInvMap: Map<ContractDefinition, Annotation[]> = new Map();
+        const contractsInvMap: Map<ContractDefinition, PropertyMD[]> = new Map();
 
         const groups: SourceUnit[][] = targets.map(
             (target) => groupsMap.get(target) as SourceUnit[]

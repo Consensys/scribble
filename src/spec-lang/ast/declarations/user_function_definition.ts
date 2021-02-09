@@ -1,22 +1,23 @@
+import { SId } from "../identifier";
 import { Range, SNode } from "../node";
 import { SType } from "../types";
-import { SAnnotation } from "./annotation";
+import { AnnotationType, SAnnotation } from "./annotation";
 
 export class SUserFunctionDefinition extends SAnnotation {
-    public readonly name: string;
-    public readonly parameters: Array<[string, SType]>;
+    public readonly name: SId;
+    public readonly parameters: Array<[SId, SType]>;
     public readonly returnType: SType;
     public readonly body: SNode;
 
     constructor(
-        name: string,
-        params: Array<[string, SType]>,
+        name: SId,
+        params: Array<[SId, SType]>,
         returnType: SType,
         body: SNode,
         label?: string,
         src?: Range
     ) {
-        super(label, src);
+        super(AnnotationType.Define, label, src);
         this.name = name;
         this.parameters = params;
         this.returnType = returnType;
@@ -28,9 +29,11 @@ export class SUserFunctionDefinition extends SAnnotation {
     }
 
     pp(): string {
-        const paramStr = this.parameters.map(([name, type]) => `${type.pp()} ${name}`).join(", ");
+        const paramStr = this.parameters
+            .map(([name, type]) => `${type.pp()} ${name.name}`)
+            .join(", ");
         return `define ${this.label ? `{:msg "${this.label}"} ` : ""}${
-            this.name
+            this.name.name
         }(${paramStr}) ${this.returnType.pp()} = ${this.body.pp()}`;
     }
 }
