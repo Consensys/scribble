@@ -1,4 +1,4 @@
-import { parse } from "../../src/spec-lang/expr_parser";
+import { parseExpression as parse } from "../../src/spec-lang/expr_parser";
 import expect from "expect";
 import { eq } from "../../src/util/struct_equality";
 import { SType, SIntLiteralType, SIntType } from "../../src/spec-lang/ast";

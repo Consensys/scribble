@@ -14,3 +14,4 @@ export * from "./let";
 export * from "./types";
 export * from "./address_literal";
 export * from "./result";
+export * from "./declarations";

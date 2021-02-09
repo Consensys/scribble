@@ -1,5 +1,5 @@
-import { parse as parseExpr } from "../../src/spec-lang/expr_parser";
-import { parse as parseType } from "../../src/spec-lang/typeString_parser";
+import { parseExpression as parseExpr } from "../../src/spec-lang/expr_parser";
+import { parse as parseTypeString } from "../../src/spec-lang/typeString_parser";
 import expect from "expect";
 import {
     SNode,
@@ -716,7 +716,7 @@ describe("Type Parser Unit Tests", () => {
     for (const [sample, expectedAST] of goodSamples) {
         describe(`Sample ${sample}`, () => {
             it("Parses correctly", () => {
-                const parsed = parseType(sample);
+                const parsed = parseTypeString(sample);
                 Logger.debug(`[${sample}]: Got: ${parsed.pp()} expected: ${expectedAST.pp()}`);
                 expect(eq(parsed, expectedAST)).toEqual(true);
             });
@@ -726,7 +726,7 @@ describe("Type Parser Unit Tests", () => {
     for (const sample of badSamples) {
         describe(`Sample ${sample}`, () => {
             it("Fails as expected", () => {
-                expect(parseType.bind(parseType, sample)).toThrow();
+                expect(parseTypeString.bind(parseTypeString, sample)).toThrow();
             });
         });
     }

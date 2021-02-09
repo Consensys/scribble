@@ -12,7 +12,10 @@ import {
     SyntaxError as AnnotationPEGSSyntaxError
 } from "../spec-lang/annotation_parser";
 import { Location, Range, SNode } from "../spec-lang/ast";
-import { parse as parseExpr, SyntaxError as ExprPEGSSyntaxError } from "../spec-lang/expr_parser";
+import {
+    parseExpression as parseExpr,
+    SyntaxError as ExprPEGSSyntaxError
+} from "../spec-lang/expr_parser";
 import { getScopeUnit } from "../util/misc";
 import { AnnotationFilterOptions } from "./instrument";
 
@@ -325,7 +328,7 @@ export class AnnotationExtractor {
 
         const result: Annotation[] = [];
 
-        const rx = /\s*(\*|\/\/\/)\s*(if_succeeds|if_aborts|invariant)/g;
+        const rx = /\s*(\*|\/\/\/)\s*(if_succeeds|if_aborts|invariant|define)/g;
 
         let match = rx.exec(meta.text);
 

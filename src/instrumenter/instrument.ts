@@ -66,7 +66,7 @@ import {
     SResult
 } from "../spec-lang/ast";
 import { TypeMap, SemMap } from "../spec-lang/tc";
-import { parse as parseType } from "../spec-lang/typeString_parser";
+import { parse as parseTypeString } from "../spec-lang/typeString_parser";
 import { assert, isChangingState, isExternallyVisible, single } from "../util";
 import { Annotation } from "./annotations";
 import { walk } from "../spec-lang/walk";
@@ -115,7 +115,7 @@ export function findExternalCalls(node: ContractDefinition | FunctionDefinition)
             }
         } else {
             // For normal contract calls check if the type of the callee is an external function
-            const calleeType = parseType(call.vExpression.typeString);
+            const calleeType = parseTypeString(call.vExpression.typeString);
 
             assert(
                 calleeType instanceof SFunctionType,
@@ -1198,7 +1198,7 @@ export class ContractInstrumenter {
                 continue;
             }
 
-            const calleeType = parseType(callSite.vExpression.typeString);
+            const calleeType = parseTypeString(callSite.vExpression.typeString);
             assert(
                 calleeType instanceof SFunctionType,
                 `Expected function type not ${calleeType.pp()} for calee in ${callSite.print()}`

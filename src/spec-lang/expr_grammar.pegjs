@@ -1,5 +1,33 @@
-Start
-    = StartingWhiteSpace  expression: Expression __ { return expression; }
+// Top-level rules
+Annotation
+    = Invariant
+    / If_Succeeds
+    / UserFunctionDefinition
+
+Expression =
+    LetExpression
+
+// Non-top-level rules
+
+AnnotationStr
+    = "'" chars: SingleStringChar* "'" { return chars.join("") }
+    / '"' chars: DoubleStringChar* '"' { return chars.join("") }
+AnnotationLabel = "{:msg" __  str:AnnotationStr __ "}" { return str; }
+
+TypedArgs =
+    head: (typ: Type __ name: Identifier { return [typ, name]; })
+    tail: (__ "," __ typ: Type __ name: Identifier {return [typ, name]; })*
+    {
+        return tail.reduce((acc, el) => {acc.push(el); return acc; }, [head]);
+    }
+
+Invariant = type: INVARIANT __ label: AnnotationLabel? __ expr: Expression __ ";"
+If_Succeeds = type: IF_SUCCEEDS __ label: AnnotationLabel? __ expr: Expression __ ";"
+UserFunctionDefinition = 
+  type: DEFINE __ label: AnnotationLabel? __ name: Identifier __ "(" __ args: TypedArgs? __ ")" __ returnType: Type __ "=" __ body: Expression
+  {
+    return new SUserFunctionDefinition()
+  }
 
 // Terminals
 
@@ -59,6 +87,9 @@ PURE = "pure"
 VIEW = "view"
 NONPAYABLE = "nonpayable"
 RESULT = "$result"
+INVARIANT = "invariant"
+IF_SUCCEEDS = "if_succeeds"
+DEFINE = "define"
 
 Keyword
     = TRUE
@@ -91,9 +122,6 @@ NumberUnit = 'wei' / 'gwei' / 'ether' / 'seconds'
           / 'minutes' / 'hours' / 'days' / 'weeks'
 
 // expression
-
-Expression =
-    LetExpression
 
 Identifier =
     !(Keyword ![a-zA-Z0-9_]) id:([a-zA-Z_][a-zA-Z0-9_]*) {return new SId(text(), location());}

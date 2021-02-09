@@ -23,7 +23,7 @@ import {
     SUserDefinedType
 } from "../../src/spec-lang/ast";
 import { SBoolType } from "../../src/spec-lang/ast/types/bool";
-import { parse } from "../../src/spec-lang/expr_parser";
+import { parseExpression as parse } from "../../src/spec-lang/expr_parser";
 import { STypingCtx, tc } from "../../src/spec-lang/tc";
 import { eq } from "../../src/util/struct_equality";
 import { findContract, findFunction, toAst } from "../integration/utils";
