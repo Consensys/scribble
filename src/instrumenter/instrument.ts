@@ -265,8 +265,12 @@ export function flattenExpr(expr: SNode, ctx: TranspilingContext): [SNode, SBind
     if (expr instanceof SId) {
         // Case when the id is a let variable (e.g. `x` in `let x := 1 in x` or `y` in `let y, z := foo() in y+z`)
         if (expr.defSite instanceof Array) {
-            const field = ctx.getLetBinding(expr.defSite);
-            return [getTmpVar(field, expr, expr.src), []];
+            const [defNode, idx] = expr.defSite;
+
+            if (defNode instanceof SLet) {
+                const field = ctx.getLetBinding([defNode, idx]);
+                return [getTmpVar(field, expr, expr.src), []];
+            }
         }
 
         return [expr, []];

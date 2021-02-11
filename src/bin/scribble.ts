@@ -31,7 +31,9 @@ import {
     PropertyMD,
     AnnotationExtractor,
     SyntaxError,
-    UnsupportedByTargetError
+    UnsupportedByTargetError,
+    AnnotationMD,
+    UserFunctionDefinitionMD
 } from "../instrumenter/annotations";
 import { getCallGraph } from "../instrumenter/callgraph";
 import { CHA, chaDFS, getCHA } from "../instrumenter/cha";
@@ -44,15 +46,14 @@ import {
 import { InstrumentationContext } from "../instrumenter/instrumentation_context";
 import { merge } from "../rewriter/merge";
 import { isSane } from "../rewriter/sanity";
-import { Location, Range, SBoolType, SType } from "../spec-lang/ast";
+import { Location, Range, SAnnotation } from "../spec-lang/ast";
 import {
-    sc,
+    scAnnotation,
     SemError,
-    SemInfo,
     SemMap,
     STypeError,
     STypingCtx,
-    tc,
+    tcAnnotation,
     TypeMap
 } from "../spec-lang/tc";
 import { assert, getOrInit, getScopeUnit, isChangingState, isExternallyVisible } from "../util";
@@ -114,47 +115,40 @@ function getAnnotationsOrDie(
 }
 
 function tcOrDie(
-    annotation: PropertyMD,
+    annotation: AnnotationMD<SAnnotation>,
     ctx: STypingCtx,
     typing: TypeMap,
     semInfo: SemMap,
     fn: FunctionDefinition | undefined,
     contract: ContractDefinition,
     source: string
-): [SType, SemInfo] {
-    let type: SType;
-    let semantics: SemInfo;
-
+): void {
     const unit = contract.vScope;
-    const expr = annotation.expression;
+    const annotNode = annotation.parsedAnnot;
 
     try {
-        type = tc(expr, ctx, typing);
-        semantics = sc(expr, { isOld: false }, typing, semInfo);
+        tcAnnotation(annotNode, ctx, typing);
+        scAnnotation(annotNode, typing, semInfo);
     } catch (err) {
         const scope = fn === undefined ? `${contract.name}` : `${contract.name}.${fn.name}`;
 
         if (err instanceof STypeError || err instanceof SemError) {
             const loc = err.loc();
-            const fileLoc = annotation.predOffToFileLoc([loc.start.offset, loc.end.offset], source);
+            let fileLoc;
+
+            if (annotation instanceof PropertyMD) {
+                fileLoc = annotation.predOffToFileLoc([loc.start.offset, loc.end.offset], source);
+            } else if (annotation instanceof UserFunctionDefinitionMD) {
+                fileLoc = annotation.bodyOffToFileLoc([loc.start.offset, loc.end.offset], source);
+            } else {
+                throw new Error(`NYI Annotation MD for ${annotation.parsedAnnot.pp()}`);
+            }
 
             prettyError("TypeError", err.message, unit, fileLoc, annotation.original);
         } else {
-            error(`Internal error in type-checking ${expr.pp()} of ${scope}: ${err.message}`);
+            error(`Internal error in type-checking ${annotNode.pp()} of ${scope}: ${err.message}`);
         }
     }
-
-    if (type instanceof SBoolType) {
-        return [type, semantics];
-    }
-
-    prettyError(
-        "TypeError",
-        `expected annotation of type bool not ${type.pp()}`,
-        unit,
-        annotation.predicateFileLoc(source),
-        annotation.original
-    );
 }
 
 function compile(

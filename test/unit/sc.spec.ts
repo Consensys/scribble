@@ -45,7 +45,7 @@ describe("SemanticChecker Unit Tests", () => {
                 ],
                 [
                     "old(true)",
-                    ["Foo", undefined],
+                    ["Foo", "add"],
                     new SBoolType(),
                     { isOld: true, isConst: true, canFail: false }
                 ],
@@ -99,7 +99,7 @@ describe("SemanticChecker Unit Tests", () => {
                 ],
                 [
                     "old(1)",
-                    ["Foo", undefined],
+                    ["Foo", "add"],
                     new SIntLiteralType(),
                     { isOld: true, isConst: true, canFail: false }
                 ],
@@ -117,7 +117,7 @@ describe("SemanticChecker Unit Tests", () => {
                 ],
                 [
                     "old(sV1)",
-                    ["Foo", undefined],
+                    ["Foo", "add"],
                     new SIntType(128, true),
                     { isOld: true, isConst: true, canFail: false }
                 ],
@@ -165,13 +165,13 @@ describe("SemanticChecker Unit Tests", () => {
                 ],
                 [
                     "old(sI32Arr[1])",
-                    ["Foo", undefined],
+                    ["Foo", "add"],
                     new SIntType(32, true),
                     { isOld: true, isConst: false, canFail: true }
                 ],
                 [
                     "let x := 1 in old(x)",
-                    ["Foo", undefined],
+                    ["Foo", "add"],
                     new SIntLiteralType(),
                     { isOld: true, isConst: true, canFail: false }
                 ],

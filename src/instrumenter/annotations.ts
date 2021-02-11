@@ -143,6 +143,15 @@ export class UserFunctionDefinitionMD extends AnnotationMD<SUserFunctionDefiniti
         // Original predicate
         this.bodyText = parsedAnnot.body.getSourceFragment(original);
     }
+
+    /**
+     * Convert a location relative to the predicate into a file-wide location
+     */
+    bodyOffToFileLoc(arg: OffsetRange, source: string): Range {
+        const fileOff = offsetBy(arg, rangeToOffsetRange(this.body.requiredSrc));
+
+        return rangeToLocRange(fileOff[0], fileOff[1], source);
+    }
 }
 
 /**

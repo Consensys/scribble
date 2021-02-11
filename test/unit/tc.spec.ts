@@ -20,18 +20,21 @@ import {
     SString,
     STupleType,
     SType,
-    SUserDefinedType
+    SUserDefinedType,
+    SUserFunctionDefinition,
+    SId
 } from "../../src/spec-lang/ast";
 import { SBoolType } from "../../src/spec-lang/ast/types/bool";
-import { parseExpression as parse } from "../../src/spec-lang/expr_parser";
-import { STypingCtx, tc } from "../../src/spec-lang/tc";
+import { parseAnnotation, parseExpression as parse } from "../../src/spec-lang/expr_parser";
+import { clearUserFunctions, STypingCtx, tc, tcAnnotation, TypeMap } from "../../src/spec-lang/tc";
 import { eq } from "../../src/util/struct_equality";
 import { findContract, findFunction, toAst } from "../integration/utils";
 import { SStringLiteralType } from "../../src/spec-lang/ast/types/string_literal";
+import { assert } from "../../src/util";
 
 export type LocationDesc = [string, string | undefined];
 
-describe("TypeChecker Unit Tests", () => {
+describe("TypeChecker Expression Unit Tests", () => {
     const goodSamples: Array<[string, string, Array<[string, LocationDesc, SType]>]> = [
         [
             "foo.sol",
@@ -298,9 +301,9 @@ describe("TypeChecker Unit Tests", () => {
                     new SPointer(new SBytes(), DataLocation.Storage)
                 ],
                 ["add(5,5)", ["Foo", undefined], new SIntType(64, false)],
-                ["old(5)", ["Foo", undefined], new SIntLiteralType()],
-                ["old(sV1)", ["Foo", undefined], new SIntType(128, true)],
-                ["old(sA)", ["Foo", undefined], new SAddressType(false)],
+                ["old(5)", ["Foo", "add"], new SIntLiteralType()],
+                ["old(sV1)", ["Foo", "add"], new SIntType(128, true)],
+                ["old(sA)", ["Foo", "add"], new SAddressType(false)],
                 ["this.add(5,5)", ["Foo", undefined], new SIntType(64, false)],
                 ["sBoo.foo(5)", ["Foo", undefined], new SIntType(256, false)],
                 [
@@ -564,7 +567,10 @@ describe("TypeChecker Unit Tests", () => {
                 ["msg.any", ["Foo", undefined]],
                 ["tx.any", ["Foo", undefined]],
                 ["$result", ["Foo", undefined]],
-                ["$result", ["Foo", "noReturn"]]
+                ["$result", ["Foo", "noReturn"]],
+                ["old(5)", ["Foo", undefined]],
+                ["old(sV1)", ["Foo", undefined]],
+                ["old(sA)", ["Foo", undefined]]
             ]
         ]
     ];
@@ -610,6 +616,221 @@ describe("TypeChecker Unit Tests", () => {
                         ctx.push(findFunction(loc[1], ctx[1] as ContractDefinition));
                     }
                     expect(tc.bind(tc, parsed, ctx)).toThrow();
+                });
+            }
+        });
+    }
+});
+
+describe("TypeChecker Annotation Tests", () => {
+    const goodSamples: Array<
+        [string, string, Array<[string, LocationDesc, SType | undefined, boolean]>]
+    > = [
+        [
+            "foo.sol",
+            `pragma solidity 0.6.0;
+             contract Base {
+                 uint x;
+                 function plus(uint t) public returns (uint) {
+                     x+=t;
+                     return x;
+                 }
+             }
+
+             contract Child is Base {
+                 uint y;
+                 function minus(uint t) public returns (uint) {
+                     x-=t;
+                     return x;
+                 }
+
+                 function plusOne() public returns (uint) {
+                     return plus(1);
+                 }
+             }
+
+             contract Unrelated {
+                 int64 z;
+                 uint[] arr;
+             }`,
+            [
+                ["if_succeeds x > 0;", ["Base", "plus"], undefined, true],
+                ["if_succeeds old(x) + t == x;", ["Base", "plus"], undefined, true],
+                [
+                    "define foo() uint = 1;",
+                    ["Base", undefined],
+                    new SFunctionType(
+                        [],
+                        [new SIntType(256, false)],
+                        FunctionVisibility.Internal,
+                        FunctionStateMutability.View
+                    ),
+                    true
+                ],
+                [
+                    "define foo() uint = x;",
+                    ["Base", undefined],
+                    new SFunctionType(
+                        [],
+                        [new SIntType(256, false)],
+                        FunctionVisibility.Internal,
+                        FunctionStateMutability.View
+                    ),
+                    true
+                ],
+                [
+                    "define foo(uint a) uint = x + a;",
+                    ["Base", undefined],
+                    new SFunctionType(
+                        [new SIntType(256, false)],
+                        [new SIntType(256, false)],
+                        FunctionVisibility.Internal,
+                        FunctionStateMutability.View
+                    ),
+                    true
+                ],
+                [
+                    "define boo(uint a) uint = plus(foo(a));",
+                    ["Base", undefined],
+                    new SFunctionType(
+                        [new SIntType(256, false)],
+                        [new SIntType(256, false)],
+                        FunctionVisibility.Internal,
+                        FunctionStateMutability.View
+                    ),
+                    false
+                ],
+                [
+                    "if_succeeds old(foo(t)) == x;",
+                    ["Base", "plus"],
+                    new SFunctionType(
+                        [new SIntType(256, false)],
+                        [new SIntType(256, false)],
+                        FunctionVisibility.Internal,
+                        FunctionStateMutability.View
+                    ),
+                    false
+                ],
+                [
+                    "define moo(uint a) uint = foo(a) + boo(a);",
+                    ["Child", undefined],
+                    new SFunctionType(
+                        [new SIntType(256, false)],
+                        [new SIntType(256, false)],
+                        FunctionVisibility.Internal,
+                        FunctionStateMutability.View
+                    ),
+                    false
+                ]
+            ]
+        ]
+    ];
+
+    const badSamples: Array<
+        [string, string, Array<[string, LocationDesc]>, Array<[string, LocationDesc]>]
+    > = [
+        [
+            "foo.sol",
+            `pragma solidity 0.6.0;
+             contract Base {
+                 uint x;
+                 function plus(uint t) public returns (uint) {
+                     x+=t;
+                     return x;
+                 }
+             }
+
+             contract Child is Base {
+                 uint y;
+                 function minus(uint t) public returns (uint) {
+                     x-=t;
+                     return x;
+                 }
+
+                 function plusOne() public returns (uint) {
+                     return plus(1);
+                 }
+             }
+
+             contract Unrelated {
+                 int64 z;
+                 uint[] arr;
+             }`,
+            [["define user_plusOne(uint x) uint = x+1;", ["Base", undefined]]],
+            [
+                ["if_succeeds z > 0;", ["Base", "plus"]],
+                ["invariant old(x) + 1 == x;", ["Base", undefined]],
+                ["invariant $result > 0;", ["Base", undefined]],
+                ["define foo() uint = true;", ["Base", undefined]],
+                ["define foo() uint = x;", ["Unrelated", undefined]],
+                ["define foo() uint = 1;", ["Base", "plus"]],
+                ["define foo() uint = old(x);", ["Base", undefined]],
+                ["define foo() uint = $result;", ["Base", undefined]],
+                ["define foo(uint t) uint = user_plusOne(t);", ["Unrelated", undefined]]
+            ]
+        ]
+    ];
+
+    for (const [fileName, content, testCases] of goodSamples) {
+        describe(`Positive tests for #${fileName}`, () => {
+            let sources: SourceUnit[];
+
+            before(() => {
+                [sources] = toAst(fileName, content);
+            });
+
+            for (const [specString, loc, expectedType, clearFunsBefore] of testCases) {
+                it(`Typecheck for ${specString} succeeds.`, () => {
+                    const parsed = parseAnnotation(specString);
+                    const ctx: STypingCtx = [sources, findContract(loc[0], sources)];
+                    if (loc[1] !== undefined) {
+                        ctx.push(findFunction(loc[1], ctx[1] as ContractDefinition));
+                    }
+
+                    const typeMap: TypeMap = new Map();
+                    if (clearFunsBefore) {
+                        clearUserFunctions();
+                    }
+                    tcAnnotation(parsed, ctx, typeMap);
+                    if (parsed instanceof SUserFunctionDefinition) {
+                        assert(expectedType !== undefined, ``);
+                        const received = tc(new SId(parsed.name.name), ctx, typeMap);
+                        Logger.debug(
+                            `[${specString}]: Expected type ${expectedType.pp()} received: ${(received as SType).pp()}`
+                        );
+                        expect(eq(received, expectedType)).toEqual(true);
+                    }
+                });
+            }
+        });
+    }
+
+    for (const [fileName, content, setupSteps, testCases] of badSamples) {
+        describe(`Negative tests for #${fileName}`, () => {
+            let sources: SourceUnit[];
+
+            before(() => {
+                [sources] = toAst(fileName, content);
+                // Setup any definitions
+                clearUserFunctions();
+                for (const [specString, loc] of setupSteps) {
+                    const parsed = parseAnnotation(specString);
+                    const ctx: STypingCtx = [sources, findContract(loc[0], sources)];
+                    if (loc[1] !== undefined) {
+                        ctx.push(findFunction(loc[1], ctx[1] as ContractDefinition));
+                    }
+                    tcAnnotation(parsed, ctx);
+                }
+            });
+
+            for (const [specString, loc] of testCases) {
+                it(`Typecheck for ${specString} throws`, () => {
+                    const parsed = parseAnnotation(specString);
+                    const ctx: STypingCtx = [sources, findContract(loc[0], sources)];
+                    if (loc[1] !== undefined) {
+                        ctx.push(findFunction(loc[1], ctx[1] as ContractDefinition));
+                    }
+                    expect(tcAnnotation.bind(tcAnnotation, parsed, ctx)).toThrow();
                 });
             }
         });

@@ -21,7 +21,10 @@ import {
     SUserDefinedTypeNameType,
     SUnaryOperation,
     SAddressLiteral,
-    SResult
+    SResult,
+    SAnnotation,
+    SProperty,
+    SUserFunctionDefinition
 } from "../ast";
 import { TypeMap } from "./typecheck";
 
@@ -53,6 +56,21 @@ export class SemError extends Error {
 
     loc(): Range {
         return this.node.src as Range;
+    }
+}
+
+export function scAnnotation(
+    node: SAnnotation,
+    typings: TypeMap,
+    semMap: SemMap = new Map()
+): void {
+    const ctx: SemCtx = { isOld: false };
+    if (node instanceof SProperty) {
+        sc(node.expression, ctx, typings, semMap);
+    } else if (node instanceof SUserFunctionDefinition) {
+        sc(node.body, ctx, typings, semMap);
+    } else {
+        throw new Error(`NYI annotation ${node.pp()}`);
     }
 }
 
@@ -138,19 +156,25 @@ export function scId(expr: SId, ctx: SemCtx, typings: TypeMap, semMap: SemMap): 
     if (def instanceof VariableDeclaration) {
         isConst = def.constant;
     } else if (def instanceof Array) {
-        const [letNode] = def;
-        const defInfo = semMap.get(letNode.rhs) as SemInfo;
+        const [defNode] = def;
+        if (defNode instanceof SLet) {
+            const defInfo = semMap.get(defNode.rhs) as SemInfo;
 
-        isConst = defInfo.isConst;
-        isOld = defInfo.isOld || (ctx.isOld && isConst);
-        // Using a non-constant let-binding from a new context in an old expression is a semantic error
-        if (ctx.isOld && !defInfo.isOld && !isConst) {
-            throw new SemError(
-                `Variable ${
-                    expr.name
-                } is defined in the new context in ${letNode.pp()} but used in an old() expression`,
-                expr
-            );
+            isConst = defInfo.isConst;
+            isOld = defInfo.isOld || (ctx.isOld && isConst);
+            // Using a non-constant let-binding from a new context in an old expression is a semantic error
+            if (ctx.isOld && !defInfo.isOld && !isConst) {
+                throw new SemError(
+                    `Variable ${
+                        expr.name
+                    } is defined in the new context in ${defNode.pp()} but used in an old() expression`,
+                    expr
+                );
+            }
+        } else {
+            /// SUserFunctionDefinition parameter
+            isConst = false;
+            isOld = false;
         }
     } else if (def === "function_name" || def === "type_name") {
         isConst = true;
