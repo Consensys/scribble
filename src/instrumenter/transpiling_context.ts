@@ -10,7 +10,7 @@ import {
     TypeName,
     VariableDeclaration
 } from "solc-typed-ast";
-import { SId, SLet, SUnaryOperation } from "../spec-lang/ast";
+import { SId, SLet, SUnaryOperation, SUserFunctionDefinition } from "../spec-lang/ast";
 import { SemMap, TypeMap } from "../spec-lang/tc";
 import { assert } from "../util";
 import { InstrumentationContext } from "./instrumentation_context";
@@ -98,6 +98,17 @@ export class TranspilingContext {
             }
             const fieldName = this.instrCtx.nameGenerator.getFresh(name, true);
             this.bindingMap.set(key, fieldName);
+        }
+
+        return this.bindingMap.get(key) as string;
+    }
+
+    getUserFunArg(userFun: SUserFunctionDefinition, idx: number): string {
+        const key = `<uf_arg_${userFun.id}_${idx}>`;
+        if (!this.bindingMap.has(key)) {
+            const name = userFun.parameters[idx][0].name;
+            const uniqueName = this.instrCtx.nameGenerator.getFresh(name, true);
+            this.bindingMap.set(key, uniqueName);
         }
 
         return this.bindingMap.get(key) as string;

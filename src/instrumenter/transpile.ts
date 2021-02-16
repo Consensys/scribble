@@ -1,12 +1,15 @@
 import {
     ASTNodeFactory,
     ContractDefinition,
+    DataLocation,
     ElementaryTypeName,
     EnumDefinition,
     Expression,
     FunctionCallKind,
     FunctionDefinition,
     LiteralKind,
+    Mutability,
+    StateVariableVisibility,
     StructDefinition,
     TypeName,
     VariableDeclaration
@@ -41,7 +44,8 @@ import {
     SUnaryOperation,
     SUserDefinedType,
     SAddressLiteral,
-    SResult
+    SResult,
+    SUserFunctionDefinition
 } from "../spec-lang/ast";
 import { BuiltinSymbols, STypingCtx, TypeMap } from "../spec-lang/tc";
 import { assert, single } from "../util";
@@ -92,6 +96,46 @@ export function generateTypeAst(type: SType, factory: ASTNodeFactory): TypeName 
     throw new Error(`NYI emitting spec type ${type.pp()}`);
 }
 
+export function getTypeLocation(type: SType): DataLocation {
+    if (type instanceof SPointer) {
+        return type.location;
+    }
+
+    return DataLocation.Default;
+}
+
+/**
+ * Generate an ASTVariableDeclaration for:
+ *  - function params
+ *  - function returns
+ *  - function local vars
+ *
+ * @param name - name of the new var
+ * @param type - Scribble type of the var
+ * @param factory - ASTNodeFactory
+ */
+export function generateFunVarDecl(
+    name: string,
+    type: SType,
+    factory: ASTNodeFactory
+): VariableDeclaration {
+    const astType = generateTypeAst(type, factory);
+
+    return factory.makeVariableDeclaration(
+        false,
+        false,
+        name,
+        -1,
+        false,
+        getTypeLocation(type),
+        StateVariableVisibility.Default,
+        Mutability.Mutable,
+        "<missing>",
+        undefined,
+        astType
+    );
+}
+
 export function generateIdAST(
     spec: SId,
     typing: TypeMap,
@@ -99,6 +143,12 @@ export function generateIdAST(
     loc: STypingCtx
 ): Expression {
     if (BuiltinSymbols.has(spec.name)) {
+        return factory.makeIdentifier("<missing>", spec.name, -1);
+    }
+
+    // User function argument
+    if (spec.defSite instanceof Array && spec.defSite[0] instanceof SUserFunctionDefinition) {
+        // @todo (dimo): This is hacky. Need to pass in transCtx here so we can use makeIdentifierFor
         return factory.makeIdentifier("<missing>", spec.name, -1);
     }
 
@@ -112,6 +162,10 @@ export function generateIdAST(
     // This identifier
     if (spec.defSite === "this") {
         return factory.makeIdentifier("<missing>", "this", (loc[1] as ContractDefinition).id);
+    }
+
+    if (spec.defSite === "user_function_name") {
+        return factory.makeIdentifier("<missing>", spec.name, -1);
     }
 
     // Normal solidity variable

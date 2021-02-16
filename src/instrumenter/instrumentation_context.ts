@@ -11,7 +11,7 @@ import {
     ImportDirective
 } from "solc-typed-ast";
 import { NameGenerator } from "../util/name_generator";
-import { PropertyMD } from "./annotations";
+import { AnnotationMetaData } from "./annotations";
 import { CallGraph, FunSet } from "./callgraph";
 import { CHA } from "./cha";
 import { AnnotationFilterOptions } from "./instrument";
@@ -66,6 +66,7 @@ export class InstrumentationContext {
     public readonly outOfContractFlagName: string;
     public readonly utilsContractName: string;
     private internalInvariantCheckers: Map<ContractDefinition, string> = new Map();
+    //    private userFunctions: Map<ContractDefinition, Map<string, FunctionDefinition>> = new Map();
 
     /**
      * Bit of a hack - this is set by `generateUtilsContract`. We need an
@@ -83,7 +84,7 @@ export class InstrumentationContext {
         public readonly cha: CHA<ContractDefinition>,
         public readonly funsToChangeMutability: FunSet,
         public readonly filterOptions: AnnotationFilterOptions,
-        public readonly annotations: PropertyMD[],
+        public readonly annotations: AnnotationMetaData[],
         public readonly wrapperMap: Map<FunctionDefinition, FunctionDefinition>,
         public readonly files: Map<string, string>,
         public readonly compilerVersion: string,

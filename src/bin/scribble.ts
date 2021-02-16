@@ -28,12 +28,12 @@ import {
 } from "solc-typed-ast";
 import { print, rewriteImports } from "../ast_to_source_printer";
 import {
-    PropertyMD,
+    PropertyMetaData,
     AnnotationExtractor,
     SyntaxError,
     UnsupportedByTargetError,
-    AnnotationMD,
-    UserFunctionDefinitionMD
+    AnnotationMetaData,
+    UserFunctionDefinitionMetaData
 } from "../instrumenter/annotations";
 import { getCallGraph } from "../instrumenter/callgraph";
 import { CHA, chaDFS, getCHA } from "../instrumenter/cha";
@@ -46,7 +46,7 @@ import {
 import { InstrumentationContext } from "../instrumenter/instrumentation_context";
 import { merge } from "../rewriter/merge";
 import { isSane } from "../rewriter/sanity";
-import { Location, Range, SAnnotation } from "../spec-lang/ast";
+import { Location, Range } from "../spec-lang/ast";
 import {
     scAnnotation,
     SemError,
@@ -93,16 +93,12 @@ function getAnnotationsOrDie(
     node: ContractDefinition | FunctionDefinition,
     sources: Map<string, string>,
     filters: AnnotationFilterOptions
-): PropertyMD[] {
+): AnnotationMetaData[] {
     try {
         const extractor = new AnnotationExtractor();
         const annotations = extractor.extract(node, sources, filters);
 
-        for (const annot of annotations) {
-            assert(annot instanceof PropertyMD, `NYI annotation ${annot.original}`);
-        }
-
-        return (annotations as unknown) as PropertyMD[];
+        return annotations;
     } catch (e) {
         if (e instanceof SyntaxError || e instanceof UnsupportedByTargetError) {
             const unit = getScopeUnit(node);
@@ -115,7 +111,7 @@ function getAnnotationsOrDie(
 }
 
 function tcOrDie(
-    annotation: AnnotationMD<SAnnotation>,
+    annotation: AnnotationMetaData,
     ctx: STypingCtx,
     typing: TypeMap,
     semInfo: SemMap,
@@ -136,9 +132,9 @@ function tcOrDie(
             const loc = err.loc();
             let fileLoc;
 
-            if (annotation instanceof PropertyMD) {
+            if (annotation instanceof PropertyMetaData) {
                 fileLoc = annotation.predOffToFileLoc([loc.start.offset, loc.end.offset], source);
-            } else if (annotation instanceof UserFunctionDefinitionMD) {
+            } else if (annotation instanceof UserFunctionDefinitionMetaData) {
                 fileLoc = annotation.bodyOffToFileLoc([loc.start.offset, loc.end.offset], source);
             } else {
                 throw new Error(`NYI Annotation MD for ${annotation.parsedAnnot.pp()}`);
@@ -186,9 +182,8 @@ function computeContractInvs(
     cha: CHA<ContractDefinition>,
     filterOptions: AnnotationFilterOptions,
     files: Map<string, string>,
-    contractAnnotMap: Map<ContractDefinition, PropertyMD[]>
+    contractAnnotMap: Map<ContractDefinition, AnnotationMetaData[]>
 ): void {
-    // Note: Can't use standard chaDFS as we use args/returns here more specially
     chaDFS(cha, (contract: ContractDefinition): void => {
         if (contractAnnotMap.has(contract)) {
             return;
@@ -213,7 +208,7 @@ function computeContractInvs(
  */
 function computeContractsNeedingInstr(
     cha: CHA<ContractDefinition>,
-    contractAnnotMap: Map<ContractDefinition, PropertyMD[]>
+    contractAnnotMap: Map<ContractDefinition, PropertyMetaData[]>
 ): Set<ContractDefinition> {
     // Find the contracts needing instrumentaion by doing bfs starting from the annotated contracts
     const wave = [...contractAnnotMap.keys()];
@@ -239,13 +234,15 @@ function computeContractsNeedingInstr(
 
 function instrumentFiles(
     ctx: InstrumentationContext,
-    contractInvMap: Map<ContractDefinition, PropertyMD[]>,
+    contractInvMap: Map<ContractDefinition, PropertyMetaData[]>,
     contractsNeedingInstr: Set<ContractDefinition>
 ): [SourceUnit[], SourceUnit[]] {
     const units = ctx.units;
     const filters = ctx.filterOptions;
 
-    const worklist: Array<[ContractDefinition, FunctionDefinition | undefined, PropertyMD[]]> = [];
+    const worklist: Array<
+        [ContractDefinition, FunctionDefinition | undefined, AnnotationMetaData[]]
+    > = [];
     const typing: TypeMap = new Map();
     const semInfo: SemMap = new Map();
     const changedSourceUnits: SourceUnit[] = [];
@@ -678,6 +675,11 @@ function generatePropertyMap(ctx: InstrumentationContext): PropertyMap {
     const result: PropertyMap = [];
 
     for (const annotation of ctx.annotations) {
+        // Skip user functions from the property map.
+        if (!(annotation instanceof PropertyMetaData)) {
+            continue;
+        }
+
         let contract: ContractDefinition;
         let targetType: TargetType;
 
@@ -1014,7 +1016,7 @@ if ("version" in options) {
          * Merge the CHAs and file maps computed for each target
          */
         const contentsMap: Map<string, string> = new Map();
-        const contractsInvMap: Map<ContractDefinition, PropertyMD[]> = new Map();
+        const contractsInvMap: Map<ContractDefinition, PropertyMetaData[]> = new Map();
 
         const groups: SourceUnit[][] = targets.map(
             (target) => groupsMap.get(target) as SourceUnit[]

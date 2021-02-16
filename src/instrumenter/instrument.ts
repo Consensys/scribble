@@ -63,15 +63,20 @@ import {
     SPointer,
     SString,
     SAddressLiteral,
-    SResult
+    SResult,
+    SUserFunctionDefinition
 } from "../spec-lang/ast";
 import { TypeMap, SemMap } from "../spec-lang/tc";
 import { parse as parseTypeString } from "../spec-lang/typeString_parser";
 import { assert, isChangingState, isExternallyVisible, single } from "../util";
-import { PropertyMD } from "./annotations";
+import {
+    AnnotationMetaData,
+    PropertyMetaData,
+    UserFunctionDefinitionMetaData
+} from "./annotations";
 import { walk } from "../spec-lang/walk";
 import { interpose, interposeCall } from "./interpose";
-import { generateExprAST, generateTypeAst } from "./transpile";
+import { generateExprAST, generateFunVarDecl, generateTypeAst } from "./transpile";
 import { dirname, relative } from "path";
 import { InstrumentationContext } from "./instrumentation_context";
 import { TranspilingContext } from "./transpiling_context";
@@ -91,6 +96,21 @@ export interface InstrumentationResult {
     newAssignments: Assignment[];
     transpiledPredicates: Expression[];
     debugEventsInfo: Array<[EventDefinition, EmitStatement] | undefined>;
+}
+
+export type SubclassConstructor<Base, Child extends Base> = new (...args: any[]) => Child;
+function filterByType<Base, Child extends Base>(
+    original: Base[],
+    constr: SubclassConstructor<Base, Child>
+): Child[] {
+    const result: Child[] = [];
+    for (const annotation of original) {
+        if (annotation instanceof constr) {
+            result.push(annotation);
+        }
+    }
+
+    return result;
 }
 
 /// Return true if the current instrumentation configuration requires
@@ -270,6 +290,12 @@ export function flattenExpr(expr: SNode, ctx: TranspilingContext): [SNode, SBind
             if (defNode instanceof SLet) {
                 const field = ctx.getLetBinding([defNode, idx]);
                 return [getTmpVar(field, expr, expr.src), []];
+            } else if (defNode instanceof SUserFunctionDefinition) {
+                const renamedId = new SId(ctx.getUserFunArg(defNode, idx), expr.src);
+                renamedId.defSite = expr.defSite;
+                return [_registerNode(renamedId, expr), []];
+            } else {
+                throw new Error(`Unknown array def site`);
             }
         }
 
@@ -454,7 +480,7 @@ export function flattenExpr(expr: SNode, ctx: TranspilingContext): [SNode, SBind
  * @param loc - context where the expression is to be evaluated. Either a contract, or a particular function inside a contract.
  */
 export function generateExpressions(
-    annotations: PropertyMD[],
+    annotations: PropertyMetaData[],
     transCtx: TranspilingContext
 ): InstrumentationResult {
     // Step 1: Define struct holding all the temporary variables neccessary
@@ -656,7 +682,7 @@ function getBitPattern(factory: ASTNodeFactory, id: number): Literal {
 function emitAssert(
     transCtx: TranspilingContext,
     expr: Expression,
-    annotation: PropertyMD,
+    annotation: PropertyMetaData,
     event: EventDefinition,
     structLocalVar: VariableDeclaration,
     emitStmt?: EmitStatement
@@ -777,7 +803,7 @@ export function getAssertionFailedEvent(
 function insertInvChecks(
     transCtx: TranspilingContext,
     invExprs: Expression[],
-    annotations: PropertyMD[],
+    annotations: PropertyMetaData[],
     contract: ContractDefinition,
     body: Block,
     structLocalVar: VariableDeclaration,
@@ -886,16 +912,27 @@ export class ContractInstrumenter {
         ctx: InstrumentationContext,
         typing: TypeMap,
         semInfo: SemMap,
-        annotations: PropertyMD[],
+        annotations: AnnotationMetaData[],
         contract: ContractDefinition
     ): void {
         const recipe: Recipe = [];
+
+        const userFunctionsAnnotations = filterByType(annotations, UserFunctionDefinitionMetaData);
+        const propertyAnnotations = filterByType(annotations, PropertyMetaData);
+
+        const [, userFuncsRecipe] = this.makeUserFunctions(
+            ctx,
+            typing,
+            semInfo,
+            userFunctionsAnnotations,
+            contract
+        );
 
         const [internalInvChecker, internalCheckerRecipe] = this.makeInternalInvariantChecker(
             ctx,
             typing,
             semInfo,
-            annotations,
+            propertyAnnotations,
             contract
         );
 
@@ -907,6 +944,7 @@ export class ContractInstrumenter {
 
         recipe.push(
             new AddBaseContract(ctx.factory, contract, ctx.utilsContract, "start"),
+            ...userFuncsRecipe,
             ...internalCheckerRecipe,
             ...generalCheckerRecipe,
             ...this.instrumentConstructor(ctx, contract, generalInvChecker),
@@ -937,11 +975,128 @@ export class ContractInstrumenter {
         );
     }
 
+    private makeUserFunctions(
+        ctx: InstrumentationContext,
+        typing: TypeMap,
+        semInfo: SemMap,
+        annotations: UserFunctionDefinitionMetaData[],
+        contract: ContractDefinition
+    ): [FunctionDefinition[], Recipe] {
+        const recipe: Recipe = [];
+        const userFuns: FunctionDefinition[] = [];
+
+        const factory = ctx.factory;
+        const nameGen = ctx.nameGenerator;
+
+        for (const funDefMD of annotations) {
+            const funDef = funDefMD.parsedAnnot;
+            const instrFunName = nameGen.getFresh(funDef.name.name, true);
+            const userFun = factory.makeFunctionDefinition(
+                contract.id,
+                FunctionKind.Function,
+                instrFunName,
+                false,
+                FunctionVisibility.Internal,
+                FunctionStateMutability.View,
+                false,
+                factory.makeParameterList([]),
+                factory.makeParameterList([]),
+                [],
+                undefined,
+                factory.makeBlock([]),
+                `Implementation of user function ${funDef.pp()}`
+            );
+
+            const body = userFun.vBody as Block;
+            const transCtx = new TranspilingContext(typing, semInfo, userFun, ctx);
+
+            for (let i = 0; i < funDef.parameters.length; i++) {
+                const [, paramType] = funDef.parameters[i];
+                const instrName = transCtx.getUserFunArg(funDef, i);
+                userFun.vParameters.appendChild(generateFunVarDecl(instrName, paramType, factory));
+            }
+
+            userFun.vReturnParameters.appendChild(
+                generateFunVarDecl("", funDef.returnType, factory)
+            );
+
+            const [flatBody, bindings] = flattenExpr(funDef.body, transCtx);
+
+            if (bindings.length > 0) {
+                const bindingMap: Map<string, SType> = new Map();
+
+                bindings.forEach(([names, type]) => {
+                    if (typeof names === "string") {
+                        bindingMap.set(names, type);
+                    } else {
+                        for (let i = 0; i < names.length; i++) {
+                            bindingMap.set(names[i], (type as STupleType).elements[i]);
+                        }
+                    }
+                });
+
+                // Step 3: Populate the struct def with fields for each temporary variable
+                const memberDeclMap: Map<string, VariableDeclaration> = new Map();
+
+                for (const [name, sType] of bindingMap) {
+                    const astType = generateTypeAst(sType, factory);
+                    const decl = transCtx.addBinding(name, astType);
+                    memberDeclMap.set(name, decl);
+                }
+
+                const getTmpVar = (name: string): MemberAccess =>
+                    factory.makeMemberAccess(
+                        "<missing>",
+                        factory.makeIdentifierFor(transCtx.bindingsVar),
+                        name,
+                        (memberDeclMap.get(name) as VariableDeclaration).id
+                    );
+
+                // Step 4: Build temp assignments
+                for (const [names, , expr, isOld] of bindings) {
+                    let lhs: Expression;
+                    assert(!isOld, `Unexpected old expresion in user function: ${expr.pp()}`);
+
+                    if (typeof names === "string") {
+                        lhs = getTmpVar(names);
+                    } else {
+                        lhs = factory.makeTupleExpression("<missing>", false, names.map(getTmpVar));
+                    }
+
+                    const rhs = generateExprAST(expr, transCtx.typing, factory, [
+                        contract,
+                        userFun
+                    ]);
+                    const assignment = factory.makeAssignment("<missing>", "=", lhs, rhs);
+
+                    body.appendChild(factory.makeExpressionStatement(assignment));
+                }
+
+                body.insertBefore(
+                    factory.makeVariableDeclarationStatement([], [transCtx.bindingsVar]),
+                    body.firstChild as Statement
+                );
+                recipe.push(new InsertStructDef(factory, transCtx.bindingsStructDef, contract));
+            }
+
+            // Step 5: Build the final result
+            const result = generateExprAST(flatBody, transCtx.typing, factory, [contract, userFun]);
+            (userFun.vBody as Block).appendChild(
+                factory.makeReturn(userFun.vReturnParameters.id, result)
+            );
+
+            userFuns.push(userFun);
+            recipe.push(new InsertFunction(factory, contract, userFun));
+        }
+
+        return [userFuns, recipe];
+    }
+
     private makeInternalInvariantChecker(
         ctx: InstrumentationContext,
         typing: TypeMap,
         semInfo: SemMap,
-        annotations: PropertyMD[],
+        annotations: PropertyMetaData[],
         contract: ContractDefinition
     ): [FunctionDefinition, Recipe] {
         const factory = ctx.factory;
@@ -1280,12 +1435,18 @@ export class FunctionInstrumenter {
         ctx: InstrumentationContext,
         typing: TypeMap,
         semInfo: SemMap,
-        annotations: PropertyMD[],
+        allAnnotations: AnnotationMetaData[],
         contract: ContractDefinition,
         fn: FunctionDefinition,
         needsContractInvInstr: boolean
     ): void {
         const factory = ctx.factory;
+
+        const annotations = filterByType(allAnnotations, PropertyMetaData);
+        assert(
+            allAnnotations.length === annotations.length,
+            `NYI: Non-property annotations on functions.`
+        );
 
         const [interposeRecipe, stub] = interpose(fn, ctx);
 

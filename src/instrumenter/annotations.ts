@@ -58,7 +58,7 @@ let numAnnotations = 0;
  * Base class containing metadata for parsed anntotations useful for
  * pretty-printing error messages and error line information.
  */
-export class AnnotationMD<T extends SAnnotation> {
+export class AnnotationMetaData<T extends SAnnotation = SAnnotation> {
     /// StructuredDocumentation AST node containing the annotation
     readonly raw: StructuredDocumentation;
     /// Target ast node being annotated. Either FunctionDefintion or ContractDefinition
@@ -124,9 +124,11 @@ export class AnnotationMD<T extends SAnnotation> {
 /**
  * Metadata specific to a user function definition.
  */
-export class UserFunctionDefinitionMD extends AnnotationMD<SUserFunctionDefinition> {
+export class UserFunctionDefinitionMetaData extends AnnotationMetaData<SUserFunctionDefinition> {
     /// Original body text
     readonly bodyText: string;
+    /// Location of the body of the function relative to the beginning of the file
+    readonly bodyLoc: OffsetRange;
     /// Parsed annotation predicate
     get body(): SNode {
         return this.parsedAnnot.body;
@@ -142,22 +144,31 @@ export class UserFunctionDefinitionMD extends AnnotationMD<SUserFunctionDefiniti
         super(raw, target, original, parsedAnnot, annotationDocstringOff);
         // Original predicate
         this.bodyText = parsedAnnot.body.getSourceFragment(original);
+        // Location of the predicate relative to the begining of the file
+        this.bodyLoc = offsetBy(rangeToOffsetRange(parsedAnnot.body.requiredSrc), this.parseOff);
     }
 
     /**
      * Convert a location relative to the predicate into a file-wide location
      */
     bodyOffToFileLoc(arg: OffsetRange, source: string): Range {
-        const fileOff = offsetBy(arg, rangeToOffsetRange(this.body.requiredSrc));
+        const fileOff = offsetBy(arg, this.bodyLoc);
 
         return rangeToLocRange(fileOff[0], fileOff[1], source);
+    }
+
+    /**
+     * Get the line/column location of the predicate (relative to the begining of the file)
+     */
+    bodyFileLoc(source: string): Range {
+        return rangeToLocRange(this.bodyLoc[0], this.bodyLoc[1], source);
     }
 }
 
 /**
  * Metadata specific to a property annotation (invariant, if_succeeds)
  */
-export class PropertyMD extends AnnotationMD<SProperty> {
+export class PropertyMetaData extends AnnotationMetaData<SProperty> {
     /// Original annotation predicate text
     readonly predicate: string;
     /// Parsed annotation predicate
@@ -230,7 +241,7 @@ export class AnnotationExtractor {
         match: RegExpExecArray,
         meta: RawMetaData,
         source: string
-    ): AnnotationMD<SAnnotation> {
+    ): AnnotationMetaData {
         let annotationOrig: string;
         let parsedAnnot: SAnnotation;
 
@@ -286,9 +297,15 @@ export class AnnotationExtractor {
             );
         }*/
         if (parsedAnnot instanceof SProperty) {
-            return new PropertyMD(meta.node, meta.target, annotationOrig, parsedAnnot, match.index);
+            return new PropertyMetaData(
+                meta.node,
+                meta.target,
+                annotationOrig,
+                parsedAnnot,
+                match.index
+            );
         } else if (parsedAnnot instanceof SUserFunctionDefinition) {
-            return new UserFunctionDefinitionMD(
+            return new UserFunctionDefinitionMetaData(
                 meta.node,
                 meta.target,
                 annotationOrig,
@@ -302,11 +319,14 @@ export class AnnotationExtractor {
 
     private validateAnnotation(
         target: AnnotationTarget,
-        annotation: AnnotationMD<SAnnotation>,
+        annotation: AnnotationMetaData,
         source: string
     ) {
         if (target instanceof ContractDefinition) {
-            if (annotation.type !== AnnotationType.Invariant) {
+            if (
+                annotation.type !== AnnotationType.Invariant &&
+                annotation.type !== AnnotationType.Define
+            ) {
                 throw new UnsupportedByTargetError(
                     `The "${annotation.type}" annotation is not applicable to contracts`,
                     annotation.original,
@@ -314,6 +334,7 @@ export class AnnotationExtractor {
                 );
             }
 
+            // @todo (dimo) add support for user functions on interfaces/libraries and add tests with that
             if (target.kind === ContractKind.Interface || target.kind === ContractKind.Library) {
                 throw new UnsupportedByTargetError(
                     `Unsupported contract annotations on ${target.kind} ${target.name}`,
@@ -337,17 +358,8 @@ export class AnnotationExtractor {
                     annotation.annotationFileLoc(source)
                 );
             }
-        }
-
-        if (
-            annotation instanceof UserFunctionDefinitionMD &&
-            !(target instanceof ContractDefinition)
-        ) {
-            throw new UnsupportedByTargetError(
-                `User function definitions are only supported at the contract level at the moment.`,
-                annotation.original,
-                annotation.annotationFileLoc(source)
-            );
+        } else {
+            throw new Error(`NYI Target ${target.constructor.name}#${target.id}`);
         }
     }
 
@@ -356,7 +368,7 @@ export class AnnotationExtractor {
         target: AnnotationTarget,
         source: string,
         filters: AnnotationFilterOptions
-    ): Array<AnnotationMD<SAnnotation>> {
+    ): AnnotationMetaData[] {
         const rxType = filters.type === undefined ? undefined : new RegExp(filters.type);
         const rxMsg = filters.message === undefined ? undefined : new RegExp(filters.message);
 
@@ -369,7 +381,7 @@ export class AnnotationExtractor {
             loc: [sourceInfo.offset, sourceInfo.length]
         };
 
-        const result: Array<AnnotationMD<SAnnotation>> = [];
+        const result: AnnotationMetaData[] = [];
 
         const rx = /\s*(\*|\/\/\/)\s*(if_succeeds|if_aborts|invariant|define)/g;
 
@@ -399,8 +411,8 @@ export class AnnotationExtractor {
         node: ContractDefinition | FunctionDefinition,
         sources: Map<string, string>,
         filters: AnnotationFilterOptions
-    ): Array<AnnotationMD<SAnnotation>> {
-        const result: Array<AnnotationMD<SAnnotation>> = [];
+    ): AnnotationMetaData[] {
+        const result: AnnotationMetaData[] = [];
 
         /**
          * Gather annotations from all overriden functions up the inheritance tree.

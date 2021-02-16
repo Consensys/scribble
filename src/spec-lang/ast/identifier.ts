@@ -4,7 +4,7 @@ import { SLet } from ".";
 import { SUserFunctionDefinition } from "./declarations";
 
 export type VarDefSite = VariableDeclaration | [SLet, number] | [SUserFunctionDefinition, number];
-export type IdDefSite = VarDefSite | "function_name" | "type_name" | "this";
+export type IdDefSite = VarDefSite | "function_name" | "user_function_name" | "type_name" | "this";
 
 export class SId extends SNode {
     public readonly name: string;
