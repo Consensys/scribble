@@ -41,9 +41,8 @@ import {
 } from "./ast";
 
 function buildBinaryExpression(head: SNode, tail: Array<[string, SNode]>, src?: Range): SNode {
-    return tail.reduce((acc, [whiteSp, curOp, whiteSP, curVal]) => {
-        return new SBinaryOperation(acc, curOp, curVal, src);
-    }, head);
+    return tail.reduce((acc, [whiteSp, curOp, whiteSP, curVal]) =>
+        new SBinaryOperation(acc, curOp, curVal, src), head);
 }
 
 export function parseAnnotation(str: string): SAnnotation {

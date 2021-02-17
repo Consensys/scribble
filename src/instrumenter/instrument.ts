@@ -289,13 +289,15 @@ export function flattenExpr(expr: SNode, ctx: TranspilingContext): [SNode, SBind
             if (defNode instanceof SLet) {
                 const field = ctx.getLetBinding([defNode, idx]);
                 return [getTmpVar(field, expr, expr.src), []];
-            } else if (defNode instanceof SUserFunctionDefinition) {
+            }
+
+            if (defNode instanceof SUserFunctionDefinition) {
                 const renamedId = new SId(ctx.getUserFunArg(defNode, idx), expr.src);
                 renamedId.defSite = expr.defSite;
                 return [_registerNode(renamedId, expr), []];
-            } else {
-                throw new Error(`Unknown array def site`);
             }
+
+            throw new Error(`Unknown array def site`);
         }
 
         return [expr, []];

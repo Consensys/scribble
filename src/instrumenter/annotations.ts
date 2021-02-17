@@ -278,7 +278,9 @@ export class AnnotationExtractor {
                 parsedAnnot,
                 match.index
             );
-        } else if (parsedAnnot instanceof SUserFunctionDefinition) {
+        }
+
+        if (parsedAnnot instanceof SUserFunctionDefinition) {
             return new UserFunctionDefinitionMetaData(
                 meta.node,
                 meta.target,
@@ -286,9 +288,9 @@ export class AnnotationExtractor {
                 parsedAnnot,
                 match.index
             );
-        } else {
-            throw new Error(`NYI annotation ${parsedAnnot.pp()}`);
         }
+
+        throw new Error(`NYI annotation ${parsedAnnot.pp()}`);
     }
 
     private validateAnnotation(
@@ -357,7 +359,7 @@ export class AnnotationExtractor {
 
         const result: AnnotationMetaData[] = [];
 
-        const rx = /\s*(\*|\/\/\/)\s*(if_succeeds|if_aborts|invariant|define)/g;
+        const rx = /\s*(\*|\/\/\/)\s*(if_succeeds|invariant|define)/g;
 
         let match = rx.exec(meta.text);
 

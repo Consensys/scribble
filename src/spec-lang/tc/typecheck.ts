@@ -796,18 +796,18 @@ function tcIdVariable(expr: SId, ctx: STypingCtx, typeEnv: TypeEnv): SType | und
         return astVarToSType(def);
     }
 
-    const [node, bindingIdx] = def;
+    const [defNode, bindingIdx] = def;
 
-    if (node instanceof SLet) {
-        const rhsT = tc(node.rhs, ctx, typeEnv);
+    if (defNode instanceof SLet) {
+        const rhsT = tc(defNode.rhs, ctx, typeEnv);
 
-        if (node.lhs.length > 1) {
-            if (!(rhsT instanceof STupleType && rhsT.elements.length === node.lhs.length)) {
+        if (defNode.lhs.length > 1) {
+            if (!(rhsT instanceof STupleType && rhsT.elements.length === defNode.lhs.length)) {
                 throw new SExprCountMismatch(
-                    `Wrong number of values for let bindings in ${node.pp()}. Expected ${
-                        node.lhs.length
+                    `Wrong number of values for let bindings in ${defNode.pp()}. Expected ${
+                        defNode.lhs.length
                     } values, instead got ${rhsT.pp()}`,
-                    node
+                    defNode
                 );
             }
 
@@ -815,10 +815,10 @@ function tcIdVariable(expr: SId, ctx: STypingCtx, typeEnv: TypeEnv): SType | und
         }
 
         return rhsT;
-    } else {
-        // node instanceof SUserFunctionDefinition
-        return node.parameters[bindingIdx][1];
     }
+
+    // otherwise defNode is SUserFunctionDefinition
+    return defNode.parameters[bindingIdx][1];
 }
 
 export function tcId(expr: SId, ctx: STypingCtx, typeEnv: TypeEnv): SType {
