@@ -269,33 +269,7 @@ export class AnnotationExtractor {
 
             throw e;
         }
-        /*
-         * TODO: Delete after I decide what to do about last failing test with missing semicolon
-        if (!hasSemi) {
-            let scope: string;
 
-            if (meta.target instanceof ContractDefinition) {
-                scope = `contract ${meta.target.name}`;
-            } else {
-                const prefix =
-                    meta.target.vScope instanceof SourceUnit
-                        ? ""
-                        : (meta.target.vScope as ContractDefinition).name + ".";
-
-                scope =
-                    meta.target instanceof FunctionDefinition
-                        ? `function ${prefix}${meta.target.name}`
-                        : prefix + meta.target.name;
-            }
-
-            const errRange = rangeToLocRange(annotationLoc[0], annotationLoc[1], source);
-
-            throw new SyntaxError(
-                `Line ${errRange.start.line} of ${scope} documentation string looks like an annotation but is not terminated by a semicolon ";" and is ignored: ${annotationOrig}`,
-                annotationOrig,
-                errRange
-            );
-        }*/
         if (parsedAnnot instanceof SProperty) {
             return new PropertyMetaData(
                 meta.node,

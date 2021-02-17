@@ -883,7 +883,7 @@ export function tcId(expr: SId, ctx: STypingCtx, typeEnv: TypeEnv): SType {
         const userFun = typeEnv.getUserFunction(contractScope, expr.name);
 
         if (userFun !== undefined) {
-            expr.defSite = "user_function_name";
+            expr.defSite = userFun;
             return new SFunctionType(
                 userFun.parameters.map(([, type]) => type),
                 [userFun.returnType],

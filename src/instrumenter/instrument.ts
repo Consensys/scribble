@@ -584,9 +584,7 @@ export function generateExpressions(
 
                 instrCtx.debugEventDefs.set(annot.id, evtDef);
 
-                const evtArgs = dbgVars.map((v) =>
-                    generateExprAST(v, transCtx.typeEnv, factory, [contract, fn])
-                );
+                const evtArgs = dbgVars.map((v) => generateExprAST(v, transCtx, [contract, fn]));
 
                 // Finally construct the emit statement for the debug event.
                 const emitStmt = factory.makeEmitStatement(
@@ -644,7 +642,7 @@ export function generateExpressions(
             lhs = factory.makeTupleExpression("<missing>", false, names.map(getTmpVar));
         }
 
-        const rhs = generateExprAST(expr, transCtx.typeEnv, factory, [contract, fn]);
+        const rhs = generateExprAST(expr, transCtx, [contract, fn]);
         const assignment = factory.makeAssignment("<missing>", "=", lhs, rhs);
 
         (isOld ? oldAssignments : newAssignments).push(assignment);
@@ -652,7 +650,7 @@ export function generateExpressions(
 
     // Step 5: Build the assertion predicates
     const transpiledPredicates = flatExprs.map((flatExpr) =>
-        generateExprAST(flatExpr, transCtx.typeEnv, factory, [contract, fn])
+        generateExprAST(flatExpr, transCtx, [contract, fn])
     );
 
     return {
@@ -1003,6 +1001,8 @@ export class ContractInstrumenter {
                 `Implementation of user function ${funDef.pp()}`
             );
 
+            ctx.userFunctions.set(funDef, userFun);
+
             const body = userFun.vBody as Block;
             const transCtx = new TranspilingContext(typeEnv, semInfo, userFun, ctx);
 
@@ -1059,10 +1059,7 @@ export class ContractInstrumenter {
                         lhs = factory.makeTupleExpression("<missing>", false, names.map(getTmpVar));
                     }
 
-                    const rhs = generateExprAST(expr, transCtx.typeEnv, factory, [
-                        contract,
-                        userFun
-                    ]);
+                    const rhs = generateExprAST(expr, transCtx, [contract, userFun]);
                     const assignment = factory.makeAssignment("<missing>", "=", lhs, rhs);
 
                     body.appendChild(factory.makeExpressionStatement(assignment));
@@ -1076,10 +1073,7 @@ export class ContractInstrumenter {
             }
 
             // Step 5: Build the final result
-            const result = generateExprAST(flatBody, transCtx.typeEnv, factory, [
-                contract,
-                userFun
-            ]);
+            const result = generateExprAST(flatBody, transCtx, [contract, userFun]);
             (userFun.vBody as Block).appendChild(
                 factory.makeReturn(userFun.vReturnParameters.id, result)
             );

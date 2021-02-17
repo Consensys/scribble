@@ -10,6 +10,7 @@ import {
     VariableDeclaration,
     ImportDirective
 } from "solc-typed-ast";
+import { SUserFunctionDefinition } from "../spec-lang/ast";
 import { NameGenerator } from "../util/name_generator";
 import { AnnotationMetaData } from "./annotations";
 import { CallGraph, FunSet } from "./callgraph";
@@ -66,7 +67,7 @@ export class InstrumentationContext {
     public readonly outOfContractFlagName: string;
     public readonly utilsContractName: string;
     private internalInvariantCheckers: Map<ContractDefinition, string> = new Map();
-    //    private userFunctions: Map<ContractDefinition, Map<string, FunctionDefinition>> = new Map();
+    public readonly userFunctions: Map<SUserFunctionDefinition, FunctionDefinition> = new Map();
 
     /**
      * Bit of a hack - this is set by `generateUtilsContract`. We need an

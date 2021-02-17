@@ -47,8 +47,9 @@ import {
     SResult,
     SUserFunctionDefinition
 } from "../spec-lang/ast";
-import { BuiltinSymbols, STypingCtx, TypeEnv } from "../spec-lang/tc";
+import { BuiltinSymbols, STypingCtx } from "../spec-lang/tc";
 import { assert, single } from "../util";
+import { TranspilingContext } from "./transpiling_context";
 
 export function generateTypeAst(type: SType, factory: ASTNodeFactory): TypeName {
     if (
@@ -138,18 +139,40 @@ export function generateFunVarDecl(
 
 export function generateIdAST(
     spec: SId,
-    typeEnv: TypeEnv,
-    factory: ASTNodeFactory,
+    transCtx: TranspilingContext,
     loc: STypingCtx
 ): Expression {
+    const typeEnv = transCtx.typeEnv;
+    const factory = transCtx.factory;
+
     if (BuiltinSymbols.has(spec.name)) {
         return factory.makeIdentifier("<missing>", spec.name, -1);
     }
 
     // User function argument
     if (spec.defSite instanceof Array && spec.defSite[0] instanceof SUserFunctionDefinition) {
-        // @todo (dimo): This is hacky. Need to pass in transCtx here so we can use makeIdentifierFor
-        return factory.makeIdentifier("<missing>", spec.name, -1);
+        const instrCtx = transCtx.instrCtx;
+        const transpiledUserFun = instrCtx.userFunctions.get(spec.defSite[0]);
+        assert(
+            transpiledUserFun !== undefined,
+            `Missing transpiled version of user function ${spec.defSite[0].pp()}`
+        );
+
+        return factory.makeIdentifierFor(
+            transpiledUserFun.vParameters.vParameters[spec.defSite[1]]
+        );
+    }
+
+    // User function itself
+    if (spec.defSite instanceof SUserFunctionDefinition) {
+        const instrCtx = transCtx.instrCtx;
+        const transpiledUserFun = instrCtx.userFunctions.get(spec.defSite);
+        assert(
+            transpiledUserFun !== undefined,
+            `Missing transpiled version of user function ${spec.defSite.pp()}`
+        );
+
+        return factory.makeIdentifierFor(transpiledUserFun);
     }
 
     // These should be removed by flattening
@@ -162,10 +185,6 @@ export function generateIdAST(
     // This identifier
     if (spec.defSite === "this") {
         return factory.makeIdentifier("<missing>", "this", (loc[1] as ContractDefinition).id);
-    }
-
-    if (spec.defSite === "user_function_name") {
-        return factory.makeIdentifier("<missing>", spec.name, -1);
     }
 
     // Normal solidity variable
@@ -216,10 +235,12 @@ export function generateIdAST(
 
 export function generateExprAST(
     expr: SNode,
-    typeEnv: TypeEnv,
-    factory: ASTNodeFactory,
+    transCtx: TranspilingContext,
     loc: STypingCtx
 ): Expression {
+    const typeEnv = transCtx.typeEnv;
+    const factory = transCtx.factory;
+
     if (expr instanceof SNumber) {
         const numStr = expr.num.toString(expr.radix);
 
@@ -248,7 +269,7 @@ export function generateExprAST(
     }
 
     if (expr instanceof SId) {
-        return generateIdAST(expr, typeEnv, factory, loc);
+        return generateIdAST(expr, transCtx, loc);
     }
 
     if (expr instanceof SResult) {
@@ -266,14 +287,14 @@ export function generateExprAST(
     }
 
     if (expr instanceof SIndexAccess) {
-        const base = generateExprAST(expr.base, typeEnv, factory, loc);
-        const index = generateExprAST(expr.index, typeEnv, factory, loc);
+        const base = generateExprAST(expr.base, transCtx, loc);
+        const index = generateExprAST(expr.index, transCtx, loc);
 
         return factory.makeIndexAccess("<missing>", base, index);
     }
 
     if (expr instanceof SMemberAccess) {
-        const base = generateExprAST(expr.base, typeEnv, factory, loc);
+        const base = generateExprAST(expr.base, transCtx, loc);
         const type = typeEnv.typeOf(expr);
 
         let referencedDeclaration = -1;
@@ -292,14 +313,14 @@ export function generateExprAST(
             throw Error(`old operators should have been removed by flattening: ${expr.pp()}`);
         }
 
-        const subExp = generateExprAST(expr.subexp, typeEnv, factory, loc);
+        const subExp = generateExprAST(expr.subexp, transCtx, loc);
 
         return factory.makeUnaryOperation("<missing>", true, expr.op, subExp);
     }
 
     if (expr instanceof SBinaryOperation) {
-        const left = generateExprAST(expr.left, typeEnv, factory, loc);
-        const right = generateExprAST(expr.right, typeEnv, factory, loc);
+        const left = generateExprAST(expr.left, transCtx, loc);
+        const right = generateExprAST(expr.right, transCtx, loc);
 
         if (expr.op === "==>") {
             const notPrecedent = factory.makeUnaryOperation("missing", true, "!", left);
@@ -311,9 +332,9 @@ export function generateExprAST(
     }
 
     if (expr instanceof SConditional) {
-        const condition = generateExprAST(expr.condition, typeEnv, factory, loc);
-        const trueExp = generateExprAST(expr.trueExp, typeEnv, factory, loc);
-        const falseExp = generateExprAST(expr.falseExp, typeEnv, factory, loc);
+        const condition = generateExprAST(expr.condition, transCtx, loc);
+        const trueExp = generateExprAST(expr.trueExp, transCtx, loc);
+        const falseExp = generateExprAST(expr.falseExp, transCtx, loc);
 
         return factory.makeConditional("<missing>", condition, trueExp, falseExp);
     }
@@ -333,10 +354,10 @@ export function generateExprAST(
 
             callee = factory.makeIdentifierFor(calleeT.definition);
         } else {
-            callee = generateExprAST(expr.callee, typeEnv, factory, loc);
+            callee = generateExprAST(expr.callee, transCtx, loc);
         }
 
-        const args = expr.args.map((arg) => generateExprAST(arg, typeEnv, factory, loc));
+        const args = expr.args.map((arg) => generateExprAST(arg, transCtx, loc));
 
         return factory.makeFunctionCall("<mising>", FunctionCallKind.FunctionCall, callee, args);
     }
