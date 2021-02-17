@@ -54,7 +54,7 @@ import {
     STypeError,
     STypingCtx,
     tcAnnotation,
-    TypeMap
+    TypeEnv
 } from "../spec-lang/tc";
 import { assert, getOrInit, getScopeUnit, isChangingState, isExternallyVisible } from "../util";
 import cli from "./scribble_cli.json";
@@ -113,7 +113,7 @@ function getAnnotationsOrDie(
 function tcOrDie(
     annotation: AnnotationMetaData,
     ctx: STypingCtx,
-    typing: TypeMap,
+    typeEnv: TypeEnv,
     semInfo: SemMap,
     fn: FunctionDefinition | undefined,
     contract: ContractDefinition,
@@ -123,8 +123,8 @@ function tcOrDie(
     const annotNode = annotation.parsedAnnot;
 
     try {
-        tcAnnotation(annotNode, ctx, typing);
-        scAnnotation(annotNode, typing, semInfo);
+        tcAnnotation(annotNode, ctx, typeEnv);
+        scAnnotation(annotNode, typeEnv, semInfo);
     } catch (err) {
         const scope = fn === undefined ? `${contract.name}` : `${contract.name}.${fn.name}`;
 
@@ -243,7 +243,7 @@ function instrumentFiles(
     const worklist: Array<
         [ContractDefinition, FunctionDefinition | undefined, AnnotationMetaData[]]
     > = [];
-    const typing: TypeMap = new Map();
+    const typeEnv = new TypeEnv();
     const semInfo: SemMap = new Map();
     const changedSourceUnits: SourceUnit[] = [];
 
@@ -271,7 +271,7 @@ function instrumentFiles(
             }
 
             for (const annot of contractAnnot) {
-                tcOrDie(annot, typeCtx, typing, semInfo, undefined, contract, contents);
+                tcOrDie(annot, typeCtx, typeEnv, semInfo, undefined, contract, contents);
             }
 
             const needsContrInstr = contractsNeedingInstr.has(contract);
@@ -301,7 +301,7 @@ function instrumentFiles(
                 const annotations = getAnnotationsOrDie(fun, ctx.files, filters);
 
                 for (const annot of annotations) {
-                    tcOrDie(annot, typeCtx, typing, semInfo, fun, contract, contents);
+                    tcOrDie(annot, typeCtx, typeEnv, semInfo, fun, contract, contents);
                 }
 
                 /**
@@ -337,11 +337,11 @@ function instrumentFiles(
 
     for (const [contract, fn, annotations] of worklist) {
         if (fn === undefined) {
-            contractInstrumenter.instrument(ctx, typing, semInfo, annotations, contract);
+            contractInstrumenter.instrument(ctx, typeEnv, semInfo, annotations, contract);
         } else {
             functionInstrumenter.instrument(
                 ctx,
-                typing,
+                typeEnv,
                 semInfo,
                 annotations,
                 contract,

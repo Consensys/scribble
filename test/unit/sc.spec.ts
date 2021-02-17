@@ -4,7 +4,7 @@ import { eq } from "../../src/util/struct_equality";
 import { SType, SIntLiteralType, SIntType } from "../../src/spec-lang/ast";
 import { SourceUnit, ContractDefinition } from "solc-typed-ast";
 import { toAst } from "../integration/utils";
-import { tc, STypingCtx, SemInfo, SemError, TypeMap } from "../../src/spec-lang/tc";
+import { tc, STypingCtx, SemInfo, SemError, TypeEnv } from "../../src/spec-lang/tc";
 import { sc } from "../../src/spec-lang/tc";
 import { SBoolType } from "../../src/spec-lang/ast/types/bool";
 import { Logger } from "../../src/logger";
@@ -276,10 +276,10 @@ describe("SemanticChecker Unit Tests", () => {
                     if (loc[1] !== undefined) {
                         ctx.push(findFunction(loc[1], ctx[1] as ContractDefinition));
                     }
-                    const typing: TypeMap = new Map();
-                    const type = tc(parsed, ctx, typing);
+                    const typeEnv = new TypeEnv();
+                    const type = tc(parsed, ctx, typeEnv);
                     expect(eq(type, expectedType)).toEqual(true);
-                    const semInfo = sc(parsed, { isOld: false }, typing);
+                    const semInfo = sc(parsed, { isOld: false }, typeEnv);
                     Logger.debug(`[${parsed.pp()}] sem info: ${JSON.stringify(semInfo)}`);
                     expect(eq(semInfo, expectedInfo)).toEqual(true);
                 });
@@ -303,9 +303,9 @@ describe("SemanticChecker Unit Tests", () => {
                         ctx.push(findFunction(loc[1], ctx[1] as ContractDefinition));
                     }
                     // Type-checking should succeed
-                    const typing: TypeMap = new Map();
-                    tc(parsed, ctx, typing);
-                    expect(sc.bind(sc, parsed, { isOld: false }, typing)).toThrowError(
+                    const typeEnv = new TypeEnv();
+                    tc(parsed, ctx, typeEnv);
+                    expect(sc.bind(sc, parsed, { isOld: false }, typeEnv)).toThrowError(
                         SemError as any
                     );
                 });

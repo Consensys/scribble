@@ -66,7 +66,7 @@ import {
     SResult,
     SUserFunctionDefinition
 } from "../spec-lang/ast";
-import { TypeMap, SemMap } from "../spec-lang/tc";
+import { SemMap, TypeEnv } from "../spec-lang/tc";
 import { parse as parseTypeString } from "../spec-lang/typeString_parser";
 import { assert, isChangingState, isExternallyVisible, single } from "../util";
 import {
@@ -199,7 +199,7 @@ export function generateUtilsContract(
     return sourceUnit;
 }
 
-function gatherDebugIds(n: SNode, typing: TypeMap): Set<SId> {
+function gatherDebugIds(n: SNode, typeEnv: TypeEnv): Set<SId> {
     const debugIds: Map<string, SId> = new Map();
     const selectId = (id: SId): void => {
         // Only want let-bindings and variable identifiers
@@ -216,8 +216,7 @@ function gatherDebugIds(n: SNode, typing: TypeMap): Set<SId> {
             return;
         }
 
-        const type = typing.get(id);
-        assert(type !== undefined, ``);
+        const type = typeEnv.typeOf(id);
 
         // Only want primitive types and bytes/string
         if (
@@ -243,10 +242,10 @@ function gatherDebugIds(n: SNode, typing: TypeMap): Set<SId> {
     return new Set(debugIds.values());
 }
 
-function registerNode(newN: SNode, oldN: SNode, typing: TypeMap): SNode {
-    const oldT = typing.get(oldN);
-
-    if (oldT) typing.set(newN, oldT);
+function registerNode(newN: SNode, oldN: SNode, typeEnv: TypeEnv): SNode {
+    if (typeEnv.hasType(oldN)) {
+        typeEnv.define(newN, typeEnv.typeOf(oldN));
+    }
     return newN;
 }
 
@@ -271,7 +270,7 @@ export function flattenExpr(expr: SNode, ctx: TranspilingContext): [SNode, SBind
      * @param oldN {SNode} - corresponding old node
      */
     const _registerNode = (newN: SNode, oldN: SNode): SNode => {
-        return registerNode(newN, oldN, ctx.typing);
+        return registerNode(newN, oldN, ctx.typeEnv);
     };
 
     const getTmpVar = (name: string, oldN: SNode, src?: Range) => {
@@ -335,7 +334,7 @@ export function flattenExpr(expr: SNode, ctx: TranspilingContext): [SNode, SBind
 
         if (expr.op === "old") {
             const tmpName = ctx.getOldVar(expr);
-            const tmpType = ctx.typing.get(expr) as SType;
+            const tmpType = ctx.typeEnv.typeOf(expr);
 
             subexpBindings.push([tmpName, tmpType, flatSubexp, true]);
 
@@ -389,7 +388,7 @@ export function flattenExpr(expr: SNode, ctx: TranspilingContext): [SNode, SBind
     }
 
     if (expr instanceof SLet) {
-        const rhsT = ctx.typing.get(expr.rhs) as SType;
+        const rhsT = ctx.typeEnv.typeOf(expr.rhs);
         // Hack to support old(fun()) where fun returns multiple types. Should be
         // removed when we get propper tuples support.
         let flatRHS: SNode;
@@ -451,7 +450,7 @@ export function flattenExpr(expr: SNode, ctx: TranspilingContext): [SNode, SBind
 
         const letBindings = rhsBindings.concat(bindings).concat(inBindings);
         const tmpName = ctx.getLetVar(expr);
-        const tmpType = ctx.typing.get(expr) as SType;
+        const tmpType = ctx.typeEnv.typeOf(expr);
 
         const inSemInfo = ctx.semInfo.get(expr.in);
         assert(inSemInfo !== undefined, `Missing sem info for let in-expr in ${expr.pp()}`);
@@ -518,13 +517,10 @@ export function generateExpressions(
             const dbgVars: Array<SId | SMemberAccess> = [];
             // First create the actual expression corresponding to each variable
             // to be traced
-            for (const id of gatherDebugIds(annot.expression, transCtx.typing)) {
+            for (const id of gatherDebugIds(annot.expression, transCtx.typeEnv)) {
                 const info = transCtx.semInfo.get(id);
-                const idType = transCtx.typing.get(id);
-                assert(
-                    info !== undefined && idType !== undefined,
-                    `Internal: No type or seminfo computed for ${id.pp()}`
-                );
+                const idType = transCtx.typeEnv.typeOf(id);
+                assert(info !== undefined, `Internal: No type or seminfo computed for ${id.pp()}`);
 
                 const baseVar = new SId(transCtx.bindingsVar.name);
                 baseVar.defSite = transCtx.bindingsVar;
@@ -537,7 +533,7 @@ export function generateExpressions(
                         registerNode(
                             new SMemberAccess(baseVar, tmpName),
                             id,
-                            transCtx.typing
+                            transCtx.typeEnv
                         ) as SMemberAccess
                     );
                 } else if (id.defSite instanceof Array) {
@@ -546,7 +542,7 @@ export function generateExpressions(
                         registerNode(
                             new SMemberAccess(baseVar, letVarField),
                             id,
-                            transCtx.typing
+                            transCtx.typeEnv
                         ) as SMemberAccess
                     );
                 } else {
@@ -559,7 +555,7 @@ export function generateExpressions(
             } else {
                 // Next construct the parameters for the event
                 const evtParams = dbgVars.map((v) => {
-                    const vType = transCtx.typing.get(v) as SType;
+                    const vType = transCtx.typeEnv.typeOf(v);
                     const type = generateTypeAst(vType, factory);
                     const name = v instanceof SId ? v.name : v.member;
                     const typeString = vType instanceof SPointer ? vType.to.pp() : vType.pp();
@@ -589,7 +585,7 @@ export function generateExpressions(
                 instrCtx.debugEventDefs.set(annot.id, evtDef);
 
                 const evtArgs = dbgVars.map((v) =>
-                    generateExprAST(v, transCtx.typing, factory, [contract, fn])
+                    generateExprAST(v, transCtx.typeEnv, factory, [contract, fn])
                 );
 
                 // Finally construct the emit statement for the debug event.
@@ -648,7 +644,7 @@ export function generateExpressions(
             lhs = factory.makeTupleExpression("<missing>", false, names.map(getTmpVar));
         }
 
-        const rhs = generateExprAST(expr, transCtx.typing, factory, [contract, fn]);
+        const rhs = generateExprAST(expr, transCtx.typeEnv, factory, [contract, fn]);
         const assignment = factory.makeAssignment("<missing>", "=", lhs, rhs);
 
         (isOld ? oldAssignments : newAssignments).push(assignment);
@@ -656,7 +652,7 @@ export function generateExpressions(
 
     // Step 5: Build the assertion predicates
     const transpiledPredicates = flatExprs.map((flatExpr) =>
-        generateExprAST(flatExpr, transCtx.typing, factory, [contract, fn])
+        generateExprAST(flatExpr, transCtx.typeEnv, factory, [contract, fn])
     );
 
     return {
@@ -910,7 +906,7 @@ export class ContractInstrumenter {
      */
     instrument(
         ctx: InstrumentationContext,
-        typing: TypeMap,
+        typeEnv: TypeEnv,
         semInfo: SemMap,
         annotations: AnnotationMetaData[],
         contract: ContractDefinition
@@ -922,7 +918,7 @@ export class ContractInstrumenter {
 
         const [, userFuncsRecipe] = this.makeUserFunctions(
             ctx,
-            typing,
+            typeEnv,
             semInfo,
             userFunctionsAnnotations,
             contract
@@ -930,7 +926,7 @@ export class ContractInstrumenter {
 
         const [internalInvChecker, internalCheckerRecipe] = this.makeInternalInvariantChecker(
             ctx,
-            typing,
+            typeEnv,
             semInfo,
             propertyAnnotations,
             contract
@@ -977,7 +973,7 @@ export class ContractInstrumenter {
 
     private makeUserFunctions(
         ctx: InstrumentationContext,
-        typing: TypeMap,
+        typeEnv: TypeEnv,
         semInfo: SemMap,
         annotations: UserFunctionDefinitionMetaData[],
         contract: ContractDefinition
@@ -1008,7 +1004,7 @@ export class ContractInstrumenter {
             );
 
             const body = userFun.vBody as Block;
-            const transCtx = new TranspilingContext(typing, semInfo, userFun, ctx);
+            const transCtx = new TranspilingContext(typeEnv, semInfo, userFun, ctx);
 
             for (let i = 0; i < funDef.parameters.length; i++) {
                 const [, paramType] = funDef.parameters[i];
@@ -1063,7 +1059,7 @@ export class ContractInstrumenter {
                         lhs = factory.makeTupleExpression("<missing>", false, names.map(getTmpVar));
                     }
 
-                    const rhs = generateExprAST(expr, transCtx.typing, factory, [
+                    const rhs = generateExprAST(expr, transCtx.typeEnv, factory, [
                         contract,
                         userFun
                     ]);
@@ -1080,7 +1076,10 @@ export class ContractInstrumenter {
             }
 
             // Step 5: Build the final result
-            const result = generateExprAST(flatBody, transCtx.typing, factory, [contract, userFun]);
+            const result = generateExprAST(flatBody, transCtx.typeEnv, factory, [
+                contract,
+                userFun
+            ]);
             (userFun.vBody as Block).appendChild(
                 factory.makeReturn(userFun.vReturnParameters.id, result)
             );
@@ -1094,7 +1093,7 @@ export class ContractInstrumenter {
 
     private makeInternalInvariantChecker(
         ctx: InstrumentationContext,
-        typing: TypeMap,
+        typeEnv: TypeEnv,
         semInfo: SemMap,
         annotations: PropertyMetaData[],
         contract: ContractDefinition
@@ -1124,7 +1123,7 @@ export class ContractInstrumenter {
             )
         );
 
-        const transCtx = new TranspilingContext(typing, semInfo, checker, ctx);
+        const transCtx = new TranspilingContext(typeEnv, semInfo, checker, ctx);
 
         const instrResult = generateExpressions(annotations, transCtx);
 
@@ -1433,7 +1432,7 @@ export class FunctionInstrumenter {
      */
     instrument(
         ctx: InstrumentationContext,
-        typing: TypeMap,
+        typeEnv: TypeEnv,
         semInfo: SemMap,
         allAnnotations: AnnotationMetaData[],
         contract: ContractDefinition,
@@ -1459,7 +1458,7 @@ export class FunctionInstrumenter {
             `Expected stub block for ${stub.name} have a single statement (call to original function), not ${body.vStatements.length}`
         );
 
-        const transCtx = new TranspilingContext(typing, semInfo, stub, ctx);
+        const transCtx = new TranspilingContext(typeEnv, semInfo, stub, ctx);
 
         const instrResult = generateExpressions(annotations, transCtx);
 

@@ -47,7 +47,7 @@ import {
     SResult,
     SUserFunctionDefinition
 } from "../spec-lang/ast";
-import { BuiltinSymbols, STypingCtx, TypeMap } from "../spec-lang/tc";
+import { BuiltinSymbols, STypingCtx, TypeEnv } from "../spec-lang/tc";
 import { assert, single } from "../util";
 
 export function generateTypeAst(type: SType, factory: ASTNodeFactory): TypeName {
@@ -138,7 +138,7 @@ export function generateFunVarDecl(
 
 export function generateIdAST(
     spec: SId,
-    typing: TypeMap,
+    typeEnv: TypeEnv,
     factory: ASTNodeFactory,
     loc: STypingCtx
 ): Expression {
@@ -187,7 +187,7 @@ export function generateIdAST(
         | ContractDefinition
         | VariableDeclaration;
 
-    const specT = typing.get(spec) as SType;
+    const specT = typeEnv.typeOf(spec);
 
     if (specT instanceof SFunctionSetType) {
         referrencedDef = single(specT.definitions);
@@ -216,7 +216,7 @@ export function generateIdAST(
 
 export function generateExprAST(
     expr: SNode,
-    typing: TypeMap,
+    typeEnv: TypeEnv,
     factory: ASTNodeFactory,
     loc: STypingCtx
 ): Expression {
@@ -248,7 +248,7 @@ export function generateExprAST(
     }
 
     if (expr instanceof SId) {
-        return generateIdAST(expr, typing, factory, loc);
+        return generateIdAST(expr, typeEnv, factory, loc);
     }
 
     if (expr instanceof SResult) {
@@ -266,15 +266,15 @@ export function generateExprAST(
     }
 
     if (expr instanceof SIndexAccess) {
-        const base = generateExprAST(expr.base, typing, factory, loc);
-        const index = generateExprAST(expr.index, typing, factory, loc);
+        const base = generateExprAST(expr.base, typeEnv, factory, loc);
+        const index = generateExprAST(expr.index, typeEnv, factory, loc);
 
         return factory.makeIndexAccess("<missing>", base, index);
     }
 
     if (expr instanceof SMemberAccess) {
-        const base = generateExprAST(expr.base, typing, factory, loc);
-        const type = typing.get(expr);
+        const base = generateExprAST(expr.base, typeEnv, factory, loc);
+        const type = typeEnv.typeOf(expr);
 
         let referencedDeclaration = -1;
 
@@ -292,14 +292,14 @@ export function generateExprAST(
             throw Error(`old operators should have been removed by flattening: ${expr.pp()}`);
         }
 
-        const subExp = generateExprAST(expr.subexp, typing, factory, loc);
+        const subExp = generateExprAST(expr.subexp, typeEnv, factory, loc);
 
         return factory.makeUnaryOperation("<missing>", true, expr.op, subExp);
     }
 
     if (expr instanceof SBinaryOperation) {
-        const left = generateExprAST(expr.left, typing, factory, loc);
-        const right = generateExprAST(expr.right, typing, factory, loc);
+        const left = generateExprAST(expr.left, typeEnv, factory, loc);
+        const right = generateExprAST(expr.right, typeEnv, factory, loc);
 
         if (expr.op === "==>") {
             const notPrecedent = factory.makeUnaryOperation("missing", true, "!", left);
@@ -311,15 +311,15 @@ export function generateExprAST(
     }
 
     if (expr instanceof SConditional) {
-        const condition = generateExprAST(expr.condition, typing, factory, loc);
-        const trueExp = generateExprAST(expr.trueExp, typing, factory, loc);
-        const falseExp = generateExprAST(expr.falseExp, typing, factory, loc);
+        const condition = generateExprAST(expr.condition, typeEnv, factory, loc);
+        const trueExp = generateExprAST(expr.trueExp, typeEnv, factory, loc);
+        const falseExp = generateExprAST(expr.falseExp, typeEnv, factory, loc);
 
         return factory.makeConditional("<missing>", condition, trueExp, falseExp);
     }
 
     if (expr instanceof SFunctionCall) {
-        const calleeT = typing.get(expr.callee) as SType;
+        const calleeT = typeEnv.typeOf(expr.callee);
 
         let callee: Expression;
 
@@ -333,10 +333,10 @@ export function generateExprAST(
 
             callee = factory.makeIdentifierFor(calleeT.definition);
         } else {
-            callee = generateExprAST(expr.callee, typing, factory, loc);
+            callee = generateExprAST(expr.callee, typeEnv, factory, loc);
         }
 
-        const args = expr.args.map((arg) => generateExprAST(arg, typing, factory, loc));
+        const args = expr.args.map((arg) => generateExprAST(arg, typeEnv, factory, loc));
 
         return factory.makeFunctionCall("<mising>", FunctionCallKind.FunctionCall, callee, args);
     }

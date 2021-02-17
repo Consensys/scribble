@@ -26,7 +26,7 @@ import {
     SProperty,
     SUserFunctionDefinition
 } from "../ast";
-import { TypeMap } from "./typecheck";
+import { TypeEnv } from "./typeenv";
 
 export interface SemInfo {
     /**
@@ -61,7 +61,7 @@ export class SemError extends Error {
 
 export function scAnnotation(
     node: SAnnotation,
-    typings: TypeMap,
+    typings: TypeEnv,
     semMap: SemMap = new Map()
 ): void {
     const ctx: SemCtx = { isOld: false };
@@ -77,7 +77,7 @@ export function scAnnotation(
 export function sc(
     expr: SNode,
     ctx: SemCtx,
-    typings: TypeMap,
+    typings: TypeEnv,
     semMap: SemMap = new Map()
 ): SemInfo {
     const cache = (expr: SNode, info: SemInfo): SemInfo => {
@@ -148,7 +148,7 @@ export function sc(
     throw new Error(`NYI semantic-checking of ${expr.pp()}`);
 }
 
-export function scId(expr: SId, ctx: SemCtx, typings: TypeMap, semMap: SemMap): SemInfo {
+export function scId(expr: SId, ctx: SemCtx, typings: TypeEnv, semMap: SemMap): SemInfo {
     const def = expr.defSite;
     let isConst;
     let isOld = ctx.isOld;
@@ -191,7 +191,7 @@ export function scResult(
     expr: SResult,
     ctx: SemCtx,
     // eslint-disable-next-line @typescript-eslint/no-unused-vars
-    typings: TypeMap,
+    typeEnv: TypeEnv,
     // eslint-disable-next-line @typescript-eslint/no-unused-vars
     semMap: SemMap
 ): SemInfo {
@@ -207,7 +207,7 @@ export function scResult(
 export function scUnary(
     expr: SUnaryOperation,
     ctx: SemCtx,
-    typings: TypeMap,
+    typeEnv: TypeEnv,
     semMap: SemMap
 ): SemInfo {
     if (expr.op === "old") {
@@ -219,17 +219,17 @@ export function scUnary(
         }
     }
 
-    return sc(expr.subexp, { isOld: expr.op === "old" }, typings, semMap);
+    return sc(expr.subexp, { isOld: expr.op === "old" }, typeEnv, semMap);
 }
 
 export function scBinary(
     expr: SBinaryOperation,
     ctx: SemCtx,
-    typings: TypeMap,
+    typeEnv: TypeEnv,
     semMap: SemMap
 ): SemInfo {
-    const lhsInfo = sc(expr.left, ctx, typings, semMap);
-    const rhsInfo = sc(expr.right, ctx, typings, semMap);
+    const lhsInfo = sc(expr.left, ctx, typeEnv, semMap);
+    const rhsInfo = sc(expr.right, ctx, typeEnv, semMap);
 
     const isOld = ctx.isOld;
     const isConst = lhsInfo.isConst && rhsInfo.isConst;
@@ -241,12 +241,12 @@ export function scBinary(
 export function scConditional(
     expr: SConditional,
     ctx: SemCtx,
-    typings: TypeMap,
+    typeEnv: TypeEnv,
     semMap: SemMap
 ): SemInfo {
-    const condInfo = sc(expr.condition, ctx, typings, semMap);
-    const trueInfo = sc(expr.trueExp, ctx, typings, semMap);
-    const falseInfo = sc(expr.falseExp, ctx, typings, semMap);
+    const condInfo = sc(expr.condition, ctx, typeEnv, semMap);
+    const trueInfo = sc(expr.trueExp, ctx, typeEnv, semMap);
+    const falseInfo = sc(expr.falseExp, ctx, typeEnv, semMap);
 
     const isOld = ctx.isOld;
     const isConst = condInfo.isConst && trueInfo.isConst && falseInfo.isConst;
@@ -258,11 +258,11 @@ export function scConditional(
 export function scIndexAccess(
     expr: SIndexAccess,
     ctx: SemCtx,
-    typings: TypeMap,
+    typeEnv: TypeEnv,
     semMap: SemMap
 ): SemInfo {
-    const baseInfo = sc(expr.base, ctx, typings, semMap);
-    const indexInfo = sc(expr.index, ctx, typings, semMap);
+    const baseInfo = sc(expr.base, ctx, typeEnv, semMap);
+    const indexInfo = sc(expr.index, ctx, typeEnv, semMap);
 
     const isOld = ctx.isOld;
     const isConst = baseInfo.isConst && indexInfo.isConst;
@@ -274,10 +274,10 @@ export function scIndexAccess(
 export function scMemberAccess(
     expr: SMemberAccess,
     ctx: SemCtx,
-    typings: TypeMap,
+    typeEnv: TypeEnv,
     semMap: SemMap
 ): SemInfo {
-    const baseInfo = sc(expr.base, ctx, typings, semMap);
+    const baseInfo = sc(expr.base, ctx, typeEnv, semMap);
 
     const isOld = ctx.isOld;
     const isConst = baseInfo.isConst;
@@ -286,24 +286,24 @@ export function scMemberAccess(
     return { isOld, isConst, canFail };
 }
 
-export function scLet(expr: SLet, ctx: SemCtx, typings: TypeMap, semMap: SemMap): SemInfo {
+export function scLet(expr: SLet, ctx: SemCtx, typeEnv: TypeEnv, semMap: SemMap): SemInfo {
     // Compute the info for the first RHS, so that it can be looked-up by scId
     // while computing the info for for expr.in.
-    sc(expr.rhs, ctx, typings, semMap);
+    sc(expr.rhs, ctx, typeEnv, semMap);
 
-    return sc(expr.in, ctx, typings, semMap);
+    return sc(expr.in, ctx, typeEnv, semMap);
 }
 
 export function scFunctionCall(
     expr: SFunctionCall,
     ctx: SemCtx,
-    typings: TypeMap,
+    typeEnv: TypeEnv,
     semMap: SemMap
 ): SemInfo {
     const callee = expr.callee;
-    const calleeT = typings.get(callee) as SType;
+    const calleeT = typeEnv.typeOf(callee);
     // First check the arguments
-    expr.args.forEach((arg) => sc(arg, ctx, typings, semMap));
+    expr.args.forEach((arg) => sc(arg, ctx, typeEnv, semMap));
 
     // Compute whether all args are constant
     const allArgsConst = expr.args
@@ -321,7 +321,7 @@ export function scFunctionCall(
     }
 
     // sc the callee even if we don't use the result, to store its info in semMap
-    sc(expr.callee, ctx, typings, semMap);
+    sc(expr.callee, ctx, typeEnv, semMap);
 
     if (calleeT instanceof SFunctionSetType) {
         const rawFun = single(calleeT.definitions);

@@ -21,6 +21,7 @@ import { findContract, findFunction, toAst } from "../integration/utils";
 import { getCallGraph } from "../../src/instrumenter/callgraph";
 import { getCHA } from "../../src/instrumenter/cha";
 import { InstrumentationContext } from "../../src/instrumenter/instrumentation_context";
+import { TypeEnv } from "../../src/spec-lang/tc";
 
 export type LocationDesc = [string, string];
 
@@ -445,7 +446,7 @@ contract Foo is __scribble_ReentrancyUtils {
                 assertionMode,
                 compilerVersion
             );
-            contractInstrumenter.instrument(ctx, new Map(), new Map(), [], contract);
+            contractInstrumenter.instrument(ctx, new TypeEnv(), new Map(), [], contract);
 
             const instrumented = print(sources, [content], "0.6.0").get(sources[0]);
 

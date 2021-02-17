@@ -69,6 +69,7 @@ import { SIntLiteralType } from "../ast/types/int_literal";
 import { SStringLiteralType } from "../ast/types/string_literal";
 import { STupleType } from "../ast/types/tuple_type";
 import { BuiltinAddressMembers, BuiltinSymbols } from "./builtins";
+import { TypeEnv } from "./typeenv";
 
 export type SScope =
     | SourceUnit[]
@@ -77,7 +78,6 @@ export type SScope =
     | SLet
     | SUserFunctionDefinition;
 export type STypingCtx = SScope[];
-export type TypeMap = Map<SNode, SType>;
 
 export function ppTypingCtx(ctx: STypingCtx): string {
     return ctx
@@ -567,63 +567,20 @@ function isInty(type: SType): boolean {
     return type instanceof SIntType || type instanceof SIntLiteralType;
 }
 
-// @todo (dimo) Hack to keep track of user-defined functions. Should be replaced with
-// a field in a proper type environment class
-const userFunctions = new Map<ContractDefinition, Map<string, SUserFunctionDefinition>>();
-
-export function getUserFunction(
-    scope: ContractDefinition,
-    name: string
-): SUserFunctionDefinition | undefined {
-    for (const base of scope.vLinearizedBaseContracts) {
-        const funM = userFunctions.get(base);
-
-        if (!funM) {
-            continue;
-        }
-
-        const res = funM.get(name);
-
-        if (res) {
-            return res;
-        }
-    }
-
-    return undefined;
-}
-
-function defineUserFunction(scope: ContractDefinition, fun: SUserFunctionDefinition): void {
-    let funM = userFunctions.get(scope);
-
-    if (!funM) {
-        funM = new Map();
-    }
-
-    funM.set(fun.name.name, fun);
-    userFunctions.set(scope, funM);
-}
-
-/**
- * @todo (dimo) Hack used by testing. Remove when you add proper type environments
- */
-export function clearUserFunctions(): void {
-    userFunctions.clear();
-}
-
 /**
  * Type-check a top-level annotation.
  *
  * @param annot
  * @param ctx
- * @param typeMap
+ * @param typeEnv
  */
 export function tcAnnotation(
     annot: SAnnotation,
     ctx: STypingCtx,
-    typeMap: TypeMap = new Map()
+    typeEnv: TypeEnv = new TypeEnv()
 ): void {
     if (annot instanceof SProperty) {
-        const exprType = tc(annot.expression, ctx, typeMap);
+        const exprType = tc(annot.expression, ctx, typeEnv);
 
         if (!(exprType instanceof SBoolType)) {
             throw new SWrongType(
@@ -643,7 +600,7 @@ export function tcAnnotation(
             );
         }
 
-        const existing = getUserFunction(funScope, annot.name.name);
+        const existing = typeEnv.getUserFunction(funScope, annot.name.name);
         if (existing) {
             throw new SDuplicateError(
                 `User function ${annot.name.name} already defined`,
@@ -652,7 +609,7 @@ export function tcAnnotation(
             );
         }
 
-        const bodyType = tc(annot.body, [...ctx, annot], typeMap);
+        const bodyType = tc(annot.body, [...ctx, annot], typeEnv);
 
         if (!isImplicitlyCastable(annot.body, bodyType, annot.returnType)) {
             throw new SWrongType(
@@ -664,23 +621,23 @@ export function tcAnnotation(
             );
         }
 
-        defineUserFunction(funScope, annot);
+        typeEnv.defineUserFunction(funScope, annot);
     } else {
         throw new Error(`NYI type-checking of annotation ${annot.pp()}`);
     }
 }
 
-export function tc(expr: SNode, ctx: STypingCtx, typeMap: TypeMap = new Map()): SType {
+export function tc(expr: SNode, ctx: STypingCtx, typeEnv: TypeEnv = new TypeEnv()): SType {
     const cache = (expr: SNode, type: SType): SType => {
         Logger.debug(`tc: ${expr.pp()} :: ${type.pp()}`);
 
-        typeMap.set(expr, type);
+        typeEnv.define(expr, type);
 
         return type;
     };
 
-    if (typeMap.has(expr)) {
-        return typeMap.get(expr) as SType;
+    if (typeEnv.hasType(expr)) {
+        return typeEnv.typeOf(expr);
     }
 
     if (expr instanceof SNumber) {
@@ -704,39 +661,39 @@ export function tc(expr: SNode, ctx: STypingCtx, typeMap: TypeMap = new Map()): 
     }
 
     if (expr instanceof SId) {
-        return cache(expr, tcId(expr, ctx, typeMap));
+        return cache(expr, tcId(expr, ctx, typeEnv));
     }
 
     if (expr instanceof SResult) {
-        return cache(expr, tcResult(expr, ctx, typeMap));
+        return cache(expr, tcResult(expr, ctx, typeEnv));
     }
 
     if (expr instanceof SUnaryOperation) {
-        return cache(expr, tcUnary(expr, ctx, typeMap));
+        return cache(expr, tcUnary(expr, ctx, typeEnv));
     }
 
     if (expr instanceof SBinaryOperation) {
-        return cache(expr, tcBinary(expr, ctx, typeMap));
+        return cache(expr, tcBinary(expr, ctx, typeEnv));
     }
 
     if (expr instanceof SConditional) {
-        return cache(expr, tcConditional(expr, ctx, typeMap));
+        return cache(expr, tcConditional(expr, ctx, typeEnv));
     }
 
     if (expr instanceof SIndexAccess) {
-        return cache(expr, tcIndexAccess(expr, ctx, typeMap));
+        return cache(expr, tcIndexAccess(expr, ctx, typeEnv));
     }
 
     if (expr instanceof SMemberAccess) {
-        return cache(expr, tcMemberAccess(expr, ctx, typeMap));
+        return cache(expr, tcMemberAccess(expr, ctx, typeEnv));
     }
 
     if (expr instanceof SLet) {
-        return cache(expr, tcLet(expr, ctx, typeMap));
+        return cache(expr, tcLet(expr, ctx, typeEnv));
     }
 
     if (expr instanceof SFunctionCall) {
-        return cache(expr, tcFunctionCall(expr, ctx, typeMap));
+        return cache(expr, tcFunctionCall(expr, ctx, typeEnv));
     }
 
     if (expr instanceof SUserDefinedType) {
@@ -822,7 +779,7 @@ function tcIdBuiltin(expr: SId): SType | undefined {
     return BuiltinSymbols.get(expr.name);
 }
 
-function tcIdVariable(expr: SId, ctx: STypingCtx, typeMap: TypeMap): SType | undefined {
+function tcIdVariable(expr: SId, ctx: STypingCtx, typeEnv: TypeEnv): SType | undefined {
     const def = lookupVarDef(expr.name, ctx);
 
     if (def === undefined) {
@@ -842,7 +799,7 @@ function tcIdVariable(expr: SId, ctx: STypingCtx, typeMap: TypeMap): SType | und
     const [node, bindingIdx] = def;
 
     if (node instanceof SLet) {
-        const rhsT = tc(node.rhs, ctx, typeMap);
+        const rhsT = tc(node.rhs, ctx, typeEnv);
 
         if (node.lhs.length > 1) {
             if (!(rhsT instanceof STupleType && rhsT.elements.length === node.lhs.length)) {
@@ -864,7 +821,7 @@ function tcIdVariable(expr: SId, ctx: STypingCtx, typeMap: TypeMap): SType | und
     }
 }
 
-export function tcId(expr: SId, ctx: STypingCtx, typeMap: TypeMap): SType {
+export function tcId(expr: SId, ctx: STypingCtx, typeEnv: TypeEnv): SType {
     if (expr.name === "this") {
         const contract = ctx[1] as ContractDefinition;
 
@@ -884,7 +841,7 @@ export function tcId(expr: SId, ctx: STypingCtx, typeMap: TypeMap): SType {
     }
 
     // Next try to TC the id as a variable
-    retT = tcIdVariable(expr, ctx, typeMap);
+    retT = tcIdVariable(expr, ctx, typeEnv);
 
     if (retT !== undefined) {
         return retT;
@@ -923,7 +880,7 @@ export function tcId(expr: SId, ctx: STypingCtx, typeMap: TypeMap): SType {
     // See if this is a user function
     const contractScope = getScopeOfType(ContractDefinition, ctx);
     if (contractScope !== undefined) {
-        const userFun = getUserFunction(contractScope, expr.name);
+        const userFun = typeEnv.getUserFunction(contractScope, expr.name);
 
         if (userFun !== undefined) {
             expr.defSite = "user_function_name";
@@ -941,7 +898,7 @@ export function tcId(expr: SId, ctx: STypingCtx, typeMap: TypeMap): SType {
 }
 
 // eslint-disable-next-line @typescript-eslint/no-unused-vars
-export function tcResult(expr: SResult, ctx: STypingCtx, typeMap: TypeMap): SType {
+export function tcResult(expr: SResult, ctx: STypingCtx, typeEnv: TypeEnv): SType {
     const scope = getScopeOfType(FunctionDefinition, ctx);
 
     if (!scope) {
@@ -972,10 +929,10 @@ export function tcResult(expr: SResult, ctx: STypingCtx, typeMap: TypeMap): STyp
     );
 }
 
-export function tcUnary(expr: SUnaryOperation, ctx: STypingCtx, typeMap: TypeMap): SType {
+export function tcUnary(expr: SUnaryOperation, ctx: STypingCtx, typeEnv: TypeEnv): SType {
     if (expr.op === "!") {
         const bool = new SBoolType();
-        const innerT = tc(expr.subexp, ctx, typeMap);
+        const innerT = tc(expr.subexp, ctx, typeEnv);
         if (!(innerT instanceof SBoolType)) {
             throw new SWrongType(
                 `Operation '!' expectes bool not ${innerT.pp()} in ${expr.pp()}`,
@@ -988,7 +945,7 @@ export function tcUnary(expr: SUnaryOperation, ctx: STypingCtx, typeMap: TypeMap
     }
 
     if (expr.op === "-") {
-        const innerT = tc(expr.subexp, ctx, typeMap);
+        const innerT = tc(expr.subexp, ctx, typeEnv);
         if (innerT instanceof SIntLiteralType || innerT instanceof SIntType) {
             return innerT;
         }
@@ -1008,7 +965,7 @@ export function tcUnary(expr: SUnaryOperation, ctx: STypingCtx, typeMap: TypeMap
         );
     }
 
-    return tc(expr.subexp, ctx, typeMap);
+    return tc(expr.subexp, ctx, typeEnv);
 }
 
 export function isImplicitlyCastable(expr: SNode, type: SType, to: SType): boolean {
@@ -1083,11 +1040,11 @@ function unifyTypes(
  *
  * @param expr - binary operation
  * @param ctx - typing context
- * @param typeMap - type map (for caching)
+ * @param typeEnv - type map (for caching)
  */
-export function tcBinary(expr: SBinaryOperation, ctx: STypingCtx, typeMap: TypeMap): SType {
-    const lhsT = tc(expr.left, ctx, typeMap);
-    const rhsT = tc(expr.right, ctx, typeMap);
+export function tcBinary(expr: SBinaryOperation, ctx: STypingCtx, typeEnv: TypeEnv): SType {
+    const lhsT = tc(expr.left, ctx, typeEnv);
+    const rhsT = tc(expr.right, ctx, typeEnv);
 
     // Arithmetic binary expressions require the two types to be integer and implicitly castable to each other.
     if (expr.op === "**") {
@@ -1252,12 +1209,12 @@ export function tcBinary(expr: SBinaryOperation, ctx: STypingCtx, typeMap: TypeM
  *
  * @param expr - binary operation
  * @param ctx - typing context
- * @param typeMap - type map (for caching)
+ * @param typeEnv - type map (for caching)
  */
-export function tcConditional(expr: SConditional, ctx: STypingCtx, typeMap: TypeMap): SType {
-    const condT = tc(expr.condition, ctx, typeMap);
-    const trueT = tc(expr.trueExp, ctx, typeMap);
-    const falseT = tc(expr.falseExp, ctx, typeMap);
+export function tcConditional(expr: SConditional, ctx: STypingCtx, typeEnv: TypeEnv): SType {
+    const condT = tc(expr.condition, ctx, typeEnv);
+    const trueT = tc(expr.trueExp, ctx, typeEnv);
+    const falseT = tc(expr.falseExp, ctx, typeEnv);
 
     if (!(condT instanceof SBoolType)) {
         throw new SWrongType(
@@ -1270,9 +1227,9 @@ export function tcConditional(expr: SConditional, ctx: STypingCtx, typeMap: Type
     return unifyTypes(expr.trueExp, trueT, expr.falseExp, falseT, expr);
 }
 
-export function tcIndexAccess(expr: SIndexAccess, ctx: STypingCtx, typeMap: TypeMap): SType {
-    const baseT = tc(expr.base, ctx, typeMap);
-    const indexT = tc(expr.index, ctx, typeMap);
+export function tcIndexAccess(expr: SIndexAccess, ctx: STypingCtx, typeEnv: TypeEnv): SType {
+    const baseT = tc(expr.base, ctx, typeEnv);
+    const indexT = tc(expr.index, ctx, typeEnv);
 
     if (baseT instanceof SFixedBytes) {
         if (!isInty(indexT)) {
@@ -1324,8 +1281,8 @@ export function tcIndexAccess(expr: SIndexAccess, ctx: STypingCtx, typeMap: Type
     throw new SWrongType(`Cannot index into the type ${baseT.pp()}`, expr, baseT);
 }
 
-export function tcMemberAccess(expr: SMemberAccess, ctx: STypingCtx, typeMap: TypeMap): SType {
-    const baseT = tc(expr.base, ctx, typeMap);
+export function tcMemberAccess(expr: SMemberAccess, ctx: STypingCtx, typeEnv: TypeEnv): SType {
+    const baseT = tc(expr.base, ctx, typeEnv);
 
     if (baseT instanceof SBuiltinStructType) {
         const type = baseT.members.get(expr.member);
@@ -1480,9 +1437,9 @@ export function tcMemberAccess(expr: SMemberAccess, ctx: STypingCtx, typeMap: Ty
     );
 }
 
-export function tcLet(expr: SLet, ctx: STypingCtx, typeMap: TypeMap): SType {
+export function tcLet(expr: SLet, ctx: STypingCtx, typeEnv: TypeEnv): SType {
     // Make sure rhs tc's
-    const rhsT = tc(expr.rhs, ctx, typeMap);
+    const rhsT = tc(expr.rhs, ctx, typeEnv);
     if (rhsT instanceof STupleType) {
         if (expr.lhs.length !== rhsT.elements.length) {
             throw new SExprCountMismatch(
@@ -1497,7 +1454,7 @@ export function tcLet(expr: SLet, ctx: STypingCtx, typeMap: TypeMap): SType {
         );
     }
 
-    return tc(expr.in, ctx.concat(expr), typeMap);
+    return tc(expr.in, ctx.concat(expr), typeEnv);
 }
 
 function getFunDefType(fun: FunctionDefinition): SFunctionType {
@@ -1531,7 +1488,7 @@ function matchArguments(
     return true;
 }
 
-export function tcFunctionCall(expr: SFunctionCall, ctx: STypingCtx, typeMap: TypeMap): SType {
+export function tcFunctionCall(expr: SFunctionCall, ctx: STypingCtx, typeEnv: TypeEnv): SType {
     const callee = expr.callee;
 
     /**
@@ -1541,11 +1498,11 @@ export function tcFunctionCall(expr: SFunctionCall, ctx: STypingCtx, typeMap: Ty
      *  - callee is a user-defined function identifier
      *  - callee is a spec builtin/keyword (e.g. sum()) - to be implemented
      */
-    const calleeT = tc(callee, ctx, typeMap);
+    const calleeT = tc(callee, ctx, typeEnv);
 
     // Type-cast to a built-in type
     if (calleeT instanceof SBuiltinTypeNameType) {
-        expr.args.map((arg) => tc(arg, ctx, typeMap));
+        expr.args.map((arg) => tc(arg, ctx, typeEnv));
 
         if (expr.args.length !== 1) {
             throw new SExprCountMismatch(
@@ -1559,7 +1516,7 @@ export function tcFunctionCall(expr: SFunctionCall, ctx: STypingCtx, typeMap: Ty
 
     // Type-cast to a user-defined type
     if (calleeT instanceof SUserDefinedTypeNameType) {
-        const argTs = expr.args.map((arg) => tc(arg, ctx, typeMap));
+        const argTs = expr.args.map((arg) => tc(arg, ctx, typeEnv));
         let loc: DataLocation;
 
         if (calleeT.definition instanceof StructDefinition) {
@@ -1597,7 +1554,7 @@ export function tcFunctionCall(expr: SFunctionCall, ctx: STypingCtx, typeMap: Ty
             args.unshift(calleeT.defaultArg);
         }
 
-        const argTs = args.map((arg) => tc(arg, ctx, typeMap));
+        const argTs = args.map((arg) => tc(arg, ctx, typeEnv));
 
         const matchingFunDefs = calleeT.definitions.filter(
             (fun) => fun instanceof FunctionDefinition && matchArguments(args, argTs, fun)
@@ -1657,7 +1614,7 @@ export function tcFunctionCall(expr: SFunctionCall, ctx: STypingCtx, typeMap: Ty
 
     // Builtin function
     if (calleeT instanceof SFunctionType) {
-        const argTs = expr.args.map((arg) => tc(arg, ctx, typeMap));
+        const argTs = expr.args.map((arg) => tc(arg, ctx, typeEnv));
         if (!matchArguments(expr.args, argTs, calleeT)) {
             throw new SArgumentMismatch(
                 `Invalid types of arguments in function call ${expr.pp()}`,

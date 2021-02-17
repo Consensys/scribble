@@ -11,7 +11,7 @@ import {
     VariableDeclaration
 } from "solc-typed-ast";
 import { SId, SLet, SUnaryOperation, SUserFunctionDefinition } from "../spec-lang/ast";
-import { SemMap, TypeMap } from "../spec-lang/tc";
+import { SemMap, TypeEnv } from "../spec-lang/tc";
 import { assert } from "../util";
 import { InstrumentationContext } from "./instrumentation_context";
 
@@ -32,7 +32,7 @@ export class TranspilingContext {
     public readonly factory: ASTNodeFactory;
 
     constructor(
-        public readonly typing: TypeMap,
+        public readonly typeEnv: TypeEnv,
         public readonly semInfo: SemMap,
         public readonly container: FunctionDefinition,
         public readonly instrCtx: InstrumentationContext

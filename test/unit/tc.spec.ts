@@ -26,7 +26,7 @@ import {
 } from "../../src/spec-lang/ast";
 import { SBoolType } from "../../src/spec-lang/ast/types/bool";
 import { parseAnnotation, parseExpression as parse } from "../../src/spec-lang/expr_parser";
-import { clearUserFunctions, STypingCtx, tc, tcAnnotation, TypeMap } from "../../src/spec-lang/tc";
+import { STypingCtx, tc, tcAnnotation, TypeEnv } from "../../src/spec-lang/tc";
 import { eq } from "../../src/util/struct_equality";
 import { findContract, findFunction, toAst } from "../integration/utils";
 import { SStringLiteralType } from "../../src/spec-lang/ast/types/string_literal";
@@ -774,6 +774,7 @@ describe("TypeChecker Annotation Tests", () => {
     for (const [fileName, content, testCases] of goodSamples) {
         describe(`Positive tests for #${fileName}`, () => {
             let sources: SourceUnit[];
+            let typeEnv: TypeEnv = new TypeEnv();
 
             before(() => {
                 [sources] = toAst(fileName, content);
@@ -787,14 +788,14 @@ describe("TypeChecker Annotation Tests", () => {
                         ctx.push(findFunction(loc[1], ctx[1] as ContractDefinition));
                     }
 
-                    const typeMap: TypeMap = new Map();
                     if (clearFunsBefore) {
-                        clearUserFunctions();
+                        typeEnv = new TypeEnv();
                     }
-                    tcAnnotation(parsed, ctx, typeMap);
+
+                    tcAnnotation(parsed, ctx, typeEnv);
                     if (parsed instanceof SUserFunctionDefinition) {
                         assert(expectedType !== undefined, ``);
-                        const received = tc(new SId(parsed.name.name), ctx, typeMap);
+                        const received = tc(new SId(parsed.name.name), ctx, typeEnv);
                         Logger.debug(
                             `[${specString}]: Expected type ${expectedType.pp()} received: ${(received as SType).pp()}`
                         );
@@ -808,11 +809,11 @@ describe("TypeChecker Annotation Tests", () => {
     for (const [fileName, content, setupSteps, testCases] of badSamples) {
         describe(`Negative tests for #${fileName}`, () => {
             let sources: SourceUnit[];
+            const typeEnv = new TypeEnv();
 
             before(() => {
                 [sources] = toAst(fileName, content);
                 // Setup any definitions
-                clearUserFunctions();
                 for (const [specString, loc] of setupSteps) {
                     const parsed = parseAnnotation(specString);
                     const ctx: STypingCtx = [sources, findContract(loc[0], sources)];
@@ -830,7 +831,7 @@ describe("TypeChecker Annotation Tests", () => {
                     if (loc[1] !== undefined) {
                         ctx.push(findFunction(loc[1], ctx[1] as ContractDefinition));
                     }
-                    expect(tcAnnotation.bind(tcAnnotation, parsed, ctx)).toThrow();
+                    expect(tcAnnotation.bind(tcAnnotation, parsed, ctx, typeEnv)).toThrow();
                 });
             }
         });
