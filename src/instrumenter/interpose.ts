@@ -40,10 +40,11 @@ import {
     ReplaceCallee
 } from "../rewriter";
 import { SAddressType, SFunctionType, SPointer, SType } from "../spec-lang/ast";
-import { parse as parseType } from "../spec-lang/type_parser";
+import { parse as parseTypeString } from "../spec-lang/typeString_parser";
 import { assert, getScopeFun, isChangingState, single } from "../util";
 import { FunSet } from "./callgraph";
-import { changesMutability, InstrumentationContext } from "./instrument";
+import { changesMutability } from "./instrument";
+import { InstrumentationContext } from "./instrumentation_context";
 import { generateTypeAst } from "./transpile";
 
 const semver = require("semver");
@@ -179,7 +180,11 @@ export function interpose(
 
     const recipe: Recipe = [
         new InsertFunctionBefore(factory, fun, stub),
-        new Rename(factory, fun, `_original_${fun.vScope.name}_${name}`)
+        new Rename(
+            factory,
+            fun,
+            ctx.nameGenerator.getFresh(`_original_${fun.vScope.name}_${name}`, true)
+        )
     ];
 
     if (!isChangingState(stub) && changesMutability(ctx)) {
@@ -335,7 +340,7 @@ export function interposeCall(
     const factory = ctx.factory;
     const callsite = decodeCallsite(call);
     const callee = callsite.callee;
-    const calleeT = parseType(callee.typeString);
+    const calleeT = parseTypeString(callee.typeString);
 
     assert(call.kind === FunctionCallKind.FunctionCall, "");
     assert(
@@ -446,7 +451,7 @@ export function interposeCall(
     } else {
         assert(callee instanceof MemberAccess, ``);
 
-        const baseT = parseType(callee.vExpression.typeString);
+        const baseT = parseTypeString(callee.vExpression.typeString);
 
         assert(baseT instanceof SAddressType, ``);
         assert(["call", "delegatecall", "staticcall"].includes(callee.memberName), ``);

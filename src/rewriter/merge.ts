@@ -209,9 +209,14 @@ export function merge(groups: SourceUnit[][]): [SourceUnit[], ASTContext] {
                         // has submited an old compiler AST without source code.
                         continue;
                     } else {
-                        // import directives identifier's referencedDeclaration is null from the compiler.
-                        // Nothing to do here.
-                        assert(foreign.referencedDeclaration === null, ``);
+                        // import directives identifier's referencedDeclaration
+                        // is null or undefined (depending on version) from the
+                        // compiler. Nothing to do here.
+                        assert(
+                            foreign.referencedDeclaration === undefined ||
+                                foreign.referencedDeclaration === null,
+                            ``
+                        );
                     }
                 }
             } else if (child instanceof InheritanceSpecifier) {

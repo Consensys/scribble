@@ -1,0 +1,16 @@
+pragma solidity 0.7.5;
+
+struct Foo {
+    uint x;
+}
+/// Utility contract holding a stack counter
+contract __scribble_ReentrancyUtils {
+    bool __scribble_out_of_contract = true;
+}
+
+
+contract Goo {
+    Foo internal s3;
+    Foo internal s4;
+    Foo internal s5;
+}

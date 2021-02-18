@@ -1,3 +1,4 @@
+import { assert } from "../../util";
 import { StructEqualityComparable } from "../../util/struct_equality";
 
 let nNodes = 0;
@@ -26,5 +27,15 @@ export abstract class SNode implements StructEqualityComparable {
         for (const child of this.getChildren()) {
             child.walk(cb);
         }
+    }
+
+    get requiredSrc(): Range {
+        assert(this.src !== undefined, `Missing source information for node ${this.pp()}`);
+        return this.src;
+    }
+
+    getSourceFragment(src: string): string {
+        const rng = this.requiredSrc;
+        return src.slice(rng.start.offset, rng.end.offset);
     }
 }

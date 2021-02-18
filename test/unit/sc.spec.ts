@@ -1,10 +1,10 @@
-import { parse } from "../../src/spec-lang/expr_parser";
+import { parseExpression as parse } from "../../src/spec-lang/expr_parser";
 import expect from "expect";
 import { eq } from "../../src/util/struct_equality";
 import { SType, SIntLiteralType, SIntType } from "../../src/spec-lang/ast";
 import { SourceUnit, ContractDefinition } from "solc-typed-ast";
 import { toAst } from "../integration/utils";
-import { tc, STypingCtx, SemInfo, SemError, TypeMap } from "../../src/spec-lang/tc";
+import { tc, STypingCtx, SemInfo, SemError, TypeEnv } from "../../src/spec-lang/tc";
 import { sc } from "../../src/spec-lang/tc";
 import { SBoolType } from "../../src/spec-lang/ast/types/bool";
 import { Logger } from "../../src/logger";
@@ -45,7 +45,7 @@ describe("SemanticChecker Unit Tests", () => {
                 ],
                 [
                     "old(true)",
-                    ["Foo", undefined],
+                    ["Foo", "add"],
                     new SBoolType(),
                     { isOld: true, isConst: true, canFail: false }
                 ],
@@ -99,7 +99,7 @@ describe("SemanticChecker Unit Tests", () => {
                 ],
                 [
                     "old(1)",
-                    ["Foo", undefined],
+                    ["Foo", "add"],
                     new SIntLiteralType(),
                     { isOld: true, isConst: true, canFail: false }
                 ],
@@ -117,7 +117,7 @@ describe("SemanticChecker Unit Tests", () => {
                 ],
                 [
                     "old(sV1)",
-                    ["Foo", undefined],
+                    ["Foo", "add"],
                     new SIntType(128, true),
                     { isOld: true, isConst: true, canFail: false }
                 ],
@@ -165,13 +165,13 @@ describe("SemanticChecker Unit Tests", () => {
                 ],
                 [
                     "old(sI32Arr[1])",
-                    ["Foo", undefined],
+                    ["Foo", "add"],
                     new SIntType(32, true),
                     { isOld: true, isConst: false, canFail: true }
                 ],
                 [
                     "let x := 1 in old(x)",
-                    ["Foo", undefined],
+                    ["Foo", "add"],
                     new SIntLiteralType(),
                     { isOld: true, isConst: true, canFail: false }
                 ],
@@ -276,10 +276,10 @@ describe("SemanticChecker Unit Tests", () => {
                     if (loc[1] !== undefined) {
                         ctx.push(findFunction(loc[1], ctx[1] as ContractDefinition));
                     }
-                    const typing: TypeMap = new Map();
-                    const type = tc(parsed, ctx, typing);
+                    const typeEnv = new TypeEnv();
+                    const type = tc(parsed, ctx, typeEnv);
                     expect(eq(type, expectedType)).toEqual(true);
-                    const semInfo = sc(parsed, { isOld: false }, typing);
+                    const semInfo = sc(parsed, { isOld: false }, typeEnv);
                     Logger.debug(`[${parsed.pp()}] sem info: ${JSON.stringify(semInfo)}`);
                     expect(eq(semInfo, expectedInfo)).toEqual(true);
                 });
@@ -303,9 +303,9 @@ describe("SemanticChecker Unit Tests", () => {
                         ctx.push(findFunction(loc[1], ctx[1] as ContractDefinition));
                     }
                     // Type-checking should succeed
-                    const typing: TypeMap = new Map();
-                    tc(parsed, ctx, typing);
-                    expect(sc.bind(sc, parsed, { isOld: false }, typing)).toThrowError(
+                    const typeEnv = new TypeEnv();
+                    tc(parsed, ctx, typeEnv);
+                    expect(sc.bind(sc, parsed, { isOld: false }, typeEnv)).toThrowError(
                         SemError as any
                     );
                 });

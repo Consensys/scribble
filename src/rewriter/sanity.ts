@@ -129,19 +129,6 @@ export function isSane(unit: SourceUnit, ctx: ASTContext): boolean {
                 if (!inCtx(def, ctx)) {
                     return false;
                 }
-
-                const id = child.symbolAliases[i].foreign;
-
-                if (def instanceof ImportDirective) {
-                    /**
-                     * @todo Handle reexported import directives properly
-                     */
-                    continue;
-                }
-
-                if (id instanceof Identifier && id.name !== def.name) {
-                    return false;
-                }
             }
 
             // 'scope' and 'vScope'

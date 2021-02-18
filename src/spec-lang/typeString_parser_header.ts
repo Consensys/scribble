@@ -18,11 +18,7 @@ import {
     SMappingType,
     SFunctionType
 } from "./ast";
-import {
-    DataLocation,
-    FunctionVisibility,
-    FunctionStateMutability
-} from "solc-typed-ast";
+import { DataLocation, FunctionVisibility, FunctionStateMutability } from "solc-typed-ast";
 
 function getFunctionAttributes(
     rawDecorators: string[]

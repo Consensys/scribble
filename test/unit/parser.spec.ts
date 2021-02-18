@@ -1,5 +1,5 @@
-import { parse as parseExpr } from "../../src/spec-lang/expr_parser";
-import { parse as parseType } from "../../src/spec-lang/type_parser";
+import { parseExpression as parseExpr, parseAnnotation } from "../../src/spec-lang/expr_parser";
+import { parse as parseTypeString } from "../../src/spec-lang/typeString_parser";
 import expect from "expect";
 import {
     SNode,
@@ -24,7 +24,11 @@ import {
     SMappingType,
     SPointer,
     SFunctionType,
-    SResult
+    SResult,
+    SAnnotation,
+    SUserFunctionDefinition,
+    SProperty,
+    AnnotationType
 } from "../../src/spec-lang/ast";
 import { eq } from "../../src/util/struct_equality";
 import bigInt from "big-integer";
@@ -716,7 +720,7 @@ describe("Type Parser Unit Tests", () => {
     for (const [sample, expectedAST] of goodSamples) {
         describe(`Sample ${sample}`, () => {
             it("Parses correctly", () => {
-                const parsed = parseType(sample);
+                const parsed = parseTypeString(sample);
                 Logger.debug(`[${sample}]: Got: ${parsed.pp()} expected: ${expectedAST.pp()}`);
                 expect(eq(parsed, expectedAST)).toEqual(true);
             });
@@ -726,7 +730,147 @@ describe("Type Parser Unit Tests", () => {
     for (const sample of badSamples) {
         describe(`Sample ${sample}`, () => {
             it("Fails as expected", () => {
-                expect(parseType.bind(parseType, sample)).toThrow();
+                expect(parseTypeString.bind(parseTypeString, sample)).toThrow();
+            });
+        });
+    }
+});
+
+describe("Definition Parser Unit Tests", () => {
+    const goodSamples: Array<[string, SAnnotation]> = [
+        ["if_succeeds true;", new SProperty(AnnotationType.IfSucceeds, new SBooleanLiteral(true))],
+        [
+            "/// if_succeeds true;",
+            new SProperty(AnnotationType.IfSucceeds, new SBooleanLiteral(true))
+        ],
+        [
+            '/// if_succeeds {:msg "hi"} true;',
+            new SProperty(AnnotationType.IfSucceeds, new SBooleanLiteral(true), "hi")
+        ],
+        [
+            `* if_succeeds 
+                {:msg 
+                       "hi"
+                    }
+                     1 -
+                     2
+                     ;`,
+            new SProperty(
+                AnnotationType.IfSucceeds,
+                new SBinaryOperation(new SNumber(bigInt(1), 10), "-", new SNumber(bigInt(2), 10)),
+                "hi"
+            )
+        ],
+        [
+            `* invariant 
+                {:msg 
+                       "hi"
+                    }
+                     1 -
+                     2
+                     ;`,
+            new SProperty(
+                AnnotationType.Invariant,
+                new SBinaryOperation(new SNumber(bigInt(1), 10), "-", new SNumber(bigInt(2), 10)),
+                "hi"
+            )
+        ],
+        [
+            "define foo() bool = true;",
+            new SUserFunctionDefinition(
+                new SId("foo"),
+                [],
+                new SBoolType(),
+                new SBooleanLiteral(true)
+            )
+        ],
+        [
+            "/// define foo() bool = true;",
+            new SUserFunctionDefinition(
+                new SId("foo"),
+                [],
+                new SBoolType(),
+                new SBooleanLiteral(true)
+            )
+        ],
+        [
+            "* define foo() bool = true;",
+            new SUserFunctionDefinition(
+                new SId("foo"),
+                [],
+                new SBoolType(),
+                new SBooleanLiteral(true)
+            )
+        ],
+        [
+            'define {:msg "tralala" } foo() bool = true;',
+            new SUserFunctionDefinition(
+                new SId("foo"),
+                [],
+                new SBoolType(),
+                new SBooleanLiteral(true),
+                "tralala"
+            )
+        ],
+        [
+            `define 
+                {:msg
+                        "tralala"
+                         }
+                             foo(
+
+                             )
+                              bool
+                               = 
+                               true
+;`,
+            new SUserFunctionDefinition(
+                new SId("foo"),
+                [],
+                new SBoolType(),
+                new SBooleanLiteral(true),
+                "tralala"
+            )
+        ],
+        [
+            "define boo(uint a) uint = a;",
+            new SUserFunctionDefinition(
+                new SId("boo"),
+                [[new SId("a"), new SIntType(256, false)]],
+                new SIntType(256, false),
+                new SId("a")
+            )
+        ],
+        [
+            "define moo(uint a, uint b) uint = a+b;",
+            new SUserFunctionDefinition(
+                new SId("moo"),
+                [
+                    [new SId("a"), new SIntType(256, false)],
+                    [new SId("b"), new SIntType(256, false)]
+                ],
+                new SIntType(256, false),
+                new SBinaryOperation(new SId("a"), "+", new SId("b"))
+            )
+        ]
+    ];
+
+    const badSamples: string[] = [];
+
+    for (const [sample, expected] of goodSamples) {
+        describe(`Sample ${sample}`, () => {
+            it("Parses correctly", () => {
+                const parsed = parseAnnotation(sample);
+                Logger.debug(`[${sample}]: Got: ${parsed.pp()} expected: ${expected.pp()}`);
+                expect(eq(parsed, expected)).toEqual(true);
+            });
+        });
+    }
+
+    for (const sample of badSamples) {
+        describe(`Sample ${sample}`, () => {
+            it("Fails as expected", () => {
+                expect(parseAnnotation.bind(parseAnnotation, sample)).toThrow();
             });
         });
     }
