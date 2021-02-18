@@ -5,7 +5,7 @@ describe(`Command "scribble <filename>" is failing as expected`, () => {
     const cases: Array<[string, RegExp]> = [
         [
             "test/samples/missing_terminator_semicolon.invalid.sol",
-            /^test\/samples\/missing_terminator_semicolon.invalid.sol:10:8 SyntaxError: Line 10 of .+ documentation string looks like an annotation but is not terminated by a semicolon ";" and is ignored:.+/m
+            /^test\/samples\/missing_terminator_semicolon.invalid.sol:12:8 SyntaxError: Expected (.|\s)+ but (.|\s)+ found/m
         ],
         [
             "test/samples/annotation_syntax_error.invalid.sol",

@@ -28,10 +28,12 @@ import {
 } from "solc-typed-ast";
 import { print, rewriteImports } from "../ast_to_source_printer";
 import {
-    Annotation,
+    PropertyMetaData,
     AnnotationExtractor,
     SyntaxError,
-    UnsupportedByTargetError
+    UnsupportedByTargetError,
+    AnnotationMetaData,
+    UserFunctionDefinitionMetaData
 } from "../instrumenter/annotations";
 import { getCallGraph } from "../instrumenter/callgraph";
 import { CHA, chaDFS, getCHA } from "../instrumenter/cha";
@@ -44,16 +46,15 @@ import {
 import { InstrumentationContext } from "../instrumenter/instrumentation_context";
 import { merge } from "../rewriter/merge";
 import { isSane } from "../rewriter/sanity";
-import { Location, Range, SBoolType, SType } from "../spec-lang/ast";
+import { Location, Range } from "../spec-lang/ast";
 import {
-    sc,
+    scAnnotation,
     SemError,
-    SemInfo,
     SemMap,
     STypeError,
     STypingCtx,
-    tc,
-    TypeMap
+    tcAnnotation,
+    TypeEnv
 } from "../spec-lang/tc";
 import { assert, getOrInit, getScopeUnit, isChangingState, isExternallyVisible } from "../util";
 import cli from "./scribble_cli.json";
@@ -92,7 +93,7 @@ function getAnnotationsOrDie(
     node: ContractDefinition | FunctionDefinition,
     sources: Map<string, string>,
     filters: AnnotationFilterOptions
-): Annotation[] {
+): AnnotationMetaData[] {
     try {
         const extractor = new AnnotationExtractor();
         const annotations = extractor.extract(node, sources, filters);
@@ -110,47 +111,40 @@ function getAnnotationsOrDie(
 }
 
 function tcOrDie(
-    annotation: Annotation,
+    annotation: AnnotationMetaData,
     ctx: STypingCtx,
-    typing: TypeMap,
+    typeEnv: TypeEnv,
     semInfo: SemMap,
     fn: FunctionDefinition | undefined,
     contract: ContractDefinition,
     source: string
-): [SType, SemInfo] {
-    let type: SType;
-    let semantics: SemInfo;
-
+): void {
     const unit = contract.vScope;
-    const expr = annotation.expression;
+    const annotNode = annotation.parsedAnnot;
 
     try {
-        type = tc(expr, ctx, typing);
-        semantics = sc(expr, { isOld: false }, typing, semInfo);
+        tcAnnotation(annotNode, ctx, typeEnv);
+        scAnnotation(annotNode, typeEnv, semInfo);
     } catch (err) {
         const scope = fn === undefined ? `${contract.name}` : `${contract.name}.${fn.name}`;
 
         if (err instanceof STypeError || err instanceof SemError) {
             const loc = err.loc();
-            const fileLoc = annotation.predOffToFileLoc([loc.start.offset, loc.end.offset], source);
+            let fileLoc;
+
+            if (annotation instanceof PropertyMetaData) {
+                fileLoc = annotation.predOffToFileLoc([loc.start.offset, loc.end.offset], source);
+            } else if (annotation instanceof UserFunctionDefinitionMetaData) {
+                fileLoc = annotation.bodyOffToFileLoc([loc.start.offset, loc.end.offset], source);
+            } else {
+                throw new Error(`NYI Annotation MD for ${annotation.parsedAnnot.pp()}`);
+            }
 
             prettyError("TypeError", err.message, unit, fileLoc, annotation.original);
         } else {
-            error(`Internal error in type-checking ${expr.pp()} of ${scope}: ${err.message}`);
+            error(`Internal error in type-checking ${annotNode.pp()} of ${scope}: ${err.message}`);
         }
     }
-
-    if (type instanceof SBoolType) {
-        return [type, semantics];
-    }
-
-    prettyError(
-        "TypeError",
-        `expected annotation of type bool not ${type.pp()}`,
-        unit,
-        annotation.predicateFileLoc(source),
-        annotation.original
-    );
 }
 
 function compile(
@@ -188,9 +182,8 @@ function computeContractInvs(
     cha: CHA<ContractDefinition>,
     filterOptions: AnnotationFilterOptions,
     files: Map<string, string>,
-    contractAnnotMap: Map<ContractDefinition, Annotation[]>
+    contractAnnotMap: Map<ContractDefinition, AnnotationMetaData[]>
 ): void {
-    // Note: Can't use standard chaDFS as we use args/returns here more specially
     chaDFS(cha, (contract: ContractDefinition): void => {
         if (contractAnnotMap.has(contract)) {
             return;
@@ -215,7 +208,7 @@ function computeContractInvs(
  */
 function computeContractsNeedingInstr(
     cha: CHA<ContractDefinition>,
-    contractAnnotMap: Map<ContractDefinition, Annotation[]>
+    contractAnnotMap: Map<ContractDefinition, PropertyMetaData[]>
 ): Set<ContractDefinition> {
     // Find the contracts needing instrumentaion by doing bfs starting from the annotated contracts
     const wave = [...contractAnnotMap.keys()];
@@ -241,14 +234,16 @@ function computeContractsNeedingInstr(
 
 function instrumentFiles(
     ctx: InstrumentationContext,
-    contractInvMap: Map<ContractDefinition, Annotation[]>,
+    contractInvMap: Map<ContractDefinition, PropertyMetaData[]>,
     contractsNeedingInstr: Set<ContractDefinition>
 ): [SourceUnit[], SourceUnit[]] {
     const units = ctx.units;
     const filters = ctx.filterOptions;
 
-    const worklist: Array<[ContractDefinition, FunctionDefinition | undefined, Annotation[]]> = [];
-    const typing: TypeMap = new Map();
+    const worklist: Array<
+        [ContractDefinition, FunctionDefinition | undefined, AnnotationMetaData[]]
+    > = [];
+    const typeEnv = new TypeEnv();
     const semInfo: SemMap = new Map();
     const changedSourceUnits: SourceUnit[] = [];
 
@@ -276,7 +271,7 @@ function instrumentFiles(
             }
 
             for (const annot of contractAnnot) {
-                tcOrDie(annot, typeCtx, typing, semInfo, undefined, contract, contents);
+                tcOrDie(annot, typeCtx, typeEnv, semInfo, undefined, contract, contents);
             }
 
             const needsContrInstr = contractsNeedingInstr.has(contract);
@@ -306,7 +301,7 @@ function instrumentFiles(
                 const annotations = getAnnotationsOrDie(fun, ctx.files, filters);
 
                 for (const annot of annotations) {
-                    tcOrDie(annot, typeCtx, typing, semInfo, fun, contract, contents);
+                    tcOrDie(annot, typeCtx, typeEnv, semInfo, fun, contract, contents);
                 }
 
                 /**
@@ -342,11 +337,11 @@ function instrumentFiles(
 
     for (const [contract, fn, annotations] of worklist) {
         if (fn === undefined) {
-            contractInstrumenter.instrument(ctx, typing, semInfo, annotations, contract);
+            contractInstrumenter.instrument(ctx, typeEnv, semInfo, annotations, contract);
         } else {
             functionInstrumenter.instrument(
                 ctx,
-                typing,
+                typeEnv,
                 semInfo,
                 annotations,
                 contract,
@@ -680,6 +675,11 @@ function generatePropertyMap(ctx: InstrumentationContext): PropertyMap {
     const result: PropertyMap = [];
 
     for (const annotation of ctx.annotations) {
+        // Skip user functions from the property map.
+        if (!(annotation instanceof PropertyMetaData)) {
+            continue;
+        }
+
         let contract: ContractDefinition;
         let targetType: TargetType;
 
@@ -1016,7 +1016,7 @@ if ("version" in options) {
          * Merge the CHAs and file maps computed for each target
          */
         const contentsMap: Map<string, string> = new Map();
-        const contractsInvMap: Map<ContractDefinition, Annotation[]> = new Map();
+        const contractsInvMap: Map<ContractDefinition, PropertyMetaData[]> = new Map();
 
         const groups: SourceUnit[][] = targets.map(
             (target) => groupsMap.get(target) as SourceUnit[]
