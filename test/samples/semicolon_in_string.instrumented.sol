@@ -5,18 +5,18 @@ contract Foo {
 
     function foo(uint256 x) public returns (uint256 y) {
         y = _original_Foo_foo(x);
-        if ((!((keccak256("ab;") != bytes32(0x0))))) {
+        if (!(keccak256("ab;") != bytes32(0x0))) {
             emit AssertionFailed("0: P0");
             assert(false);
         }
-        if ((!((y == (x + 1))))) {
+        if (!(y == (x + 1))) {
             emit AssertionFailed("1: P1");
             assert(false);
         }
     }
 
     function _original_Foo_foo(uint256 x) private returns (uint256 y) {
-        return (x + 1);
+        return x + 1;
     }
 }
 /// Utility contract holding a stack counter

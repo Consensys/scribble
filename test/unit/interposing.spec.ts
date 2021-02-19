@@ -61,7 +61,7 @@ function print(units: SourceUnit[], contents: string[], version: string): Map<So
     units.forEach((unit) => rewriteImports(unit, contentMap, factory));
     const verMap: Map<SourceUnit, string> = new Map(units.map((unit) => [unit, version]));
 
-    return printUnits(units, verMap);
+    return printUnits(units, verMap, new Map());
 }
 
 describe("Function interposing Unit Tests", () => {
@@ -84,7 +84,7 @@ contract Foo {
     }
 
     function _original_Foo_add(int8 x, uint64 y) private returns (uint64 add) {
-        return (uint64(x) + y);
+        return uint64(x) + y;
     }
 }`
         ],
@@ -126,7 +126,7 @@ contract Foo {
     }
 
     function _original_Foo_add(int8 x, uint64 y) private returns (uint64 add) {
-        return (uint64(x) + y);
+        return uint64(x) + y;
     }
 }
 
@@ -157,7 +157,7 @@ contract Foo {
     }
 
     function _original_Foo_add(int8 x, uint64 y) private {
-        (uint64(x) + y);
+        uint64(x) + y;
     }
 }`
         ],
@@ -295,7 +295,7 @@ contract Foo {
     }
 
     function _original_Foo_add(int8, uint64 y) private returns (uint64) {
-        return (y + 1);
+        return y + 1;
     }
 }`
         ]
@@ -347,7 +347,7 @@ import "./scribble_utils.sol";
 
 contract Foo is __scribble_ReentrancyUtils {
     function add(int8 x, uint64 y) internal returns (uint64 add) {
-        return (uint64(x) + y);
+        return uint64(x) + y;
     }
 
     /// Check only the current contract's state invariants
@@ -398,7 +398,7 @@ contract Foo is __scribble_ReentrancyUtils {
     }
 
     function mainView(uint y) public view returns (uint) {
-        return (_callsite_30(this.viewF) + this.pureF(y));
+        return _callsite_30(this.viewF) + this.pureF(y);
     }
 
     /// Check only the current contract's state invariants
@@ -526,11 +526,11 @@ contract Foo {
 
 contract Foo {
     function inc(int x) public returns (int) {
-        return (x + 1);
+        return x + 1;
     }
 
     function main() public returns (int) {
-        return (_callsite_21(this.inc, 1) + 1);
+        return _callsite_21(this.inc, 1) + 1;
     }
 
     function _callsite_21(function(int) external returns (int) fPtr, int arg0) private returns (int ret0) {
@@ -556,12 +556,12 @@ contract Foo {
 
 contract Foo {
     function dup(int x) public returns (int, int) {
-        return ((x + 1), (x + 2));
+        return (x + 1, x + 2);
     }
 
     function main() public returns (int) {
         (int a, int b) = _callsite_31(this.dup, 4);
-        return (a + b);
+        return a + b;
     }
 
     function _callsite_31(function(int) external returns (int, int) fPtr, int arg0) private returns (int ret0, int ret1) {

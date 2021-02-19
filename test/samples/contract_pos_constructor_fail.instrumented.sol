@@ -24,12 +24,12 @@ contract Foo is __scribble_ReentrancyUtils {
     }
 
     function _original_Foo_inc() private {
-        (x++);
+        x++;
     }
 
     /// Check only the current contract's state invariants
     function __scribble_Foo_check_state_invariants_internal() internal {
-        if ((!((x > 0)))) {
+        if (!(x > 0)) {
             emit AssertionFailed("0: ");
             assert(false);
         }

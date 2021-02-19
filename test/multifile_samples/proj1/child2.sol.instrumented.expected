@@ -15,7 +15,7 @@ contract Child2 is __scribble_ReentrancyUtils, Base {
         __scribble_out_of_contract = false;
         _v.old_1 = x;
         _original_Child2_double();
-        if ((!((x == (2 * _v.old_1))))) {
+        if (!(x == (2 * _v.old_1))) {
             emit AssertionFailed("2: P2");
             assert(false);
         }

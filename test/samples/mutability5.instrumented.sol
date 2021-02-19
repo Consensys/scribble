@@ -15,12 +15,12 @@ contract Foo is __scribble_ReentrancyUtils {
     }
 
     function getXPlus1() public returns (uint) {
-        return (_callsite_23(this.getX) + 1);
+        return _callsite_23(this.getX) + 1;
     }
 
     /// Check only the current contract's state invariants
     function __scribble_Foo_check_state_invariants_internal() internal {
-        if ((!((x > 0)))) {
+        if (!(x > 0)) {
             emit AssertionFailed("0: ");
             assert(false);
         }

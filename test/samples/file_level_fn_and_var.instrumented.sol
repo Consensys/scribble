@@ -3,7 +3,7 @@ pragma solidity 0.7.5;
 uint constant SOME = 10;
 
 function addSome(uint v) pure returns (uint) {
-    return (v + SOME);
+    return v + SOME;
 }
 
 contract Test {
@@ -13,7 +13,7 @@ contract Test {
 
     function operate() public {
         _original_Test_operate();
-        if ((!((num == 25)))) {
+        if (!(num == 25)) {
             emit AssertionFailed("0: P1");
             assert(false);
         }

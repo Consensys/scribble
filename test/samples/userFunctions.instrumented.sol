@@ -20,29 +20,29 @@ contract Foo is __scribble_ReentrancyUtils {
 
     /// Implementation of user function define plus(uint256 x) uint256 = (z + x)
     function plus(uint256 x) internal view returns (uint256) {
-        return (z + x);
+        return z + x;
     }
 
     /// Implementation of user function define plus2(uint256 Foo) uint256 = (z + Foo)
     function plus2(uint256 Foo1) internal view returns (uint256) {
-        return (z + Foo1);
+        return z + Foo1;
     }
 
     /// Implementation of user function define plus3(uint256 plus2) uint256 = (z + plus2)
     function plus3(uint256 plus21) internal view returns (uint256) {
-        return (z + plus21);
+        return z + plus21;
     }
 
     /// Implementation of user function define double(uint256 z) uint256 = (z + z)
     function double(uint256 z1) internal view returns (uint256) {
-        return (z1 + z1);
+        return z1 + z1;
     }
 
     /// Implementation of user function define quad(uint256 z) uint256 = (let res := (z + z) in (res + res))
     function quad(uint256 z2) internal view returns (uint256) {
         vars4 memory _v;
-        _v.res = (z2 + z2);
-        _v.let_0 = (_v.res + _v.res);
+        _v.res = z2 + z2;
+        _v.let_0 = _v.res + _v.res;
         return _v.let_0;
     }
 

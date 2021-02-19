@@ -10,7 +10,7 @@ interface IFoo {
 
 library SillyMath {
     function add(int a, int b) public returns (int) {
-        return (a + b);
+        return a + b;
     }
 }
 
@@ -49,7 +49,7 @@ contract Foo is __scribble_ReentrancyUtils, IFoo {
     }
 
     function _original_Foo_inc() private {
-        (x++);
+        x++;
     }
 
     function add(int v) internal {
@@ -71,7 +71,7 @@ contract Foo is __scribble_ReentrancyUtils, IFoo {
 
     /// Check only the current contract's state invariants
     function __scribble_Foo_check_state_invariants_internal() internal {
-        if ((!((x > 0)))) {
+        if (!(x > 0)) {
             emit AssertionFailed("0: ");
             assert(false);
         }

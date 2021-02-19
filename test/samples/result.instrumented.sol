@@ -16,7 +16,7 @@ contract Foo {
 
     function a() public returns (uint RET_0) {
         RET_0 = _original_Foo_a();
-        if ((!((RET_0 == 1)))) {
+        if (!(RET_0 == 1)) {
             emit AssertionFailed("0: ");
             assert(false);
         }
@@ -30,12 +30,12 @@ contract Foo {
         vars1 memory _v;
         x = _original_Foo_b();
         _v.t1 = x;
-        _v.let_0 = (_v.t1 == x);
-        if ((!((x == x)))) {
+        _v.let_0 = _v.t1 == x;
+        if (!(x == x)) {
             emit AssertionFailed("1: ");
             assert(false);
         }
-        if ((!(_v.let_0))) {
+        if (!(_v.let_0)) {
             emit AssertionFailed("2: ");
             assert(false);
         }
@@ -50,8 +50,8 @@ contract Foo {
         (RET_0, t) = _original_Foo_d();
         _v.a1 = RET_0;
         _v.b1 = t;
-        _v.let_1 = (((_v.a1 == 1) && (_v.b1 == 2)) && (t == _v.b1));
-        if ((!(_v.let_1))) {
+        _v.let_1 = ((_v.a1 == 1) && (_v.b1 == 2)) && (t == _v.b1);
+        if (!(_v.let_1)) {
             emit AssertionFailed("3: ");
             assert(false);
         }

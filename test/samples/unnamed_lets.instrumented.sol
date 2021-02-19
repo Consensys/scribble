@@ -17,8 +17,8 @@ contract Foo {
         vars0 memory _v;
         _original_Foo_foo(v);
         (_v.dummy_, _v.x) = snd(v);
-        _v.let_0 = (_v.x == 2);
-        if ((!(_v.let_0))) {
+        _v.let_0 = _v.x == 2;
+        if (!(_v.let_0)) {
             emit AssertionFailed("0: P0");
             assert(false);
         }

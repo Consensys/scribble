@@ -13,7 +13,7 @@ contract Foo is Base {
 
     function getX() virtual override public returns (uint RET_0) {
         RET_0 = _original_Foo_getX();
-        if ((!((x > 0)))) {
+        if (!(x > 0)) {
             emit AssertionFailed("0: ");
             assert(false);
         }
@@ -27,14 +27,14 @@ contract Foo is Base {
 contract Child is Foo {
     function getX() virtual override public returns (uint RET_0) {
         RET_0 = _original_Child_getX();
-        if ((!((x > 0)))) {
+        if (!(x > 0)) {
             emit AssertionFailed("1: ");
             assert(false);
         }
     }
 
     function _original_Child_getX() private returns (uint) {
-        return (x + 1);
+        return x + 1;
     }
 }
 /// Utility contract holding a stack counter

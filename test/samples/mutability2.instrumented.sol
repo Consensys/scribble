@@ -7,7 +7,7 @@ contract Foo {
 
     function getX() public returns (uint RET_0) {
         RET_0 = _original_Foo_getX();
-        if ((!((x > 0)))) {
+        if (!(x > 0)) {
             emit AssertionFailed("0: ");
             assert(false);
         }
@@ -18,11 +18,11 @@ contract Foo {
     }
 
     function getXPlus1() public returns (uint) {
-        return (getX() + 1);
+        return getX() + 1;
     }
 
     function getXPlus2() public returns (uint) {
-        return (getXPlus1() + 1);
+        return getXPlus1() + 1;
     }
 }
 /// Utility contract holding a stack counter

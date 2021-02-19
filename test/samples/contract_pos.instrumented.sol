@@ -7,7 +7,8 @@ contract __scribble_ReentrancyUtils {
 /// invariant {:msg ""} x>0;
 contract Foo is __scribble_ReentrancyUtils {
     event AssertionFailed(string message);
-    event P0Fail(int256 x);
+
+    event P0Fail(int256 x) anonymous;
 
     struct vars1 {
         bool __scribble_check_invs_at_end;
@@ -29,7 +30,7 @@ contract Foo is __scribble_ReentrancyUtils {
     }
 
     function _original_Foo_inc() private {
-        (x++);
+        x++;
     }
 
     function add(int v) internal {
@@ -51,7 +52,7 @@ contract Foo is __scribble_ReentrancyUtils {
 
     /// Check only the current contract's state invariants
     function __scribble_Foo_check_state_invariants_internal() internal {
-        if ((!((x > 0)))) {
+        if (!(x > 0)) {
             emit AssertionFailed("0: ");
             emit P0Fail(x);
         }

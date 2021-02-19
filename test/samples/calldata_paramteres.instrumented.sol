@@ -35,14 +35,14 @@ contract Test is __scribble_ReentrancyUtils {
     function _original_Test_moo() private {
         bytes memory m = "abc";
         bytes memory n = _callsite_27(this.foo, m);
-        assert((n[0] == "a"));
-        assert((n[1] == "b"));
-        assert((n[2] == "c"));
+        assert(n[0] == "a");
+        assert(n[1] == "b");
+        assert(n[2] == "c");
     }
 
     /// Check only the current contract's state invariants
     function __scribble_Test_check_state_invariants_internal() internal {
-        if ((!(true))) {
+        if (!(true)) {
             emit AssertionFailed("0: P1");
             assert(false);
         }

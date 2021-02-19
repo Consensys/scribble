@@ -12,7 +12,7 @@
         "scribble": "dist/bin/scribble.js"
     },
     "dependencies": {
-        "solc-typed-ast": "^3.0.4",
+        "solc-typed-ast": "^3.1.0",
         "big-integer": "^1.6.48",
         "command-line-args": "5.1.1",
         "command-line-usage": "6.1.1",
