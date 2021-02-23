@@ -5,30 +5,33 @@
       "contract": "Base",
       "filename": "test/multifile_samples/proj1/base.sol",
       "propertySource": "52:5:0",
+      "annotationSource": "30:28:0",
       "target": "contract",
       "targetName": "Base",
-      "message": "P0",
-      "debugEventSignature": ""
+      "debugEventSignature": "",
+      "message": "P0"
     },
     {
       "id": 1,
       "contract": "Child1",
       "filename": "test/multifile_samples/proj1/child1.sol",
       "propertySource": "117:15:1",
+      "annotationSource": "93:40:1",
       "target": "function",
       "targetName": "add",
-      "message": "P1",
-      "debugEventSignature": ""
+      "debugEventSignature": "",
+      "message": "P1"
     },
     {
       "id": 2,
       "contract": "Child2",
       "filename": "test/multifile_samples/proj1/child2.sol",
       "propertySource": "117:14:1",
+      "annotationSource": "93:39:1",
       "target": "function",
       "targetName": "double",
-      "message": "P2",
-      "debugEventSignature": ""
+      "debugEventSignature": "",
+      "message": "P2"
     }
   ]
 }

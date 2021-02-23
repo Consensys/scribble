@@ -610,9 +610,12 @@ export function interposeCall(
 
     (wrapper.vBody as Block).appendChild(factory.makeExpressionStatement(callOriginal));
 
+    const newCallee = factory.makeIdentifierFor(wrapper);
+    newCallee.src = call.vExpression.src;
+
     recipe.push(
         new InsertFunction(factory, contract, wrapper),
-        new ReplaceCallee(factory, call.vExpression, factory.makeIdentifierFor(wrapper)),
+        new ReplaceCallee(factory, call.vExpression, newCallee),
         new InsertArgument(factory, receiver, "start", call)
     );
 

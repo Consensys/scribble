@@ -750,6 +750,8 @@ function emitAssert(
         factory.makeTupleExpression("<missing>", false, [expr])
     );
 
+    instrCtx.propertyEmittedAssertion.set(annotation, condition);
+
     const ifStmt = factory.makeIfStatement(condition, factory.makeBlock(ifBody));
 
     if (userAssertionHit) {

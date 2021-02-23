@@ -1,4 +1,4 @@
-import { ContractDefinition } from "solc-typed-ast";
+import { ASTNode, ContractDefinition } from "solc-typed-ast";
 
 export interface PPAble {
     pp(): string;
@@ -43,6 +43,10 @@ export function pp(x: any): string {
         return `contract ${x.name}`;
     }
 
+    if (x instanceof ASTNode) {
+        return ppASTNode(x);
+    }
+
     return String(x);
 }
 
@@ -72,4 +76,8 @@ export function ppMap(map: Map<any, any>, sep = ",", kvSep = ":", start = "{", e
     }
 
     return start + parts.join(sep) + end;
+}
+
+export function ppASTNode(node: ASTNode): string {
+    return `${node.constructor.name}#${node.id}`;
 }

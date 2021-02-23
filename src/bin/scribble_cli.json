@@ -63,6 +63,11 @@
                 "description": "If specified, output the property map (in JSON format) in the specified file."
             },
             {
+                "name": "srcmap-to-srcmap-file",
+                "type": "String",
+                "description": "If specified, output the 'src map to src map' map (in JSON format) in the specified file. This is only relevant for flat/json modes"
+            },
+            {
                 "name": "path-remapping",
                 "type": "String",
                 "description": "Path remapping input for Solc. A semicolon separate list of remappings 'prefix=target'"

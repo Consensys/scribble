@@ -8,7 +8,8 @@ import {
     StructDefinition,
     EnumDefinition,
     VariableDeclaration,
-    ImportDirective
+    ImportDirective,
+    ASTNode
 } from "solc-typed-ast";
 import { SUserFunctionDefinition } from "../spec-lang/ast";
 import { NameGenerator } from "../util/name_generator";
@@ -68,6 +69,7 @@ export class InstrumentationContext {
     public readonly utilsContractName: string;
     private internalInvariantCheckers: Map<ContractDefinition, string> = new Map();
     public readonly userFunctions: Map<SUserFunctionDefinition, FunctionDefinition> = new Map();
+    public readonly propertyEmittedAssertion: Map<AnnotationMetaData, ASTNode> = new Map();
 
     /**
      * Bit of a hack - this is set by `generateUtilsContract`. We need an

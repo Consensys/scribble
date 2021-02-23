@@ -21,7 +21,9 @@ import {
     Identifier,
     ImportDirective,
     MemberAccess,
+    ParameterList,
     SourceUnit,
+    SrcRangeMap,
     StructDefinition,
     UserDefinedTypeName,
     VariableDeclaration
@@ -56,7 +58,8 @@ import {
     tcAnnotation,
     TypeEnv
 } from "../spec-lang/tc";
-import { assert, getOrInit, getScopeUnit, isChangingState, isExternallyVisible } from "../util";
+import { assert, getOrInit, getScopeUnit, isChangingState, isExternallyVisible, pp } from "../util";
+import { generateSrcMap2SrcMap, buildOutputJSON, generatePropertyMap } from "./json_output";
 import cli from "./scribble_cli.json";
 
 const commandLineArgs = require("command-line-args");
@@ -354,8 +357,12 @@ function instrumentFiles(
     return [units, changedSourceUnits];
 }
 
-function printUnits(all: SourceUnit[], version: Map<SourceUnit, string>): Map<SourceUnit, string> {
-    return print(all, version);
+function printUnits(
+    all: SourceUnit[],
+    version: Map<SourceUnit, string>,
+    srcMap: SrcRangeMap
+): Map<SourceUnit, string> {
+    return print(all, version, srcMap);
 }
 
 type TopLevelDef = ContractDefinition | StructDefinition | EnumDefinition;
@@ -656,120 +663,6 @@ function topoSort(units: SourceUnit[]): SourceUnit[] {
     );
 
     return sorted;
-}
-
-type TargetType = "function" | "variable" | "contract";
-interface PropertyDesc {
-    id: number;
-    contract: string;
-    filename: string;
-    propertySource: string;
-    target: TargetType;
-    targetName: string;
-    debugEventSignature: string;
-    message: string;
-}
-type PropertyMap = PropertyDesc[];
-
-function generatePropertyMap(ctx: InstrumentationContext): PropertyMap {
-    const result: PropertyMap = [];
-
-    for (const annotation of ctx.annotations) {
-        // Skip user functions from the property map.
-        if (!(annotation instanceof PropertyMetaData)) {
-            continue;
-        }
-
-        let contract: ContractDefinition;
-        let targetType: TargetType;
-
-        if (annotation.target instanceof FunctionDefinition) {
-            assert(
-                annotation.target.vScope instanceof ContractDefinition,
-                "Instrumenting free functions is not supported yet"
-            );
-
-            contract = annotation.target.vScope;
-            targetType = "function";
-        } else if (annotation.target instanceof VariableDeclaration) {
-            assert(
-                annotation.target.vScope instanceof ContractDefinition,
-                "Instrumenting is supported for state variables only"
-            );
-
-            contract = annotation.target.vScope;
-            targetType = "variable";
-        } else {
-            contract = annotation.target;
-            targetType = "contract";
-        }
-
-        const targetName = annotation.targetName;
-        const filename = contract.vScope.sourceEntryKey;
-
-        const unit = contract.vScope;
-        const predRange = annotation.predicateFileLoc(ctx.files.get(unit.sourceEntryKey) as string);
-        const debugEvent = ctx.debugEventDefs.get(annotation.id);
-        const signature = debugEvent !== undefined ? debugEvent.canonicalSignature : "";
-        const propertySource = `${predRange.start.offset}:${
-            predRange.end.offset - predRange.start.offset
-        }:${unit.sourceListIndex}`;
-
-        result.push({
-            id: annotation.id,
-            contract: contract.name,
-            filename,
-            propertySource,
-            target: targetType,
-            targetName,
-            debugEventSignature: signature,
-            message: annotation.message
-        });
-    }
-
-    return result;
-}
-
-function stripSourcemaps(contractJSON: any): void {
-    for (const unitName in contractJSON) {
-        for (const contractName in contractJSON[unitName]) {
-            const compiledArtifact = contractJSON[unitName][contractName];
-
-            for (const bytecodeType in ["bytecode", "deployedBytecode"]) {
-                if ("evm" in compiledArtifact && bytecodeType in compiledArtifact.evm) {
-                    compiledArtifact.evm[bytecodeType].sourceMap = "";
-                }
-            }
-        }
-    }
-}
-
-/**
- * Add the actual source code to the compiled artifcat's AST data
- */
-function addSrcToContext(r: CompileResult): any {
-    for (const [fileName] of Object.entries(r.data["sources"])) {
-        r.data["sources"]["source"] = r.files.get(fileName);
-    }
-
-    return r.data["sources"];
-}
-
-function buildOutputJSON(ctx: InstrumentationContext, flatCompiled: CompileResult): any {
-    const result: any = {};
-
-    if ("errors" in flatCompiled.data) {
-        result["errors"] = flatCompiled.data.errors;
-    }
-
-    result["sources"] = addSrcToContext(flatCompiled);
-
-    stripSourcemaps(flatCompiled.data["contracts"]);
-
-    result["contracts"] = flatCompiled.data["contracts"];
-    result["propertyMap"] = generatePropertyMap(ctx);
-
-    return result;
 }
 
 function writeOut(contents: string, fileName: string) {
@@ -1134,17 +1027,51 @@ if ("version" in options) {
 
             sortedUnits[0].appendChild(factory.makePragmaDirective(["solidity", version]));
 
+            const newSrcMap: SrcRangeMap = new Map();
             // 5. Now print the stripped files
-            const newContents: Map<SourceUnit, string> = printUnits(sortedUnits, versionMap);
+            const newContents: Map<SourceUnit, string> = printUnits(
+                sortedUnits,
+                versionMap,
+                newSrcMap
+            );
 
             // 6. Join all the contents in-order
-            const flatContents = sortedUnits
-                .reduce((a, b) => (a + `\n` + newContents.get(b)) as string, "")
-                .trimStart();
+            const flatSrcMap: SrcRangeMap = new Map();
+            let flatContents = "";
+
+            for (let i = 0; i < sortedUnits.length; i++) {
+                const unit = sortedUnits[i];
+
+                if (flatContents !== "") flatContents += "\n";
+
+                unit.walkChildren((node) => {
+                    const localSrc = newSrcMap.get(node);
+                    if (localSrc === undefined) {
+                        assert(
+                            node instanceof ParameterList,
+                            `Missing source for node ${pp(node)}`
+                        );
+                        return;
+                    }
+
+                    flatSrcMap.set(node, [flatContents.length + localSrc[0], localSrc[1]]);
+                });
+                flatContents += newContents.get(unit);
+            }
 
             // 7. If the output mode is just 'flat' we just write out the contents now.
             if (outputMode === "flat") {
                 writeOut(flatContents, options.output);
+
+                if (options["srcmap-to-srcmap-file"] !== undefined) {
+                    const srcMap2SrcMap: any = {
+                        srcMap2SrcMap: generateSrcMap2SrcMap(instrCtx, sortedUnits, flatSrcMap)
+                    };
+
+                    const srcMap2SrcMapJSON = JSON.stringify(srcMap2SrcMap, undefined, 2);
+
+                    writeOut(srcMap2SrcMapJSON, options["srcmap-to-srcmap-file"]);
+                }
             } else {
                 // 8. If the output mode is 'json' we have more work - need to re-compile the flattened results.
                 let flatCompiled: CompileResult;
@@ -1178,7 +1105,7 @@ if ("version" in options) {
                 }
 
                 const resultJSON = JSON.stringify(
-                    buildOutputJSON(instrCtx, flatCompiled),
+                    buildOutputJSON(instrCtx, flatCompiled, sortedUnits, flatSrcMap),
                     undefined,
                     2
                 );
@@ -1189,7 +1116,8 @@ if ("version" in options) {
             // In files mode we need to write out every change file, and opitonally swap them in-place.
 
             // 1. Write out files
-            const newContents = printUnits(allUnits.concat(utilsUnit), versionMap);
+            const newSrcMap: SrcRangeMap = new Map();
+            const newContents = printUnits(allUnits.concat(utilsUnit), versionMap, newSrcMap);
 
             // 2. For all changed files write out a `.instrumented` version of the file.
             for (const unit of changedUnits) {

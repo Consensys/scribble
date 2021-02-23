@@ -5,10 +5,11 @@
       "contract": "C",
       "filename": "test/multifile_samples/inheritance1/C.sol",
       "propertySource": "62:4:2",
+      "annotationSource": "40:27:2",
       "target": "contract",
       "targetName": "C",
-      "message": "P1",
-      "debugEventSignature": ""
+      "debugEventSignature": "",
+      "message": "P1"
     }
   ]
 }
