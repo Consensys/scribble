@@ -9,7 +9,8 @@ import {
     EnumDefinition,
     VariableDeclaration,
     ImportDirective,
-    ASTNode
+    ASTNode,
+    Expression
 } from "solc-typed-ast";
 import { SUserFunctionDefinition } from "../spec-lang/ast";
 import { NameGenerator } from "../util/name_generator";
@@ -72,6 +73,21 @@ export class InstrumentationContext {
     public readonly propertyEmittedAssertion: Map<AnnotationMetaData, ASTNode> = new Map();
 
     /**
+     * Map from Annotations to the list of statements involved in their evaluation.
+     */
+    public readonly evaluationStatements: Map<AnnotationMetaData, ASTNode[]> = new Map();
+    /**
+     * Map from Annotations to the actual `Expression` that corresponds to the
+     * annotation being fully checked.
+     */
+    public readonly instrumetnedCheck: Map<AnnotationMetaData, Expression> = new Map();
+    /**
+     * List of statements added for general instrumentation, not tied to any
+     * particular annotation.
+     */
+    public readonly generalInstrumentationNodes: ASTNode[] = [];
+
+    /**
      * Bit of a hack - this is set by `generateUtilsContract`. We need an
      * InstrumentationContext already present for `generateUtilsContract` to be able
      * to use `ctx.nameGenerator`.
@@ -119,5 +135,21 @@ export class InstrumentationContext {
         }
 
         return this.internalInvariantCheckers.get(contract) as string;
+    }
+
+    addGeneralInstrumentation(...nodes: ASTNode[]): void {
+        this.generalInstrumentationNodes.push(...nodes);
+    }
+
+    addAnnotationInstrumentation(annotation: AnnotationMetaData, ...nodes: ASTNode[]): void {
+        if (!this.evaluationStatements.has(annotation)) {
+            this.evaluationStatements.set(annotation, nodes);
+        } else {
+            (this.evaluationStatements.get(annotation) as ASTNode[]).push(...nodes);
+        }
+    }
+
+    setAnnotationCheck(annotation: AnnotationMetaData, pred: Expression): void {
+        this.instrumetnedCheck.set(annotation, pred);
     }
 }

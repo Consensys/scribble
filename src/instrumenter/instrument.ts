@@ -192,6 +192,8 @@ export function generateUtilsContract(
         factory.makeLiteral("bool", LiteralKind.Bool, "", "true")
     );
 
+    ctx.addGeneralInstrumentation(flag);
+
     contract.appendChild(flag);
 
     ctx.utilsContract = contract;
@@ -502,11 +504,18 @@ export function generateExpressions(
     // Step 2: Flatten all predicates, turning let-bindings and old-keywords to temporary variables
     const flatExprs: SNode[] = [];
     const bindings: SBindings = [];
+    const bindingToAnnotations = new Map<number, PropertyMetaData>();
 
-    for (const expr of exprs) {
+    for (let i = 0; i < exprs.length; i++) {
+        const expr = exprs[i];
         const [flatExpr, oneBindings] = flattenExpr(expr, transCtx);
 
         flatExprs.push(flatExpr);
+
+        // Remember to which annotation these bindings belong to
+        for (let j = 0; j < oneBindings.length; j++) {
+            bindingToAnnotations.set(bindings.length + j, annotations[i]);
+        }
 
         bindings.push(...oneBindings);
     }
@@ -529,6 +538,8 @@ export function generateExpressions(
 
                 if (info.isOld && id.defSite instanceof VariableDeclaration) {
                     const tmpName = `dbg_old_${id.name}`;
+
+                    bindingToAnnotations.set(bindings.length, annot);
                     bindings.push([tmpName, idType, id, true]);
 
                     dbgVars.push(
@@ -597,6 +608,7 @@ export function generateExpressions(
                         evtArgs
                     )
                 );
+                instrCtx.addAnnotationInstrumentation(annot, emitStmt);
 
                 debugEventsInfo.push([evtDef, emitStmt]);
             }
@@ -635,7 +647,8 @@ export function generateExpressions(
     const newAssignments: Assignment[] = [];
 
     // Step 4: Build the old and new assignments
-    for (const [names, , expr, isOld] of bindings) {
+    for (let i = 0; i < bindings.length; i++) {
+        const [names, , expr, isOld] = bindings[i];
         let lhs: Expression;
 
         if (typeof names === "string") {
@@ -646,6 +659,10 @@ export function generateExpressions(
 
         const rhs = generateExprAST(expr, transCtx, [contract, fn]);
         const assignment = factory.makeAssignment("<missing>", "=", lhs, rhs);
+        instrCtx.addAnnotationInstrumentation(
+            bindingToAnnotations.get(i) as PropertyMetaData,
+            assignment
+        );
 
         (isOld ? oldAssignments : newAssignments).push(assignment);
     }
@@ -699,6 +716,7 @@ function emitAssert(
                 [message]
             )
         );
+        instrCtx.addAnnotationInstrumentation(annotation, userAssertFailed);
     } else {
         const id = factory.makeIdentifierFor(structLocalVar);
         const failBitPattern = getBitPattern(factory, annotation.id);
@@ -724,6 +742,7 @@ function emitAssert(
             )
         );
     }
+
     const ifBody: Statement[] = [userAssertFailed];
 
     if (emitStmt) {
@@ -750,9 +769,15 @@ function emitAssert(
         factory.makeTupleExpression("<missing>", false, [expr])
     );
 
-    instrCtx.propertyEmittedAssertion.set(annotation, condition);
-
     const ifStmt = factory.makeIfStatement(condition, factory.makeBlock(ifBody));
+
+    instrCtx.propertyEmittedAssertion.set(annotation, condition);
+    instrCtx.addAnnotationInstrumentation(annotation, userAssertFailed);
+    instrCtx.addAnnotationInstrumentation(annotation, ifStmt);
+    instrCtx.setAnnotationCheck(annotation, condition);
+    if (userAssertionHit) {
+        instrCtx.addAnnotationInstrumentation(annotation, userAssertionHit);
+    }
 
     if (userAssertionHit) {
         return factory.makeBlock([userAssertionHit, ifStmt]);
@@ -878,6 +903,7 @@ function insertVarsStruct(
     const factory = ctx.factory;
 
     const localVarDecl = factory.makeVariableDeclarationStatement([], [result.structLocalVariable]);
+    ctx.addGeneralInstrumentation(localVarDecl);
 
     return [
         new InsertStructDef(factory, result.struct, contract),
@@ -1082,6 +1108,7 @@ export class ContractInstrumenter {
                 factory.makeReturn(userFun.vReturnParameters.id, result)
             );
 
+            ctx.addGeneralInstrumentation(...body.children);
             userFuns.push(userFun);
             recipe.push(new InsertFunction(factory, contract, userFun));
         }
@@ -1243,6 +1270,7 @@ export class ContractInstrumenter {
                 factory.makeFunctionCall("<missing>", FunctionCallKind.FunctionCall, callExpr, [])
             );
 
+            ctx.addGeneralInstrumentation(callInternalCheckInvs);
             recipe.push(new InsertStatement(factory, callInternalCheckInvs, "end", body));
         }
 
@@ -1290,46 +1318,39 @@ export class ContractInstrumenter {
             body = constructor.vBody as Block;
         }
 
-        recipe.push(
-            new InsertStatement(
-                factory,
-                factory.makeExpressionStatement(
-                    factory.makeAssignment(
-                        "<missing>",
-                        "=",
-                        factory.makeIdentifier("bool", ctx.outOfContractFlagName, -1),
-                        factory.makeLiteral("bool", LiteralKind.Bool, "", "false")
-                    )
-                ),
-                "start",
-                body
-            ),
-            new InsertStatement(
-                factory,
-                factory.makeExpressionStatement(
-                    factory.makeFunctionCall(
-                        "<missing>",
-                        FunctionCallKind.FunctionCall,
-                        factory.makeIdentifierFor(generalInvChecker),
-                        []
-                    )
-                ),
-                "end",
-                body
-            ),
-            new InsertStatement(
-                factory,
-                factory.makeExpressionStatement(
-                    factory.makeAssignment(
-                        "<missing>",
-                        "=",
-                        factory.makeIdentifier("bool", ctx.outOfContractFlagName, -1),
-                        factory.makeLiteral("bool", LiteralKind.Bool, "", "true")
-                    )
-                ),
-                "end",
-                body
+        const entryGuard = factory.makeExpressionStatement(
+            factory.makeAssignment(
+                "<missing>",
+                "=",
+                factory.makeIdentifier("bool", ctx.outOfContractFlagName, -1),
+                factory.makeLiteral("bool", LiteralKind.Bool, "", "false")
             )
+        );
+
+        const callCheckInvs = factory.makeExpressionStatement(
+            factory.makeFunctionCall(
+                "<missing>",
+                FunctionCallKind.FunctionCall,
+                factory.makeIdentifierFor(generalInvChecker),
+                []
+            )
+        );
+
+        const exitGuard = factory.makeExpressionStatement(
+            factory.makeAssignment(
+                "<missing>",
+                "=",
+                factory.makeIdentifier("bool", ctx.outOfContractFlagName, -1),
+                factory.makeLiteral("bool", LiteralKind.Bool, "", "true")
+            )
+        );
+
+        ctx.addGeneralInstrumentation(entryGuard, callCheckInvs, exitGuard);
+
+        recipe.push(
+            new InsertStatement(factory, entryGuard, "start", body),
+            new InsertStatement(factory, callCheckInvs, "end", body),
+            new InsertStatement(factory, exitGuard, "end", body)
         );
 
         return recipe;
@@ -1532,6 +1553,8 @@ export class FunctionInstrumenter {
                 )
             );
 
+            instrCtx.addGeneralInstrumentation(enter);
+
             recipe.push(new InsertStatement(factory, enter, "before", body, originalCall));
         } else if (isPublic(stub)) {
             transCtx.addBinding(
@@ -1564,6 +1587,7 @@ export class FunctionInstrumenter {
                 )
             );
 
+            instrCtx.addGeneralInstrumentation(storeEntry, enter);
             recipe.push(new InsertStatement(factory, enter, "before", body, originalCall));
         }
 
@@ -1591,6 +1615,8 @@ export class FunctionInstrumenter {
             )
         );
 
+        instrCtx.addGeneralInstrumentation(checkInvsCall);
+
         if (isPublic(stub)) {
             const ifStmt = factory.makeIfStatement(
                 factory.makeMemberAccess(
@@ -1602,6 +1628,7 @@ export class FunctionInstrumenter {
                 checkInvsCall
             );
 
+            instrCtx.addGeneralInstrumentation(ifStmt);
             recipe.push(new InsertStatement(factory, ifStmt, "end", body));
         } else {
             recipe.push(new InsertStatement(factory, checkInvsCall, "end", body));
@@ -1623,6 +1650,7 @@ export class FunctionInstrumenter {
             )
         );
 
+        instrCtx.addGeneralInstrumentation(exit);
         recipe.push(new InsertStatement(factory, exit, "end", body));
 
         return recipe;

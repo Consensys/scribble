@@ -6,9 +6,10 @@ import {
     FunctionDefinition,
     VariableDeclaration,
     CompileResult,
-    StructuredDocumentation
+    StructuredDocumentation,
+    ASTNode
 } from "solc-typed-ast";
-import { assert, PropertyMetaData } from "..";
+import { assert, pp, PropertyMetaData } from "..";
 import { InstrumentationContext } from "../instrumenter/instrumentation_context";
 import { Range } from "../spec-lang/ast";
 
@@ -23,9 +24,15 @@ interface PropertyDesc {
     targetName: string;
     debugEventSignature: string;
     message: string;
+    instrumentationRanges: string[];
+    checkRange: string;
 }
 export type PropertyMap = PropertyDesc[];
-export type SrcMapToSrcMap = { entries: Array<[string, string]>; sourceList: string[] };
+export type SrcMapToSrcMap = {
+    entries: Array<[string, string]>;
+    sourceList: string[];
+    otherInstrumentation: string[];
+};
 
 export type SrcTriple = [number, number, number];
 export function parseSrcTriple(src: string): SrcTriple {
@@ -64,7 +71,7 @@ export function generateSrcMap2SrcMap(
     sortedUnits: SourceUnit[],
     newSrcMap: SrcRangeMap
 ): SrcMapToSrcMap {
-    const res: SrcMapToSrcMap = { entries: [], sourceList: [] };
+    const res: SrcMapToSrcMap = { entries: [], sourceList: [], otherInstrumentation: [] };
 
     res.sourceList = sortedUnits.map((unit) => unit.absolutePath);
 
@@ -111,6 +118,17 @@ export function generateSrcMap2SrcMap(
         ]);
     }
 
+    for (const node of ctx.generalInstrumentationNodes) {
+        const nodeSrc = newSrcMap.get(node);
+
+        assert(
+            nodeSrc !== undefined,
+            `Missing new source for general instrumentation node ${pp(node)}`
+        );
+
+        res.otherInstrumentation.push(`${nodeSrc[0]}:${nodeSrc[1]}:0`);
+    }
+
     return res;
 }
 
@@ -118,7 +136,10 @@ function rangeToSrc(range: Range, fileIdx: number): string {
     return `${range.start.offset}:${range.end.offset - range.start.offset}:${fileIdx}`;
 }
 
-export function generatePropertyMap(ctx: InstrumentationContext): PropertyMap {
+export function generatePropertyMap(
+    ctx: InstrumentationContext,
+    newSrcMap: SrcRangeMap
+): PropertyMap {
     const result: PropertyMap = [];
 
     for (const annotation of ctx.annotations) {
@@ -162,6 +183,32 @@ export function generatePropertyMap(ctx: InstrumentationContext): PropertyMap {
         const propertySource = rangeToSrc(predRange, unit.sourceListIndex);
         const annotationSource = rangeToSrc(annotationRange, unit.sourceListIndex);
 
+        const instrumentationRanges = (ctx.evaluationStatements.get(annotation) as ASTNode[]).map(
+            (node) => {
+                const src = newSrcMap.get(node);
+                assert(
+                    src !== undefined,
+                    `Missing source for instrumentation node ${pp(node)} of annotation ${
+                        annotation.original
+                    }`
+                );
+                return `${src[0]}:${src[1]}:0`;
+            }
+        );
+
+        const annotationCheck = ctx.instrumetnedCheck.get(annotation);
+        assert(
+            annotationCheck !== undefined,
+            `Missing check expression for ${annotation.original}`
+        );
+        const checkRange = newSrcMap.get(annotationCheck);
+        assert(
+            checkRange !== undefined,
+            `Missing src range for annotation check node ${pp(annotationCheck)} of ${
+                annotation.original
+            }`
+        );
+
         result.push({
             id: annotation.id,
             contract: contract.name,
@@ -171,25 +218,13 @@ export function generatePropertyMap(ctx: InstrumentationContext): PropertyMap {
             target: targetType,
             targetName,
             debugEventSignature: signature,
-            message: annotation.message
+            message: annotation.message,
+            instrumentationRanges,
+            checkRange: `${checkRange[0]}:${checkRange[1]}:0`
         });
     }
 
     return result;
-}
-
-function stripSourcemaps(contractJSON: any): void {
-    for (const unitName in contractJSON) {
-        for (const contractName in contractJSON[unitName]) {
-            const compiledArtifact = contractJSON[unitName][contractName];
-
-            for (const bytecodeType in ["bytecode", "deployedBytecode"]) {
-                if ("evm" in compiledArtifact && bytecodeType in compiledArtifact.evm) {
-                    compiledArtifact.evm[bytecodeType].sourceMap = "";
-                }
-            }
-        }
-    }
 }
 
 /**
@@ -216,11 +251,8 @@ export function buildOutputJSON(
     }
 
     result["sources"] = addSrcToContext(flatCompiled);
-
-    stripSourcemaps(flatCompiled.data["contracts"]);
-
     result["contracts"] = flatCompiled.data["contracts"];
-    result["propertyMap"] = generatePropertyMap(ctx);
+    result["propertyMap"] = generatePropertyMap(ctx, newSrcMap);
     result["srcMap2SrcMap"] = generateSrcMap2SrcMap(ctx, sortedUnits, newSrcMap);
 
     return result;

@@ -1003,6 +1003,8 @@ if ("version" in options) {
             }
         });
 
+        let newSrcMap: SrcRangeMap = new Map();
+
         if (outputMode === "flat" || outputMode === "json") {
             // For flat and json modes, we need to flatten out the output. This goes in several steps.
 
@@ -1027,7 +1029,6 @@ if ("version" in options) {
 
             sortedUnits[0].appendChild(factory.makePragmaDirective(["solidity", version]));
 
-            const newSrcMap: SrcRangeMap = new Map();
             // 5. Now print the stripped files
             const newContents: Map<SourceUnit, string> = printUnits(
                 sortedUnits,
@@ -1058,6 +1059,8 @@ if ("version" in options) {
                 });
                 flatContents += newContents.get(unit);
             }
+
+            newSrcMap = flatSrcMap;
 
             // 7. If the output mode is just 'flat' we just write out the contents now.
             if (outputMode === "flat") {
@@ -1116,7 +1119,6 @@ if ("version" in options) {
             // In files mode we need to write out every change file, and opitonally swap them in-place.
 
             // 1. Write out files
-            const newSrcMap: SrcRangeMap = new Map();
             const newContents = printUnits(allUnits.concat(utilsUnit), versionMap, newSrcMap);
 
             // 2. For all changed files write out a `.instrumented` version of the file.
@@ -1147,7 +1149,7 @@ if ("version" in options) {
 
         if (options["property-map-file"] !== undefined) {
             const propertyMap: any = {
-                propertyMap: generatePropertyMap(instrCtx)
+                propertyMap: generatePropertyMap(instrCtx, newSrcMap)
             };
 
             const propertyJSON = JSON.stringify(propertyMap, undefined, 2);

@@ -9,7 +9,13 @@
       "target": "contract",
       "targetName": "C",
       "debugEventSignature": "",
-      "message": "P1"
+      "message": "P1",
+      "instrumentationRanges": [
+        "1544:29:0",
+        "1544:29:0",
+        "1517:94:0"
+      ],
+      "checkRange": "1521:7:0"
     }
   ]
 }
