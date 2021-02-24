@@ -70,7 +70,6 @@ export class InstrumentationContext {
     public readonly utilsContractName: string;
     private internalInvariantCheckers: Map<ContractDefinition, string> = new Map();
     public readonly userFunctions: Map<SUserFunctionDefinition, FunctionDefinition> = new Map();
-    public readonly propertyEmittedAssertion: Map<AnnotationMetaData, ASTNode> = new Map();
 
     /**
      * Map from Annotations to the list of statements involved in their evaluation.
@@ -80,7 +79,7 @@ export class InstrumentationContext {
      * Map from Annotations to the actual `Expression` that corresponds to the
      * annotation being fully checked.
      */
-    public readonly instrumetnedCheck: Map<AnnotationMetaData, Expression> = new Map();
+    public readonly instrumetnedCheck: Map<AnnotationMetaData, Expression[]> = new Map();
     /**
      * List of statements added for general instrumentation, not tied to any
      * particular annotation.
@@ -150,7 +149,11 @@ export class InstrumentationContext {
         }
     }
 
-    setAnnotationCheck(annotation: AnnotationMetaData, pred: Expression): void {
-        this.instrumetnedCheck.set(annotation, pred);
+    addAnnotationCheck(annotation: AnnotationMetaData, pred: Expression): void {
+        if (!this.instrumetnedCheck.has(annotation)) {
+            this.instrumetnedCheck.set(annotation, [pred]);
+        } else {
+            (this.instrumetnedCheck.get(annotation) as Expression[]).push(pred);
+        }
     }
 }

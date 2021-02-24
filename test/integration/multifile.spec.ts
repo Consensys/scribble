@@ -62,7 +62,7 @@ describe("Multiple-file project instrumentation", () => {
             const solPaths: string[] = solFiles.map((name) => join(dirName, name));
             let expectedInstrumented: Map<string, string>;
             let expectedFlat: string;
-            let expectedPropertyMap: any;
+            let expectedInstrMetadata: any;
 
             before(() => {
                 const expectedInstrumentedFiles = searchRecursive(
@@ -76,8 +76,8 @@ describe("Multiple-file project instrumentation", () => {
                     ])
                 );
                 expectedFlat = fse.readFileSync(`${dirName}/flat.sol.expected`, "utf-8");
-                expectedPropertyMap = JSON.parse(
-                    fse.readFileSync(`${dirName}/propertyMap.json.expected`, "utf-8")
+                expectedInstrMetadata = JSON.parse(
+                    fse.readFileSync(`${dirName}/instrumentationMetadata.json.expected`, "utf-8")
                 );
             });
 
@@ -104,7 +104,7 @@ describe("Multiple-file project instrumentation", () => {
                 }
             });
 
-            it("JSON mode is correct", () => {
+            it("Instrumentation metadata is correct", () => {
                 const actualJsonStr = scribble(
                     solPaths,
                     "-o",
@@ -117,7 +117,7 @@ describe("Multiple-file project instrumentation", () => {
                 const actualJson = JSON.parse(actualJsonStr);
                 const instrMetadata: InstrumentationMetaData = actualJson.instrumentationMetadata;
 
-                expect(instrMetadata.propertyMap).toEqual(expectedPropertyMap.propertyMap);
+                expect(instrMetadata).toEqual(expectedInstrMetadata);
             });
 
             it("In-place arming works", () => {
@@ -251,7 +251,9 @@ describe("Multiple-file project instrumentation", () => {
                         checkSrc(instrSrc, md.instrSourceList, instrFiles);
                     }
 
-                    checkSrc(prop.checkRange, md.instrSourceList, instrFiles);
+                    for (const src of prop.checkRanges) {
+                        checkSrc(src, md.instrSourceList, instrFiles);
+                    }
                 }
             });
         });

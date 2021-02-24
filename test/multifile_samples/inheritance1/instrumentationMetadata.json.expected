@@ -1,0 +1,289 @@
+{
+  "instrToOriginalMap": [
+    [
+      "154:1257:0",
+      "0:132:1"
+    ],
+    [
+      "818:85:0",
+      "52:78:1"
+    ],
+    [
+      "842:8:0",
+      "64:8:1"
+    ],
+    [
+      "843:6:0",
+      "65:6:1"
+    ],
+    [
+      "843:4:0",
+      "65:4:1"
+    ],
+    [
+      "867:6:0",
+      "96:6:1"
+    ],
+    [
+      "868:4:0",
+      "97:4:1"
+    ],
+    [
+      "868:4:0",
+      "97:4:1"
+    ],
+    [
+      "874:29:0",
+      "103:27:1"
+    ],
+    [
+      "884:12:0",
+      "113:10:1"
+    ],
+    [
+      "891:5:0",
+      "120:3:1"
+    ],
+    [
+      "891:1:0",
+      "120:1:1"
+    ],
+    [
+      "895:1:0",
+      "122:1:1"
+    ],
+    [
+      "1412:549:0",
+      "0:15:2"
+    ],
+    [
+      "1994:1576:0",
+      "68:151:3"
+    ],
+    [
+      "2036:1:0",
+      "82:1:3"
+    ],
+    [
+      "2036:1:0",
+      "82:1:3"
+    ],
+    [
+      "2039:1:0",
+      "85:1:3"
+    ],
+    [
+      "2039:1:0",
+      "85:1:3"
+    ],
+    [
+      "2742:85:0",
+      "130:87:3"
+    ],
+    [
+      "2766:8:0",
+      "142:8:3"
+    ],
+    [
+      "2767:6:0",
+      "143:6:3"
+    ],
+    [
+      "2767:4:0",
+      "143:4:3"
+    ],
+    [
+      "2791:6:0",
+      "183:6:3"
+    ],
+    [
+      "2792:4:0",
+      "184:4:3"
+    ],
+    [
+      "2792:4:0",
+      "184:4:3"
+    ],
+    [
+      "2798:29:0",
+      "190:27:3"
+    ],
+    [
+      "2808:12:0",
+      "200:10:3"
+    ],
+    [
+      "2815:5:0",
+      "207:3:3"
+    ],
+    [
+      "2815:1:0",
+      "207:1:3"
+    ],
+    [
+      "2819:1:0",
+      "209:1:3"
+    ],
+    [
+      "3571:682:0",
+      "36:23:4"
+    ],
+    [
+      "3613:1:0",
+      "50:1:4"
+    ],
+    [
+      "3613:1:0",
+      "50:1:4"
+    ],
+    [
+      "3616:1:0",
+      "53:1:4"
+    ],
+    [
+      "3616:1:0",
+      "53:1:4"
+    ],
+    [
+      "560:13:0",
+      "22:25:0"
+    ],
+    [
+      "2971:7:0",
+      "40:27:2"
+    ],
+    [
+      "2371:13:0",
+      "22:25:0"
+    ],
+    [
+      "2478:19:0",
+      "98:27:2"
+    ]
+  ],
+  "otherInstrumentation": [
+    "112:38:0",
+    "1190:46:0",
+    "1280:34:0",
+    "1324:35:0",
+    "1369:33:0",
+    "520:26:0",
+    "381:15:0",
+    "406:60:0",
+    "476:34:0",
+    "700:35:0",
+    "663:72:0",
+    "745:60:0",
+    "1740:46:0",
+    "1830:34:0",
+    "1874:35:0",
+    "1919:33:0",
+    "3237:46:0",
+    "3293:46:0",
+    "3349:46:0",
+    "3439:34:0",
+    "3483:35:0",
+    "3528:33:0",
+    "2331:26:0",
+    "2192:15:0",
+    "2217:60:0",
+    "2287:34:0",
+    "2624:35:0",
+    "2587:72:0",
+    "2669:60:0",
+    "3920:46:0",
+    "3976:46:0",
+    "4032:46:0",
+    "4122:34:0",
+    "4166:35:0",
+    "4211:33:0"
+  ],
+  "propertyMap": [
+    {
+      "id": 1,
+      "contract": "A",
+      "filename": "test/multifile_samples/inheritance1/A.sol",
+      "propertySource": "34:12:0",
+      "annotationSource": "22:25:0",
+      "target": "function",
+      "targetName": "foo",
+      "debugEventSignature": "",
+      "message": "",
+      "instrumentationRanges": [
+        "589:27:0",
+        "589:27:0",
+        "556:98:0"
+      ],
+      "checkRanges": [
+        "560:13:0"
+      ]
+    },
+    {
+      "id": 0,
+      "contract": "C",
+      "filename": "test/multifile_samples/inheritance1/C.sol",
+      "propertySource": "62:4:2",
+      "annotationSource": "40:27:2",
+      "target": "contract",
+      "targetName": "C",
+      "debugEventSignature": "",
+      "message": "P1",
+      "instrumentationRanges": [
+        "2994:29:0",
+        "2994:29:0",
+        "2967:94:0"
+      ],
+      "checkRanges": [
+        "2971:7:0"
+      ]
+    },
+    {
+      "id": 2,
+      "contract": "A",
+      "filename": "test/multifile_samples/inheritance1/A.sol",
+      "propertySource": "34:12:0",
+      "annotationSource": "22:25:0",
+      "target": "function",
+      "targetName": "foo",
+      "debugEventSignature": "",
+      "message": "",
+      "instrumentationRanges": [
+        "2400:27:0",
+        "2400:27:0",
+        "2367:98:0"
+      ],
+      "checkRanges": [
+        "2371:13:0"
+      ]
+    },
+    {
+      "id": 3,
+      "contract": "C",
+      "filename": "test/multifile_samples/inheritance1/C.sol",
+      "propertySource": "110:14:2",
+      "annotationSource": "98:27:2",
+      "target": "function",
+      "targetName": "foo",
+      "debugEventSignature": "",
+      "message": "",
+      "instrumentationRanges": [
+        "2513:27:0",
+        "2513:27:0",
+        "2474:104:0"
+      ],
+      "checkRanges": [
+        "2478:19:0"
+      ]
+    }
+  ],
+  "originalSourceList": [
+    "/home/dimo/work/consensys/scribble-clean/test/multifile_samples/inheritance1/__scribble_ReentrancyUtils.sol",
+    "test/multifile_samples/inheritance1/A.sol",
+    "test/multifile_samples/inheritance1/B.sol",
+    "test/multifile_samples/inheritance1/C.sol",
+    "test/multifile_samples/inheritance1/D.sol"
+  ],
+  "instrSourceList": [
+    "--"
+  ]
+}

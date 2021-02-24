@@ -27,7 +27,7 @@ interface PropertyDesc {
     debugEventSignature: string;
     message: string;
     instrumentationRanges: string[];
-    checkRange: string;
+    checkRanges: string[];
 }
 export type PropertyMap = PropertyDesc[];
 export type SrcToSrcMap = Array<[string, string]>;
@@ -142,20 +142,22 @@ function generateSrcMap2SrcMap(
         });
     }
 
-    for (const [property, assertion] of ctx.propertyEmittedAssertion) {
-        const assertionSrc = newSrcMap.get(assertion);
-        const instrFileIdx = getInstrFileIndx(assertion, ctx.outputMode, instrSourceList);
+    for (const [property, assertions] of ctx.instrumetnedCheck) {
+        for (const assertion of assertions) {
+            const assertionSrc = newSrcMap.get(assertion);
+            const instrFileIdx = getInstrFileIndx(assertion, ctx.outputMode, instrSourceList);
 
-        assert(
-            assertionSrc !== undefined,
-            `Missing new source for assertion of property ${property.original}`
-        );
+            assert(
+                assertionSrc !== undefined,
+                `Missing new source for assertion of property ${property.original}`
+            );
 
-        const originalFileIdx = property.raw.src.split(":")[2];
-        src2SrcMap.push([
-            `${assertionSrc[0]}:${assertionSrc[1]}:${instrFileIdx}`,
-            `${property.annotationLoc[0]}:${property.annotationLoc[1]}:${originalFileIdx}`
-        ]);
+            const originalFileIdx = property.raw.src.split(":")[2];
+            src2SrcMap.push([
+                `${assertionSrc[0]}:${assertionSrc[1]}:${instrFileIdx}`,
+                `${property.annotationLoc[0]}:${property.annotationLoc[1]}:${originalFileIdx}`
+            ]);
+        }
     }
 
     for (const node of ctx.generalInstrumentationNodes) {
@@ -240,27 +242,29 @@ function generatePropertyMap(
             }
         );
 
-        const annotationCheck = ctx.instrumetnedCheck.get(annotation);
+        const annotationChecks = ctx.instrumetnedCheck.get(annotation);
         assert(
-            annotationCheck !== undefined,
+            annotationChecks !== undefined,
             `Missing check expression for ${annotation.original}`
         );
 
-        const checkRange = newSrcMap.get(annotationCheck);
-        const annotationFileIdx = getInstrFileIndx(
-            annotationCheck,
-            ctx.outputMode,
-            instrSourceList
-        );
+        const checkRanges: string[] = annotationChecks.map((annotationCheck) => {
+            const checkRange = newSrcMap.get(annotationCheck);
+            const annotationFileIdx = getInstrFileIndx(
+                annotationCheck,
+                ctx.outputMode,
+                instrSourceList
+            );
 
-        assert(
-            checkRange !== undefined,
-            `Missing src range for annotation check node ${pp(annotationCheck)} of ${
-                annotation.original
-            }`
-        );
+            assert(
+                checkRange !== undefined,
+                `Missing src range for annotation check node ${pp(annotationCheck)} of ${
+                    annotation.original
+                }`
+            );
 
-        const annotationSrc = `${checkRange[0]}:${checkRange[1]}:${annotationFileIdx}`;
+            return `${checkRange[0]}:${checkRange[1]}:${annotationFileIdx}`;
+        });
 
         result.push({
             id: annotation.id,
@@ -273,7 +277,7 @@ function generatePropertyMap(
             debugEventSignature: signature,
             message: annotation.message,
             instrumentationRanges,
-            checkRange: annotationSrc
+            checkRanges: checkRanges
         });
     }
 

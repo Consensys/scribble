@@ -771,10 +771,9 @@ function emitAssert(
 
     const ifStmt = factory.makeIfStatement(condition, factory.makeBlock(ifBody));
 
-    instrCtx.propertyEmittedAssertion.set(annotation, condition);
     instrCtx.addAnnotationInstrumentation(annotation, userAssertFailed);
     instrCtx.addAnnotationInstrumentation(annotation, ifStmt);
-    instrCtx.setAnnotationCheck(annotation, condition);
+    instrCtx.addAnnotationCheck(annotation, condition);
     if (userAssertionHit) {
         instrCtx.addAnnotationInstrumentation(annotation, userAssertionHit);
     }

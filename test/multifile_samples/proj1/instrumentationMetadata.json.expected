@@ -1,0 +1,219 @@
+{
+  "instrToOriginalMap": [
+    [
+      "187:737:0",
+      "59:31:1"
+    ],
+    [
+      "281:19:0",
+      "79:8:1"
+    ],
+    [
+      "281:4:0",
+      "79:4:1"
+    ],
+    [
+      "299:1:0",
+      "86:1:1"
+    ],
+    [
+      "925:1310:0",
+      "59:132:2"
+    ],
+    [
+      "972:4:0",
+      "78:4:2"
+    ],
+    [
+      "972:4:0",
+      "78:4:2"
+    ],
+    [
+      "1580:69:0",
+      "138:51:2"
+    ],
+    [
+      "1609:8:0",
+      "150:8:2"
+    ],
+    [
+      "1610:6:0",
+      "151:6:2"
+    ],
+    [
+      "1610:4:0",
+      "151:4:2"
+    ],
+    [
+      "1626:23:0",
+      "166:23:2"
+    ],
+    [
+      "1636:6:0",
+      "176:6:2"
+    ],
+    [
+      "1636:6:0",
+      "176:6:2"
+    ],
+    [
+      "1636:1:0",
+      "176:1:2"
+    ],
+    [
+      "1641:1:0",
+      "181:1:2"
+    ],
+    [
+      "2236:1306:0",
+      "59:133:3"
+    ],
+    [
+      "2283:4:0",
+      "78:4:3"
+    ],
+    [
+      "2283:4:0",
+      "78:4:3"
+    ],
+    [
+      "2890:66:0",
+      "137:48:3"
+    ],
+    [
+      "2922:2:0",
+      "152:2:3"
+    ],
+    [
+      "2933:23:0",
+      "162:23:3"
+    ],
+    [
+      "2943:6:0",
+      "172:6:3"
+    ],
+    [
+      "2943:6:0",
+      "172:6:3"
+    ],
+    [
+      "2943:1:0",
+      "172:1:3"
+    ],
+    [
+      "2948:1:0",
+      "177:1:3"
+    ],
+    [
+      "448:8:0",
+      "30:28:0"
+    ],
+    [
+      "1311:22:0",
+      "93:40:1"
+    ],
+    [
+      "2621:22:0",
+      "93:39:1"
+    ]
+  ],
+  "otherInstrumentation": [
+    "112:38:0",
+    "700:49:0",
+    "793:34:0",
+    "837:35:0",
+    "882:33:0",
+    "1950:51:0",
+    "2011:49:0",
+    "2104:34:0",
+    "2148:35:0",
+    "2193:33:0",
+    "1113:15:0",
+    "1138:60:0",
+    "1208:34:0",
+    "1462:35:0",
+    "1425:72:0",
+    "1507:60:0",
+    "3257:51:0",
+    "3318:49:0",
+    "3411:34:0",
+    "3455:35:0",
+    "3500:33:0",
+    "2421:15:0",
+    "2446:60:0",
+    "2516:34:0",
+    "2772:35:0",
+    "2735:72:0",
+    "2817:60:0"
+  ],
+  "propertyMap": [
+    {
+      "id": 0,
+      "contract": "Base",
+      "filename": "test/multifile_samples/proj1/base.sol",
+      "propertySource": "52:5:0",
+      "annotationSource": "30:28:0",
+      "target": "contract",
+      "targetName": "Base",
+      "debugEventSignature": "",
+      "message": "P0",
+      "instrumentationRanges": [
+        "472:29:0",
+        "472:29:0",
+        "444:95:0"
+      ],
+      "checkRanges": [
+        "448:8:0"
+      ]
+    },
+    {
+      "id": 1,
+      "contract": "Child1",
+      "filename": "test/multifile_samples/proj1/child1.sol",
+      "propertySource": "117:15:1",
+      "annotationSource": "93:40:1",
+      "target": "function",
+      "targetName": "add",
+      "debugEventSignature": "",
+      "message": "P1",
+      "instrumentationRanges": [
+        "1252:12:0",
+        "1349:29:0",
+        "1349:29:0",
+        "1307:109:0"
+      ],
+      "checkRanges": [
+        "1311:22:0"
+      ]
+    },
+    {
+      "id": 2,
+      "contract": "Child2",
+      "filename": "test/multifile_samples/proj1/child2.sol",
+      "propertySource": "117:14:1",
+      "annotationSource": "93:39:1",
+      "target": "function",
+      "targetName": "double",
+      "debugEventSignature": "",
+      "message": "P2",
+      "instrumentationRanges": [
+        "2560:12:0",
+        "2659:29:0",
+        "2659:29:0",
+        "2617:109:0"
+      ],
+      "checkRanges": [
+        "2621:22:0"
+      ]
+    }
+  ],
+  "originalSourceList": [
+    "/home/dimo/work/consensys/scribble-clean/test/multifile_samples/proj1/__scribble_ReentrancyUtils.sol",
+    "test/multifile_samples/proj1/base.sol",
+    "test/multifile_samples/proj1/child1.sol",
+    "test/multifile_samples/proj1/child2.sol"
+  ],
+  "instrSourceList": [
+    "--"
+  ]
+}
