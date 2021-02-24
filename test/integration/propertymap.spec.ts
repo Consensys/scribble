@@ -10,6 +10,7 @@ import fse from "fs-extra";
 import { toAst, searchRecursive } from "./utils";
 import { scribble } from "./utils";
 import { assert } from "../../src/util/misc";
+import { InstrumentationMetaData } from "../../src/bin/json_output";
 
 function findPredicates(inAST: SourceUnit[]): Map<number, Set<string>> {
     const res: Map<number, Set<string>> = new Map();
@@ -87,7 +88,8 @@ describe("Property map test", () => {
 
             it("All predicates appear in the source map", () => {
                 const preds = findPredicates(inAst);
-                for (const entry of outJSON.propertyMap) {
+                const instrMetadata: InstrumentationMetaData = outJSON.instrumentationMetadata;
+                for (const entry of instrMetadata.propertyMap) {
                     expect(entry.filename).toEqual(fileName);
                     const m = (entry.propertySource as string).match(rx);
                     expect(m).not.toEqual(null);
