@@ -71,7 +71,9 @@ function callOriginal(
      * There is no need for assignments if there are no return parameters
      */
     if (returnIds.length === 0) {
-        return factory.makeExpressionStatement(call);
+        const exprStmt = factory.makeExpressionStatement(call);
+        ctx.addGeneralInstrumentation(exprStmt);
+        return exprStmt;
     }
 
     const lhs =
@@ -177,6 +179,11 @@ export function interpose(
 
     const factory = ctx.factory;
     const stub = makeStub(fun, factory);
+
+    // The compiler may emit some internal code related to named returns.
+    for (const retDecl of stub.vReturnParameters.vParameters) {
+        ctx.addGeneralInstrumentation(retDecl);
+    }
 
     ctx.wrapperMap.set(fun, stub);
 
@@ -331,6 +338,20 @@ function decodeCallsite(
     return { callee, gas, value };
 }
 
+function copySrc(originalNode: ASTNode, newNode: ASTNode): void {
+    assert(originalNode.constructor === newNode.constructor, ``);
+    newNode.src = originalNode.src;
+
+    const originalChildren = originalNode.children;
+    const newChildren = newNode.children;
+
+    assert(originalChildren.length === newChildren.length, ``);
+
+    for (let i = 0; i < originalChildren.length; i++) {
+        copySrc(originalChildren[i], newChildren[i]);
+    }
+}
+
 /**
  * Given an external function call node `call`, generate a wrapper function for `call` and
  * the recipe to replace `call` with a call to the wrapper function. This needs to handle
@@ -380,6 +401,8 @@ export function interposeCall(
         undefined,
         factory.makeBlock([])
     );
+
+    ctx.addGeneralInstrumentation(wrapper);
 
     const params: VariableDeclaration[] = [];
     const returns: VariableDeclaration[] = [];
@@ -451,6 +474,8 @@ export function interposeCall(
         );
 
         receiver = factory.copy(callee);
+        copySrc(callee, receiver);
+
         callOriginalExp = factory.makeIdentifierFor(params[0]);
     } else {
         assert(callee instanceof MemberAccess, ``);
@@ -522,6 +547,7 @@ export function interposeCall(
         });
 
         receiver = factory.copy(callee.vExpression);
+        copySrc(callee.vExpression, receiver);
 
         callOriginalExp = factory.makeMemberAccess(
             call.vExpression.typeString,
