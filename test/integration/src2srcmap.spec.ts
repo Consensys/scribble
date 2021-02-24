@@ -19,9 +19,9 @@ import { assert, pp, single } from "../../src/util";
 import {
     parseSrcTriple,
     PropertyMap,
-    SrcMapToSrcMap,
     contains,
-    reNumber
+    reNumber,
+    InstrumentationMetaData
 } from "../../src/bin/json_output";
 
 type Src2NodeMap = Map<string, Set<ASTNode>>;
@@ -111,26 +111,26 @@ describe("Src2src map test", () => {
             let outAST: SourceUnit;
             let originalSrc2Node: Src2NodeMap;
             let instrSrc2Node: Src2NodeMap;
-            let src2SrcMap: SrcMapToSrcMap;
+            let instrMD: InstrumentationMetaData;
             const coveredOriginalNodes = new Set<ASTNode>();
 
             before(() => {
                 contents = fse.readFileSync(fileName, { encoding: "utf8" });
                 [inAst] = toAst(fileName, contents);
                 outJSON = JSON.parse(scribble(fileName, "--output-mode", "json"));
-                propMap = outJSON.propertyMap;
                 instrContents = outJSON["sources"]["flattened.sol"]["source"];
                 const contentsMap = new Map<string, string>([["flattened.sol", instrContents]]);
                 const reader = new ASTReader();
                 [outAST] = reader.read(outJSON, ASTKind.Modern, contentsMap);
 
-                src2SrcMap = outJSON.srcMap2SrcMap;
-                originalSrc2Node = buildSrc2NodeMap(inAst, src2SrcMap.sourceList);
+                instrMD = outJSON.instrumentationMetadata;
+                propMap = instrMD.propertyMap;
+                originalSrc2Node = buildSrc2NodeMap(inAst, instrMD.originalSourceList);
                 instrSrc2Node = buildSrc2NodeMap([outAST]);
             });
 
             it("Src2src map maps nodes to nodes of same type", () => {
-                for (const [instrRange, originalRange] of src2SrcMap.entries) {
+                for (const [instrRange, originalRange] of instrMD.instrToOriginalMap) {
                     const instrNodes = instrSrc2Node.get(instrRange);
 
                     if (instrNodes === undefined) {

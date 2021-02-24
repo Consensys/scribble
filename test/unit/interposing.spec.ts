@@ -46,7 +46,8 @@ function makeInstrumentationCtx(
         files,
         compilerVersion,
         false,
-        new Map()
+        new Map(),
+        "flat"
     );
 
     generateUtilsContract(factory, "", "scribble_utils.sol", compilerVersion, ctx).vContracts;

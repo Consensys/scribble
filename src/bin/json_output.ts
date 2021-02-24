@@ -7,7 +7,9 @@ import {
     VariableDeclaration,
     CompileResult,
     StructuredDocumentation,
-    ASTNode
+    ASTNode,
+    ImportDirective,
+    Identifier
 } from "solc-typed-ast";
 import { assert, pp, PropertyMetaData } from "..";
 import { InstrumentationContext } from "../instrumenter/instrumentation_context";
@@ -28,10 +30,14 @@ interface PropertyDesc {
     checkRange: string;
 }
 export type PropertyMap = PropertyDesc[];
-export type SrcMapToSrcMap = {
-    entries: Array<[string, string]>;
-    sourceList: string[];
+export type SrcToSrcMap = Array<[string, string]>;
+
+export type InstrumentationMetaData = {
+    propertyMap: PropertyMap;
+    instrToOriginalMap: SrcToSrcMap;
     otherInstrumentation: string[];
+    originalSourceList: string[];
+    instrSourceList: string[];
 };
 
 export type SrcTriple = [number, number, number];
@@ -66,17 +72,39 @@ export function reNumber(src: string, to: number): string {
     return ppSrcTripple(t);
 }
 
-export function generateSrcMap2SrcMap(
+function getInstrFileIndx(
+    node: ASTNode,
+    mode: "files" | "flat" | "json",
+    instrSourceList: string[]
+): number {
+    // In flat/json mode there is a single instrumented unit output
+    if (mode !== "files") {
+        return 0;
+    }
+
+    const unit = node instanceof SourceUnit ? node : node.getClosestParentByType(SourceUnit);
+    assert(unit !== undefined, `No source unit for ${pp(node)}`);
+    const idx = instrSourceList.indexOf(unit.absolutePath);
+    assert(
+        idx !== -1,
+        `Unit ${unit.absolutePath} missing from instrumented source list ${pp(instrSourceList)}`
+    );
+
+    return idx;
+}
+
+function generateSrcMap2SrcMap(
     ctx: InstrumentationContext,
     sortedUnits: SourceUnit[],
-    newSrcMap: SrcRangeMap
-): SrcMapToSrcMap {
-    const res: SrcMapToSrcMap = { entries: [], sourceList: [], otherInstrumentation: [] };
-
-    res.sourceList = sortedUnits.map((unit) => unit.absolutePath);
+    newSrcMap: SrcRangeMap,
+    originalSourceList: string[],
+    instrSourceList: string[]
+): [SrcToSrcMap, string[]] {
+    const src2SrcMap: SrcToSrcMap = [];
+    const otherInstrumentation = [];
 
     for (const unit of sortedUnits) {
-        const newSrcListIdx = res.sourceList.indexOf(unit.absolutePath);
+        const newSrcListIdx = originalSourceList.indexOf(unit.absolutePath);
         unit.walkChildren((node) => {
             // Skip new nodes
             if (node.src === "0:0:0") {
@@ -93,6 +121,15 @@ export function generateSrcMap2SrcMap(
             const newSrc = newSrcMap.get(node);
 
             if (newSrc === undefined) {
+                // There is a bug in solc-typed-ast's printing that causes
+                // Identifiers inside import directives to be missing from src maps
+                if (
+                    node instanceof Identifier &&
+                    node.getClosestParentByType(ImportDirective) !== undefined
+                ) {
+                    return;
+                }
+
                 assert(
                     node instanceof ParameterList && node.vParameters.length == 0,
                     `Missing new source for node ${node.constructor.name}#${node.id}`
@@ -100,21 +137,24 @@ export function generateSrcMap2SrcMap(
                 return;
             }
 
-            res.entries.push([`${newSrc[0]}:${newSrc[1]}:0`, originalSrc]);
+            const instrFileIdx = getInstrFileIndx(unit, ctx.outputMode, instrSourceList);
+            src2SrcMap.push([`${newSrc[0]}:${newSrc[1]}:${instrFileIdx}`, originalSrc]);
         });
     }
 
     for (const [property, assertion] of ctx.propertyEmittedAssertion) {
         const assertionSrc = newSrcMap.get(assertion);
+        const instrFileIdx = getInstrFileIndx(assertion, ctx.outputMode, instrSourceList);
+
         assert(
             assertionSrc !== undefined,
             `Missing new source for assertion of property ${property.original}`
         );
 
-        const unitIdx = property.raw.src.split(":")[2];
-        res.entries.push([
-            `${assertionSrc[0]}:${assertionSrc[1]}:0`,
-            `${property.annotationLoc[0]}:${property.annotationLoc[1]}:${unitIdx}`
+        const originalFileIdx = property.raw.src.split(":")[2];
+        src2SrcMap.push([
+            `${assertionSrc[0]}:${assertionSrc[1]}:${instrFileIdx}`,
+            `${property.annotationLoc[0]}:${property.annotationLoc[1]}:${originalFileIdx}`
         ]);
     }
 
@@ -126,19 +166,21 @@ export function generateSrcMap2SrcMap(
             `Missing new source for general instrumentation node ${pp(node)}`
         );
 
-        res.otherInstrumentation.push(`${nodeSrc[0]}:${nodeSrc[1]}:0`);
+        const instrFileIdx = getInstrFileIndx(node, ctx.outputMode, instrSourceList);
+        otherInstrumentation.push(`${nodeSrc[0]}:${nodeSrc[1]}:${instrFileIdx}`);
     }
 
-    return res;
+    return [src2SrcMap, otherInstrumentation];
 }
 
 function rangeToSrc(range: Range, fileIdx: number): string {
     return `${range.start.offset}:${range.end.offset - range.start.offset}:${fileIdx}`;
 }
 
-export function generatePropertyMap(
+function generatePropertyMap(
     ctx: InstrumentationContext,
-    newSrcMap: SrcRangeMap
+    newSrcMap: SrcRangeMap,
+    instrSourceList: string[]
 ): PropertyMap {
     const result: PropertyMap = [];
 
@@ -192,7 +234,9 @@ export function generatePropertyMap(
                         annotation.original
                     }`
                 );
-                return `${src[0]}:${src[1]}:0`;
+
+                const instrFileIdx = getInstrFileIndx(node, ctx.outputMode, instrSourceList);
+                return `${src[0]}:${src[1]}:${instrFileIdx}`;
             }
         );
 
@@ -201,13 +245,22 @@ export function generatePropertyMap(
             annotationCheck !== undefined,
             `Missing check expression for ${annotation.original}`
         );
+
         const checkRange = newSrcMap.get(annotationCheck);
+        const annotationFileIdx = getInstrFileIndx(
+            annotationCheck,
+            ctx.outputMode,
+            instrSourceList
+        );
+
         assert(
             checkRange !== undefined,
             `Missing src range for annotation check node ${pp(annotationCheck)} of ${
                 annotation.original
             }`
         );
+
+        const annotationSrc = `${checkRange[0]}:${checkRange[1]}:${annotationFileIdx}`;
 
         result.push({
             id: annotation.id,
@@ -220,11 +273,46 @@ export function generatePropertyMap(
             debugEventSignature: signature,
             message: annotation.message,
             instrumentationRanges,
-            checkRange: `${checkRange[0]}:${checkRange[1]}:0`
+            checkRange: annotationSrc
         });
     }
 
     return result;
+}
+
+export function generateInstrumentationMetadata(
+    ctx: InstrumentationContext,
+    newSrcMap: SrcRangeMap,
+    originalUnits: SourceUnit[],
+    outputFile?: string
+): InstrumentationMetaData {
+    const originalSourceList: string[] = originalUnits.map((unit) => unit.absolutePath);
+    let instrSourceList: string[];
+
+    if (ctx.outputMode === "files") {
+        instrSourceList = [...originalSourceList];
+    } else {
+        assert(outputFile !== undefined, `Must provide output file in ${ctx.outputMode} mode`);
+        instrSourceList = [outputFile];
+    }
+
+    const [src2srcMap, otherInstrumentation] = generateSrcMap2SrcMap(
+        ctx,
+        originalUnits,
+        newSrcMap,
+        originalSourceList,
+        instrSourceList
+    );
+
+    const propertyMap = generatePropertyMap(ctx, newSrcMap, instrSourceList);
+
+    return {
+        instrToOriginalMap: src2srcMap,
+        otherInstrumentation,
+        propertyMap,
+        originalSourceList,
+        instrSourceList
+    };
 }
 
 /**
@@ -242,7 +330,8 @@ export function buildOutputJSON(
     ctx: InstrumentationContext,
     flatCompiled: CompileResult,
     sortedUnits: SourceUnit[],
-    newSrcMap: SrcRangeMap
+    newSrcMap: SrcRangeMap,
+    outputFile: string
 ): any {
     const result: any = {};
 
@@ -252,8 +341,12 @@ export function buildOutputJSON(
 
     result["sources"] = addSrcToContext(flatCompiled);
     result["contracts"] = flatCompiled.data["contracts"];
-    result["propertyMap"] = generatePropertyMap(ctx, newSrcMap);
-    result["srcMap2SrcMap"] = generateSrcMap2SrcMap(ctx, sortedUnits, newSrcMap);
+    result["instrumentationMetadata"] = generateInstrumentationMetadata(
+        ctx,
+        newSrcMap,
+        sortedUnits,
+        outputFile
+    );
 
     return result;
 }

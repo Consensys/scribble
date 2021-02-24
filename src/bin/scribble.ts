@@ -59,7 +59,7 @@ import {
     TypeEnv
 } from "../spec-lang/tc";
 import { assert, getOrInit, getScopeUnit, isChangingState, isExternallyVisible, pp } from "../util";
-import { generateSrcMap2SrcMap, buildOutputJSON, generatePropertyMap } from "./json_output";
+import { buildOutputJSON, generateInstrumentationMetadata } from "./json_output";
 import cli from "./scribble_cli.json";
 
 const commandLineArgs = require("command-line-args");
@@ -979,7 +979,8 @@ if ("version" in options) {
             contentsMap,
             compilerVersionUsed,
             debugEvents,
-            new Map()
+            new Map(),
+            outputMode
         );
 
         const utilsUnit = makeUtilsUnit(utilsOutputDir, factory, compilerVersionUsed, instrCtx);
@@ -1004,6 +1005,7 @@ if ("version" in options) {
         });
 
         let newSrcMap: SrcRangeMap = new Map();
+        let originalUnits: SourceUnit[];
 
         if (outputMode === "flat" || outputMode === "json") {
             // For flat and json modes, we need to flatten out the output. This goes in several steps.
@@ -1061,20 +1063,11 @@ if ("version" in options) {
             }
 
             newSrcMap = flatSrcMap;
+            originalUnits = sortedUnits;
 
             // 7. If the output mode is just 'flat' we just write out the contents now.
             if (outputMode === "flat") {
                 writeOut(flatContents, options.output);
-
-                if (options["srcmap-to-srcmap-file"] !== undefined) {
-                    const srcMap2SrcMap: any = {
-                        srcMap2SrcMap: generateSrcMap2SrcMap(instrCtx, sortedUnits, flatSrcMap)
-                    };
-
-                    const srcMap2SrcMapJSON = JSON.stringify(srcMap2SrcMap, undefined, 2);
-
-                    writeOut(srcMap2SrcMapJSON, options["srcmap-to-srcmap-file"]);
-                }
             } else {
                 // 8. If the output mode is 'json' we have more work - need to re-compile the flattened results.
                 let flatCompiled: CompileResult;
@@ -1108,7 +1101,13 @@ if ("version" in options) {
                 }
 
                 const resultJSON = JSON.stringify(
-                    buildOutputJSON(instrCtx, flatCompiled, sortedUnits, flatSrcMap),
+                    buildOutputJSON(
+                        instrCtx,
+                        flatCompiled,
+                        sortedUnits,
+                        flatSrcMap,
+                        options.output
+                    ),
                     undefined,
                     2
                 );
@@ -1145,16 +1144,22 @@ if ("version" in options) {
                     copy(instrumentedFileName, unit.absolutePath, options);
                 }
             }
+
+            originalUnits = changedUnits.concat(utilsUnit);
         }
 
-        if (options["property-map-file"] !== undefined) {
-            const propertyMap: any = {
-                propertyMap: generatePropertyMap(instrCtx, newSrcMap)
-            };
+        if (options["instrumentation-metadata-file"] !== undefined) {
+            const metadata: any = generateInstrumentationMetadata(
+                instrCtx,
+                newSrcMap,
+                originalUnits,
+                options["output"]
+            );
 
-            const propertyJSON = JSON.stringify(propertyMap, undefined, 2);
-
-            writeOut(propertyJSON, options["property-map-file"]);
+            writeOut(
+                JSON.stringify(metadata, undefined, 2),
+                options["instrumentation-metadata-file"]
+            );
         }
     }
 }

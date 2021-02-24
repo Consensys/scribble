@@ -108,7 +108,8 @@ export class InstrumentationContext {
         public readonly files: Map<string, string>,
         public readonly compilerVersion: string,
         public readonly debugEvents: boolean,
-        public readonly debugEventDefs: Map<number, EventDefinition>
+        public readonly debugEventDefs: Map<number, EventDefinition>,
+        public readonly outputMode: "files" | "flat" | "json"
     ) {
         this.nameGenerator = new NameGenerator(getAllNames(units));
         this.structVar = this.nameGenerator.getFresh("_v", true);

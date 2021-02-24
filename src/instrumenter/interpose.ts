@@ -50,10 +50,11 @@ import { generateTypeAst } from "./transpile";
 const semver = require("semver");
 
 function callOriginal(
-    factory: ASTNodeFactory,
+    ctx: InstrumentationContext,
     stub: FunctionDefinition,
     original: FunctionDefinition
 ): ExpressionStatement {
+    const factory = ctx.factory;
     const argIds = stub.vParameters.vParameters.map((decl) => factory.makeIdentifierFor(decl));
     const call = factory.makeFunctionCall(
         "<missing>",
@@ -80,7 +81,10 @@ function callOriginal(
 
     const assignment = factory.makeAssignment("<missing>", "=", lhs, call);
 
-    return factory.makeExpressionStatement(assignment);
+    const assignmentStmt = factory.makeExpressionStatement(assignment);
+    ctx.addGeneralInstrumentation(assignmentStmt);
+
+    return assignmentStmt;
 }
 
 function renameReturns(factory: ASTNodeFactory, stub: FunctionDefinition): Recipe {
@@ -205,7 +209,7 @@ export function interpose(
         new ChangeFunctionModifiers(factory, stub, []),
         new InsertStatement(
             factory,
-            callOriginal.bind(undefined, factory, stub, fun),
+            callOriginal.bind(undefined, ctx, stub, fun),
             "end",
             stub.vBody as Block
         ),
