@@ -146,18 +146,18 @@ export class InstrumentationContext {
     }
 
     addAnnotationInstrumentation(annotation: AnnotationMetaData, ...nodes: ASTNode[]): void {
-        if (!this.evaluationStatements.has(annotation)) {
-            this.evaluationStatements.set(annotation, nodes);
-        } else {
+        if (this.evaluationStatements.has(annotation)) {
             (this.evaluationStatements.get(annotation) as ASTNode[]).push(...nodes);
+        } else {
+            this.evaluationStatements.set(annotation, nodes);
         }
     }
 
     addAnnotationCheck(annotation: AnnotationMetaData, pred: Expression): void {
-        if (!this.instrumetnedCheck.has(annotation)) {
-            this.instrumetnedCheck.set(annotation, [pred]);
-        } else {
+        if (this.instrumetnedCheck.has(annotation)) {
             (this.instrumetnedCheck.get(annotation) as Expression[]).push(pred);
+        } else {
+            this.instrumetnedCheck.set(annotation, [pred]);
         }
     }
 }

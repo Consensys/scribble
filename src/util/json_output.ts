@@ -9,10 +9,10 @@ import {
     StructuredDocumentation,
     ASTNode
 } from "solc-typed-ast";
-import { assert, pp, PropertyMetaData } from "..";
+import { PropertyMetaData } from "../instrumenter/annotations";
 import { InstrumentationContext } from "../instrumenter/instrumentation_context";
 import { Range } from "../spec-lang/ast";
-import { dedup } from "../util";
+import { dedup, assert, pp } from ".";
 
 type TargetType = "function" | "variable" | "contract";
 interface PropertyDesc {
@@ -39,6 +39,12 @@ export type InstrumentationMetaData = {
     instrSourceList: string[];
 };
 
+/**
+ * Type describes a location in a source file
+ * - The first element is the starting offset of code fragment.
+ * - The second element is the length of the code fragment.
+ * - The third element is the file index of the source file containing the fragment in the source list.
+ */
 export type SrcTriple = [number, number, number];
 export function parseSrcTriple(src: string): SrcTriple {
     return src.split(":").map((sNum) => Number.parseInt(sNum)) as SrcTriple;
@@ -49,9 +55,7 @@ export function ppSrcTripple(src: SrcTriple): string {
 }
 
 /**
- * Returns true IFF the source range a contains the source range b.
- * @param a
- * @param b
+ * Returns true if and only if the source range a contains the source range b.
  */
 export function contains(a: SrcTriple | string, b: SrcTriple | string): boolean {
     if (typeof a === "string") {

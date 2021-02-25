@@ -58,8 +58,16 @@ import {
     tcAnnotation,
     TypeEnv
 } from "../spec-lang/tc";
-import { assert, getOrInit, getScopeUnit, isChangingState, isExternallyVisible, pp } from "../util";
-import { buildOutputJSON, generateInstrumentationMetadata } from "./json_output";
+import {
+    assert,
+    getOrInit,
+    getScopeUnit,
+    isChangingState,
+    isExternallyVisible,
+    pp,
+    buildOutputJSON,
+    generateInstrumentationMetadata
+} from "../util";
 import cli from "./scribble_cli.json";
 
 const commandLineArgs = require("command-line-args");

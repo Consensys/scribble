@@ -3,7 +3,7 @@ import fse from "fs-extra";
 import { searchRecursive } from "./utils";
 import { scribble } from "./utils";
 import { join } from "path";
-import { contains, InstrumentationMetaData, parseSrcTriple } from "../../src/bin/json_output";
+import { contains, InstrumentationMetaData, parseSrcTriple } from "../../src/util";
 import { assert, pp } from "../../src";
 
 function checkSrc(src: string, fileList: string[], fileContents: Map<string, string>): void {

@@ -145,8 +145,6 @@ export function getScopeUnit(
 /**
  * Given an array `arr` return a new array with all the elements of
  * `arr` but without duplicates. Elements are compared with the `===`.
- *
- * @param arr
  */
 export function dedup<T>(arr: T[]): T[] {
     const res: T[] = [];

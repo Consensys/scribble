@@ -17,14 +17,18 @@ import {
 } from "solc-typed-ast";
 import { searchRecursive, toAst } from "./utils";
 import { scribble } from "./utils";
-import { assert, forAll, forAny, pp, single } from "../../src/util";
 import {
+    assert,
+    forAll,
+    forAny,
+    pp,
+    single,
     parseSrcTriple,
     PropertyMap,
     contains,
     reNumber,
     InstrumentationMetaData
-} from "../../src/bin/json_output";
+} from "../../src/util";
 
 type Src2NodeMap = Map<string, Set<ASTNode>>;
 function buildSrc2NodeMap(units: SourceUnit[], newSrcList?: string[]): Src2NodeMap {

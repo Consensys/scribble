@@ -9,8 +9,7 @@ import expect from "expect";
 import fse from "fs-extra";
 import { toAst, searchRecursive } from "./utils";
 import { scribble } from "./utils";
-import { assert } from "../../src/util/misc";
-import { InstrumentationMetaData } from "../../src/bin/json_output";
+import { InstrumentationMetaData, assert } from "../../src/util";
 
 function findPredicates(inAST: SourceUnit[]): Map<number, Set<string>> {
     const res: Map<number, Set<string>> = new Map();
