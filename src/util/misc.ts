@@ -141,3 +141,25 @@ export function getScopeUnit(
 
     return node.vScope.vScope;
 }
+
+/**
+ * Given an array `arr` return a new array with all the elements of
+ * `arr` but without duplicates. Elements are compared with the `===`.
+ *
+ * @param arr
+ */
+export function dedup<T>(arr: T[]): T[] {
+    const res: T[] = [];
+    const seen = new Set<T>();
+
+    for (const el of arr) {
+        if (seen.has(el)) {
+            continue;
+        }
+
+        seen.add(el);
+        res.push(el);
+    }
+
+    return res;
+}

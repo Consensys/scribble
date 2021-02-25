@@ -93,6 +93,10 @@ export class InstrumentationContext {
      */
     public utilsContract!: ContractDefinition;
 
+    public get utilsUnit(): SourceUnit {
+        return this.utilsContract.parent as SourceUnit;
+    }
+
     constructor(
         public readonly factory: ASTNodeFactory,
         public readonly units: SourceUnit[],

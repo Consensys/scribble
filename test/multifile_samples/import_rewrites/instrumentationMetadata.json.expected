@@ -62,51 +62,51 @@
     ],
     [
       "263:16:0",
-      "166:16:3"
+      "166:16:2"
     ],
     [
       "280:121:0",
-      "48:83:4"
+      "48:83:3"
     ],
     [
       "296:4:0",
-      "64:4:4"
+      "64:4:3"
     ],
     [
       "296:4:0",
-      "64:4:4"
+      "64:4:3"
     ],
     [
       "307:18:0",
-      "75:9:4"
+      "75:9:3"
     ],
     [
       "307:7:0",
-      "75:7:4"
+      "75:7:3"
     ],
     [
       "331:17:0",
-      "90:8:4"
+      "90:8:3"
     ],
     [
       "331:5:0",
-      "90:5:4"
+      "90:5:3"
     ],
     [
       "354:17:0",
-      "104:10:4"
+      "104:10:3"
     ],
     [
       "354:5:0",
-      "104:7:4"
+      "104:7:3"
     ],
     [
       "377:21:0",
-      "120:8:4"
+      "120:8:3"
     ],
     [
       "377:9:0",
-      "120:5:4"
+      "120:5:3"
     ]
   ],
   "otherInstrumentation": [
@@ -116,7 +116,6 @@
   "originalSourceList": [
     "test/multifile_samples/import_rewrites/imp2.sol",
     "test/multifile_samples/import_rewrites/imp3.sol",
-    "/home/dimo/work/consensys/scribble-clean/test/multifile_samples/import_rewrites/__scribble_ReentrancyUtils.sol",
     "test/multifile_samples/import_rewrites/imp1.sol",
     "test/multifile_samples/import_rewrites/main.sol"
   ],

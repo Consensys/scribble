@@ -1106,7 +1106,8 @@ if ("version" in options) {
                         flatCompiled,
                         sortedUnits,
                         flatSrcMap,
-                        options.output
+                        options.output,
+                        options["arm"] !== undefined
                     ),
                     undefined,
                     2
@@ -1153,6 +1154,7 @@ if ("version" in options) {
                 instrCtx,
                 newSrcMap,
                 originalUnits,
+                options["arm"] !== undefined,
                 options["output"]
             );
 

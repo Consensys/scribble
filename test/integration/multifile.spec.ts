@@ -104,7 +104,7 @@ describe("Multiple-file project instrumentation", () => {
                 }
             });
 
-            it("Instrumentation metadata is correct", () => {
+            it("Instrumentation metadata is what we expect", () => {
                 const actualJsonStr = scribble(
                     solPaths,
                     "-o",
@@ -207,12 +207,7 @@ describe("Multiple-file project instrumentation", () => {
                 const instrFiles = new Map<string, string>(
                     md.instrSourceList.map((filename) => [
                         filename,
-                        fse.readFileSync(
-                            filename.includes("__scribble_ReentrancyUtils")
-                                ? filename
-                                : filename + ".instrumented",
-                            { encoding: "utf-8" }
-                        )
+                        fse.readFileSync(filename, { encoding: "utf-8" })
                     ])
                 );
 
