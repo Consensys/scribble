@@ -1,1 +1,2 @@
-contract B { }
+contract B { 
+}

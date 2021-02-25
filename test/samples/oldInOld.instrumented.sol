@@ -21,20 +21,20 @@ contract Foo {
         _v.old_0 = t;
         _v.oldTT = _v.old_0;
         _v.oldT = _v.oldTT;
-        _v.old_1 = (_v.oldT * 2);
+        _v.old_1 = _v.oldT * 2;
         _v.oldTTimes2 = _v.old_1;
         _original_Foo_moo();
-        _v.let_0 = (_v.oldTTimes2 == t);
+        _v.let_0 = _v.oldTTimes2 == t;
         _v.let_1 = _v.let_0;
         _v.let_2 = _v.let_1;
-        if ((!(_v.let_2))) {
+        if (!(_v.let_2)) {
             emit AssertionFailed("0: ");
             assert(false);
         }
     }
 
     function _original_Foo_moo() private {
-        t = (t * 2);
+        t = t * 2;
     }
 }
 /// Utility contract holding a stack counter

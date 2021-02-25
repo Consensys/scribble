@@ -8,7 +8,9 @@ import {
     StructDefinition,
     EnumDefinition,
     VariableDeclaration,
-    ImportDirective
+    ImportDirective,
+    ASTNode,
+    Expression
 } from "solc-typed-ast";
 import { SUserFunctionDefinition } from "../spec-lang/ast";
 import { NameGenerator } from "../util/name_generator";
@@ -70,11 +72,30 @@ export class InstrumentationContext {
     public readonly userFunctions: Map<SUserFunctionDefinition, FunctionDefinition> = new Map();
 
     /**
+     * Map from Annotations to the list of statements involved in their evaluation.
+     */
+    public readonly evaluationStatements: Map<AnnotationMetaData, ASTNode[]> = new Map();
+    /**
+     * Map from Annotations to the actual `Expression` that corresponds to the
+     * annotation being fully checked.
+     */
+    public readonly instrumetnedCheck: Map<AnnotationMetaData, Expression[]> = new Map();
+    /**
+     * List of statements added for general instrumentation, not tied to any
+     * particular annotation.
+     */
+    public readonly generalInstrumentationNodes: ASTNode[] = [];
+
+    /**
      * Bit of a hack - this is set by `generateUtilsContract`. We need an
      * InstrumentationContext already present for `generateUtilsContract` to be able
      * to use `ctx.nameGenerator`.
      */
     public utilsContract!: ContractDefinition;
+
+    public get utilsUnit(): SourceUnit {
+        return this.utilsContract.parent as SourceUnit;
+    }
 
     constructor(
         public readonly factory: ASTNodeFactory,
@@ -90,7 +111,8 @@ export class InstrumentationContext {
         public readonly files: Map<string, string>,
         public readonly compilerVersion: string,
         public readonly debugEvents: boolean,
-        public readonly debugEventDefs: Map<number, EventDefinition>
+        public readonly debugEventDefs: Map<number, EventDefinition>,
+        public readonly outputMode: "files" | "flat" | "json"
     ) {
         this.nameGenerator = new NameGenerator(getAllNames(units));
         this.structVar = this.nameGenerator.getFresh("_v", true);
@@ -117,5 +139,25 @@ export class InstrumentationContext {
         }
 
         return this.internalInvariantCheckers.get(contract) as string;
+    }
+
+    addGeneralInstrumentation(...nodes: ASTNode[]): void {
+        this.generalInstrumentationNodes.push(...nodes);
+    }
+
+    addAnnotationInstrumentation(annotation: AnnotationMetaData, ...nodes: ASTNode[]): void {
+        if (this.evaluationStatements.has(annotation)) {
+            (this.evaluationStatements.get(annotation) as ASTNode[]).push(...nodes);
+        } else {
+            this.evaluationStatements.set(annotation, nodes);
+        }
+    }
+
+    addAnnotationCheck(annotation: AnnotationMetaData, pred: Expression): void {
+        if (this.instrumetnedCheck.has(annotation)) {
+            (this.instrumetnedCheck.get(annotation) as Expression[]).push(pred);
+        } else {
+            this.instrumetnedCheck.set(annotation, [pred]);
+        }
     }
 }

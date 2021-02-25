@@ -15,7 +15,7 @@ contract UsingForRefType {
 
     function main(string memory mS) public {
         _original_UsingForRefType_main(mS);
-        if ((!((sS.len() == mS.len())))) {
+        if (!(sS.len() == mS.len())) {
             emit AssertionFailed("0: F");
             assert(false);
         }

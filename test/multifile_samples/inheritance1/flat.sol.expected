@@ -5,6 +5,29 @@ contract __scribble_ReentrancyUtils {
     bool __scribble_out_of_contract = true;
 }
 contract A is __scribble_ReentrancyUtils {
+    event AssertionFailed(string message);
+
+    struct vars1 {
+        bool __scribble_check_invs_at_end;
+    }
+
+    function foo(uint x) virtual public returns (uint RET_0) {
+        vars1 memory _v;
+        _v.__scribble_check_invs_at_end = __scribble_out_of_contract;
+        __scribble_out_of_contract = false;
+        RET_0 = _original_A_foo(x);
+        if (!(RET_0 >= x)) {
+            emit AssertionFailed("1: ");
+            assert(false);
+        }
+        if (_v.__scribble_check_invs_at_end) __scribble_check_state_invariants();
+        __scribble_out_of_contract = _v.__scribble_check_invs_at_end;
+    }
+
+    function _original_A_foo(uint x) private returns (uint) {
+        return x + 1;
+    }
+
     /// Check only the current contract's state invariants
     function __scribble_A_check_state_invariants_internal() internal {}
 
@@ -36,11 +59,34 @@ contract B is __scribble_ReentrancyUtils {
 }
 /// invariant {:msg "P1"} true;
 contract C is __scribble_ReentrancyUtils, B, A {
-    event AssertionFailed(string message);
+    struct vars4 {
+        bool __scribble_check_invs_at_end;
+    }
+
+    function foo(uint x) virtual override public returns (uint RET_0) {
+        vars4 memory _v;
+        _v.__scribble_check_invs_at_end = __scribble_out_of_contract;
+        __scribble_out_of_contract = false;
+        RET_0 = _original_C_foo(x);
+        if (!(RET_0 >= x)) {
+            emit AssertionFailed("2: ");
+            assert(false);
+        }
+        if (!(RET_0 >= (x + 2))) {
+            emit AssertionFailed("3: ");
+            assert(false);
+        }
+        if (_v.__scribble_check_invs_at_end) __scribble_check_state_invariants();
+        __scribble_out_of_contract = _v.__scribble_check_invs_at_end;
+    }
+
+    function _original_C_foo(uint x) private returns (uint) {
+        return x + 2;
+    }
 
     /// Check only the current contract's state invariants
     function __scribble_C_check_state_invariants_internal() internal {
-        if ((!(true))) {
+        if (!(true)) {
             emit AssertionFailed("0: P1");
             assert(false);
         }

@@ -23,14 +23,14 @@ contract Foo {
 
     function foo(uint256 a) public returns (uint256 b) {
         b = _original_Foo_foo(a);
-        if ((!((b == (a + 1))))) {
+        if (!(b == (a + 1))) {
             emit AssertionFailed("3: Critical.P4");
             assert(false);
         }
     }
 
     function _original_Foo_foo(uint256 a) private returns (uint256 b) {
-        return (a + 1);
+        return a + 1;
     }
 }
 /// Utility contract holding a stack counter
@@ -70,12 +70,12 @@ contract Foo is __scribble_ReentrancyUtils {
     }
 
     function _original_Foo_foo(uint256 a) private returns (uint256 b) {
-        return (a + 1);
+        return a + 1;
     }
 
     /// Check only the current contract's state invariants
     function __scribble_Foo_check_state_invariants_internal() internal {
-        if ((!((x == 0)))) {
+        if (!(x == 0)) {
             emit AssertionFailed("1: Medium.P1");
             assert(false);
         }
@@ -114,7 +114,7 @@ contract Foo is __scribble_ReentrancyUtils {
         _v.__scribble_check_invs_at_end = __scribble_out_of_contract;
         __scribble_out_of_contract = false;
         b = _original_Foo_foo(a);
-        if ((!((b == (a + 1))))) {
+        if (!(b == (a + 1))) {
             emit AssertionFailed("3: Critical.P4");
             assert(false);
         }
@@ -123,12 +123,12 @@ contract Foo is __scribble_ReentrancyUtils {
     }
 
     function _original_Foo_foo(uint256 a) private returns (uint256 b) {
-        return (a + 1);
+        return a + 1;
     }
 
     /// Check only the current contract's state invariants
     function __scribble_Foo_check_state_invariants_internal() internal {
-        if ((!((x < 0)))) {
+        if (!(x < 0)) {
             emit AssertionFailed("2: Critical.P2");
             assert(false);
         }

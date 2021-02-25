@@ -21,7 +21,7 @@ contract Test is __scribble_ReentrancyUtils {
 
     /// Check only the current contract's state invariants
     function __scribble_Test_check_state_invariants_internal() internal {
-        if ((!(true))) {
+        if (!(true)) {
             emit AssertionFailed("0: P1");
             assert(false);
         }

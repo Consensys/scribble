@@ -50,10 +50,11 @@ import { generateTypeAst } from "./transpile";
 const semver = require("semver");
 
 function callOriginal(
-    factory: ASTNodeFactory,
+    ctx: InstrumentationContext,
     stub: FunctionDefinition,
     original: FunctionDefinition
 ): ExpressionStatement {
+    const factory = ctx.factory;
     const argIds = stub.vParameters.vParameters.map((decl) => factory.makeIdentifierFor(decl));
     const call = factory.makeFunctionCall(
         "<missing>",
@@ -70,7 +71,9 @@ function callOriginal(
      * There is no need for assignments if there are no return parameters
      */
     if (returnIds.length === 0) {
-        return factory.makeExpressionStatement(call);
+        const exprStmt = factory.makeExpressionStatement(call);
+        ctx.addGeneralInstrumentation(exprStmt);
+        return exprStmt;
     }
 
     const lhs =
@@ -80,7 +83,10 @@ function callOriginal(
 
     const assignment = factory.makeAssignment("<missing>", "=", lhs, call);
 
-    return factory.makeExpressionStatement(assignment);
+    const assignmentStmt = factory.makeExpressionStatement(assignment);
+    ctx.addGeneralInstrumentation(assignmentStmt);
+
+    return assignmentStmt;
 }
 
 function renameReturns(factory: ASTNodeFactory, stub: FunctionDefinition): Recipe {
@@ -174,6 +180,11 @@ export function interpose(
     const factory = ctx.factory;
     const stub = makeStub(fun, factory);
 
+    // The compiler may emit some internal code related to named returns.
+    for (const retDecl of stub.vReturnParameters.vParameters) {
+        ctx.addGeneralInstrumentation(retDecl);
+    }
+
     ctx.wrapperMap.set(fun, stub);
 
     const name = fun.kind === FunctionKind.Function ? fun.name : fun.kind;
@@ -205,7 +216,7 @@ export function interpose(
         new ChangeFunctionModifiers(factory, stub, []),
         new InsertStatement(
             factory,
-            callOriginal.bind(undefined, factory, stub, fun),
+            callOriginal.bind(undefined, ctx, stub, fun),
             "end",
             stub.vBody as Block
         ),
@@ -327,6 +338,20 @@ function decodeCallsite(
     return { callee, gas, value };
 }
 
+function copySrc(originalNode: ASTNode, newNode: ASTNode): void {
+    assert(originalNode.constructor === newNode.constructor, ``);
+    newNode.src = originalNode.src;
+
+    const originalChildren = originalNode.children;
+    const newChildren = newNode.children;
+
+    assert(originalChildren.length === newChildren.length, ``);
+
+    for (let i = 0; i < originalChildren.length; i++) {
+        copySrc(originalChildren[i], newChildren[i]);
+    }
+}
+
 /**
  * Given an external function call node `call`, generate a wrapper function for `call` and
  * the recipe to replace `call` with a call to the wrapper function. This needs to handle
@@ -376,6 +401,8 @@ export function interposeCall(
         undefined,
         factory.makeBlock([])
     );
+
+    ctx.addGeneralInstrumentation(wrapper);
 
     const params: VariableDeclaration[] = [];
     const returns: VariableDeclaration[] = [];
@@ -447,6 +474,8 @@ export function interposeCall(
         );
 
         receiver = factory.copy(callee);
+        copySrc(callee, receiver);
+
         callOriginalExp = factory.makeIdentifierFor(params[0]);
     } else {
         assert(callee instanceof MemberAccess, ``);
@@ -518,6 +547,7 @@ export function interposeCall(
         });
 
         receiver = factory.copy(callee.vExpression);
+        copySrc(callee.vExpression, receiver);
 
         callOriginalExp = factory.makeMemberAccess(
             call.vExpression.typeString,
@@ -610,9 +640,12 @@ export function interposeCall(
 
     (wrapper.vBody as Block).appendChild(factory.makeExpressionStatement(callOriginal));
 
+    const newCallee = factory.makeIdentifierFor(wrapper);
+    newCallee.src = call.vExpression.src;
+
     recipe.push(
         new InsertFunction(factory, contract, wrapper),
-        new ReplaceCallee(factory, call.vExpression, factory.makeIdentifierFor(wrapper)),
+        new ReplaceCallee(factory, call.vExpression, newCallee),
         new InsertArgument(factory, receiver, "start", call)
     );
 

@@ -6,6 +6,7 @@ import {
     ImportDirective,
     PrettyFormatter,
     SourceUnit,
+    SrcRangeMap,
     SymbolAlias
 } from "solc-typed-ast";
 import { ImportDirectiveDesc } from "./rewriter/import_directive_header";
@@ -142,9 +143,13 @@ function getWriter(targetCompilerVersion: string): ASTWriter {
  */
 export function print(
     sourceUnits: SourceUnit[],
-    versionMap: Map<SourceUnit, string>
+    versionMap: Map<SourceUnit, string>,
+    srcMap: SrcRangeMap
 ): Map<SourceUnit, string> {
     return new Map(
-        sourceUnits.map((unit) => [unit, getWriter(versionMap.get(unit) as string).write(unit)])
+        sourceUnits.map((unit) => [
+            unit,
+            getWriter(versionMap.get(unit) as string).write(unit, srcMap)
+        ])
     );
 }

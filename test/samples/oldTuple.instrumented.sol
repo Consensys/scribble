@@ -20,8 +20,8 @@ contract Foo {
         vars0 memory _v;
         (_v.oldX, _v.oldY) = dbl();
         _original_Foo_main(k);
-        _v.let_0 = ((x == (_v.oldX + k)) && (y == (_v.oldY + k)));
-        if ((!(_v.let_0))) {
+        _v.let_0 = (x == (_v.oldX + k)) && (y == (_v.oldY + k));
+        if (!(_v.let_0)) {
             emit AssertionFailed("0: ");
             assert(false);
         }

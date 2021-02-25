@@ -1,3 +1,4 @@
+pragma solidity 0.7.5;
 /// define plus(uint x) uint = z + x;
 /// define plus2(uint Foo) uint = z + Foo;
 /// define plus3(uint plus2) uint = z + plus2;

@@ -6,7 +6,9 @@ contract __scribble_ReentrancyUtils1 {
 }
 abstract contract __scribble_ReentrancyUtils is __scribble_ReentrancyUtils1 {
     enum vars0 { A }
+
     enum vars1 { B }
+
     enum vars2 { C }
 
     struct vars4 {
@@ -49,7 +51,7 @@ abstract contract __scribble_ReentrancyUtils is __scribble_ReentrancyUtils1 {
         assert(false);
     }
 
-    /// if_succeeds {:msg "P0"} let foo := y in 
+    /// if_succeeds {:msg "P0"} let foo := y in
     ///          let  __mstore_scratch__ := foo in
     ///              let __scribble_check_invs_at_end := __mstore_scratch__ in
     ///                  __scribble_check_invs_at_end == _v+1;
@@ -98,10 +100,10 @@ contract Foo is __scribble_ReentrancyUtils1, __scribble_ReentrancyUtils {
         _v1.foo1 = y;
         _v1.__mstore_scratch__1 = _v1.foo1;
         _v1.__scribble_check_invs_at_end1 = _v1.__mstore_scratch__1;
-        _v1.let_0 = (_v1.__scribble_check_invs_at_end1 == (_v + 1));
+        _v1.let_0 = _v1.__scribble_check_invs_at_end1 == (_v + 1);
         _v1.let_1 = _v1.let_0;
         _v1.let_2 = _v1.let_1;
-        if ((!(_v1.let_2))) {
+        if (!(_v1.let_2)) {
             emit AssertionFailed("1: P0");
             assert(false);
         }
@@ -110,8 +112,8 @@ contract Foo is __scribble_ReentrancyUtils1, __scribble_ReentrancyUtils {
     }
 
     function _original_Foo_foo1(uint256 _v) private returns (uint256 y) {
-        (t++);
-        return (_v + 1);
+        t++;
+        return _v + 1;
     }
 
     function __scribble_Foo_check_state_invariants_internal() internal {
@@ -120,7 +122,7 @@ contract Foo is __scribble_ReentrancyUtils1, __scribble_ReentrancyUtils {
 
     /// Check only the current contract's state invariants
     function __scribble_Foo_check_state_invariants_internal1() internal {
-        if ((!((t >= 1)))) {
+        if (!(t >= 1)) {
             emit AssertionFailed("0: ");
             assert(false);
         }

@@ -84,6 +84,10 @@ export class AnnotationMetaData<T extends SAnnotation = SAnnotation> {
 
     /// Location of the whole annotation relative to the start of the file
     readonly annotationLoc: OffsetRange;
+    /**
+     * The line/column location of the whole annotation (relative to the begining of the file).
+     */
+    readonly annotationFileRange: Range;
     /// Location of the comment containing the annotation relative to the start of the file
     readonly commentLoc: OffsetRange;
     /// Relative offset of the parsed tree to the beginning of the file
@@ -94,7 +98,8 @@ export class AnnotationMetaData<T extends SAnnotation = SAnnotation> {
         target: AnnotationTarget,
         original: string,
         parsedAnnot: T,
-        annotationDocstringOff: number
+        annotationDocstringOff: number,
+        source: string
     ) {
         this.raw = raw;
         this.target = target;
@@ -111,13 +116,11 @@ export class AnnotationMetaData<T extends SAnnotation = SAnnotation> {
         this.parseOff = commentSrc.offset + annotationDocstringOff;
         /// Location of the annotation relative to the start of the file
         this.annotationLoc = offsetBy(rangeToOffsetRange(parsedAnnot.requiredSrc), this.parseOff);
-    }
-
-    /**
-     * Get the line/column location of the whole annotation (relative to the begining of the file).
-     */
-    annotationFileLoc(source: string): Range {
-        return rangeToLocRange(this.annotationLoc[0], this.annotationLoc[1], source);
+        this.annotationFileRange = rangeToLocRange(
+            this.annotationLoc[0],
+            this.annotationLoc[1],
+            source
+        );
     }
 }
 
@@ -133,19 +136,25 @@ export class UserFunctionDefinitionMetaData extends AnnotationMetaData<SUserFunc
     get body(): SNode {
         return this.parsedAnnot.body;
     }
+    /**
+     * The line/column location of the predicate (relative to the begining of the file)
+     */
+    readonly bodyFileLoc: Range;
 
     constructor(
         raw: StructuredDocumentation,
         target: AnnotationTarget,
         original: string,
         parsedAnnot: SUserFunctionDefinition,
-        annotationDocstringOff: number
+        annotationDocstringOff: number,
+        source: string
     ) {
-        super(raw, target, original, parsedAnnot, annotationDocstringOff);
+        super(raw, target, original, parsedAnnot, annotationDocstringOff, source);
         // Original predicate
         this.bodyText = parsedAnnot.body.getSourceFragment(original);
         // Location of the predicate relative to the begining of the file
         this.bodyLoc = offsetBy(rangeToOffsetRange(parsedAnnot.body.requiredSrc), this.parseOff);
+        this.bodyFileLoc = rangeToLocRange(this.bodyLoc[0], this.bodyLoc[1], source);
     }
 
     /**
@@ -155,13 +164,6 @@ export class UserFunctionDefinitionMetaData extends AnnotationMetaData<SUserFunc
         const fileOff = offsetBy(arg, this.bodyLoc);
 
         return rangeToLocRange(fileOff[0], fileOff[1], source);
-    }
-
-    /**
-     * Get the line/column location of the predicate (relative to the begining of the file)
-     */
-    bodyFileLoc(source: string): Range {
-        return rangeToLocRange(this.bodyLoc[0], this.bodyLoc[1], source);
     }
 }
 
@@ -178,15 +180,20 @@ export class PropertyMetaData extends AnnotationMetaData<SProperty> {
 
     /// Location of the expression relative to the start of the file
     readonly exprLoc: OffsetRange;
+    /**
+     * The line/column location of the predicate (relative to the begining of the file)
+     */
+    predicateFileLoc: Range;
 
     constructor(
         raw: StructuredDocumentation,
         target: AnnotationTarget,
         original: string,
         parsedAnnot: SProperty,
-        annotationDocstringOff: number
+        annotationDocstringOff: number,
+        source: string
     ) {
-        super(raw, target, original, parsedAnnot, annotationDocstringOff);
+        super(raw, target, original, parsedAnnot, annotationDocstringOff, source);
 
         // Original predicate
         this.predicate = parsedAnnot.expression.getSourceFragment(original);
@@ -195,13 +202,7 @@ export class PropertyMetaData extends AnnotationMetaData<SProperty> {
             rangeToOffsetRange(parsedAnnot.expression.requiredSrc),
             this.parseOff
         );
-    }
-
-    /**
-     * Get the line/column location of the predicate (relative to the begining of the file)
-     */
-    predicateFileLoc(source: string): Range {
-        return rangeToLocRange(this.exprLoc[0], this.exprLoc[1], source);
+        this.predicateFileLoc = rangeToLocRange(this.exprLoc[0], this.exprLoc[1], source);
     }
 
     /**
@@ -276,7 +277,8 @@ export class AnnotationExtractor {
                 meta.target,
                 annotationOrig,
                 parsedAnnot,
-                match.index
+                match.index,
+                source
             );
         }
 
@@ -286,18 +288,15 @@ export class AnnotationExtractor {
                 meta.target,
                 annotationOrig,
                 parsedAnnot,
-                match.index
+                match.index,
+                source
             );
         }
 
         throw new Error(`NYI annotation ${parsedAnnot.pp()}`);
     }
 
-    private validateAnnotation(
-        target: AnnotationTarget,
-        annotation: AnnotationMetaData,
-        source: string
-    ) {
+    private validateAnnotation(target: AnnotationTarget, annotation: AnnotationMetaData) {
         if (target instanceof ContractDefinition) {
             if (
                 annotation.type !== AnnotationType.Invariant &&
@@ -306,7 +305,7 @@ export class AnnotationExtractor {
                 throw new UnsupportedByTargetError(
                     `The "${annotation.type}" annotation is not applicable to contracts`,
                     annotation.original,
-                    annotation.annotationFileLoc(source)
+                    annotation.annotationFileRange
                 );
             }
 
@@ -315,7 +314,7 @@ export class AnnotationExtractor {
                 throw new UnsupportedByTargetError(
                     `Unsupported contract annotations on ${target.kind} ${target.name}`,
                     annotation.original,
-                    annotation.annotationFileLoc(source)
+                    annotation.annotationFileRange
                 );
             }
         } else if (target instanceof FunctionDefinition) {
@@ -323,7 +322,7 @@ export class AnnotationExtractor {
                 throw new UnsupportedByTargetError(
                     `The "${annotation.type}" annotation is not applicable to functions`,
                     annotation.original,
-                    annotation.annotationFileLoc(source)
+                    annotation.annotationFileRange
                 );
             }
 
@@ -331,7 +330,7 @@ export class AnnotationExtractor {
                 throw new UnsupportedByTargetError(
                     `Instrumenting free functions is not supported`,
                     annotation.original,
-                    annotation.annotationFileLoc(source)
+                    annotation.annotationFileRange
                 );
             }
         } else {
@@ -370,7 +369,7 @@ export class AnnotationExtractor {
                 (rxType === undefined || rxType.test(annotation.type)) &&
                 (rxMsg === undefined || rxMsg.test(annotation.message))
             ) {
-                this.validateAnnotation(target, annotation, source);
+                this.validateAnnotation(target, annotation);
 
                 result.push(annotation);
             }

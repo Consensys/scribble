@@ -7,7 +7,7 @@ contract MapIdx {
 
     function main(string memory arg) public {
         _original_MapIdx_main(arg);
-        if ((!((a[arg] == 0)))) {
+        if (!(a[arg] == 0)) {
             emit AssertionFailed("0: F");
             assert(false);
         }

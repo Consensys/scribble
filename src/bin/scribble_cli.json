@@ -58,9 +58,9 @@
                 "description": "Path to a folder where the ReentrancyUtils.sol contract should be emitted. This option is required with '--mode files' and ignore otherwise."
             },
             {
-                "name": "property-map-file",
+                "name": "instrumentation-metadata-file",
                 "type": "String",
-                "description": "If specified, output the property map (in JSON format) in the specified file."
+                "description": "If specified, output instrumentation metadata (src-to-src maps, property maps) to the specified file."
             },
             {
                 "name": "path-remapping",

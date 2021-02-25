@@ -3,6 +3,38 @@ import fse from "fs-extra";
 import { searchRecursive } from "./utils";
 import { scribble } from "./utils";
 import { join } from "path";
+import { contains, InstrumentationMetaData, parseSrcTriple } from "../../src/util";
+import { assert, pp } from "../../src";
+
+function checkSrc(src: string, fileList: string[], fileContents: Map<string, string>): void {
+    const [off, len, fileIdx] = parseSrcTriple(src);
+
+    assert(
+        fileIdx >= 0 && fileIdx < fileList.length,
+        `Invalid file index ${fileIdx} for source list ${fileList}`
+    );
+
+    const fileName = fileList[fileIdx];
+    const contents = fileContents.get(fileName) as string;
+
+    assert(contents !== undefined, `File ${fileName} missing from file map ${pp(fileContents)}`);
+
+    assert(
+        off >= 0 && off < contents.length && len > 0 && off + len <= contents.length,
+        `Src range ${off}:${len} out of bounds for contents of file ${fileName}: 0-${contents.length}`
+    );
+}
+
+export function fragment(
+    src: string,
+    fileList: string[],
+    fileContents: Map<string, string>
+): string {
+    const [off, len, fileIdx] = parseSrcTriple(src);
+    const fileName = fileList[fileIdx];
+    const contents = fileContents.get(fileName) as string;
+    return contents.slice(off, off + len);
+}
 
 describe("Multiple-file project instrumentation", () => {
     const samples: Array<[string, string[], string]> = [
@@ -30,7 +62,7 @@ describe("Multiple-file project instrumentation", () => {
             const solPaths: string[] = solFiles.map((name) => join(dirName, name));
             let expectedInstrumented: Map<string, string>;
             let expectedFlat: string;
-            let expectedPropertyMap: any;
+            let expectedInstrMetadata: any;
 
             before(() => {
                 const expectedInstrumentedFiles = searchRecursive(
@@ -44,8 +76,8 @@ describe("Multiple-file project instrumentation", () => {
                     ])
                 );
                 expectedFlat = fse.readFileSync(`${dirName}/flat.sol.expected`, "utf-8");
-                expectedPropertyMap = JSON.parse(
-                    fse.readFileSync(`${dirName}/propertyMap.json.expected`, "utf-8")
+                expectedInstrMetadata = JSON.parse(
+                    fse.readFileSync(`${dirName}/instrumentationMetadata.json.expected`, "utf-8")
                 );
             });
 
@@ -72,7 +104,7 @@ describe("Multiple-file project instrumentation", () => {
                 }
             });
 
-            it("JSON mode is correct", () => {
+            it("Instrumentation metadata is what we expect", () => {
                 const actualJsonStr = scribble(
                     solPaths,
                     "-o",
@@ -83,7 +115,9 @@ describe("Multiple-file project instrumentation", () => {
                     version
                 );
                 const actualJson = JSON.parse(actualJsonStr);
-                expect(actualJson.propertyMap).toEqual(expectedPropertyMap.propertyMap);
+                const instrMetadata: InstrumentationMetaData = actualJson.instrumentationMetadata;
+
+                expect(instrMetadata).toEqual(expectedInstrMetadata);
             });
 
             it("In-place arming works", () => {
@@ -94,8 +128,11 @@ describe("Multiple-file project instrumentation", () => {
                     "--quiet",
                     "--arm",
                     "--compiler-version",
-                    version
+                    version,
+                    "--instrumentation-metadata-file",
+                    "tmp.json"
                 );
+
                 for (const [fileName, expectedContents] of expectedInstrumented) {
                     const atualInstr = fse.readFileSync(
                         fileName.replace(".sol.instrumented.expected", ".sol"),
@@ -141,6 +178,77 @@ describe("Multiple-file project instrumentation", () => {
                     );
 
                     expect(fse.existsSync(originalFileName)).toEqual(false);
+                }
+            });
+
+            it("Multi-file instrumentation metadata is correct(ish)", () => {
+                scribble(
+                    solPaths,
+                    "--output-mode",
+                    "files",
+                    "--quiet",
+                    "--compiler-version",
+                    version,
+                    "--instrumentation-metadata-file",
+                    "tmp.json"
+                );
+
+                const md: InstrumentationMetaData = JSON.parse(
+                    fse.readFileSync("tmp.json", { encoding: "utf8" })
+                );
+
+                const originalFiles = new Map<string, string>(
+                    md.originalSourceList.map((filename) => [
+                        filename,
+                        fse.readFileSync(filename, { encoding: "utf-8" })
+                    ])
+                );
+
+                const instrFiles = new Map<string, string>(
+                    md.instrSourceList.map((filename) => [
+                        filename,
+                        fse.readFileSync(filename, { encoding: "utf-8" })
+                    ])
+                );
+
+                for (const originalFile of md.originalSourceList) {
+                    expect(originalFiles.has(originalFile)).toBeTruthy();
+                }
+
+                for (const instrFile of md.instrSourceList) {
+                    expect(instrFiles.has(instrFile)).toBeTruthy();
+                }
+
+                // Check source ranges in the instr-to-original map are sane
+                for (const [instrSrc, originalSrc] of md.instrToOriginalMap) {
+                    checkSrc(instrSrc, md.instrSourceList, instrFiles);
+                    checkSrc(originalSrc, md.originalSourceList, originalFiles);
+                }
+
+                // Check general instrumentation source ranges are sane
+                for (const src of md.otherInstrumentation) {
+                    checkSrc(src, md.instrSourceList, instrFiles);
+                }
+
+                // Check src ranges in property map are correct
+                for (const prop of md.propertyMap) {
+                    checkSrc(prop.annotationSource, md.originalSourceList, originalFiles);
+                    checkSrc(prop.propertySource, md.originalSourceList, originalFiles);
+                    assert(
+                        contains(
+                            parseSrcTriple(prop.annotationSource),
+                            parseSrcTriple(prop.propertySource)
+                        ),
+                        `Annotation src ${prop.annotationSource} doesn't include predicate src ${prop.propertySource} for prop ${prop.id}`
+                    );
+
+                    for (const instrSrc of prop.instrumentationRanges) {
+                        checkSrc(instrSrc, md.instrSourceList, instrFiles);
+                    }
+
+                    for (const src of prop.checkRanges) {
+                        checkSrc(src, md.instrSourceList, instrFiles);
+                    }
                 }
             });
         });

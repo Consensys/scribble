@@ -1,0 +1,57 @@
+{
+  "instrToOriginalMap": [
+    [
+      "24:26:0",
+      "26:23:0"
+    ],
+    [
+      "41:6:0",
+      "40:6:0"
+    ],
+    [
+      "41:4:0",
+      "40:4:0"
+    ],
+    [
+      "182:79:0",
+      "47:111:3"
+    ],
+    [
+      "201:15:0",
+      "125:6:3"
+    ],
+    [
+      "201:3:0",
+      "125:3:3"
+    ],
+    [
+      "222:15:0",
+      "134:9:3"
+    ],
+    [
+      "222:3:0",
+      "134:6:3"
+    ],
+    [
+      "243:15:0",
+      "146:9:3"
+    ],
+    [
+      "243:3:0",
+      "146:6:3"
+    ]
+  ],
+  "otherInstrumentation": [
+    "138:38:0"
+  ],
+  "propertyMap": [],
+  "originalSourceList": [
+    "test/multifile_samples/reexported_imports/imp1.sol",
+    "test/multifile_samples/reexported_imports/imp2.sol",
+    "test/multifile_samples/reexported_imports/imp3.sol",
+    "test/multifile_samples/reexported_imports/main.sol"
+  ],
+  "instrSourceList": [
+    "--"
+  ]
+}

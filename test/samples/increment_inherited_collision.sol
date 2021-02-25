@@ -1,4 +1,4 @@
-pragma solidity ^0.7.0;
+pragma solidity 0.7.5;
 
 abstract contract __scribble_ReentrancyUtils {
     uint __scribble_out_of_contract;
@@ -26,7 +26,7 @@ abstract contract __scribble_ReentrancyUtils {
         assert(false);
     }
 
-    /// if_succeeds {:msg "P0"} let foo := y in 
+    /// if_succeeds {:msg "P0"} let foo := y in
     ///         let  __mstore_scratch__ := foo in
     ///             let __scribble_check_invs_at_end := __mstore_scratch__ in
     ///                 __scribble_check_invs_at_end == _v+1;

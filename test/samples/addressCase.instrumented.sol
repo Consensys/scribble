@@ -5,14 +5,14 @@ contract AddrChecker {
 
     function checkAddr(address addr) external {
         _original_AddrChecker_checkAddr(addr);
-        if ((!((addr != address(0xAaaaAaAAaaaAAaAAaAaaaaAAAAAaAaaaAaAaaAA0))))) {
+        if (!(addr != address(0xAaaaAaAAaaaAAaAAaAaaaaAAAAAaAaaaAaAaaAA0))) {
             emit AssertionFailed("0: P1");
             assert(false);
         }
     }
 
     function _original_AddrChecker_checkAddr(address addr) private {
-        require((addr != address(0xAaaaAaAAaaaAAaAAaAaaaaAAAAAaAaaaAaAaaAA0)));
+        require(addr != address(0xAaaaAaAAaaaAAaAAaAaaaaAAAAAaAaaaAaAaaAA0));
     }
 }
 /// Utility contract holding a stack counter

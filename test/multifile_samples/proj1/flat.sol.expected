@@ -12,7 +12,7 @@ contract Base is __scribble_ReentrancyUtils {
 
     /// Check only the current contract's state invariants
     function __scribble_Base_check_state_invariants_internal() internal {
-        if ((!((x > 0)))) {
+        if (!(x > 0)) {
             emit AssertionFailed("0: P0");
             assert(false);
         }
@@ -41,7 +41,7 @@ contract Child1 is __scribble_ReentrancyUtils, Base {
         __scribble_out_of_contract = false;
         _v.old_0 = x;
         _original_Child1_add(y);
-        if ((!((x == (_v.old_0 + y))))) {
+        if (!(x == (_v.old_0 + y))) {
             emit AssertionFailed("1: P1");
             assert(false);
         }
@@ -80,7 +80,7 @@ contract Child2 is __scribble_ReentrancyUtils, Base {
         __scribble_out_of_contract = false;
         _v.old_1 = x;
         _original_Child2_double();
-        if ((!((x == (2 * _v.old_1))))) {
+        if (!(x == (2 * _v.old_1))) {
             emit AssertionFailed("2: P2");
             assert(false);
         }

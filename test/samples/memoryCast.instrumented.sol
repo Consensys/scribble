@@ -7,7 +7,7 @@ contract TypePtr {
 
     function entry() external {
         _original_TypePtr_entry();
-        if ((!(_isEvenLen(_nums)))) {
+        if (!(_isEvenLen(_nums))) {
             emit AssertionFailed("0: P1");
             assert(false);
         }
@@ -19,7 +19,7 @@ contract TypePtr {
     }
 
     function _isEvenLen(uint256[] memory arr) internal view returns (bool) {
-        return ((arr.length % 2) == 0);
+        return (arr.length % 2) == 0;
     }
 }
 /// Utility contract holding a stack counter

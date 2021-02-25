@@ -214,8 +214,9 @@ export function merge(groups: SourceUnit[][]): [SourceUnit[], ASTContext] {
                         // compiler. Nothing to do here.
                         assert(
                             foreign.referencedDeclaration === undefined ||
-                                foreign.referencedDeclaration === null,
-                            ``
+                                foreign.referencedDeclaration === null ||
+                                foreign.referencedDeclaration === -1,
+                            `Unexpected non-null foreign reference declaration: ${foreign.referencedDeclaration} in imported symbol ${foreign.name} from ${child.file}`
                         );
                     }
                 }

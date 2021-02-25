@@ -10,7 +10,7 @@ contract Base is __scribble_ReentrancyUtils {
 
     /// Check only the current contract's state invariants
     function __scribble_Base_check_state_invariants_internal() internal {
-        if ((!((x > 0)))) {
+        if (!(x > 0)) {
             emit AssertionFailed("0: P0");
             assert(false);
         }

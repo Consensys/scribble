@@ -10,9 +10,11 @@ import {
     detectCompileErrors,
     ASTReader,
     ContractDefinition,
-    FunctionDefinition
+    FunctionDefinition,
+    ASTNode
 } from "solc-typed-ast";
 import { spawnSync } from "child_process";
+import { assert } from "../../src";
 
 export function searchRecursive(directory: string, pattern: RegExp): string[] {
     let results: string[] = [];
@@ -116,4 +118,57 @@ export function findFunction(name: string, contract: ContractDefinition): Functi
         }
     }
     throw new Error(``);
+}
+
+/**
+ * Helper function to check that 2 ASTNodes are (roughly) isomorphic. It checks that:
+ *  1) They have the same tree structure (i.e. type of node at each branch, and number of children)
+ *  2) Any string/int/bool properties on every node are the same
+ *
+ * @param a
+ * @param b
+ */
+export function isomorphic(a: ASTNode, b: ASTNode): boolean {
+    if (a.constructor !== b.constructor) {
+        return false;
+    }
+
+    const aProps = a.getFieldValues();
+    const bProps = b.getFieldValues();
+
+    assert(
+        aProps.size === bProps.size,
+        `Objects of the same type should have the same number of fields`
+    );
+
+    for (const [aName, aVal] of aProps.entries()) {
+        if (aName === "src" || aName === "id") continue;
+
+        const bVal = bProps.get(aName);
+
+        if (
+            (typeof aVal === "number" ||
+                typeof aVal === "string" ||
+                typeof aVal === "boolean" ||
+                typeof aVal === "bigint") &&
+            aVal !== bVal
+        ) {
+            return false;
+        }
+    }
+
+    const aChildren = a.children;
+    const bChildren = b.children;
+
+    if (aChildren.length !== bChildren.length) {
+        return false;
+    }
+
+    for (let i = 0; i < aChildren.length; i++) {
+        if (!isomorphic(aChildren[i], bChildren[i])) {
+            return false;
+        }
+    }
+
+    return true;
 }
