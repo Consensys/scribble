@@ -96,7 +96,7 @@ export class AnnotationMetaData<T extends SAnnotation = SAnnotation> {
     constructor(
         raw: StructuredDocumentation,
         target: AnnotationTarget,
-        original: string,
+        originalSlice: string,
         parsedAnnot: T,
         annotationDocstringOff: number,
         source: string
@@ -106,7 +106,7 @@ export class AnnotationMetaData<T extends SAnnotation = SAnnotation> {
         // This is a hack. Remember the target name as interposing overwrites it
         this.targetName = target.name;
 
-        this.original = original;
+        this.original = parsedAnnot.getSourceFragment(originalSlice);
         this.id = numAnnotations++;
         this.parsedAnnot = parsedAnnot;
         const commentSrc = raw.sourceInfo;
@@ -128,8 +128,6 @@ export class AnnotationMetaData<T extends SAnnotation = SAnnotation> {
  * Metadata specific to a user function definition.
  */
 export class UserFunctionDefinitionMetaData extends AnnotationMetaData<SUserFunctionDefinition> {
-    /// Original body text
-    readonly bodyText: string;
     /// Location of the body of the function relative to the beginning of the file
     readonly bodyLoc: OffsetRange;
     /// Parsed annotation predicate
@@ -144,14 +142,12 @@ export class UserFunctionDefinitionMetaData extends AnnotationMetaData<SUserFunc
     constructor(
         raw: StructuredDocumentation,
         target: AnnotationTarget,
-        original: string,
+        originalSlice: string,
         parsedAnnot: SUserFunctionDefinition,
         annotationDocstringOff: number,
         source: string
     ) {
-        super(raw, target, original, parsedAnnot, annotationDocstringOff, source);
-        // Original predicate
-        this.bodyText = parsedAnnot.body.getSourceFragment(original);
+        super(raw, target, originalSlice, parsedAnnot, annotationDocstringOff, source);
         // Location of the predicate relative to the begining of the file
         this.bodyLoc = offsetBy(rangeToOffsetRange(parsedAnnot.body.requiredSrc), this.parseOff);
         this.bodyFileLoc = rangeToLocRange(this.bodyLoc[0], this.bodyLoc[1], source);
@@ -171,8 +167,6 @@ export class UserFunctionDefinitionMetaData extends AnnotationMetaData<SUserFunc
  * Metadata specific to a property annotation (invariant, if_succeeds)
  */
 export class PropertyMetaData extends AnnotationMetaData<SProperty> {
-    /// Original annotation predicate text
-    readonly predicate: string;
     /// Parsed annotation predicate
     get expression(): SNode {
         return this.parsedAnnot.expression;
@@ -188,15 +182,13 @@ export class PropertyMetaData extends AnnotationMetaData<SProperty> {
     constructor(
         raw: StructuredDocumentation,
         target: AnnotationTarget,
-        original: string,
+        originalSlice: string,
         parsedAnnot: SProperty,
         annotationDocstringOff: number,
         source: string
     ) {
-        super(raw, target, original, parsedAnnot, annotationDocstringOff, source);
+        super(raw, target, originalSlice, parsedAnnot, annotationDocstringOff, source);
 
-        // Original predicate
-        this.predicate = parsedAnnot.expression.getSourceFragment(original);
         // Location of the predicate relative to the begining of the file
         this.exprLoc = offsetBy(
             rangeToOffsetRange(parsedAnnot.expression.requiredSrc),
@@ -245,14 +237,12 @@ export class AnnotationExtractor {
         meta: RawMetaData,
         source: string
     ): AnnotationMetaData {
-        let annotationOrig: string;
+        let slice: string;
         let parsedAnnot: SAnnotation;
 
         try {
-            const slice = meta.text.slice(match.index);
+            slice = meta.text.slice(match.index);
             parsedAnnot = parseAnnotation(slice);
-
-            annotationOrig = parsedAnnot.getSourceFragment(slice);
         } catch (e) {
             if (e instanceof ExprPEGSSyntaxError) {
                 // Compute the syntax error offset relative to the start of the file
@@ -277,7 +267,7 @@ export class AnnotationExtractor {
             return new PropertyMetaData(
                 meta.node,
                 meta.target,
-                annotationOrig,
+                slice,
                 parsedAnnot,
                 match.index,
                 source
@@ -288,7 +278,7 @@ export class AnnotationExtractor {
             return new UserFunctionDefinitionMetaData(
                 meta.node,
                 meta.target,
-                annotationOrig,
+                slice,
                 parsedAnnot,
                 match.index,
                 source
@@ -340,7 +330,23 @@ export class AnnotationExtractor {
                 );
             }
         } else {
-            throw new Error(`NYI Target ${target.constructor.name}#${target.id}`);
+            if (annotation.type !== AnnotationType.IfUpdated) {
+                throw new UnsupportedByTargetError(
+                    `The "${annotation.type}" annotation is not applicable to state variables`,
+                    annotation.original,
+                    annotation.annotationFileRange,
+                    target
+                );
+            }
+
+            if (!(target.vScope instanceof ContractDefinition)) {
+                throw new UnsupportedByTargetError(
+                    `The "${annotation.type}" annotation is only applicable to state variables`,
+                    annotation.original,
+                    annotation.annotationFileRange,
+                    target
+                );
+            }
         }
     }
 
@@ -364,7 +370,7 @@ export class AnnotationExtractor {
 
         const result: AnnotationMetaData[] = [];
 
-        const rx = /\s*(\*|\/\/\/)\s*(if_succeeds|invariant|define)/g;
+        const rx = /\s*(\*|\/\/\/)\s*(if_succeeds|if_updated|invariant|define)/g;
 
         let match = rx.exec(meta.text);
 
