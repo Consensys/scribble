@@ -2,6 +2,7 @@
 Annotation
     = StartingWhiteSpace annotation: (Invariant
     / If_Succeeds
+    / If_Updated
     / UserFunctionDefinition) .* { return annotation; }
 
 Expression =
@@ -29,6 +30,12 @@ Invariant =
 
 If_Succeeds =
   type: IF_SUCCEEDS __ label: AnnotationLabel? __ expr: Expression __ ";"
+  {
+    return new SProperty(type as AnnotationType, expr, label !== null ? label : undefined, location());
+  }
+
+If_Updated =
+  type: IF_UPDATED __ label: AnnotationLabel? __ expr: Expression __ ";"
   {
     return new SProperty(type as AnnotationType, expr, label !== null ? label : undefined, location());
   }
@@ -99,6 +106,7 @@ NONPAYABLE = "nonpayable"
 RESULT = "$result"
 INVARIANT = "invariant"
 IF_SUCCEEDS = "if_succeeds"
+IF_UPDATED = "if_updated"
 DEFINE = "define"
 
 Keyword

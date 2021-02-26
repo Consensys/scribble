@@ -736,7 +736,7 @@ describe("Type Parser Unit Tests", () => {
     }
 });
 
-describe("Definition Parser Unit Tests", () => {
+describe("Annotation Parser Unit Tests", () => {
     const goodSamples: Array<[string, SAnnotation]> = [
         ["if_succeeds true;", new SProperty(AnnotationType.IfSucceeds, new SBooleanLiteral(true))],
         [
@@ -757,6 +757,20 @@ describe("Definition Parser Unit Tests", () => {
                      ;`,
             new SProperty(
                 AnnotationType.IfSucceeds,
+                new SBinaryOperation(new SNumber(bigInt(1), 10), "-", new SNumber(bigInt(2), 10)),
+                "hi"
+            )
+        ],
+        [
+            `* if_updated 
+                {:msg 
+                       "hi"
+                    }
+                     1 -
+                     2
+                     ;`,
+            new SProperty(
+                AnnotationType.IfUpdated,
                 new SBinaryOperation(new SNumber(bigInt(1), 10), "-", new SNumber(bigInt(2), 10)),
                 "hi"
             )

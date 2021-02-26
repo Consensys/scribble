@@ -1,6 +1,7 @@
 import { Range, SNode } from "../node";
 export enum AnnotationType {
     IfSucceeds = "if_succeeds",
+    IfUpdated = "if_updated",
     Invariant = "invariant",
     Define = "define"
 }
