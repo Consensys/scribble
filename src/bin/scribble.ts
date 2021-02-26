@@ -31,14 +31,16 @@ import {
 import { print, rewriteImports } from "../ast_to_source_printer";
 import {
     PropertyMetaData,
-    AnnotationExtractor,
     SyntaxError,
     UnsupportedByTargetError,
     AnnotationMetaData,
-    UserFunctionDefinitionMetaData
+    UserFunctionDefinitionMetaData,
+    buildAnnotationMap,
+    AnnotationMap,
+    gatherFunctionAnnotations
 } from "../instrumenter/annotations";
 import { getCallGraph } from "../instrumenter/callgraph";
-import { CHA, chaDFS, getCHA } from "../instrumenter/cha";
+import { CHA, getCHA } from "../instrumenter/cha";
 import {
     AnnotationFilterOptions,
     ContractInstrumenter,
@@ -66,7 +68,9 @@ import {
     isExternallyVisible,
     pp,
     buildOutputJSON,
-    generateInstrumentationMetadata
+    generateInstrumentationMetadata,
+    flatten,
+    dedup
 } from "../util";
 import cli from "./scribble_cli.json";
 
@@ -98,27 +102,6 @@ function prettyError(
     ].join("\n\n");
 
     error(description);
-}
-
-function getAnnotationsOrDie(
-    node: ContractDefinition | FunctionDefinition,
-    sources: Map<string, string>,
-    filters: AnnotationFilterOptions
-): AnnotationMetaData[] {
-    try {
-        const extractor = new AnnotationExtractor();
-        const annotations = extractor.extract(node, sources, filters);
-
-        return annotations;
-    } catch (e) {
-        if (e instanceof SyntaxError || e instanceof UnsupportedByTargetError) {
-            const unit = getScopeUnit(node);
-
-            prettyError(e.constructor.name, e.message, unit, e.range.start, e.annotation);
-        }
-
-        throw e;
-    }
 }
 
 function tcOrDie(
@@ -189,25 +172,6 @@ function compile(
         : compileSol(fileName, compilerVersion, remapping);
 }
 
-function computeContractInvs(
-    cha: CHA<ContractDefinition>,
-    filterOptions: AnnotationFilterOptions,
-    files: Map<string, string>,
-    contractAnnotMap: Map<ContractDefinition, AnnotationMetaData[]>
-): void {
-    chaDFS(cha, (contract: ContractDefinition): void => {
-        if (contractAnnotMap.has(contract)) {
-            return;
-        }
-
-        const annotations = getAnnotationsOrDie(contract, files, filterOptions);
-
-        if (annotations.length > 0) {
-            contractAnnotMap.set(contract, annotations);
-        }
-    });
-}
-
 /**
  * Not all contracts in the CHA need to have contract-wide invariants instrumentation.
  *
@@ -215,14 +179,16 @@ function computeContractInvs(
  * instrumentation IFF at least one contract in it's DAG has contract invariant annotations.
  *
  * @param cha - contract inheritance hierarchy
- * @param contractAnnotMap - map with extracted contract annotations
+ * @param annotMap - map with extracted contract annotations
  */
 function computeContractsNeedingInstr(
     cha: CHA<ContractDefinition>,
-    contractAnnotMap: Map<ContractDefinition, PropertyMetaData[]>
+    annotMap: AnnotationMap
 ): Set<ContractDefinition> {
     // Find the contracts needing instrumentaion by doing bfs starting from the annotated contracts
-    const wave = [...contractAnnotMap.keys()];
+    const wave = [...annotMap.entries()]
+        .filter(([n, annots]) => n instanceof ContractDefinition && annots.length > 0)
+        .map(([contract]) => contract);
     const visited = new Set<ContractDefinition>();
 
     while (wave.length > 0) {
@@ -245,11 +211,10 @@ function computeContractsNeedingInstr(
 
 function instrumentFiles(
     ctx: InstrumentationContext,
-    contractInvMap: Map<ContractDefinition, PropertyMetaData[]>,
+    annotMap: AnnotationMap,
     contractsNeedingInstr: Set<ContractDefinition>
 ): [SourceUnit[], SourceUnit[]] {
     const units = ctx.units;
-    const filters = ctx.filterOptions;
 
     const worklist: Array<
         [ContractDefinition, FunctionDefinition | undefined, AnnotationMetaData[]]
@@ -265,17 +230,10 @@ function instrumentFiles(
 
         assert(contents !== undefined, `Missing source for ${unit.absolutePath}`);
 
-        for (const fun of unit.vFunctions) {
-            /**
-             * We call `getAnnotationsOrDie()` here to make sure there are no annotations on free functions.
-             */
-            getAnnotationsOrDie(fun, ctx.files, filters);
-        }
-
         for (const contract of unit.vContracts) {
             const typeCtx: STypingCtx = [units, contract];
 
-            let contractAnnot = contractInvMap.get(contract);
+            let contractAnnot = annotMap.get(contract);
 
             if (contractAnnot === undefined) {
                 contractAnnot = [];
@@ -294,7 +252,6 @@ function instrumentFiles(
 
             if (needsContrInstr) {
                 worklist.push([contract, undefined, contractAnnot]);
-                ctx.annotations.push(...contractAnnot);
                 changed = true;
                 assert(
                     ![ContractKind.Library, ContractKind.Interface].includes(contract.kind),
@@ -309,7 +266,7 @@ function instrumentFiles(
                 }
 
                 const typeCtx: STypingCtx = [units, contract, fun];
-                const annotations = getAnnotationsOrDie(fun, ctx.files, filters);
+                const annotations = gatherFunctionAnnotations(fun, annotMap);
 
                 for (const annot of annotations) {
                     tcOrDie(annot, typeCtx, typeEnv, semInfo, fun, contract, contents);
@@ -333,7 +290,6 @@ function instrumentFiles(
                     changed = true;
 
                     worklist.push([contract, fun, annotations]);
-                    ctx.annotations.push(...annotations);
                 }
             }
         }
@@ -917,7 +873,6 @@ if ("version" in options) {
          * Merge the CHAs and file maps computed for each target
          */
         const contentsMap: Map<string, string> = new Map();
-        const contractsInvMap: Map<ContractDefinition, PropertyMetaData[]> = new Map();
 
         const groups: SourceUnit[][] = targets.map(
             (target) => groupsMap.get(target) as SourceUnit[]
@@ -951,14 +906,26 @@ if ("version" in options) {
 
         const cha = getCHA(mergedUnits);
         const callgraph = getCallGraph(mergedUnits);
-        computeContractInvs(cha, filterOptions, contentsMap, contractsInvMap);
+        let annotMap: AnnotationMap;
+
+        try {
+            annotMap = buildAnnotationMap(mergedUnits, contentsMap, filterOptions);
+        } catch (e) {
+            if (e instanceof SyntaxError || e instanceof UnsupportedByTargetError) {
+                const unit = getScopeUnit(e.target);
+
+                prettyError(e.constructor.name, e.message, unit, e.range.start, e.annotation);
+            }
+
+            throw e;
+        }
 
         /**
          * Walk over the computed CHA and compute:
          *  1. The set of contracts that have contract invariants (as the map contractInvs)
          *  2. The set of contracts that NEED contract instrumentation (because they, a parent of theirs, or a child of theirs has contract invariants)
          */
-        const contractsNeedingInstr = computeContractsNeedingInstr(cha, contractsInvMap);
+        const contractsNeedingInstr = computeContractsNeedingInstr(cha, annotMap);
 
         const compilerVersionUsed = pickVersion(compilerVersionUsedMap);
 
@@ -982,7 +949,7 @@ if ("version" in options) {
             cha,
             new Set<FunctionDefinition>(),
             filterOptions,
-            [],
+            dedup(flatten(annotMap.values())),
             new Map(),
             contentsMap,
             compilerVersionUsed,
@@ -993,11 +960,7 @@ if ("version" in options) {
 
         const utilsUnit = makeUtilsUnit(utilsOutputDir, factory, compilerVersionUsed, instrCtx);
 
-        const [allUnits, changedUnits] = instrumentFiles(
-            instrCtx,
-            contractsInvMap,
-            contractsNeedingInstr
-        );
+        const [allUnits, changedUnits] = instrumentFiles(instrCtx, annotMap, contractsNeedingInstr);
 
         allUnits.push(utilsUnit);
 

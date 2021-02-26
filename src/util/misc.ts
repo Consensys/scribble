@@ -161,3 +161,15 @@ export function dedup<T>(arr: T[]): T[] {
 
     return res;
 }
+
+/**
+ * Build a flattened version of the array of arrays `arr` and return it.
+ */
+export function flatten<T>(arr: Iterable<T[]>): T[] {
+    const res: T[] = [];
+    for (const el of arr) {
+        res.push(...el);
+    }
+
+    return res;
+}

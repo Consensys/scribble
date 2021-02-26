@@ -17,7 +17,7 @@ contract A is __scribble_ReentrancyUtils {
         __scribble_out_of_contract = false;
         RET_0 = _original_A_foo(x);
         if (!(RET_0 >= x)) {
-            emit AssertionFailed("1: ");
+            emit AssertionFailed("0: ");
             assert(false);
         }
         if (_v.__scribble_check_invs_at_end) __scribble_check_state_invariants();
@@ -69,11 +69,11 @@ contract C is __scribble_ReentrancyUtils, B, A {
         __scribble_out_of_contract = false;
         RET_0 = _original_C_foo(x);
         if (!(RET_0 >= x)) {
-            emit AssertionFailed("2: ");
+            emit AssertionFailed("0: ");
             assert(false);
         }
         if (!(RET_0 >= (x + 2))) {
-            emit AssertionFailed("3: ");
+            emit AssertionFailed("2: ");
             assert(false);
         }
         if (_v.__scribble_check_invs_at_end) __scribble_check_state_invariants();
@@ -87,7 +87,7 @@ contract C is __scribble_ReentrancyUtils, B, A {
     /// Check only the current contract's state invariants
     function __scribble_C_check_state_invariants_internal() internal {
         if (!(true)) {
-            emit AssertionFailed("0: P1");
+            emit AssertionFailed("1: P1");
             assert(false);
         }
     }

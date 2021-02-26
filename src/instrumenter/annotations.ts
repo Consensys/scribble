@@ -218,12 +218,14 @@ export class PropertyMetaData extends AnnotationMetaData<SProperty> {
 export class AnnotationError extends Error {
     readonly annotation: string;
     readonly range: Range;
+    readonly target: AnnotationTarget;
 
-    constructor(msg: string, annotation: string, range: Range) {
+    constructor(msg: string, annotation: string, range: Range, target: AnnotationTarget) {
         super(msg);
 
         this.annotation = annotation;
         this.range = range;
+        this.target = target;
     }
 }
 
@@ -265,7 +267,7 @@ export class AnnotationExtractor {
                     match.index + errStartOff + errLength + 10
                 );
 
-                throw new SyntaxError(e.message, original, errRange);
+                throw new SyntaxError(e.message, original, errRange, meta.target);
             }
 
             throw e;
@@ -305,7 +307,8 @@ export class AnnotationExtractor {
                 throw new UnsupportedByTargetError(
                     `The "${annotation.type}" annotation is not applicable to contracts`,
                     annotation.original,
-                    annotation.annotationFileRange
+                    annotation.annotationFileRange,
+                    target
                 );
             }
 
@@ -314,7 +317,8 @@ export class AnnotationExtractor {
                 throw new UnsupportedByTargetError(
                     `Unsupported contract annotations on ${target.kind} ${target.name}`,
                     annotation.original,
-                    annotation.annotationFileRange
+                    annotation.annotationFileRange,
+                    target
                 );
             }
         } else if (target instanceof FunctionDefinition) {
@@ -322,7 +326,8 @@ export class AnnotationExtractor {
                 throw new UnsupportedByTargetError(
                     `The "${annotation.type}" annotation is not applicable to functions`,
                     annotation.original,
-                    annotation.annotationFileRange
+                    annotation.annotationFileRange,
+                    target
                 );
             }
 
@@ -330,7 +335,8 @@ export class AnnotationExtractor {
                 throw new UnsupportedByTargetError(
                     `Instrumenting free functions is not supported`,
                     annotation.original,
-                    annotation.annotationFileRange
+                    annotation.annotationFileRange,
+                    target
                 );
             }
         } else {
@@ -383,27 +389,11 @@ export class AnnotationExtractor {
     }
 
     extract(
-        node: ContractDefinition | FunctionDefinition,
+        node: ContractDefinition | FunctionDefinition | VariableDeclaration,
         sources: Map<string, string>,
         filters: AnnotationFilterOptions
     ): AnnotationMetaData[] {
         const result: AnnotationMetaData[] = [];
-
-        /**
-         * Gather annotations from all overriden functions up the inheritance tree.
-         *
-         * Note that free functions can not be overriden.
-         */
-        if (node instanceof FunctionDefinition && node.vScope instanceof ContractDefinition) {
-            let overridee: FunctionDefinition | undefined = node;
-            let scope = overridee.vScope as ContractDefinition;
-
-            while ((overridee = resolve(scope, overridee, true)) !== undefined) {
-                result.push(...this.extract(overridee, sources, filters));
-
-                scope = overridee.vScope as ContractDefinition;
-            }
-        }
 
         if (node.documentation === undefined) {
             return result;
@@ -424,4 +414,90 @@ export class AnnotationExtractor {
 
         return result;
     }
+}
+
+export type AnnotationMap = Map<AnnotationTarget, AnnotationMetaData[]>;
+
+/**
+ * Gather annotations from `fun` and all functions up the inheritance tree
+ * that `fun` overrides.
+ */
+export function gatherFunctionAnnotations(
+    fun: FunctionDefinition,
+    annotationMap: AnnotationMap
+): AnnotationMetaData[] {
+    // Free functions can not be overriden and shouldn't have annotations.
+    if (!(fun.vScope instanceof ContractDefinition)) {
+        return [];
+    }
+
+    let overridee: FunctionDefinition | undefined = fun;
+    let scope = overridee.vScope as ContractDefinition;
+    const result: AnnotationMetaData[] = annotationMap.get(fun) as AnnotationMetaData[];
+
+    while ((overridee = resolve(scope, overridee, true)) !== undefined) {
+        result.unshift(...(annotationMap.get(overridee) as AnnotationMetaData[]));
+
+        scope = overridee.vScope as ContractDefinition;
+    }
+
+    return result;
+}
+
+/**
+ * Find all annotations in the list of `SourceUnit`s `units` and combine them in a
+ * map from ASTNode to its annotations. Return the resulting map.
+ *
+ * @param units - list of `SourceUnits`
+ * @param sources - mapping from file-names to their contents. Used during annotation extraction
+ * @param filters - any user provided filters for which annotations to consider
+ */
+export function buildAnnotationMap(
+    units: SourceUnit[],
+    sources: Map<string, string>,
+    filters: AnnotationFilterOptions
+): AnnotationMap {
+    const res: AnnotationMap = new Map();
+    const extractor = new AnnotationExtractor();
+
+    for (const unit of units) {
+        // Check no annotations on free functions
+        for (const freeFun of unit.vFunctions) {
+            const annots = extractor.extract(freeFun, sources, filters);
+            if (annots.length !== 0) {
+                throw new UnsupportedByTargetError(
+                    `The "${annots[0].type}" annotation is not applicable to free functions`,
+                    annots[0].original,
+                    annots[0].annotationFileRange,
+                    freeFun
+                );
+            }
+        }
+
+        // Check no annotations on file-level constants.
+        for (const fileLevelConst of unit.vVariables) {
+            const annots = extractor.extract(fileLevelConst, sources, filters);
+            if (annots.length !== 0) {
+                throw new UnsupportedByTargetError(
+                    `The "${annots[0].type}" annotation is not applicable to file-level constants`,
+                    annots[0].original,
+                    annots[0].annotationFileRange,
+                    fileLevelConst
+                );
+            }
+        }
+
+        for (const contract of unit.vContracts) {
+            res.set(contract, extractor.extract(contract, sources, filters));
+            for (const stateVar of contract.vStateVariables) {
+                res.set(stateVar, extractor.extract(stateVar, sources, filters));
+            }
+
+            for (const method of contract.vFunctions) {
+                res.set(method, extractor.extract(method, sources, filters));
+            }
+        }
+    }
+
+    return res;
 }
