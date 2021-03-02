@@ -222,7 +222,12 @@ function computeContractsNeedingInstr(
     contractAnnotMap: Map<ContractDefinition, PropertyMetaData[]>
 ): Set<ContractDefinition> {
     // Find the contracts needing instrumentaion by doing bfs starting from the annotated contracts
-    const wave = [...contractAnnotMap.keys()];
+    const wave = [...contractAnnotMap.entries()]
+        .filter(
+            ([, annots]) => annots.filter((annot) => annot instanceof PropertyMetaData).length > 0
+        )
+        .map(([contract]) => contract);
+
     const visited = new Set<ContractDefinition>();
 
     while (wave.length > 0) {
@@ -281,18 +286,22 @@ function instrumentFiles(
                 contractAnnot = [];
             }
 
+            const userFuns = contractAnnot.filter(
+                (annot) => annot instanceof UserFunctionDefinitionMetaData
+            );
+
             for (const annot of contractAnnot) {
                 tcOrDie(annot, typeCtx, typeEnv, semInfo, undefined, contract, contents);
             }
 
-            const needsContrInstr = contractsNeedingInstr.has(contract);
+            const needsStateInvariantInstr = contractsNeedingInstr.has(contract);
 
             // Nothing to instrument on interfaces
             if (contract.kind === ContractKind.Interface) {
                 continue;
             }
 
-            if (needsContrInstr) {
+            if (needsStateInvariantInstr || userFuns.length > 0) {
                 worklist.push([contract, undefined, contractAnnot]);
                 ctx.annotations.push(...contractAnnot);
                 changed = true;
@@ -324,7 +333,7 @@ function instrumentFiles(
                  */
                 if (
                     annotations.length > 0 ||
-                    (needsContrInstr &&
+                    (needsStateInvariantInstr &&
                         isExternallyVisible(fun) &&
                         isChangingState(fun) &&
                         contract.kind === ContractKind.Contract &&
@@ -348,7 +357,14 @@ function instrumentFiles(
 
     for (const [contract, fn, annotations] of worklist) {
         if (fn === undefined) {
-            contractInstrumenter.instrument(ctx, typeEnv, semInfo, annotations, contract);
+            contractInstrumenter.instrument(
+                ctx,
+                typeEnv,
+                semInfo,
+                annotations,
+                contract,
+                contractsNeedingInstr.has(contract)
+            );
         } else {
             functionInstrumenter.instrument(
                 ctx,
