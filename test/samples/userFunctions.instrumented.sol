@@ -1,16 +1,12 @@
 pragma solidity 0.7.5;
 
-/// Utility contract holding a stack counter
-contract __scribble_ReentrancyUtils {
-    bool __scribble_out_of_contract = true;
-}
 /// define plus(uint x) uint = z + x;
 ///  define plus2(uint Foo) uint = z + Foo;
 ///  define plus3(uint plus2) uint = z + plus2;
 ///  define double(uint z) uint = z+z;
 ///  define quad(uint z) uint = let res := z+z in res + res;
 ///  define quad2(uint z) uint = double(double(z));
-contract Foo is __scribble_ReentrancyUtils {
+contract Foo {
     struct vars4 {
         uint256 res;
         uint256 let_0;
@@ -50,18 +46,8 @@ contract Foo is __scribble_ReentrancyUtils {
     function quad2(uint256 z3) internal view returns (uint256) {
         return double(double(z3));
     }
-
-    /// Check only the current contract's state invariants
-    function __scribble_Foo_check_state_invariants_internal() internal {}
-
-    /// Check the state invariant for the current contract and all its bases
-    function __scribble_check_state_invariants() virtual internal {
-        __scribble_Foo_check_state_invariants_internal();
-    }
-
-    constructor() {
-        __scribble_out_of_contract = false;
-        __scribble_check_state_invariants();
-        __scribble_out_of_contract = true;
-    }
+}
+/// Utility contract holding a stack counter
+contract __scribble_ReentrancyUtils {
+    bool __scribble_out_of_contract = true;
 }
