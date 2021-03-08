@@ -37,6 +37,7 @@ export type InstrumentationMetaData = {
     otherInstrumentation: string[];
     originalSourceList: string[];
     instrSourceList: string[];
+    scribbleVersion: string;
 };
 
 /**
@@ -292,18 +293,22 @@ export function generateInstrumentationMetadata(
     newSrcMap: SrcRangeMap,
     originalUnits: SourceUnit[],
     arm: boolean,
+    scribbleVersion: string,
     outputFile?: string
 ): InstrumentationMetaData {
     const utilsUnit = ctx.utilsUnit;
+
     let originalSourceList: string[] = originalUnits
         .filter((unit) => unit !== utilsUnit)
         .map((unit) => unit.absolutePath);
+
     let instrSourceList: string[];
 
     if (ctx.outputMode === "files") {
         instrSourceList = [...originalSourceList, utilsUnit.absolutePath];
     } else {
         assert(outputFile !== undefined, `Must provide output file in ${ctx.outputMode} mode`);
+
         instrSourceList = [outputFile];
     }
 
@@ -331,7 +336,8 @@ export function generateInstrumentationMetadata(
         otherInstrumentation,
         propertyMap,
         originalSourceList,
-        instrSourceList
+        instrSourceList,
+        scribbleVersion
     };
 }
 
@@ -351,6 +357,7 @@ export function buildOutputJSON(
     flatCompiled: CompileResult,
     sortedUnits: SourceUnit[],
     newSrcMap: SrcRangeMap,
+    scribbleVersion: string,
     outputFile: string,
     arm: boolean
 ): any {
@@ -367,6 +374,7 @@ export function buildOutputJSON(
         newSrcMap,
         sortedUnits,
         arm,
+        scribbleVersion,
         outputFile
     );
 
