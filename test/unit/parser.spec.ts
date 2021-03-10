@@ -28,7 +28,8 @@ import {
     SAnnotation,
     SUserFunctionDefinition,
     SProperty,
-    AnnotationType
+    AnnotationType,
+    SIfUpdated
 } from "../../src/spec-lang/ast";
 import { eq } from "../../src/util/struct_equality";
 import bigInt from "big-integer";
@@ -769,10 +770,41 @@ describe("Annotation Parser Unit Tests", () => {
                      1 -
                      2
                      ;`,
-            new SProperty(
-                AnnotationType.IfUpdated,
+            new SIfUpdated(
                 new SBinaryOperation(new SNumber(bigInt(1), 10), "-", new SNumber(bigInt(2), 10)),
+                [],
                 "hi"
+            )
+        ],
+        [
+            `* if_updated[a]
+                {:msg 
+                       "bye"
+                    }
+                    true;
+                     ;`,
+            new SIfUpdated(new SBooleanLiteral(true), [new SId("a")], "bye")
+        ],
+        [
+            `* if_updated.foo
+                {:msg 
+                       "bye"
+                    }
+                    true;
+                     ;`,
+            new SIfUpdated(new SBooleanLiteral(true), ["foo"], "bye")
+        ],
+        [
+            `* if_updated._bar0.boo[a][b].foo[c]
+                {:msg 
+                       "felicia"
+                    }
+                    false;
+                     ;`,
+            new SIfUpdated(
+                new SBooleanLiteral(false),
+                ["_bar0", "boo", new SId("a"), new SId("b"), "foo", new SId("c")],
+                "felicia"
             )
         ],
         [
@@ -869,7 +901,26 @@ describe("Annotation Parser Unit Tests", () => {
         ]
     ];
 
-    const badSamples: string[] = [];
+    const badSamples: string[] = [
+        `* if_updated[1+2]
+                {:msg 
+                       "felicia"
+                    }
+                    false;
+                     ;`,
+        `* if_updated0ab
+                {:msg 
+                       "felicia"
+                    }
+                    false;
+                     ;`,
+        `* if_updated,ab
+                {:msg 
+                       "felicia"
+                    }
+                    false;
+                     ;`
+    ];
 
     for (const [sample, expected] of goodSamples) {
         describe(`Sample ${sample}`, () => {

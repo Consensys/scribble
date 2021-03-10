@@ -6,7 +6,8 @@ export type TypeMap = Map<SNode, SType>;
 
 /**
  * `TypeEnv` holds any typing environment information computed during the
- * typechecking process.
+ * typechecking process. We pass an empty `TypeEnv` to `tc(..)` and `tc(...)` passes
+ * the type environment between function, accumulating type information as it runs.
  */
 export class TypeEnv {
     private typeMap: TypeMap;

@@ -21,8 +21,9 @@ import {
     VariableDeclaration,
     VariableDeclarationStatement
 } from "solc-typed-ast";
+import { AnnotationTarget } from "../../instrumenter";
 import { Logger } from "../../logger";
-import { assert } from "../../util";
+import { assert, pp, single } from "../../util";
 import { eq } from "../../util/struct_equality";
 import {
     Range,
@@ -34,6 +35,7 @@ import {
     SFunctionCall,
     SHexLiteral,
     SId,
+    SIfUpdated,
     SIndexAccess,
     SLet,
     SMemberAccess,
@@ -71,12 +73,19 @@ import { STupleType } from "../ast/types/tuple_type";
 import { BuiltinAddressMembers, BuiltinSymbols } from "./builtins";
 import { TypeEnv } from "./typeenv";
 
+export class IfUpdatedScope {
+    constructor(
+        public readonly target: VariableDeclaration,
+        public readonly annotation: SIfUpdated
+    ) {}
+}
 export type SScope =
     | SourceUnit[]
     | ContractDefinition
     | FunctionDefinition
     | SLet
-    | SUserFunctionDefinition;
+    | SUserFunctionDefinition
+    | IfUpdatedScope;
 export type STypingCtx = SScope[];
 
 export function ppTypingCtx(ctx: STypingCtx): string {
@@ -260,6 +269,16 @@ export function lookupVarDef(name: string, ctx: STypingCtx): VarDefSite | undefi
         } else if (scope instanceof Array) {
             // No variable definitions at the global scope
             return undefined;
+        } else if (scope instanceof IfUpdatedScope) {
+            const prop = scope.annotation;
+
+            for (let i = 0; i < prop.datastructurePath.length; i++) {
+                const element = prop.datastructurePath[i];
+
+                if (element instanceof SId && element.name === name) {
+                    return [scope, i];
+                }
+            }
         } else {
             for (let bindingIdx = 0; bindingIdx < scope.lhs.length; bindingIdx++) {
                 const binding = scope.lhs[bindingIdx];
@@ -577,10 +596,28 @@ function isInty(type: SType): boolean {
 export function tcAnnotation(
     annot: SAnnotation,
     ctx: STypingCtx,
+    target: AnnotationTarget,
     typeEnv: TypeEnv = new TypeEnv()
 ): void {
     if (annot instanceof SProperty) {
-        const exprType = tc(annot.expression, ctx, typeEnv);
+        let predCtx;
+
+        if (annot instanceof SIfUpdated) {
+            assert(
+                target instanceof VariableDeclaration,
+                `Unexpected if_updated target: ${pp(target)}`
+            );
+            predCtx = [...ctx, new IfUpdatedScope(target, annot)];
+            assert(target.vType !== undefined, `State var ${target.name} is missing a type.`);
+
+            // Check to make sure the datastructure path matches the type of the
+            // underlying target state var
+            locateElementType(target.vType, annot.datastructurePath);
+        } else {
+            predCtx = ctx;
+        }
+
+        const exprType = tc(annot.expression, predCtx, typeEnv);
 
         if (!(exprType instanceof SBoolType)) {
             throw new SWrongType(
@@ -779,6 +816,130 @@ function tcIdBuiltin(expr: SId): SType | undefined {
     return BuiltinSymbols.get(expr.name);
 }
 
+/**
+ * Given the type of some state variable `type`, a 'data-structure path' `path` find the path of the
+ * element of the data structre pointed to by the data-structure path.
+ *
+ * @param type
+ * @param path
+ */
+function locateElementType(type: TypeName, path: Array<SId | string>): SType {
+    for (let i = 0; i < path.length; i++) {
+        const element = path[i];
+
+        if (element instanceof SId) {
+            if (type instanceof ArrayTypeName) {
+                type = type.vBaseType;
+            } else if (type instanceof Mapping) {
+                type = type.vValueType;
+            } else {
+                throw new Error(
+                    `Mismatch between path ${pp(
+                        path
+                    )} and actual type at index ${i}: Expected indexable type but got ${pp(type)}`
+                );
+            }
+        } else {
+            if (
+                !(
+                    type instanceof UserDefinedTypeName &&
+                    type.vReferencedDeclaration instanceof StructDefinition
+                )
+            ) {
+                throw new Error(
+                    `Mismatch between path ${pp(
+                        path
+                    )} and actual type at index ${i}: Expected struct but got ${pp(type)}`
+                );
+            }
+
+            const structDef = type.vReferencedDeclaration;
+            const field = single(
+                structDef.vMembers.filter((def) => def.name === element),
+                `Expected a single field with name ${element} on struct  ${pp(structDef)}`
+            );
+
+            assert(
+                field.vType !== undefined,
+                `Missing type on field ${field.name} of struct ${pp(structDef)}`
+            );
+
+            type = field.vType;
+        }
+    }
+
+    return specializeType(astTypeNameToSType(type), DataLocation.Storage);
+}
+
+/**
+ * Given the type of some state variable `type`, a 'data-structure path' `path`, and an index `idx` in that path that
+ * corresponds to some index variable, find the type of that index variable.
+ *
+ * @param type
+ * @param idx
+ * @param path
+ */
+function locateKeyType(type: TypeName, idx: number, path: Array<SId | string>): SType {
+    assert(idx < path.length, ``);
+
+    for (let i = 0; i < idx; i++) {
+        const element = path[i];
+
+        if (element instanceof SId) {
+            if (type instanceof ArrayTypeName) {
+                type = type.vBaseType;
+            } else if (type instanceof Mapping) {
+                type = type.vValueType;
+            } else {
+                throw new Error(
+                    `Mismatch between path ${pp(
+                        path
+                    )} and actual type at index ${i}: Expected indexable type but got ${pp(type)}`
+                );
+            }
+        } else {
+            if (
+                !(
+                    type instanceof UserDefinedTypeName &&
+                    type.vReferencedDeclaration instanceof StructDefinition
+                )
+            ) {
+                throw new Error(
+                    `Mismatch between path ${pp(
+                        path
+                    )} and actual type at index ${i}: Expected struct but got ${pp(type)}`
+                );
+            }
+
+            const structDef = type.vReferencedDeclaration;
+            const field = single(
+                structDef.vMembers.filter((def) => def.name === element),
+                `Expected a single field with name ${element} on struct  ${pp(structDef)}`
+            );
+
+            assert(
+                field.vType !== undefined,
+                `Missing type on field ${field.name} of struct ${pp(structDef)}`
+            );
+
+            type = field.vType;
+        }
+    }
+
+    if (type instanceof ArrayTypeName) {
+        return new SIntType(256, false);
+    } else if (type instanceof Mapping) {
+        // When the keys are strings/bytes assume they are in "memory". Not sure this matters ATM.
+        return specializeType(astTypeNameToSType(type.vKeyType), DataLocation.Memory);
+    } else {
+        throw new Error(
+            `Can't compute key type for field ${idx} in path ${pp(
+                path
+            )}: arrive at non-indexable type ${pp(type)}`
+        );
+    }
+}
+
 function tcIdVariable(expr: SId, ctx: STypingCtx, typeEnv: TypeEnv): SType | undefined {
     const def = lookupVarDef(expr.name, ctx);
 
@@ -815,6 +976,19 @@ function tcIdVariable(expr: SId, ctx: STypingCtx, typeEnv: TypeEnv): SType | und
         }
 
         return rhsT;
+    }
+
+    if (defNode instanceof IfUpdatedScope) {
+        assert(
+            defNode.target.vType !== undefined,
+            `Expected target ${pp(defNode.target)} for if_updated to have a vType.`
+        );
+
+        return locateKeyType(
+            defNode.target.vType,
+            bindingIdx,
+            defNode.annotation.datastructurePath
+        );
     }
 
     // otherwise defNode is SUserFunctionDefinition
@@ -957,7 +1131,7 @@ export function tcUnary(expr: SUnaryOperation, ctx: STypingCtx, typeEnv: TypeEnv
         );
     }
 
-    // old(..) is only defined in a FunctionDefinition scope.
+    // old(..) is only defined in a FunctionDefinition or a "if_updated" scope.
     if (getScopeOfType(FunctionDefinition, ctx) === undefined) {
         throw new SGenericTypeError(
             `old() expressions only defined for function annotations.`,
@@ -1253,7 +1427,7 @@ export function tcIndexAccess(expr: SIndexAccess, ctx: STypingCtx, typeEnv: Type
                     indexT
                 );
             }
-            return new SIntType(8, false);
+            return new SFixedBytes(1);
         }
 
         if (toT instanceof SArrayType) {
@@ -1511,7 +1685,7 @@ export function tcFunctionCall(expr: SFunctionCall, ctx: STypingCtx, typeEnv: Ty
             );
         }
 
-        return calleeT.type;
+        return specializeType(calleeT.type, DataLocation.Memory);
     }
 
     // Type-cast to a user-defined type

@@ -17,7 +17,7 @@ import {
 } from "../../src/instrumenter";
 import { cook } from "../../src/rewriter";
 import { single } from "../../src/util";
-import { findContract, findFunction, toAst } from "../integration/utils";
+import { getTarget, getTypeCtx, toAst } from "../integration/utils";
 import { getCallGraph } from "../../src/instrumenter/callgraph";
 import { getCHA } from "../../src/instrumenter/cha";
 import { InstrumentationContext } from "../../src/instrumenter/instrumentation_context";
@@ -310,8 +310,8 @@ contract Foo {
     ] of goodSamples) {
         it(`Interpose on ${contractName}.${funName} in #${fileName}`, () => {
             const [sources, reader, files, compilerVersion] = toAst(fileName, content);
-            const contract: ContractDefinition = findContract(contractName, sources);
-            const fun: FunctionDefinition = findFunction(funName, contract);
+            const typeCtx = getTypeCtx([contractName, funName], sources);
+            const fun: FunctionDefinition = getTarget(typeCtx) as FunctionDefinition;
             const factory = new ASTNodeFactory(reader.context);
 
             const ctx = makeInstrumentationCtx(
@@ -436,7 +436,8 @@ contract Foo is __scribble_ReentrancyUtils {
         it(`Instrument ${contractName} in #${fileName}`, () => {
             const [sources, reader, files, compilerVersion] = toAst(fileName, content);
 
-            const contract = findContract(contractName, sources);
+            const typeCtx = getTypeCtx([contractName, undefined], sources);
+            const contract: ContractDefinition = getTarget(typeCtx) as ContractDefinition;
             const factory = new ASTNodeFactory(reader.context);
             const contractInstrumenter = new ContractInstrumenter();
 
@@ -644,8 +645,9 @@ contract Foo {
     ] of goodSamples) {
         it(`Instrument ${contractName} in #${fileName}`, () => {
             const [sources, reader, files, compilerVersion] = toAst(fileName, content);
-            const contract: ContractDefinition = findContract(contractName, sources);
-            const fun: FunctionDefinition = findFunction(funName, contract);
+            const typeCtx = getTypeCtx([contractName, funName], sources);
+            const contract: ContractDefinition = typeCtx[1] as ContractDefinition;
+            const fun: FunctionDefinition = getTarget(typeCtx) as FunctionDefinition;
             const factory = new ASTNodeFactory(reader.context);
 
             const callSite: FunctionCall = single(

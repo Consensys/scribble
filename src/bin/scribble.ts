@@ -117,7 +117,7 @@ function tcOrDie(
     const annotNode = annotation.parsedAnnot;
 
     try {
-        tcAnnotation(annotNode, ctx, typeEnv);
+        tcAnnotation(annotNode, ctx, annotation.target, typeEnv);
         scAnnotation(annotNode, typeEnv, semInfo);
     } catch (err) {
         const scope = fn === undefined ? `${contract.name}` : `${contract.name}.${fn.name}`;
@@ -257,6 +257,12 @@ function instrumentFiles(
                     ![ContractKind.Library, ContractKind.Interface].includes(contract.kind),
                     `Shouldn't be instrumenting ${contract.kind} ${contract.name} with contract invs`
                 );
+            }
+
+            for (const stateVar of contract.vStateVariables) {
+                for (const annotation of annotMap.get(stateVar) as AnnotationMetaData[]) {
+                    tcOrDie(annotation, typeCtx, typeEnv, semInfo, undefined, contract, contents);
+                }
             }
 
             for (const fun of contract.vFunctions) {

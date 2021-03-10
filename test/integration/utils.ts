@@ -9,12 +9,14 @@ import {
     compile,
     detectCompileErrors,
     ASTReader,
-    ContractDefinition,
+    ASTNode,
     FunctionDefinition,
-    ASTNode
+    ContractDefinition
 } from "solc-typed-ast";
 import { spawnSync } from "child_process";
-import { assert } from "../../src";
+import { AnnotationTarget, assert, pp } from "../../src";
+import { IfUpdatedScope, STypingCtx } from "../../src/spec-lang/tc";
+import { SAnnotation, SIfUpdated } from "../../src/spec-lang/ast";
 
 export function searchRecursive(directory: string, pattern: RegExp): string[] {
     let results: string[] = [];
@@ -100,26 +102,60 @@ export function scribble(fileName: string | string[], ...args: string[]): string
     return result.stdout;
 }
 
-export function findContract(name: string, sources: SourceUnit[]): ContractDefinition {
+export function getTarget(typeCtx: STypingCtx): AnnotationTarget {
+    const topCtx = typeCtx[typeCtx.length - 1] as AnnotationTarget;
+    if (topCtx instanceof FunctionDefinition || topCtx instanceof ContractDefinition) {
+        return topCtx;
+    }
+
+    if (topCtx instanceof IfUpdatedScope) {
+        return topCtx.target;
+    }
+
+    assert(false, `NYI getTarget(${pp(typeCtx)})`);
+}
+
+export function getTypeCtx(
+    raw: [string, string | undefined],
+    sources: SourceUnit[],
+    annotation?: SAnnotation
+): STypingCtx {
+    const res: STypingCtx = [sources];
+
     for (const unit of sources) {
         for (const contract of unit.vContracts) {
-            if (contract.name === name) {
-                return contract;
+            if (contract.name === raw[0]) {
+                res.push(contract);
+
+                const subTarget = raw[1];
+
+                if (subTarget === undefined) {
+                    return res;
+                }
+
+                for (const fun of contract.vFunctions) {
+                    if (fun.name == subTarget) {
+                        res.push(fun);
+                        return res;
+                    }
+                }
+
+                for (const stateVar of contract.vStateVariables) {
+                    if (stateVar.name == subTarget) {
+                        assert(annotation instanceof SIfUpdated, ``);
+                        res.push(new IfUpdatedScope(stateVar, annotation));
+                        return res;
+                    }
+                }
+
+                throw new Error(
+                    `Couldn't find annotation target ${subTarget} in contract ${raw[0]}`
+                );
             }
         }
     }
-    throw new Error(``);
+    throw new Error(`Couldn't find contract ${raw[0]}`);
 }
-
-export function findFunction(name: string, contract: ContractDefinition): FunctionDefinition {
-    for (const fun of contract.vFunctions) {
-        if (name === fun.name) {
-            return fun;
-        }
-    }
-    throw new Error(``);
-}
-
 /**
  * Helper function to check that 2 ASTNodes are (roughly) isomorphic. It checks that:
  *  1) They have the same tree structure (i.e. type of node at each branch, and number of children)

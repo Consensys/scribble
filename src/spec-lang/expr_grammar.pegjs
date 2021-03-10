@@ -34,10 +34,14 @@ If_Succeeds =
     return new SProperty(type as AnnotationType, expr, label !== null ? label : undefined, location());
   }
 
+DatastructurePath_Index = "[" __ id: Identifier __"]" { return id; }
+DatastructurePath_Field = "." id: Identifier {return id.name;}
+IndexPath = (DatastructurePath_Field / DatastructurePath_Index)*
+
 If_Updated =
-  type: IF_UPDATED __ label: AnnotationLabel? __ expr: Expression __ ";"
+  type: IF_UPDATED path: IndexPath __ label: AnnotationLabel? __ expr: Expression __ ";"
   {
-    return new SProperty(type as AnnotationType, expr, label !== null ? label : undefined, location());
+    return new SIfUpdated(expr, path, label !== null ? label : undefined, location());
   }
 
 UserFunctionDefinition = 
@@ -412,7 +416,7 @@ BoolType = BOOL { return new SBoolType(location()) }
 AddressType = ADDRESS __ payable:(PAYABLE?) { return new SAddressType(payable !== null, location())}
 IntType = unsigned:("u"?) "int" width:(Number?) { 
   const signed = unsigned === null;
-  const bitWidth = width === null ? 256 : width;
+  const bitWidth = width === null ? 256 : width.num.toString(10);
   return new SIntType(bitWidth, signed, location());
 }
 FixedSizeBytesType

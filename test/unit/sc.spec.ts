@@ -2,13 +2,13 @@ import { parseExpression as parse } from "../../src/spec-lang/expr_parser";
 import expect from "expect";
 import { eq } from "../../src/util/struct_equality";
 import { SType, SIntLiteralType, SIntType } from "../../src/spec-lang/ast";
-import { SourceUnit, ContractDefinition } from "solc-typed-ast";
+import { SourceUnit } from "solc-typed-ast";
 import { toAst } from "../integration/utils";
 import { tc, STypingCtx, SemInfo, SemError, TypeEnv } from "../../src/spec-lang/tc";
 import { sc } from "../../src/spec-lang/tc";
 import { SBoolType } from "../../src/spec-lang/ast/types/bool";
 import { Logger } from "../../src/logger";
-import { findFunction, findContract } from "../integration/utils";
+import { getTypeCtx } from "../integration/utils";
 import { SStringLiteralType } from "../../src/spec-lang/ast/types/string_literal";
 
 export type LocationDesc = [string, string | undefined];
@@ -272,10 +272,7 @@ describe("SemanticChecker Unit Tests", () => {
             for (const [specString, loc, expectedType, expectedInfo] of testCases) {
                 it(`SemCheck for ${specString} returns ${JSON.stringify(expectedInfo)}`, () => {
                     const parsed = parse(specString);
-                    const ctx: STypingCtx = [sources, findContract(loc[0], sources)];
-                    if (loc[1] !== undefined) {
-                        ctx.push(findFunction(loc[1], ctx[1] as ContractDefinition));
-                    }
+                    const ctx: STypingCtx = getTypeCtx(loc, sources);
                     const typeEnv = new TypeEnv();
                     const type = tc(parsed, ctx, typeEnv);
                     expect(eq(type, expectedType)).toEqual(true);
@@ -298,10 +295,7 @@ describe("SemanticChecker Unit Tests", () => {
             for (const [specString, loc] of testCases) {
                 it(`SemCheck for ${specString} throws SemError`, () => {
                     const parsed = parse(specString);
-                    const ctx: STypingCtx = [sources, findContract(loc[0], sources)];
-                    if (loc[1] !== undefined) {
-                        ctx.push(findFunction(loc[1], ctx[1] as ContractDefinition));
-                    }
+                    const ctx: STypingCtx = getTypeCtx(loc, sources);
                     // Type-checking should succeed
                     const typeEnv = new TypeEnv();
                     tc(parsed, ctx, typeEnv);
