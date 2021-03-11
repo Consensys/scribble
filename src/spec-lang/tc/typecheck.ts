@@ -709,8 +709,6 @@ export function tcAnnotation(
         }
     } else if (annot instanceof SUserFunctionDefinition) {
         const funScope = ctx[ctx.length - 1];
-        // NOTE (dimo) If you ever relax this assertion to allow FunctionDefinitions
-        // you must fix tcUnary and tcResult to disallow old() and $reuslt iin user functions.
         if (!(funScope instanceof ContractDefinition)) {
             throw new SGenericTypeError(
                 `User functions can only be defined on contract annotations at the moment.`,
@@ -1209,14 +1207,6 @@ export function tcUnary(expr: SUnaryOperation, ctx: STypingCtx, typeEnv: TypeEnv
             `Operation '-' expectes int or int literal, not ${innerT.pp()} in ${expr.pp()}`,
             expr.subexp,
             innerT
-        );
-    }
-
-    // old(..) is only defined in a FunctionDefinition or a "if_updated" scope.
-    if (getScopeOfType(FunctionDefinition, ctx) === undefined) {
-        throw new SGenericTypeError(
-            `old() expressions only defined for function annotations.`,
-            expr
         );
     }
 

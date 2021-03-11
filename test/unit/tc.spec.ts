@@ -566,10 +566,7 @@ describe("TypeChecker Expression Unit Tests", () => {
                 ["msg.any", ["Foo", undefined]],
                 ["tx.any", ["Foo", undefined]],
                 ["$result", ["Foo", undefined]],
-                ["$result", ["Foo", "noReturn"]],
-                ["old(5)", ["Foo", undefined]],
-                ["old(sV1)", ["Foo", undefined]],
-                ["old(sA)", ["Foo", undefined]]
+                ["$result", ["Foo", "noReturn"]]
             ]
         ]
     ];
@@ -762,7 +759,8 @@ describe("TypeChecker Annotation Tests", () => {
                     ["Unrelated", "m4"],
                     new SBoolType(),
                     true
-                ]
+                ],
+                ["if_updated old(z)>0;", ["Unrelated", "z"], new SBoolType(), true]
             ]
         ]
     ];
@@ -812,12 +810,10 @@ describe("TypeChecker Annotation Tests", () => {
             [["define user_plusOne(uint x) uint = x+1;", ["Base", undefined]]],
             [
                 ["if_succeeds z > 0;", ["Base", "plus"]],
-                ["invariant old(x) + 1 == x;", ["Base", undefined]],
                 ["invariant $result > 0;", ["Base", undefined]],
                 ["define foo() uint = true;", ["Base", undefined]],
                 ["define foo() uint = x;", ["Unrelated", undefined]],
                 ["define foo() uint = 1;", ["Base", "plus"]],
-                ["define foo() uint = old(x);", ["Base", undefined]],
                 ["define foo() uint = $result;", ["Base", undefined]],
                 ["define foo(uint t) uint = user_plusOne(t);", ["Unrelated", undefined]],
                 ["if_updated.foo true;", ["Unrelated", "z"]],

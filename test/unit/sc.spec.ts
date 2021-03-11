@@ -1,10 +1,24 @@
-import { parseExpression as parse } from "../../src/spec-lang/expr_parser";
+import { parseAnnotation, parseExpression as parse } from "../../src/spec-lang/expr_parser";
 import expect from "expect";
 import { eq } from "../../src/util/struct_equality";
-import { SType, SIntLiteralType, SIntType } from "../../src/spec-lang/ast";
-import { SourceUnit } from "solc-typed-ast";
-import { toAst } from "../integration/utils";
-import { tc, STypingCtx, SemInfo, SemError, TypeEnv } from "../../src/spec-lang/tc";
+import {
+    SType,
+    SIntLiteralType,
+    SIntType,
+    SProperty,
+    AnnotationType
+} from "../../src/spec-lang/ast";
+import { ContractDefinition, FunctionDefinition, SourceUnit } from "solc-typed-ast";
+import { getTarget, toAst } from "../integration/utils";
+import {
+    tc,
+    STypingCtx,
+    SemInfo,
+    SemError,
+    TypeEnv,
+    tcAnnotation,
+    scAnnotation
+} from "../../src/spec-lang/tc";
 import { sc } from "../../src/spec-lang/tc";
 import { SBoolType } from "../../src/spec-lang/ast/types/bool";
 import { Logger } from "../../src/logger";
@@ -13,7 +27,7 @@ import { SStringLiteralType } from "../../src/spec-lang/ast/types/string_literal
 
 export type LocationDesc = [string, string | undefined];
 
-describe("SemanticChecker Unit Tests", () => {
+describe("SemanticChecker Expression Unit Tests", () => {
     const goodSamples: Array<[string, string, Array<[string, LocationDesc, SType, SemInfo]>]> = [
         [
             "foo.sol",
@@ -256,7 +270,8 @@ describe("SemanticChecker Unit Tests", () => {
                 ["let x := y in old(x)", ["Foo", "add"]],
                 ["let x := y in let z := old(1) in old(x+z)", ["Foo", "add"]],
                 ["vId()", ["Foo", "add"]],
-                ["old($result)", ["Foo", "add"]]
+                ["old($result)", ["Foo", "add"]],
+                ["old(7)", ["Foo", undefined]]
             ]
         ]
     ];
@@ -273,10 +288,19 @@ describe("SemanticChecker Unit Tests", () => {
                 it(`SemCheck for ${specString} returns ${JSON.stringify(expectedInfo)}`, () => {
                     const parsed = parse(specString);
                     const ctx: STypingCtx = getTypeCtx(loc, sources);
+                    const target = getTarget(ctx);
+                    const annotationType =
+                        target instanceof ContractDefinition
+                            ? AnnotationType.Invariant
+                            : target instanceof FunctionDefinition
+                            ? AnnotationType.IfSucceeds
+                            : AnnotationType.IfUpdated;
+
+                    const annotation = new SProperty(annotationType, parsed);
                     const typeEnv = new TypeEnv();
                     const type = tc(parsed, ctx, typeEnv);
                     expect(eq(type, expectedType)).toEqual(true);
-                    const semInfo = sc(parsed, { isOld: false }, typeEnv);
+                    const semInfo = sc(parsed, { isOld: false, annotation }, typeEnv);
                     Logger.debug(`[${parsed.pp()}] sem info: ${JSON.stringify(semInfo)}`);
                     expect(eq(semInfo, expectedInfo)).toEqual(true);
                 });
@@ -296,12 +320,128 @@ describe("SemanticChecker Unit Tests", () => {
                 it(`SemCheck for ${specString} throws SemError`, () => {
                     const parsed = parse(specString);
                     const ctx: STypingCtx = getTypeCtx(loc, sources);
+                    const target = getTarget(ctx);
+                    const annotationType =
+                        target instanceof ContractDefinition
+                            ? AnnotationType.Invariant
+                            : target instanceof FunctionDefinition
+                            ? AnnotationType.IfSucceeds
+                            : AnnotationType.IfUpdated;
+                    const annotation = new SProperty(annotationType, parsed);
                     // Type-checking should succeed
                     const typeEnv = new TypeEnv();
                     tc(parsed, ctx, typeEnv);
-                    expect(sc.bind(sc, parsed, { isOld: false }, typeEnv)).toThrowError(
+                    expect(sc.bind(sc, parsed, { isOld: false, annotation }, typeEnv)).toThrowError(
                         SemError as any
                     );
+                });
+            }
+        });
+    }
+});
+
+describe("SemanticChecker Expression Unit Tests", () => {
+    const goodSamples: Array<[string, string, Array<[string, LocationDesc]>]> = [
+        [
+            "foo.sol",
+            `pragma solidity 0.6.0;
+
+            contract Foo {
+                uint sV;
+                int128 constant sV1 = -1;
+                int32[] sI32Arr;
+
+                function pId(int8 x) public pure returns (int8) {
+                    return x;
+                }
+
+                function vId() public view returns (uint) {
+                    return sV;
+                }
+
+                function add(int8 x, uint64 y) public returns (uint64 add) {
+                    return uint64(x)+y;
+                }
+            }`,
+            [
+                ["define foo(uint x) uint = x + sV;", ["Foo", undefined]],
+                ["if_updated old(sV) < sV;", ["Foo", "sV"]],
+                ["if_succeeds old(y) + y > add;", ["Foo", "add"]],
+                ["invariant sV > 0;", ["Foo", undefined]]
+            ]
+        ]
+    ];
+
+    const badSamples: Array<[string, string, Array<[string, LocationDesc]>]> = [
+        [
+            "foo.sol",
+            `pragma solidity 0.6.0;
+
+            contract Foo {
+                uint sV;
+                int128 constant sV1 = -1;
+                int32 sI32Arr;
+
+                function vId() public returns (uint) {
+                    return sV;
+                }
+
+                function add(uint8 x, uint64 y) public returns (uint64 add) {
+                    return uint64(x)+y;
+                }
+            }`,
+            [
+                ["if_succeeds old(old(x)) > 0;", ["Foo", "add"]],
+                ["if_succeeds let x := y in old(x) > 0;", ["Foo", "add"]],
+                ["invariant old(sV) > 0;", ["Foo", undefined]],
+                ["define foo(uint x) uint = old(x);", ["Foo", undefined]],
+                ["define foo() uint = old(sV);", ["Foo", undefined]]
+            ]
+        ]
+    ];
+
+    for (const [fileName, content, testCases] of goodSamples) {
+        describe(`Positive tests for #${fileName}`, () => {
+            let sources: SourceUnit[];
+
+            before(() => {
+                [sources] = toAst(fileName, content);
+            });
+
+            for (const [specString, loc] of testCases) {
+                it(`SemCheck for ${specString} succeeds`, () => {
+                    const annotation = parseAnnotation(specString);
+                    const ctx: STypingCtx = getTypeCtx(loc, sources, annotation);
+                    const target = getTarget(ctx);
+                    const typeEnv = new TypeEnv();
+                    tcAnnotation(annotation, ctx, target, typeEnv);
+                    scAnnotation(annotation, typeEnv, new Map(), { isOld: false, annotation });
+                });
+            }
+        });
+    }
+
+    for (const [fileName, content, testCases] of badSamples) {
+        describe(`Negative tests for #${fileName}`, () => {
+            let sources: SourceUnit[];
+
+            before(() => {
+                [sources] = toAst(fileName, content);
+            });
+
+            for (const [specString, loc] of testCases) {
+                it(`SemCheck for ${specString} throws as expected`, () => {
+                    const annotation = parseAnnotation(specString);
+                    const ctx: STypingCtx = getTypeCtx(loc, sources, annotation);
+                    const target = getTarget(ctx);
+                    const typeEnv = new TypeEnv();
+                    tcAnnotation(annotation, ctx, target, typeEnv);
+                    expect(
+                        scAnnotation.bind(scAnnotation, annotation, typeEnv, new Map(), {
+                            isOld: false,
+                            annotation
+                        })
+                    ).toThrowError(SemError as any);
                 });
             }
         });

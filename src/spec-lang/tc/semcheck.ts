@@ -25,7 +25,8 @@ import {
     SResult,
     SAnnotation,
     SProperty,
-    SUserFunctionDefinition
+    SUserFunctionDefinition,
+    AnnotationType
 } from "../ast";
 import { TypeEnv } from "./typeenv";
 
@@ -48,6 +49,7 @@ export type SemMap = Map<SNode, SemInfo>;
 
 export interface SemCtx {
     isOld: boolean;
+    annotation: SAnnotation;
 }
 
 export class SemError extends Error {
@@ -69,7 +71,10 @@ export function scUnits(
 ): void {
     const scHelper = (annotationMD: AnnotationMetaData): void => {
         try {
-            scAnnotation(annotationMD.parsedAnnot, typeEnv, semMap);
+            scAnnotation(annotationMD.parsedAnnot, typeEnv, semMap, {
+                isOld: false,
+                annotation: annotationMD.parsedAnnot
+            });
         } catch (e) {
             // Add the annotation metadata to the exception for pretty-printing
             if (e instanceof SemError) {
@@ -107,9 +112,9 @@ export function scUnits(
 export function scAnnotation(
     node: SAnnotation,
     typings: TypeEnv,
-    semMap: SemMap = new Map()
+    semMap: SemMap = new Map(),
+    ctx: SemCtx
 ): void {
-    const ctx: SemCtx = { isOld: false };
     if (node instanceof SProperty) {
         sc(node.expression, ctx, typings, semMap);
     } else if (node instanceof SUserFunctionDefinition) {
@@ -262,9 +267,26 @@ export function scUnary(
                 expr
             );
         }
+
+        if (
+            !(
+                ctx.annotation.type === AnnotationType.IfSucceeds ||
+                ctx.annotation.type === AnnotationType.IfUpdated
+            )
+        ) {
+            throw new SemError(
+                `old() expressions not allowed in ${ctx.annotation.type} annotations`,
+                expr
+            );
+        }
     }
 
-    return sc(expr.subexp, { isOld: expr.op === "old" }, typeEnv, semMap);
+    return sc(
+        expr.subexp,
+        { isOld: expr.op === "old", annotation: ctx.annotation },
+        typeEnv,
+        semMap
+    );
 }
 
 export function scBinary(
