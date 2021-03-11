@@ -225,8 +225,10 @@ function generatePropertyMap(
         const annotationRange = annotation.annotationFileRange;
         const debugEvent = ctx.debugEventDefs.get(annotation.id);
         const signature = debugEvent !== undefined ? debugEvent.canonicalSignature : "";
-        const propertySource = rangeToSrc(predRange, unit.sourceListIndex);
-        const annotationSource = rangeToSrc(annotationRange, unit.sourceListIndex);
+
+        const newUnitIdx = getInstrFileIdx(unit, ctx.outputMode, instrSourceList);
+        const propertySource = rangeToSrc(predRange, newUnitIdx);
+        const annotationSource = rangeToSrc(annotationRange, newUnitIdx);
 
         const instrumentationRanges = dedup(
             (ctx.evaluationStatements.get(annotation) as ASTNode[]).map((node) => {
