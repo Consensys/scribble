@@ -10,6 +10,7 @@ import {
     SourceUnit,
     ContractDefinition
 } from "solc-typed-ast";
+import { pp } from ".";
 
 export function nodeToSource(main: ASTNode, targetCompilerVersion = "0.6.0"): string {
     const formatter = new PrettyFormatter(4);
@@ -169,6 +170,63 @@ export function flatten<T>(arr: Iterable<T[]>): T[] {
     const res: T[] = [];
     for (const el of arr) {
         res.push(...el);
+    }
+
+    return res;
+}
+
+/**
+ * Given a list of T's `things` and a partial ordering between them `order` return
+ * a topologically sorted version of `things`. For any pair `[a,b]` in `order` we assume
+ * that `a` has to come before `b`.
+ *
+ * @param things
+ * @param relation
+ */
+export function topoSort<T>(things: T[], order: Array<[T, T]>): T[] {
+    const successors = new Map<T, Set<T>>();
+    const nPreds = new Map<T, number>();
+
+    // Initialize datastructures
+    for (const thing of things) {
+        nPreds.set(thing, 0);
+        successors.set(thing, new Set());
+    }
+
+    for (const [a, b] of order) {
+        nPreds.set(b, (nPreds.get(b) as number) + 1);
+        (successors.get(a) as Set<T>).add(b);
+    }
+
+    const res: T[] = [];
+    for (const thing of things) {
+        if ((nPreds.get(thing) as number) === 0) {
+            res.push(thing);
+        }
+    }
+
+    assert(res.length > 0, `Order ${pp(order)} is not a proper partial order`);
+    let i = 0;
+
+    while (res.length < things.length) {
+        const curLength = res.length;
+        for (; i < curLength; i++) {
+            for (const successor of successors.get(res[i]) as Set<T>) {
+                const newCount = (nPreds.get(successor) as number) - 1;
+                nPreds.set(successor, newCount);
+
+                if (newCount === 0) {
+                    res.push(successor);
+                }
+            }
+        }
+
+        assert(
+            res.length > curLength,
+            `Order ${pp(order)} is not a valid proper order. Topo sort stalled at ${
+                res.length
+            } out of ${things.length}`
+        );
     }
 
     return res;
