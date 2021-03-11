@@ -1,6 +1,6 @@
 #!/usr/bin/env node
 import fse from "fs-extra";
-import path, { dirname, relative } from "path";
+import path from "path";
 import {
     ASTContext,
     ASTNode,
@@ -30,11 +30,11 @@ import {
 } from "solc-typed-ast";
 import { print, rewriteImports } from "../ast_to_source_printer";
 import {
-    PropertyMetaData,
     AnnotationExtractor,
+    AnnotationMetaData,
+    PropertyMetaData,
     SyntaxError,
     UnsupportedByTargetError,
-    AnnotationMetaData,
     UserFunctionDefinitionMetaData
 } from "../instrumenter/annotations";
 import { getCallGraph } from "../instrumenter/callgraph";
@@ -60,13 +60,13 @@ import {
 } from "../spec-lang/tc";
 import {
     assert,
+    buildOutputJSON,
+    generateInstrumentationMetadata,
     getOrInit,
     getScopeUnit,
     isChangingState,
     isExternallyVisible,
-    pp,
-    buildOutputJSON,
-    generateInstrumentationMetadata
+    pp
 } from "../util";
 import cli from "./scribble_cli.json";
 
@@ -757,10 +757,10 @@ function pickVersion(versionUsedMap: Map<string, string>): string {
     return versions[0];
 }
 
-if ("version" in options) {
-    const { version } = require("../../package.json");
+const pkg = fse.readJSONSync(path.join(__dirname, "../../package.json"), { encoding: "utf-8" });
 
-    console.log(version);
+if ("version" in options) {
+    console.log(pkg.version);
 } else if ("help" in options || !("solFiles" in options)) {
     const usage = commandLineUsage(params);
 
@@ -794,7 +794,7 @@ if ("version" in options) {
 
     const targetDir =
         targets[0] !== "--"
-            ? relative(process.cwd(), dirname(fse.realpathSync(targets[0])))
+            ? path.relative(process.cwd(), path.dirname(fse.realpathSync(targets[0])))
             : targets[0];
     const utilsOutputDir =
         options["utils-output-path"] === undefined ? targetDir : options["utils-output-path"];
@@ -1130,6 +1130,7 @@ if ("version" in options) {
                         flatCompiled,
                         sortedUnits,
                         flatSrcMap,
+                        pkg.version,
                         options.output,
                         options["arm"] !== undefined
                     ),
@@ -1179,6 +1180,7 @@ if ("version" in options) {
                 newSrcMap,
                 originalUnits,
                 options["arm"] !== undefined,
+                pkg.version,
                 options["output"]
             );
 
