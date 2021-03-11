@@ -21,9 +21,9 @@ import {
     VariableDeclaration,
     VariableDeclarationStatement
 } from "solc-typed-ast";
-import { AnnotationTarget } from "../../instrumenter";
+import { AnnotationMap, AnnotationMetaData, AnnotationTarget } from "../../instrumenter";
 import { Logger } from "../../logger";
-import { assert, pp, single } from "../../util";
+import { assert, pp, single, topoSort } from "../../util";
 import { eq } from "../../util/struct_equality";
 import {
     Range,
@@ -131,6 +131,7 @@ function getScopeOfType<T extends ContractDefinition | FunctionDefinition>(
 
 export abstract class STypeError extends Error {
     abstract loc(): Range;
+    public annotationMetaData!: AnnotationMetaData;
 }
 
 export class SGenericTypeError<T extends SNode> extends STypeError {
@@ -584,6 +585,86 @@ export function astVarToSType(astV: VariableDeclaration, baseLoc?: DataLocation)
 
 function isInty(type: SType): boolean {
     return type instanceof SIntType || type instanceof SIntLiteralType;
+}
+
+/**
+ * Sort `contracts` in topological order with respect to inheritance.
+ *
+ * @param contracts
+ */
+function sortContracts(contracts: ContractDefinition[]): ContractDefinition[] {
+    const order: Array<[ContractDefinition, ContractDefinition]> = [];
+    for (const contract of contracts) {
+        for (const base of contract.vLinearizedBaseContracts) {
+            if (base === contract) continue;
+
+            order.push([base, contract]);
+        }
+    }
+
+    return topoSort(contracts, order);
+}
+
+export function tcUnits(
+    units: SourceUnit[],
+    annotMap: AnnotationMap,
+    typeEnv: TypeEnv = new TypeEnv()
+): void {
+    let contracts: ContractDefinition[] = [];
+    const ctx: STypingCtx = [units];
+
+    const tcHelper = (
+        annotationMD: AnnotationMetaData,
+        ctx: STypingCtx,
+        target: AnnotationTarget
+    ): void => {
+        try {
+            tcAnnotation(annotationMD.parsedAnnot, ctx, target, typeEnv);
+        } catch (e) {
+            // Add the annotation metadata to the exception for pretty-printing
+            if (e instanceof STypeError) {
+                e.annotationMetaData = annotationMD;
+            }
+
+            throw e;
+        }
+    };
+
+    // Gather all contracts. buildAnnotationsMap() checks that free
+    // functions/file level constants don't have annotations so we can ignore them.
+    for (const unit of units) {
+        contracts.push(...unit.vContracts);
+    }
+
+    // Sort contracts in topological order of inheritance. This way
+    // user-defined functions in base contracts are added to the type environment
+    // before annotations in child contracts
+    contracts = sortContracts(contracts);
+    for (const contract of contracts) {
+        ctx.push(contract);
+        // First type-check contract-level annotations
+        for (const contractAnnot of annotMap.get(contract) as AnnotationMetaData[]) {
+            tcHelper(contractAnnot, ctx, contract);
+        }
+
+        // Next type-check any state var annotations
+        for (const stateVar of contract.vStateVariables) {
+            for (const svAnnot of annotMap.get(stateVar) as AnnotationMetaData[]) {
+                // The if_updated scope is pushed on ctx inside tcAnnotation
+                tcHelper(svAnnot, ctx, stateVar);
+            }
+        }
+
+        // Finally type-check any function annotations
+        for (const funDef of contract.vFunctions) {
+            ctx.push(funDef);
+            for (const funAnnot of annotMap.get(funDef) as AnnotationMetaData[]) {
+                tcHelper(funAnnot, ctx, funDef);
+            }
+            ctx.pop();
+        }
+        ctx.pop();
+    }
 }
 
 /**

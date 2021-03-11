@@ -51,15 +51,7 @@ import { InstrumentationContext } from "../instrumenter/instrumentation_context"
 import { merge } from "../rewriter/merge";
 import { isSane } from "../rewriter/sanity";
 import { Location, Range } from "../spec-lang/ast";
-import {
-    scAnnotation,
-    SemError,
-    SemMap,
-    STypeError,
-    STypingCtx,
-    tcAnnotation,
-    TypeEnv
-} from "../spec-lang/tc";
+import { scUnits, SemError, SemMap, STypeError, tcUnits, TypeEnv } from "../spec-lang/tc";
 import {
     assert,
     getOrInit,
@@ -70,7 +62,8 @@ import {
     buildOutputJSON,
     generateInstrumentationMetadata,
     flatten,
-    dedup
+    dedup,
+    topoSort
 } from "../util";
 import cli from "./scribble_cli.json";
 
@@ -102,43 +95,6 @@ function prettyError(
     ].join("\n\n");
 
     error(description);
-}
-
-function tcOrDie(
-    annotation: AnnotationMetaData,
-    ctx: STypingCtx,
-    typeEnv: TypeEnv,
-    semInfo: SemMap,
-    fn: FunctionDefinition | undefined,
-    contract: ContractDefinition,
-    source: string
-): void {
-    const unit = contract.vScope;
-    const annotNode = annotation.parsedAnnot;
-
-    try {
-        tcAnnotation(annotNode, ctx, annotation.target, typeEnv);
-        scAnnotation(annotNode, typeEnv, semInfo);
-    } catch (err) {
-        const scope = fn === undefined ? `${contract.name}` : `${contract.name}.${fn.name}`;
-
-        if (err instanceof STypeError || err instanceof SemError) {
-            const loc = err.loc();
-            let fileLoc;
-
-            if (annotation instanceof PropertyMetaData) {
-                fileLoc = annotation.predOffToFileLoc([loc.start.offset, loc.end.offset], source);
-            } else if (annotation instanceof UserFunctionDefinitionMetaData) {
-                fileLoc = annotation.bodyOffToFileLoc([loc.start.offset, loc.end.offset], source);
-            } else {
-                throw new Error(`NYI Annotation MD for ${annotation.parsedAnnot.pp()}`);
-            }
-
-            prettyError("TypeError", err.message, unit, fileLoc, annotation.original);
-        } else {
-            error(`Internal error in type-checking ${annotNode.pp()} of ${scope}: ${err.message}`);
-        }
-    }
 }
 
 function compile(
@@ -212,15 +168,15 @@ function computeContractsNeedingInstr(
 function instrumentFiles(
     ctx: InstrumentationContext,
     annotMap: AnnotationMap,
-    contractsNeedingInstr: Set<ContractDefinition>
+    contractsNeedingInstr: Set<ContractDefinition>,
+    typeEnv: TypeEnv,
+    semInfo: SemMap
 ): [SourceUnit[], SourceUnit[]] {
     const units = ctx.units;
 
     const worklist: Array<
         [ContractDefinition, FunctionDefinition | undefined, AnnotationMetaData[]]
     > = [];
-    const typeEnv = new TypeEnv();
-    const semInfo: SemMap = new Map();
     const changedSourceUnits: SourceUnit[] = [];
 
     for (const unit of units) {
@@ -231,16 +187,10 @@ function instrumentFiles(
         assert(contents !== undefined, `Missing source for ${unit.absolutePath}`);
 
         for (const contract of unit.vContracts) {
-            const typeCtx: STypingCtx = [units, contract];
-
             let contractAnnot = annotMap.get(contract);
 
             if (contractAnnot === undefined) {
                 contractAnnot = [];
-            }
-
-            for (const annot of contractAnnot) {
-                tcOrDie(annot, typeCtx, typeEnv, semInfo, undefined, contract, contents);
             }
 
             const needsContrInstr = contractsNeedingInstr.has(contract);
@@ -259,25 +209,13 @@ function instrumentFiles(
                 );
             }
 
-            for (const stateVar of contract.vStateVariables) {
-                for (const annotation of annotMap.get(stateVar) as AnnotationMetaData[]) {
-                    tcOrDie(annotation, typeCtx, typeEnv, semInfo, undefined, contract, contents);
-                }
-            }
-
             for (const fun of contract.vFunctions) {
                 // Skip functions without a body
                 if (fun.vBody === undefined) {
                     continue;
                 }
 
-                const typeCtx: STypingCtx = [units, contract, fun];
                 const annotations = gatherFunctionAnnotations(fun, annotMap);
-
-                for (const annot of annotations) {
-                    tcOrDie(annot, typeCtx, typeEnv, semInfo, fun, contract, contents);
-                }
-
                 /**
                  * We interpose on functions if either of these is true
                  *  a) They have annotations
@@ -576,10 +514,38 @@ function oneOf(input: any, options: string[], msg: string): any {
 }
 
 /**
+ * Sort source units in topological order based on their imports.
+ *
+ * @param units
+ */
+function sortUnits(units: SourceUnit[]): SourceUnit[] {
+    // Map from absolute paths to source units
+    const pathMap = new Map(units.map((unit) => [unit.absolutePath, unit]));
+    // Partial order of imports
+    const order: Array<[SourceUnit, SourceUnit]> = [];
+
+    for (const unit of units) {
+        const seen = new Set<SourceUnit>();
+        for (const imp of unit.vImportDirectives) {
+            const importee = pathMap.get(imp.vSourceUnit.absolutePath);
+            assert(importee !== undefined, ``);
+            // Avoid duplicats in order
+            if (seen.has(importee)) {
+                continue;
+            }
+            seen.add(importee);
+            order.push([importee, unit]);
+        }
+    }
+
+    return topoSort(units, order);
+}
+/**
  * Sort the passed in source-units in topological order of their imports.
  *
  * @param units list of source-units to sort
  */
+/*
 function topoSort(units: SourceUnit[]): SourceUnit[] {
     // Map from a source unit A, to the set of source units that import A
     const importersM = new Map<SourceUnit, Set<SourceUnit>>();
@@ -633,7 +599,7 @@ function topoSort(units: SourceUnit[]): SourceUnit[] {
     );
 
     return sorted;
-}
+}*/
 
 function writeOut(contents: string, fileName: string) {
     if (fileName === "--") {
@@ -926,6 +892,42 @@ if ("version" in options) {
             throw e;
         }
 
+        const typeEnv = new TypeEnv();
+        const semMap: SemMap = new Map();
+
+        try {
+            // Type check
+            tcUnits(mergedUnits, annotMap, typeEnv);
+            // Semantic check
+            scUnits(mergedUnits, annotMap, typeEnv, semMap);
+        } catch (err) {
+            if (err instanceof STypeError || err instanceof SemError) {
+                const annotation = err.annotationMetaData;
+                const unit = annotation.target.getClosestParentByType(SourceUnit) as SourceUnit;
+                const source = contentsMap.get(unit.sourceEntryKey) as string;
+                const loc = err.loc();
+                let fileLoc;
+
+                if (annotation instanceof PropertyMetaData) {
+                    fileLoc = annotation.predOffToFileLoc(
+                        [loc.start.offset, loc.end.offset],
+                        source
+                    );
+                } else if (annotation instanceof UserFunctionDefinitionMetaData) {
+                    fileLoc = annotation.bodyOffToFileLoc(
+                        [loc.start.offset, loc.end.offset],
+                        source
+                    );
+                } else {
+                    throw new Error(`NYI Annotation MD for ${annotation.parsedAnnot.pp()}`);
+                }
+
+                prettyError("TypeError", err.message, unit, fileLoc, annotation.original);
+            } else {
+                error(`Internal error in type-checking: ${err.message}`);
+            }
+        }
+
         /**
          * Walk over the computed CHA and compute:
          *  1. The set of contracts that have contract invariants (as the map contractInvs)
@@ -966,7 +968,13 @@ if ("version" in options) {
 
         const utilsUnit = makeUtilsUnit(utilsOutputDir, factory, compilerVersionUsed, instrCtx);
 
-        const [allUnits, changedUnits] = instrumentFiles(instrCtx, annotMap, contractsNeedingInstr);
+        const [allUnits, changedUnits] = instrumentFiles(
+            instrCtx,
+            annotMap,
+            contractsNeedingInstr,
+            typeEnv,
+            semMap
+        );
 
         allUnits.push(utilsUnit);
 
@@ -988,7 +996,7 @@ if ("version" in options) {
             // For flat and json modes, we need to flatten out the output. This goes in several steps.
 
             // 1. Sort units in topological order by imports
-            const sortedUnits = topoSort(allUnits);
+            const sortedUnits = sortUnits(allUnits);
 
             // 2. Strip import and compiler pragma directives
             sortedUnits.forEach((unit) => {

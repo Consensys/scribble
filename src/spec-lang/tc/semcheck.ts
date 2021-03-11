@@ -1,4 +1,5 @@
-import { FunctionStateMutability, VariableDeclaration } from "solc-typed-ast";
+import { FunctionStateMutability, SourceUnit, VariableDeclaration } from "solc-typed-ast";
+import { AnnotationMap, AnnotationMetaData } from "../..";
 import { single } from "../../util";
 import {
     Range,
@@ -50,12 +51,56 @@ export interface SemCtx {
 }
 
 export class SemError extends Error {
+    public annotationMetaData!: AnnotationMetaData;
     constructor(msg: string, public readonly node: SNode) {
         super(msg);
     }
 
     loc(): Range {
         return this.node.src as Range;
+    }
+}
+
+export function scUnits(
+    units: SourceUnit[],
+    annotMap: AnnotationMap,
+    typeEnv: TypeEnv,
+    semMap: SemMap = new Map()
+): void {
+    const scHelper = (annotationMD: AnnotationMetaData): void => {
+        try {
+            scAnnotation(annotationMD.parsedAnnot, typeEnv, semMap);
+        } catch (e) {
+            // Add the annotation metadata to the exception for pretty-printing
+            if (e instanceof SemError) {
+                e.annotationMetaData = annotationMD;
+            }
+
+            throw e;
+        }
+    };
+
+    for (const unit of units) {
+        for (const contract of unit.vContracts) {
+            // First semantic-check contract-level annotations
+            for (const contractAnnot of annotMap.get(contract) as AnnotationMetaData[]) {
+                scHelper(contractAnnot);
+            }
+
+            // Next semantic-check any state var annotations
+            for (const stateVar of contract.vStateVariables) {
+                for (const svAnnot of annotMap.get(stateVar) as AnnotationMetaData[]) {
+                    scHelper(svAnnot);
+                }
+            }
+
+            // Finally semantic-check any function annotations
+            for (const funDef of contract.vFunctions) {
+                for (const funAnnot of annotMap.get(funDef) as AnnotationMetaData[]) {
+                    scHelper(funAnnot);
+                }
+            }
+        }
     }
 }
 
