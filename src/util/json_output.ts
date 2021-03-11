@@ -183,7 +183,8 @@ function rangeToSrc(range: Range, fileIdx: number): string {
 function generatePropertyMap(
     ctx: InstrumentationContext,
     newSrcMap: SrcRangeMap,
-    instrSourceList: string[]
+    instrSourceList: string[],
+    originalSourceList: string[]
 ): PropertyMap {
     const result: PropertyMap = [];
 
@@ -226,7 +227,7 @@ function generatePropertyMap(
         const debugEvent = ctx.debugEventDefs.get(annotation.id);
         const signature = debugEvent !== undefined ? debugEvent.canonicalSignature : "";
 
-        const newUnitIdx = getInstrFileIdx(unit, ctx.outputMode, instrSourceList);
+        const newUnitIdx = originalSourceList.indexOf(unit.absolutePath);
         const propertySource = rangeToSrc(predRange, newUnitIdx);
         const annotationSource = rangeToSrc(annotationRange, newUnitIdx);
 
@@ -318,7 +319,7 @@ export function generateInstrumentationMetadata(
         instrSourceList
     );
 
-    const propertyMap = generatePropertyMap(ctx, newSrcMap, instrSourceList);
+    const propertyMap = generatePropertyMap(ctx, newSrcMap, instrSourceList, originalSourceList);
 
     instrSourceList = instrSourceList.map((name) =>
         name === "--" || name === utilsUnit.absolutePath ? name : name + ".instrumented"
