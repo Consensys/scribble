@@ -231,3 +231,17 @@ export function topoSort<T>(things: T[], order: Array<[T, T]>): T[] {
 
     return res;
 }
+
+export function zip<T1, T2>(a1: readonly T1[], a2: readonly T2[]): Array<[T1, T2]> {
+    assert(
+        a1.length === a2.length,
+        `Mismatch in length between ${pp(a1)} of len ${a1.length} and ${pp(a2)} of len ${a2.length}`
+    );
+
+    const res: Array<[T1, T2]> = [];
+    for (let i = 0; i < a1.length; i++) {
+        res.push([a1[i], a2[i]]);
+    }
+
+    return res;
+}
