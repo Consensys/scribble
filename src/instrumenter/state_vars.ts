@@ -119,25 +119,27 @@ export function* getAssignments(node: ASTNode): Iterable<[LHS, RHS]> {
             }
 
             return [[formals[0], actuals]];
-        } else {
-            if (actuals instanceof Array) {
-                return zip(formals, actuals);
-            }
-
-            if (actuals instanceof TupleExpression) {
-                assert(actuals.vComponents.length === actuals.vOriginalComponents.length, ``);
-                return zip(formals, actuals.vComponents);
-            } else if (actuals instanceof FunctionCall) {
-                const callRets: Array<
-                    [FunctionCall, number]
-                > = (actuals.vReferencedDeclaration as FunctionDefinition).vReturnParameters.vParameters.map<
-                    [FunctionCall, number]
-                >((decl, i) => [actuals, i]);
-                return zip(formals, callRets);
-            } else {
-                throw new Error(`Unexpected rhs ${pp(actuals)} for lhs ${pp(formals)}`);
-            }
         }
+
+        if (actuals instanceof Array) {
+            return zip(formals, actuals);
+        }
+
+        if (actuals instanceof TupleExpression) {
+            assert(actuals.vComponents.length === actuals.vOriginalComponents.length, ``);
+            return zip(formals, actuals.vComponents);
+        }
+
+        if (actuals instanceof FunctionCall) {
+            const callRets: Array<
+                [FunctionCall, number]
+            > = (actuals.vReferencedDeclaration as FunctionDefinition).vReturnParameters.vParameters.map<
+                [FunctionCall, number]
+            >((decl, i) => [actuals, i]);
+            return zip(formals, callRets);
+        }
+
+        throw new Error(`Unexpected rhs ${pp(actuals)} for lhs ${pp(formals)}`);
     };
 
     for (const candidate of node.getChildrenBySelector(
@@ -164,7 +166,7 @@ export function* getAssignments(node: ASTNode): Iterable<[LHS, RHS]> {
 
             const rhs = candidate.vInitialValue;
 
-            if (candidate.vDeclarations.length === 1) {
+            if (candidate.assignments.length === 1) {
                 yield [candidate.vDeclarations[0], rhs];
             } else if (rhs instanceof TupleExpression || rhs instanceof FunctionCall) {
                 if (rhs instanceof TupleExpression) {
@@ -247,9 +249,7 @@ export function* getAssignments(node: ASTNode): Iterable<[LHS, RHS]> {
                 }
             }
 
-            for (const pair of helper(formals, candidate.vArguments)) {
-                yield pair;
-            }
+            yield* helper(formals, candidate.vArguments);
         } else if (candidate instanceof Return) {
             const formals = candidate.vFunctionReturnParameters.vParameters;
             const rhs = candidate.vExpression;
@@ -259,9 +259,7 @@ export function* getAssignments(node: ASTNode): Iterable<[LHS, RHS]> {
                 continue;
             }
 
-            for (const pair of helper(formals, rhs)) {
-                yield pair;
-            }
+            yield* helper(formals, rhs);
         } else if (candidate instanceof VariableDeclaration) {
             // Handle iniline initializers for state variables and file-level constants
             if (
@@ -282,9 +280,7 @@ export function* getAssignments(node: ASTNode): Iterable<[LHS, RHS]> {
                 ? contract.vConstructor.vParameters.vParameters
                 : [];
 
-            for (const pair of helper(formals, candidate.vArguments)) {
-                yield pair;
-            }
+            yield* helper(formals, candidate.vArguments);
         } else {
             throw new Error(`NYI assignment candidate ${pp(candidate)}`);
         }

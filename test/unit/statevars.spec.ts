@@ -52,10 +52,16 @@ describe("Finding all assignments.", () => {
                     _;
                 }
 
+                function foo() public returns (uint, uint, uint) {
+                    return (1, 2, 3);
+                }
+
                 function main() P(arr) public {
                     uint z = takeAndRet(arr[0], arr[1]);
 
                     (uint x, ,uint y) = (z, 1, 4);
+                    (uint i, uint j, uint k) = foo();
+                    (, uint j1, ) = foo();
                 }
             }`,
             new Set([
@@ -70,7 +76,14 @@ describe("Finding all assignments.", () => {
                 "arr[1] -> uint b",
                 "takeAndRet(arr[0], arr[1]) -> uint z",
                 "z -> uint x",
-                "4 -> uint y"
+                "4 -> uint y",
+                "1 -> uint",
+                "2 -> uint",
+                "3 -> uint",
+                "<foo()[0]> -> uint i",
+                "<foo()[1]> -> uint j",
+                "<foo()[2]> -> uint k",
+                "<foo()[1]> -> uint j1"
             ])
         ]
     ];
