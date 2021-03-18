@@ -39,7 +39,7 @@ DatastructurePath_Field = "." id: Identifier {return id.name;}
 IndexPath = (DatastructurePath_Field / DatastructurePath_Index)*
 
 If_Updated =
-  type: IF_UPDATED path: IndexPath __ label: AnnotationLabel? __ expr: Expression __ ";"
+  ("/" __)? type: IF_UPDATED path: IndexPath __ label: AnnotationLabel? __ expr: Expression __ ";"
   {
     return new SIfUpdated(expr, path, label !== null ? label : undefined, location());
   }

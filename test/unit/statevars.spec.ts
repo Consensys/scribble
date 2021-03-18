@@ -1,9 +1,22 @@
 import expect from "expect";
 import { pp, single } from "../../src/util";
 import { toAst } from "../integration/utils";
-import { findAliasedStateVars, getAssignments, LHS, RHS } from "../../src/instrumenter";
+import {
+    findAliasedStateVars,
+    getAssignments,
+    LHS,
+    RHS,
+    findStateVarUpdates,
+    StateVarUpdateLoc
+} from "../../src/instrumenter";
 import { Logger } from "../../src/logger";
-import { ASTNode, ASTWriter, DefaultASTWriterMapping, PrettyFormatter } from "solc-typed-ast";
+import {
+    ASTNode,
+    ASTWriter,
+    DefaultASTWriterMapping,
+    Expression,
+    PrettyFormatter
+} from "solc-typed-ast";
 
 export type LocationDesc = [string, string];
 
@@ -252,6 +265,385 @@ describe("Finding aliased vars.", () => {
                 `Expected aliased set ${pp(expectedAliasedNames)} got ${pp(aliasedNames)}`
             );
             expect(aliasedNames).toEqual(expectedAliasedNames);
+        });
+    }
+});
+
+function printStateVarUpdateDesc(desc: StateVarUpdateLoc): string {
+    const [node, decl, path, newVal] = desc;
+    let nodeStr = print(node instanceof Array ? node[0] : node);
+    if (node instanceof Array && node[1].length > 0) {
+        nodeStr += `[${node[1].map((n) => `${n}`).join(", ")}]`;
+    }
+
+    const pathStr = path.map((v) => (v instanceof Expression ? print(v) : v)).join(", ");
+    const newValStr =
+        newVal instanceof Expression
+            ? print(newVal)
+            : newVal instanceof Array
+            ? `${print(newVal[0])}[${newVal[1]}]`
+            : `undefined`;
+
+    return `${nodeStr}, ${decl.name}, [${pathStr}], ${newValStr}`;
+}
+
+describe("Finding all state variable updates.", () => {
+    const samples: Array<[string, string, Set<string>]> = [
+        [
+            "primitve_and_arrays.sol",
+            `
+            pragma solidity 0.8.0;
+
+            address constant cosntT = address(0);
+
+            contract Base {
+                uint y = 1;
+                uint w = getOne();
+
+                function getOne() pure internal returns (uint) {
+                    return 1;
+                }
+
+                constructor(uint x) {
+                    y = x;
+                }
+            }
+
+            contract T1 is Base(1) {
+                uint[] arr;
+                modifier P(uint[] storage t) {
+                    t.push(42);
+                    _;
+                }
+
+                function getThree() public returns (uint, uint, uint) {
+                    return (42,43,44);
+                }
+
+                function arrays() P(arr) public {
+                    uint x;
+                    uint y;
+                    uint z;
+
+                    arr.push(1);
+                    assert(arr[0] == 42 && arr[1] == 1);
+
+                    uint[] memory mArr = new uint[](3);
+                    mArr[0] = 10; mArr[1] = 9; mArr[2] = 8;
+
+                    arr = mArr;
+                    assert(arr.length == 3 && arr[0] == 10 && arr[1] == 9 && arr[2] == 8);
+
+                    arr[0] = 11;
+
+                    x = 1;
+                    y = 2;
+                    z = 3;
+                    (x, arr[0], (y, , arr[1], z)) = (arr[0], x, (arr[1], 1, z, arr[2]));
+                    assert(arr.length == 3 && arr[0] == 1 && arr[1] == 3 && arr[2] == 8 && x == 11 && y == 9 && z == 8);
+
+                    (T1.arr[0], T1.arr[1]) = (arr[1], arr[0]);
+                    assert(arr[0] == 3 && arr[1] == 1);
+
+                    (arr[0], arr[1], arr[2]) = getThree();
+                    assert(arr[0] == 42 && arr[1] == 43 && arr[2] == 44);
+
+                    arr = mArr;
+
+                    (x, (arr[0], arr[1], arr[2]), y) = (1, getThree(), 2);
+                    assert(arr[0] == 42 && arr[1] == 43 && arr[2] == 44);
+
+                    arr.pop();
+                    assert(arr.length == 2);
+
+                    delete arr;
+
+                    assert(arr.length == 0);
+                }
+            }
+            `,
+            new Set([
+                "y = x, y, [], x",
+                "arr.push(1), arr, [], undefined",
+                "arr = mArr, arr, [], mArr",
+                "arr[0] = 11, arr, [0], 11",
+                "(x, arr[0], (y, , arr[1], z)) = (arr[0], x, (arr[1], 1, z, arr[2]))[1], arr, [0], x",
+                "(x, arr[0], (y, , arr[1], z)) = (arr[0], x, (arr[1], 1, z, arr[2]))[2, 2], arr, [1], z",
+                "(T1.arr[0], T1.arr[1]) = (arr[1], arr[0])[0], arr, [0], arr[1]",
+                "(T1.arr[0], T1.arr[1]) = (arr[1], arr[0])[1], arr, [1], arr[0]",
+                "arr.pop(), arr, [], undefined",
+                "delete arr, arr, [], undefined",
+                "(arr[0], arr[1], arr[2]) = getThree()[0], arr, [0], getThree()[0]",
+                "(arr[0], arr[1], arr[2]) = getThree()[1], arr, [1], getThree()[1]",
+                "(arr[0], arr[1], arr[2]) = getThree()[2], arr, [2], getThree()[2]",
+                "(x, (arr[0], arr[1], arr[2]), y) = (1, getThree(), 2)[1, 0], arr, [0], getThree()[0]",
+                "(x, (arr[0], arr[1], arr[2]), y) = (1, getThree(), 2)[1, 1], arr, [1], getThree()[1]",
+                "(x, (arr[0], arr[1], arr[2]), y) = (1, getThree(), 2)[1, 2], arr, [2], getThree()[2]",
+                "uint internal w = getOne(), w, [], getOne()",
+                "uint internal y = 1, y, [], 1"
+            ])
+        ],
+        [
+            "nested_arrays.sol",
+            `
+            pragma solidity 0.8.0;
+
+            address constant cosntT = address(0);
+
+            contract T1 {
+                function getThree() public returns (uint, uint, uint) {
+                    return (42,43,44);
+                }
+
+                uint[][] arr2 = [[1,2,3]];
+
+                function nestedArrays() public {
+                    uint x;
+                    uint y;
+                    uint z;
+
+                    uint[] memory mArr = new uint[](3);
+                    mArr[0] = 10; mArr[1] = 9; mArr[2] = 8;
+
+                    arr2.push(mArr);
+                    assert(arr2[0][0] == 1 && arr2[1][0] == 10);
+
+                    uint[][] memory mArr2 = new uint[][](1);
+                    mArr2[0] = mArr;
+
+                    arr2 = mArr2;
+                    assert(arr2.length == 1 && arr2[0][0] == 10 && arr2[0][1] == 9 && arr2[0][2] == 8);
+
+                    arr2[0][0] = 11;
+
+                    x = 1;
+                    y = 2;
+                    z = 3;
+                    (x, arr2[0][0], (y, , arr2[0][1], z)) = (arr2[0][0], x, (arr2[0][1], 1, z, arr2[0][2]));
+                    
+                    assert(arr2.length == 1 && arr2[0].length == 3 && arr2[0][0] == 1 && arr2[0][1] == 3 && arr2[0][2] == 8 && x == 11 && y == 9 && z == 8);
+
+
+                    arr2.push(mArr);
+                    (T1.arr2[0], T1.arr2[1]) = (arr2[1], arr2[0]);
+                    assert(arr2[0][0] == 1 && arr2[1][0] == 1);
+                    
+                    (arr2[0][0], arr2[0][1], arr2[0][2]) = getThree();
+                    assert(arr2[0][0] == 42 && arr2[0][1] == 43 && arr2[0][2] == 44);
+
+                    arr2 = mArr2;
+
+                    (x, (arr2[0][0], arr2[0][1], arr2[0][2]), y) = (1, getThree(), 2);
+                    assert(arr2[0][0] == 42 && arr2[0][1] == 43 && arr2[0][2] == 44);
+
+                    arr2.pop();
+                    
+                    assert(arr2.length == 0);
+
+                    arr2 = mArr2;
+                    delete arr2;
+
+                    assert(arr2.length == 0);
+               
+                }
+            }
+            `,
+            new Set([
+                "uint[][] internal arr2 = [[1, 2, 3]], arr2, [], [[1, 2, 3]]",
+                "arr2.push(mArr), arr2, [], undefined",
+                "arr2 = mArr2, arr2, [], mArr2",
+                "arr2[0][0] = 11, arr2, [0, 0], 11",
+                "(x, arr2[0][0], (y, , arr2[0][1], z)) = (arr2[0][0], x, (arr2[0][1], 1, z, arr2[0][2]))[1], arr2, [0, 0], x",
+                "(x, arr2[0][0], (y, , arr2[0][1], z)) = (arr2[0][0], x, (arr2[0][1], 1, z, arr2[0][2]))[2, 2], arr2, [0, 1], z",
+                "(T1.arr2[0], T1.arr2[1]) = (arr2[1], arr2[0])[0], arr2, [0], arr2[1]",
+                "(T1.arr2[0], T1.arr2[1]) = (arr2[1], arr2[0])[1], arr2, [1], arr2[0]",
+                "(arr2[0][0], arr2[0][1], arr2[0][2]) = getThree()[0], arr2, [0, 0], getThree()[0]",
+                "(arr2[0][0], arr2[0][1], arr2[0][2]) = getThree()[1], arr2, [0, 1], getThree()[1]",
+                "(arr2[0][0], arr2[0][1], arr2[0][2]) = getThree()[2], arr2, [0, 2], getThree()[2]",
+                "(x, (arr2[0][0], arr2[0][1], arr2[0][2]), y) = (1, getThree(), 2)[1, 0], arr2, [0, 0], getThree()[0]",
+                "(x, (arr2[0][0], arr2[0][1], arr2[0][2]), y) = (1, getThree(), 2)[1, 1], arr2, [0, 1], getThree()[1]",
+                "(x, (arr2[0][0], arr2[0][1], arr2[0][2]), y) = (1, getThree(), 2)[1, 2], arr2, [0, 2], getThree()[2]",
+                "arr2.pop(), arr2, [], undefined",
+                "delete arr2, arr2, [], undefined"
+            ])
+        ],
+        [
+            "maps.sol",
+            `
+            pragma solidity 0.8.0;
+
+            address constant cosntT = address(0);
+
+            contract T1 {
+                mapping (uint => uint) m;
+                mapping (uint => uint) m1;
+                function getThree() public returns (uint, uint, uint) {
+                    return (42,43,44);
+                }
+
+                function maps() public {
+                    uint x;
+                    uint y;
+                    uint z;
+
+                    x = 1;
+                    y = 2;
+                    z = 3;
+                    m[0] = 10;
+                    m[1] =  9;
+                    m[2] =  8;
+                    assert(m[2] == 8);
+
+                    (x, m[0], (y, ,m[1], z)) = (m[0], x, (m[1], 1, z, m[2]));
+                    
+                    assert(m[0] == 1 && m[1] == 3 && m[2] == 8 && x == 10 && y == 9 && z == 8);
+
+
+                    (T1.m[0], T1.m[1]) = (m[1], m[0]);
+                    assert(m[0] == 3 && m[1] == 1);
+                    
+                    (m[0], m[1], m[2]) = getThree();
+                    assert(m[0] == 42 && m[1] == 43 && m[2] == 44);
+
+                    //m = m1;
+
+                    (x, (m[0], m[1], m[2]), y) = (1, getThree(), 2);
+                    assert(m[0] == 42 && m[1] == 43 && m[2] == 44);
+
+                    delete m[1];
+
+                    assert(m[1] == 0);
+
+                }
+            }
+            `,
+            new Set([
+                "m[0] = 10, m, [0], 10",
+                "m[1] = 9, m, [1], 9",
+                "m[2] = 8, m, [2], 8",
+                "(x, m[0], (y, , m[1], z)) = (m[0], x, (m[1], 1, z, m[2]))[1], m, [0], x",
+                "(x, m[0], (y, , m[1], z)) = (m[0], x, (m[1], 1, z, m[2]))[2, 2], m, [1], z",
+                "(T1.m[0], T1.m[1]) = (m[1], m[0])[0], m, [0], m[1]",
+                "(T1.m[0], T1.m[1]) = (m[1], m[0])[1], m, [1], m[0]",
+                "(m[0], m[1], m[2]) = getThree()[0], m, [0], getThree()[0]",
+                "(m[0], m[1], m[2]) = getThree()[1], m, [1], getThree()[1]",
+                "(m[0], m[1], m[2]) = getThree()[2], m, [2], getThree()[2]",
+                "(x, (m[0], m[1], m[2]), y) = (1, getThree(), 2)[1, 0], m, [0], getThree()[0]",
+                "(x, (m[0], m[1], m[2]), y) = (1, getThree(), 2)[1, 1], m, [1], getThree()[1]",
+                "(x, (m[0], m[1], m[2]), y) = (1, getThree(), 2)[1, 2], m, [2], getThree()[2]",
+                "delete m[1], m, [1], undefined"
+            ])
+        ],
+        [
+            "structs.sol",
+            `
+            pragma solidity 0.8.0;
+
+            address constant cosntT = address(0);
+
+            contract T1 {
+                struct S {
+                    uint x;
+                    address a;
+                    uint[] arr;
+                }
+
+                uint[] arr = [1,2,3];
+                S s = S(1, address(0), arr);
+
+                function getTwo() public returns (uint, address) {
+                    return (32, address(0x3));
+                }
+
+                function structs() public {
+                    uint x;
+                    uint y;
+                    uint z;
+
+                    x = 11;
+                    y = 12;
+                    z = 13;
+                    
+                    assert(s.x == 1 && s.a == address(0) && s.arr.length == 3 && s.arr[0] == 1);
+                    uint[] memory mArr = new uint[](3);
+                    mArr[0] = 42; mArr[1] = 43; mArr[2] = 44;
+                    
+                    s = S({arr: mArr, a: address(0x10), x: 0});
+                    s = S(x, address(0), mArr);
+                    
+                    assert(s.x == 11 && s.a == address(0) && s.arr.length == 3 && s.arr[0] == 42);
+                    
+                    s.x = 41;
+                    s.a = address(0x1);
+                    s.arr[0] = 52;
+                    
+                    assert(s.x == 41 && s.a == address(0x1) && s.arr.length == 3 && s.arr[0] == 52);
+                    
+                    (s.x, s.a) = (40, address(0x2));
+                    
+                    assert(s.x == 40 && s.a == address(0x2) && s.arr.length == 3 && s.arr[0] == 52);
+                    
+                    (s.x, s.a) = getTwo();
+                    
+                    assert(s.x == 32 && s.a == address(0x3) && s.arr.length == 3 && s.arr[0] == 52);
+                    
+                    (x, (s.x, s.a), y) = (1, getTwo(), 2);
+                    
+                    assert(s.x == 32 && s.a == address(0x3) && s.arr.length == 3 && s.arr[0] == 52);
+                    s.arr.push(1);
+                    
+                    assert(s.x == 32 && s.a == address(0x3) && s.arr.length == 4 && s.arr[3] == 1);
+                    s.arr.pop();
+                    
+                    assert(s.x == 32 && s.a == address(0x3) && s.arr.length == 3);
+                    delete s.x;
+                    
+                    assert(s.x == 0);
+                    
+                    delete s.arr;
+                    
+                    assert(s.arr.length == 0);
+                    delete s;
+                    assert(s.x == 0 && s.a == address(0) && s.arr.length == 0);
+                }
+            }
+            `,
+            new Set([
+                "uint[] internal arr = [1, 2, 3], arr, [], [1, 2, 3]",
+                "S internal s = S(1, address(0), arr), s, [], S(1, address(0), arr)",
+                "s = S(mArr, address(0x10), 0), s, [], S(mArr, address(0x10), 0)",
+                "s = S(x, address(0), mArr), s, [], S(x, address(0), mArr)",
+                "s.x = 41, s, [x], 41",
+                "s.a = address(0x1), s, [a], address(0x1)",
+                "s.arr[0] = 52, s, [arr, 0], 52",
+                "(s.x, s.a) = (40, address(0x2))[0], s, [x], 40",
+                "(s.x, s.a) = (40, address(0x2))[1], s, [a], address(0x2)",
+                "(s.x, s.a) = getTwo()[0], s, [x], getTwo()[0]",
+                "(s.x, s.a) = getTwo()[1], s, [a], getTwo()[1]",
+                "(x, (s.x, s.a), y) = (1, getTwo(), 2)[1, 0], s, [x], getTwo()[0]",
+                "(x, (s.x, s.a), y) = (1, getTwo(), 2)[1, 1], s, [a], getTwo()[1]",
+                "s.arr.push(1), s, [arr], undefined",
+                "s.arr.pop(), s, [arr], undefined",
+                "delete s.x, s, [x], undefined",
+                "delete s.arr, s, [arr], undefined",
+                "delete s, s, [], undefined"
+            ])
+        ]
+    ];
+
+    for (const [fileName, content, expectedStateVarUpdates] of samples) {
+        it(`Sample #${fileName}`, () => {
+            const [sources] = toAst(fileName, content);
+            const unit = single(sources);
+
+            const assignments = findStateVarUpdates([unit]);
+            const assignmentDescs = new Set([...assignments].map(printStateVarUpdateDesc));
+            Logger.debug(
+                `Expected aliased set ${pp(expectedStateVarUpdates)} got ${pp([
+                    ...assignmentDescs
+                ])}`
+            );
+            expect(assignmentDescs).toEqual(expectedStateVarUpdates);
         });
     }
 });

@@ -3,14 +3,15 @@ import { SNode, Range } from "..";
 import { SId } from "../identifier";
 import { SProperty } from "./property";
 
+export type DatastructurePath = Array<SId | string>;
 /**
  * `SIfUpdated` is a special kind of property annotation that can also
  * make bindings refereing to datastructure indices
  */
 export class SIfUpdated extends SProperty {
-    public readonly datastructurePath: Array<SId | string>;
+    public readonly datastructurePath: DatastructurePath;
 
-    constructor(expression: SNode, path: Array<SId | string>, label?: string, src?: Range) {
+    constructor(expression: SNode, path: DatastructurePath, label?: string, src?: Range) {
         super(AnnotationType.IfUpdated, expression, label, src);
         this.datastructurePath = path;
     }

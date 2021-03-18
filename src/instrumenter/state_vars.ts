@@ -24,6 +24,7 @@ import {
     StructDefinition,
     TupleExpression,
     TypeName,
+    UnaryOperation,
     UserDefinedTypeName,
     VariableDeclaration,
     VariableDeclarationStatement
@@ -204,14 +205,17 @@ export function* getAssignments(node: ASTNode): Iterable<[LHS, RHS]> {
                 candidate instanceof FunctionCall &&
                 candidate.kind === FunctionCallKind.StructConstructorCall
             ) {
-                assert(
-                    candidate.fieldNames !== undefined &&
-                        candidate.fieldNames.length === candidate.vArguments.length,
-                    ``
-                );
+                const structDecl = (candidate.vExpression as UserDefinedTypeName)
+                    .vReferencedDeclaration as StructDefinition;
+                const fieldNames =
+                    candidate.fieldNames !== undefined
+                        ? candidate.fieldNames
+                        : structDecl.vMembers.map((decl) => decl.name);
 
-                for (let i = 0; i < candidate.fieldNames.length; i++) {
-                    yield [[candidate, candidate.fieldNames[i]], candidate.vArguments[i]];
+                assert(fieldNames.length === candidate.vArguments.length, ``);
+
+                for (let i = 0; i < fieldNames.length; i++) {
+                    yield [[candidate, fieldNames[i]], candidate.vArguments[i]];
                 }
             }
 
@@ -420,4 +424,209 @@ export function unaliasedVars(
 ): VariableDeclaration[] {
     const aliasedDecls = findAliasedStateVars(units);
     return vars.filter((decl) => !aliasedDecls.has(decl));
+}
+
+/**
+ * Describes the sequence of IndexAccesses and MemberAccesses on a given
+ * expression.
+ */
+export type ConcreteDatastructurePath = Array<Expression | string>;
+/**
+ * Tuple describing a location in the AST where a state variable is modified. Has the following
+ * 4 fields:
+ *
+ *  1) `ASTNode` containing the update. It can be 1 of for types:
+ *    - `[Assignment, number[]]` - describes a path inside an assignment. The numbers array is to describe a location
+ *      in potentially nested tuples. (see statevars.spec.ts for examples)
+ *    - `VariableDeclaration` - corresponds to an inline initializer at the state var definition site.
+ *    - `FunctionCall` - corresponds to `.push(..)` and `.pop()` calls on arrays
+ *    - `UnaryOperation` - corresponds to a `delete ...` operation
+ *  2) The `VariableDeclaration` of the state var that is being modified.
+ *  3) A `ConcreteDatastructurePath` describing what part of the state var is being modified. (see statevars.spec.ts for examples)
+ *  4) The new value that is being assigned to the state variable/part of the state variable. It can be 3 different types:
+ *    - `Expression` - an AST expression that is being directly assigned
+ *    - `[Expression, number]` - corresponds to the case where we have an assignment of the form `(x,y,z) = func()`. Describes which
+ *      return of the function is being assigned
+ *    - undefined - in the cases where we do `.push(..)`, `.pop()`, `delete ...` we don't quite have a new value being assigned, so we
+ *  leave this undefined.
+ *
+ */
+export type StateVarUpdateLoc = [
+    [Assignment, number[]] | VariableDeclaration | FunctionCall | UnaryOperation,
+    VariableDeclaration,
+    ConcreteDatastructurePath,
+    Expression | [Expression, number] | undefined
+];
+
+/**
+ * Given an expression that may be wrapped in `MemberAccess` and `IndexAccess`-es,
+ * unwrap it into a base expression that is not a `MemberAccess` or `IndexAccess` and
+ * a list describing the `MemberAccess`-es and `IndexAccess`-es.
+ * @param e
+ */
+function decomposePath(e: Expression): [Expression, ConcreteDatastructurePath] {
+    const path: ConcreteDatastructurePath = [];
+    while (true) {
+        if (
+            e instanceof MemberAccess &&
+            !(
+                e.vReferencedDeclaration instanceof VariableDeclaration &&
+                e.vReferencedDeclaration.stateVariable
+            )
+        ) {
+            path.unshift(e.memberName);
+            e = e.vExpression;
+            continue;
+        }
+
+        if (e instanceof IndexAccess) {
+            assert(e.vIndexExpression !== undefined, ``);
+            path.unshift(e.vIndexExpression);
+            e = e.vBaseExpression;
+            continue;
+        }
+
+        break;
+    }
+
+    return [e, path];
+}
+
+/**
+ * Return true IFF `node` refers to same state variable
+ * @param node
+ */
+function isStateVarRef(node: ASTNode): node is Identifier | MemberAccess {
+    return (
+        (node instanceof Identifier || node instanceof MemberAccess) &&
+        node.vReferencedDeclaration instanceof VariableDeclaration &&
+        node.vReferencedDeclaration.stateVariable
+    );
+}
+
+/**
+ * Given a set of units, find all locations in the AST where state variables are updated directly.
+ * (NOTE: This doesn't find locations where state variables are updated thourgh pointers!!)
+ *
+ * Returns a list of locations descriptions tuples `[node, variable, path, newValue]`. Given the following example:
+ *
+ *  ```
+ *     struct Point {
+ *          uint x;
+ *          uint y;
+ *     }
+ *
+ *     Point[] points;
+ *     ...
+ *          points[0].x = 1;
+ * ```
+ *
+ *  Below are the definitions of the tuple elements:
+ *
+ *  - `node` is the ASTNode where the update happens. In the above example its the assignment `point[0].x = 1;`
+ *  - `variable` is the `VariableDeclaration` for the modified variable. In the above example its the def `Point[] points`
+ *  - `path` is an description of what part of a complex state var is changed. In the above example its `[0, "x"]`. Expression
+ *     elements of the array refer to indexing, and string elements refer to field lookups in structs.
+ *  - `newValue` is the new expression that is being assigned. In the above example its `1`.
+ *
+ * @param units
+ */
+export function findStateVarUpdates(units: SourceUnit[]): StateVarUpdateLoc[] {
+    const res: StateVarUpdateLoc[] = [];
+
+    const getLHSAssignmentNode = (lhs: Expression): [Assignment, number[]] => {
+        const idxPath: number[] = [];
+
+        while (lhs.parent instanceof TupleExpression) {
+            const idx = lhs.parent.vOriginalComponents.indexOf(lhs);
+            assert(idx !== -1, ``);
+            idxPath.unshift(idx);
+            lhs = lhs.parent;
+        }
+
+        const assignment = lhs.parent as ASTNode;
+        assert(
+            assignment instanceof Assignment,
+            `Unexpected state var LHS in ${assignment.constructor.name}#${lhs.id} - expected assignment`
+        );
+
+        return [assignment, idxPath];
+    };
+
+    const addStateVarUpdateLocDesc = (
+        node: [Assignment, number[]] | FunctionCall | UnaryOperation,
+        lhs: Expression,
+        rhs: Expression | [Expression, number] | undefined
+    ): void => {
+        const [baseExp, path] = decomposePath(lhs);
+
+        // Skip assignments where the base of the LHS is not a direct reference to a state variable
+        if (!isStateVarRef(baseExp)) {
+            return;
+        }
+
+        const stateVarDecl: VariableDeclaration = baseExp.vReferencedDeclaration as VariableDeclaration;
+
+        res.push([node, stateVarDecl, path, rhs]);
+    };
+
+    for (const unit of units) {
+        for (const [lhs, rhs] of getAssignments(unit)) {
+            // Assignments to struct constructor fields - ignore
+            if (lhs instanceof Array) {
+                continue;
+            }
+
+            if (lhs instanceof VariableDeclaration) {
+                // Local variable/function arg/function return - skip
+                if (!lhs.stateVariable) {
+                    continue;
+                }
+
+                assert(
+                    rhs instanceof Expression,
+                    `RHS cannot be a tuple/function with multiple returns.`
+                );
+                // State variable inline initializer
+                res.push([lhs, lhs, [], rhs]);
+            }
+
+            const [baseExp, path] = decomposePath(lhs);
+
+            // Skip assignments where the base of the LHS is not a direct reference to a state variable
+            if (!isStateVarRef(baseExp)) {
+                continue;
+            }
+
+            const stateVarDecl: VariableDeclaration = baseExp.vReferencedDeclaration as VariableDeclaration;
+
+            res.push([getLHSAssignmentNode(lhs), stateVarDecl, path, rhs]);
+        }
+
+        // Find .push() and pop()
+        for (const candidate of unit.getChildrenBySelector(
+            (node) =>
+                node instanceof FunctionCall &&
+                node.vFunctionCallType === ExternalReferenceType.Builtin &&
+                (node.vFunctionName === "push" || node.vFunctionName === "pop")
+        )) {
+            const funCall = candidate as FunctionCall;
+
+            addStateVarUpdateLocDesc(
+                funCall,
+                (funCall.vExpression as MemberAccess).vExpression,
+                undefined
+            );
+        }
+
+        // Find all deletes
+        for (const candidate of unit.getChildrenBySelector(
+            (node) => node instanceof UnaryOperation && node.operator === "delete"
+        )) {
+            const unop = candidate as UnaryOperation;
+            addStateVarUpdateLocDesc(unop, unop.vSubExpression, undefined);
+        }
+    }
+
+    return res;
 }
