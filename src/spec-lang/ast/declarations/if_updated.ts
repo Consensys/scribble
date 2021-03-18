@@ -6,7 +6,7 @@ import { SProperty } from "./property";
 export type DatastructurePath = Array<SId | string>;
 /**
  * `SIfUpdated` is a special kind of property annotation that can also
- * make bindings refereing to datastructure indices
+ * make bindings refering to datastructure indices
  */
 export class SIfUpdated extends SProperty {
     public readonly datastructurePath: DatastructurePath;

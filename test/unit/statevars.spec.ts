@@ -251,6 +251,28 @@ describe("Finding aliased vars.", () => {
             `,
 
             new Set(["s", "x1", "x2", "x3", "x4", "x5", "x6", "x7", "x8", "y1"])
+        ],
+        [
+            "library.sol",
+            `
+            library ArrLib {
+                function push2(uint[] storage arr, uint x, uint y) internal {
+                    arr.push(x);
+                    arr.push(y);
+                }
+            }
+
+            contract LibTest {
+                using ArrLib for *;
+
+                uint[] arr;
+                function leaks() public {
+                    arr.push2(1,2);
+                }
+            }
+            `,
+
+            new Set(["arr"])
         ]
     ];
 
@@ -277,12 +299,15 @@ function printStateVarUpdateDesc(desc: StateVarUpdateLoc): string {
     }
 
     const pathStr = path.map((v) => (v instanceof Expression ? print(v) : v)).join(", ");
-    const newValStr =
-        newVal instanceof Expression
-            ? print(newVal)
-            : newVal instanceof Array
-            ? `${print(newVal[0])}[${newVal[1]}]`
-            : `undefined`;
+    let newValStr: string;
+
+    if (newVal instanceof Expression) {
+        newValStr = print(newVal);
+    } else if (newVal instanceof Array) {
+        newValStr = `${print(newVal[0])}[${newVal[1]}]`;
+    } else {
+        newValStr = `undefined`;
+    }
 
     return `${nodeStr}, ${decl.name}, [${pathStr}], ${newValStr}`;
 }
@@ -306,6 +331,8 @@ describe("Finding all state variable updates.", () => {
 
                 constructor(uint x) {
                     y = x;
+                    y++;
+                    y = --y;
                 }
             }
 
@@ -380,7 +407,10 @@ describe("Finding all state variable updates.", () => {
                 "(x, (arr[0], arr[1], arr[2]), y) = (1, getThree(), 2)[1, 1], arr, [1], getThree()[1]",
                 "(x, (arr[0], arr[1], arr[2]), y) = (1, getThree(), 2)[1, 2], arr, [2], getThree()[2]",
                 "uint internal w = getOne(), w, [], getOne()",
-                "uint internal y = 1, y, [], 1"
+                "uint internal y = 1, y, [], 1",
+                "y++, y, [], undefined",
+                "--y, y, [], undefined",
+                "y = --y, y, [], --y"
             ])
         ],
         [

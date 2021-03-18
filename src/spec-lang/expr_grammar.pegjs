@@ -38,6 +38,8 @@ DatastructurePath_Index = "[" __ id: Identifier __"]" { return id; }
 DatastructurePath_Field = "." id: Identifier {return id.name;}
 IndexPath = (DatastructurePath_Field / DatastructurePath_Index)*
 
+// TODO: Eventually remove hacking '/' from if_updated rule. This is to work around
+// limitations in Solidity's 
 If_Updated =
   ("/" __)? type: IF_UPDATED path: IndexPath __ label: AnnotationLabel? __ expr: Expression __ ";"
   {

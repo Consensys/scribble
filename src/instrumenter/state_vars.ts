@@ -3,6 +3,7 @@ import {
     Assignment,
     ASTNode,
     ContractDefinition,
+    ContractKind,
     DataLocation,
     ElementaryTypeName,
     EventDefinition,
@@ -253,7 +254,26 @@ export function* getAssignments(node: ASTNode): Iterable<[LHS, RHS]> {
                 }
             }
 
-            yield* helper(formals, candidate.vArguments);
+            const actuals = [...candidate.vArguments];
+
+            // When we have a library method bound with `using lib for ...`
+            // need to add the implicit first argument
+            if (
+                candidate instanceof FunctionCall &&
+                decl instanceof FunctionDefinition &&
+                decl.parent instanceof ContractDefinition &&
+                decl.parent.kind === ContractKind.Library &&
+                formals.length === candidate.vArguments.length + 1
+            ) {
+                assert(
+                    candidate.vExpression instanceof MemberAccess,
+                    `Unexpected calle in library call ${pp(candidate)}`
+                );
+
+                actuals.unshift(candidate.vExpression.vExpression);
+            }
+
+            yield* helper(formals, actuals);
         } else if (candidate instanceof Return) {
             const formals = candidate.vFunctionReturnParameters.vParameters;
             const rhs = candidate.vExpression;
@@ -415,8 +435,6 @@ export function findAliasedStateVars(units: SourceUnit[]): Set<VariableDeclarati
  * `units` return only those `VariableDeclaration`s from `vars` that are not
  * aliased (and no sub-component of theirs is alised) by a storage pointer on
  * stack.
- *
- * @param units
  */
 export function unaliasedVars(
     vars: VariableDeclaration[],
@@ -435,20 +453,21 @@ export type ConcreteDatastructurePath = Array<Expression | string>;
  * Tuple describing a location in the AST where a state variable is modified. Has the following
  * 4 fields:
  *
- *  1) `ASTNode` containing the update. It can be 1 of for types:
+ *  1) `ASTNode` containing the update. It can be one of the following:
  *    - `[Assignment, number[]]` - describes a path inside an assignment. The numbers array is to describe a location
  *      in potentially nested tuples. (see statevars.spec.ts for examples)
  *    - `VariableDeclaration` - corresponds to an inline initializer at the state var definition site.
  *    - `FunctionCall` - corresponds to `.push(..)` and `.pop()` calls on arrays
- *    - `UnaryOperation` - corresponds to a `delete ...` operation
+ *    - `UnaryOperation` - corresponds to a `delete ...`, `++` or `--` operation
  *  2) The `VariableDeclaration` of the state var that is being modified.
  *  3) A `ConcreteDatastructurePath` describing what part of the state var is being modified. (see statevars.spec.ts for examples)
  *  4) The new value that is being assigned to the state variable/part of the state variable. It can be 3 different types:
  *    - `Expression` - an AST expression that is being directly assigned
  *    - `[Expression, number]` - corresponds to the case where we have an assignment of the form `(x,y,z) = func()`. Describes which
  *      return of the function is being assigned
- *    - undefined - in the cases where we do `.push(..)`, `.pop()`, `delete ...` we don't quite have a new value being assigned, so we
- *  leave this undefined.
+ *    - undefined - in the cases where we do `.push(..)`, `.pop()`, `delete ...`,
+ *    `x++`, `x--` we don't quite have a new value being assigned, so we leave
+ *    this undefined.
  *
  */
 export type StateVarUpdateLoc = [
@@ -462,7 +481,6 @@ export type StateVarUpdateLoc = [
  * Given an expression that may be wrapped in `MemberAccess` and `IndexAccess`-es,
  * unwrap it into a base expression that is not a `MemberAccess` or `IndexAccess` and
  * a list describing the `MemberAccess`-es and `IndexAccess`-es.
- * @param e
  */
 function decomposePath(e: Expression): [Expression, ConcreteDatastructurePath] {
     const path: ConcreteDatastructurePath = [];
@@ -494,7 +512,6 @@ function decomposePath(e: Expression): [Expression, ConcreteDatastructurePath] {
 
 /**
  * Return true IFF `node` refers to same state variable
- * @param node
  */
 function isStateVarRef(node: ASTNode): node is Identifier | MemberAccess {
     return (
@@ -506,7 +523,7 @@ function isStateVarRef(node: ASTNode): node is Identifier | MemberAccess {
 
 /**
  * Given a set of units, find all locations in the AST where state variables are updated directly.
- * (NOTE: This doesn't find locations where state variables are updated thourgh pointers!!)
+ * (NOTE: This doesn't find locations where state variables are updated through pointers!!)
  *
  * Returns a list of locations descriptions tuples `[node, variable, path, newValue]`. Given the following example:
  *
@@ -528,8 +545,6 @@ function isStateVarRef(node: ASTNode): node is Identifier | MemberAccess {
  *  - `path` is an description of what part of a complex state var is changed. In the above example its `[0, "x"]`. Expression
  *     elements of the array refer to indexing, and string elements refer to field lookups in structs.
  *  - `newValue` is the new expression that is being assigned. In the above example its `1`.
- *
- * @param units
  */
 export function findStateVarUpdates(units: SourceUnit[]): StateVarUpdateLoc[] {
     const res: StateVarUpdateLoc[] = [];
@@ -621,7 +636,9 @@ export function findStateVarUpdates(units: SourceUnit[]): StateVarUpdateLoc[] {
 
         // Find all deletes
         for (const candidate of unit.getChildrenBySelector(
-            (node) => node instanceof UnaryOperation && node.operator === "delete"
+            (node) =>
+                node instanceof UnaryOperation &&
+                (node.operator === "delete" || node.operator === "++" || node.operator === "--")
         )) {
             const unop = candidate as UnaryOperation;
             addStateVarUpdateLocDesc(unop, unop.vSubExpression, undefined);
