@@ -337,8 +337,9 @@ describe("Src2src map test", () => {
                             // OR it must be part of the instrumentation of some property
                             if (
                                 forAny(instrMD.propertyMap, (prop) =>
-                                    forAny(prop.instrumentationRanges, (range) =>
-                                        contains(range, strEntry)
+                                    forAny(
+                                        prop.assertionRanges.concat(prop.instrumentationRanges),
+                                        (range) => contains(range, strEntry)
                                     )
                                 )
                             ) {

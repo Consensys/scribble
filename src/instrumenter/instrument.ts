@@ -708,6 +708,7 @@ function emitAssert(
     if (instrCtx.assertionMode === "log") {
         const strMessage = `${annotation.id}: ${annotation.message}`;
         const message = factory.makeLiteral("<missing>", LiteralKind.String, "", strMessage);
+
         userAssertFailed = factory.makeEmitStatement(
             factory.makeFunctionCall(
                 "<missing>",
@@ -716,10 +717,10 @@ function emitAssert(
                 [message]
             )
         );
-        instrCtx.addAnnotationInstrumentation(annotation, userAssertFailed);
     } else {
         const id = factory.makeIdentifierFor(structLocalVar);
         const failBitPattern = getBitPattern(factory, annotation.id);
+
         userAssertFailed = factory.makeExpressionStatement(
             factory.makeAssignment(
                 "<missing>",
@@ -728,11 +729,14 @@ function emitAssert(
                 failBitPattern
             )
         );
+
         assert(
             annotation.id < 0x1000,
             `Can't instrument more than ${0x1000} ids currently in mstore mode.`
         );
+
         const successBitPattern = getBitPattern(factory, annotation.id | 0x1000);
+
         userAssertionHit = factory.makeExpressionStatement(
             factory.makeAssignment(
                 "<missing>",
@@ -774,15 +778,16 @@ function emitAssert(
     instrCtx.addAnnotationInstrumentation(annotation, userAssertFailed);
     instrCtx.addAnnotationInstrumentation(annotation, ifStmt);
     instrCtx.addAnnotationCheck(annotation, condition);
-    if (userAssertionHit) {
-        instrCtx.addAnnotationInstrumentation(annotation, userAssertionHit);
-    }
+
+    instrCtx.addAnnotationFailureCheck(annotation, ...ifBody);
 
     if (userAssertionHit) {
+        instrCtx.addAnnotationInstrumentation(annotation, userAssertionHit);
+
         return factory.makeBlock([userAssertionHit, ifStmt]);
-    } else {
-        return ifStmt;
     }
+
+    return ifStmt;
 }
 
 export function getAssertionFailedEvent(
