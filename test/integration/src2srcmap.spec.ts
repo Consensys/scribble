@@ -268,6 +268,7 @@ describe("Src2src map test", () => {
 
                 for (const fileName in outJSON["contracts"]) {
                     const fileJSON = outJSON["contracts"][fileName];
+
                     for (const contractName in fileJSON) {
                         const contractJSON = fileJSON[contractName];
                         const bytecodeMap = contractJSON.evm.bytecode.sourceMap;
@@ -300,6 +301,17 @@ describe("Src2src map test", () => {
                             `All source indices in a deployedBytecode map in JSON mode should be 0.`
                         );
 
+                        assert(
+                            forAll(instrMD.propertyMap, (prop) =>
+                                forAll(prop.assertionRanges, (assertionRange) =>
+                                    forAny(prop.instrumentationRanges, (instrRange) =>
+                                        contains(instrRange, assertionRange)
+                                    )
+                                )
+                            ),
+                            "Some assertion ranges are out of instrumentation ranges (they shouldn't be)"
+                        );
+
                         const missing = new Set<string>();
 
                         for (const entry of bytecodeMapEntries.concat(deployedBytecodeMapEntries)) {
@@ -316,9 +328,9 @@ describe("Src2src map test", () => {
 
                             // OR it must be part of the general instrumentation
                             if (
-                                forAny(instrMD.otherInstrumentation, (range) => {
-                                    return contains(range, strEntry);
-                                })
+                                forAny(instrMD.otherInstrumentation, (range) =>
+                                    contains(range, strEntry)
+                                )
                             ) {
                                 continue;
                             }
@@ -329,6 +341,7 @@ describe("Src2src map test", () => {
                                 prop.checkRanges.forEach((checkRange, checkRangeIdx) => {
                                     if (contains(checkRange, strEntry)) {
                                         const key = `${propIdx}_${checkRangeIdx}`;
+
                                         propertyChecksHit.add(key);
                                     }
                                 });
@@ -337,9 +350,8 @@ describe("Src2src map test", () => {
                             // OR it must be part of the instrumentation of some property
                             if (
                                 forAny(instrMD.propertyMap, (prop) =>
-                                    forAny(
-                                        prop.assertionRanges.concat(prop.instrumentationRanges),
-                                        (range) => contains(range, strEntry)
+                                    forAny(prop.instrumentationRanges, (range) =>
+                                        contains(range, strEntry)
                                     )
                                 )
                             ) {
