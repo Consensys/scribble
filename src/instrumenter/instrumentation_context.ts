@@ -1,16 +1,17 @@
 import {
+    ASTNode,
     ASTNodeFactory,
     ContractDefinition,
-    EventDefinition,
-    FunctionDefinition,
-    SourceUnit,
-    ModifierDefinition,
-    StructDefinition,
     EnumDefinition,
-    VariableDeclaration,
+    EventDefinition,
+    Expression,
+    FunctionDefinition,
     ImportDirective,
-    ASTNode,
-    Expression
+    ModifierDefinition,
+    SourceUnit,
+    Statement,
+    StructDefinition,
+    VariableDeclaration
 } from "solc-typed-ast";
 import { SUserFunctionDefinition } from "../spec-lang/ast";
 import { NameGenerator } from "../util/name_generator";
@@ -79,7 +80,12 @@ export class InstrumentationContext {
      * Map from Annotations to the actual `Expression` that corresponds to the
      * annotation being fully checked.
      */
-    public readonly instrumetnedCheck: Map<AnnotationMetaData, Expression[]> = new Map();
+    public readonly instrumentedCheck: Map<AnnotationMetaData, Expression[]> = new Map();
+    /**
+     * Map from Annotations to the actual asserts and event emissions
+     * that are hit if the annotation fails.
+     */
+    public readonly failureCheck: Map<AnnotationMetaData, Statement[]> = new Map();
     /**
      * List of statements added for general instrumentation, not tied to any
      * particular annotation.
@@ -146,18 +152,32 @@ export class InstrumentationContext {
     }
 
     addAnnotationInstrumentation(annotation: AnnotationMetaData, ...nodes: ASTNode[]): void {
-        if (this.evaluationStatements.has(annotation)) {
-            (this.evaluationStatements.get(annotation) as ASTNode[]).push(...nodes);
-        } else {
+        const targets = this.evaluationStatements.get(annotation);
+
+        if (targets === undefined) {
             this.evaluationStatements.set(annotation, nodes);
+        } else {
+            targets.push(...nodes);
         }
     }
 
     addAnnotationCheck(annotation: AnnotationMetaData, pred: Expression): void {
-        if (this.instrumetnedCheck.has(annotation)) {
-            (this.instrumetnedCheck.get(annotation) as Expression[]).push(pred);
+        const targets = this.instrumentedCheck.get(annotation);
+
+        if (targets === undefined) {
+            this.instrumentedCheck.set(annotation, [pred]);
         } else {
-            this.instrumetnedCheck.set(annotation, [pred]);
+            targets.push(pred);
+        }
+    }
+
+    addAnnotationFailureCheck(annotation: AnnotationMetaData, ...nodes: Statement[]): void {
+        const targets = this.failureCheck.get(annotation);
+
+        if (targets === undefined) {
+            this.failureCheck.set(annotation, nodes);
+        } else {
+            targets.push(...nodes);
         }
     }
 }

@@ -15,6 +15,7 @@ import { Range } from "../spec-lang/ast";
 import { dedup, assert, pp } from ".";
 
 type TargetType = "function" | "variable" | "contract";
+
 interface PropertyDesc {
     id: number;
     contract: string;
@@ -27,7 +28,9 @@ interface PropertyDesc {
     message: string;
     instrumentationRanges: string[];
     checkRanges: string[];
+    assertionRanges: string[];
 }
+
 export type PropertyMap = PropertyDesc[];
 export type SrcToSrcMap = Array<[string, string]>;
 
@@ -47,6 +50,7 @@ export type InstrumentationMetaData = {
  * - The third element is the file index of the source file containing the fragment in the source list.
  */
 export type SrcTriple = [number, number, number];
+
 export function parseSrcTriple(src: string): SrcTriple {
     return src.split(":").map((sNum) => Number.parseInt(sNum)) as SrcTriple;
 }
@@ -136,15 +140,17 @@ function generateSrcMap2SrcMap(
                     node instanceof ParameterList && node.vParameters.length == 0,
                     `Missing new source for node ${node.constructor.name}#${node.id}`
                 );
+
                 return;
             }
 
             const instrFileIdx = getInstrFileIdx(unit, ctx.outputMode, instrSourceList);
+
             src2SrcMap.push([`${newSrc[0]}:${newSrc[1]}:${instrFileIdx}`, originalSrc]);
         });
     }
 
-    for (const [property, assertions] of ctx.instrumetnedCheck) {
+    for (const [property, assertions] of ctx.instrumentedCheck) {
         for (const assertion of assertions) {
             const assertionSrc = newSrcMap.get(assertion);
             const instrFileIdx = getInstrFileIdx(assertion, ctx.outputMode, instrSourceList);
@@ -155,6 +161,7 @@ function generateSrcMap2SrcMap(
             );
 
             const originalFileIdx = property.raw.src.split(":")[2];
+
             src2SrcMap.push([
                 `${assertionSrc[0]}:${assertionSrc[1]}:${instrFileIdx}`,
                 `${property.annotationLoc[0]}:${property.annotationLoc[1]}:${originalFileIdx}`
@@ -235,6 +242,7 @@ function generatePropertyMap(
         const instrumentationRanges = dedup(
             (ctx.evaluationStatements.get(annotation) as ASTNode[]).map((node) => {
                 const src = newSrcMap.get(node);
+
                 assert(
                     src !== undefined,
                     `Missing source for instrumentation node ${pp(node)} of annotation ${
@@ -243,33 +251,51 @@ function generatePropertyMap(
                 );
 
                 const instrFileIdx = getInstrFileIdx(node, ctx.outputMode, instrSourceList);
+
                 return `${src[0]}:${src[1]}:${instrFileIdx}`;
             })
         );
 
-        const annotationChecks = ctx.instrumetnedCheck.get(annotation);
+        const annotationChecks = ctx.instrumentedCheck.get(annotation);
+
         assert(
             annotationChecks !== undefined,
             `Missing check expression for ${annotation.original}`
         );
 
         const checkRanges: string[] = dedup(
-            annotationChecks.map((annotationCheck) => {
-                const checkRange = newSrcMap.get(annotationCheck);
-                const annotationFileIdx = getInstrFileIdx(
-                    annotationCheck,
-                    ctx.outputMode,
-                    instrSourceList
-                );
+            annotationChecks.map((check) => {
+                const range = newSrcMap.get(check);
+                const annotationFileIdx = getInstrFileIdx(check, ctx.outputMode, instrSourceList);
 
                 assert(
-                    checkRange !== undefined,
-                    `Missing src range for annotation check node ${pp(annotationCheck)} of ${
+                    range !== undefined,
+                    `Missing src range for annotation check node ${pp(check)} of ${
                         annotation.original
                     }`
                 );
 
-                return `${checkRange[0]}:${checkRange[1]}:${annotationFileIdx}`;
+                return `${range[0]}:${range[1]}:${annotationFileIdx}`;
+            })
+        );
+
+        const failureChecks = ctx.failureCheck.get(annotation);
+
+        assert(failureChecks !== undefined, `Missing assertion checks for ${annotation.original}`);
+
+        const assertionRanges = dedup(
+            failureChecks.map((check) => {
+                const range = newSrcMap.get(check);
+                const annotationFileIdx = getInstrFileIdx(check, ctx.outputMode, instrSourceList);
+
+                assert(
+                    range !== undefined,
+                    `Missing src range for annotation check node ${pp(check)} of ${
+                        annotation.original
+                    }`
+                );
+
+                return `${range[0]}:${range[1]}:${annotationFileIdx}`;
             })
         );
 
@@ -284,7 +310,8 @@ function generatePropertyMap(
             debugEventSignature: signature,
             message: annotation.message,
             instrumentationRanges,
-            checkRanges: checkRanges
+            checkRanges,
+            assertionRanges
         });
     }
 
