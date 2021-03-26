@@ -1,10 +1,13 @@
 import {
+    Assignment,
     ASTContext,
     ASTNodeFactory,
     ContractDefinition,
     FunctionCall,
     FunctionDefinition,
-    SourceUnit
+    SourceUnit,
+    TupleExpression,
+    XPath
 } from "solc-typed-ast";
 import expect from "expect";
 import { print as printUnits, rewriteImports } from "../../src/ast_to_source_printer";
@@ -13,7 +16,9 @@ import {
     findExternalCalls,
     generateUtilsContract,
     interpose,
-    interposeCall
+    interposeCall,
+    interposeSimpleStateVarUpdate,
+    interposeTupleAssignment
 } from "../../src/instrumenter";
 import { cook } from "../../src/rewriter";
 import { single } from "../../src/util";
@@ -47,7 +52,9 @@ function makeInstrumentationCtx(
         compilerVersion,
         false,
         new Map(),
-        "flat"
+        "flat",
+        new TypeEnv(),
+        new Map()
     );
 
     generateUtilsContract(factory, "", "scribble_utils.sol", compilerVersion, ctx).vContracts;
@@ -324,6 +331,8 @@ contract Foo {
             const [recipe] = interpose(fun, ctx);
             cook(recipe);
 
+            ctx.finalize();
+
             const instrumented = print(sources, [content], "0.6.0").get(sources[0]);
             expect(instrumented).toEqual(expectedInstrumented);
         });
@@ -384,10 +393,6 @@ contract Foo {
 import "./scribble_utils.sol";
 
 contract Foo is __scribble_ReentrancyUtils {
-    struct vars0 {
-        uint256 __mstore_scratch__;
-    }
-
     uint internal x;
 
     function pureF(uint id) public pure returns (uint) {
@@ -403,9 +408,7 @@ contract Foo is __scribble_ReentrancyUtils {
     }
 
     /// Check only the current contract's state invariants
-    function __scribble_Foo_check_state_invariants_internal() internal view {
-        vars0 memory _v;
-    }
+    function __scribble_Foo_check_state_invariants_internal() internal view {}
 
     /// Check the state invariant for the current contract and all its bases
     function __scribble_check_state_invariants() virtual internal view {
@@ -448,7 +451,8 @@ contract Foo is __scribble_ReentrancyUtils {
                 assertionMode,
                 compilerVersion
             );
-            contractInstrumenter.instrument(ctx, new TypeEnv(), new Map(), [], contract);
+            contractInstrumenter.instrument(ctx, [], contract);
+            ctx.finalize();
 
             const instrumented = print(sources, [content], "0.6.0").get(sources[0]);
 
@@ -665,11 +669,412 @@ contract Foo {
             const [recipe] = interposeCall(ctx, contract, callSite);
             cook(recipe);
 
+            ctx.finalize();
+
             const instrumented = print(sources, [content], "0.6.0").get(sources[0]) as string;
 
             // Check that the interposed code compiles correctly
             expect(toAst.bind(toAst, "foo.sol", instrumented)).not.toThrow();
             // Check that it equals the expected code
+            expect(instrumented).toEqual(expectedInstrumented);
+        });
+    }
+});
+
+describe("State variable interposing Unit Tests", () => {
+    const goodSamples: Array<[string, string, string, string]> = [
+        [
+            "push_pop_interpose.sol",
+            `pragma solidity 0.6.0;
+contract PushPop{
+    uint[] x;
+    uint[][] z;
+    function main() public {
+        x.push(1 + 1);
+
+        x.pop();
+
+        x.push();
+
+        z.push(x);
+        uint t = 0;
+        z[t].push(1);
+    }
+}`,
+            "//ContractDefinition/FunctionDefinition/Block/ExpressionStatement/FunctionCall",
+            `pragma solidity 0.6.0;
+
+contract PushPop {
+    uint[] internal x;
+    uint[][] internal z;
+
+    function main() public {
+        PushPop_x_push(1 + 1);
+        PushPop_x_pop();
+        PushPop_x_push_noarg();
+        PushPop_z_push(x);
+        uint t = 0;
+        PushPop_z_idx_push(t, 1);
+    }
+
+    function PushPop_x_push(uint ARG0) internal {
+        x.push(ARG0);
+    }
+
+    function PushPop_x_pop() internal {
+        x.pop();
+    }
+
+    function PushPop_x_push_noarg() internal {
+        x.push();
+    }
+
+    function PushPop_z_push(uint[] memory ARG1) internal {
+        z.push(ARG1);
+    }
+
+    function PushPop_z_idx_push(uint256 ARG2, uint ARG3) internal {
+        z[ARG2].push(ARG3);
+    }
+}`
+        ],
+        [
+            "unary_interpose.sol",
+            `pragma solidity 0.6.0;
+contract Unary {
+    int y;
+    uint[] x;
+    mapping(uint=>uint) m;
+
+    function main() public {
+        y = 1;
+        assert(y == 1);
+        x.push(1);
+        assert(x.length == 1);
+
+        delete y;
+        assert(y == 0);
+
+        delete x;
+        assert(x.length == 0);
+
+        uint t = 1;
+        m[t-1] = 1;
+        delete m[t-1];
+        assert(m[t-1] == 0);
+
+        x.push(1);
+        delete x[uint(y)];
+        assert(x[uint(y)] == 0);
+
+        assert(0 == y++);
+        assert(y == 1);
+
+        assert(0 == --y);
+
+        assert(0 == x[0]++);
+
+        assert(1 == x[0]--);
+    }
+}
+`,
+            "//ContractDefinition/FunctionDefinition/Block/ExpressionStatement//UnaryOperation",
+            `pragma solidity 0.6.0;
+
+contract Unary {
+    int internal y;
+    uint[] internal x;
+    mapping(uint => uint) internal m;
+
+    function main() public {
+        y = 1;
+        assert(y == 1);
+        x.push(1);
+        assert(x.length == 1);
+        Unary_y_delete();
+        assert(y == 0);
+        Unary_x_delete();
+        assert(x.length == 0);
+        uint t = 1;
+        m[t - 1] = 1;
+        Unary_m_idx_delete(t - 1);
+        assert(m[t - 1] == 0);
+        x.push(1);
+        Unary_x_idx_delete(uint(y));
+        assert(x[uint(y)] == 0);
+        assert(0 == Unary_y_inc__postfix());
+        assert(y == 1);
+        assert(0 == Unary_y_dec__prefix());
+        assert(0 == Unary_x_idx_inc__postfix(0));
+        assert(1 == Unary_x_idx_dec__postfix(0));
+    }
+
+    function Unary_y_delete() internal {
+        delete y;
+    }
+
+    function Unary_x_delete() internal {
+        delete x;
+    }
+
+    function Unary_m_idx_delete(uint ARG0) internal {
+        delete m[ARG0];
+    }
+
+    function Unary_x_idx_delete(uint256 ARG1) internal {
+        delete x[ARG1];
+    }
+
+    function Unary_y_inc__postfix() internal returns (int256 RET0) {
+        RET0 = y;
+        y++;
+    }
+
+    function Unary_y_dec__prefix() internal returns (int256 RET1) {
+        --y;
+        RET1 = y;
+    }
+
+    function Unary_x_idx_inc__postfix(uint256 ARG2) internal returns (uint256 RET2) {
+        RET2 = x[ARG2];
+        x[ARG2]++;
+    }
+
+    function Unary_x_idx_dec__postfix(uint256 ARG3) internal returns (uint256 RET3) {
+        RET3 = x[ARG3];
+        x[ARG3]--;
+    }
+}`
+        ],
+        [
+            "simple_assignments.sol",
+            `pragma solidity 0.6.0;
+
+contract SimpleAssignments {
+    uint y;
+    uint z;
+    uint[] x;
+    mapping(uint=>uint) m;
+
+    function plusOne(uint x) public pure returns (uint) {
+        return x+1;
+    }
+
+    function main() public {
+        y = 1;
+        assert(y == 1);
+
+        x.push(1);
+        x[0] = 2;
+        assert(x[0] == 2);
+
+        y = x[0] = 3;
+        assert(y == 3 && x[0] == 3);
+
+        y += x[0] -= 3;
+        assert(y == 3 && x[0] == 0);
+
+        x[y-=3] = 1;
+        assert(y == 0 && x[0] == 1);
+
+        y = plusOne(x[y] = 5);
+        assert(x[0] == 5 && y == 6);
+
+        for (z = 0; z < y; z = z + 1) {}
+    }
+}
+`,
+            "//ContractDefinition/FunctionDefinition/Block//Assignment",
+            `pragma solidity 0.6.0;
+
+contract SimpleAssignments {
+    uint internal y;
+    uint internal z;
+    uint[] internal x;
+    mapping(uint => uint) internal m;
+
+    function plusOne(uint x) public pure returns (uint) {
+        return x + 1;
+    }
+
+    function main() public {
+        SimpleAssignments_y_assign(1);
+        assert(y == 1);
+        x.push(1);
+        SimpleAssignments_x_idx_assign(0, 2);
+        assert(x[0] == 2);
+        SimpleAssignments_y_assign(SimpleAssignments_x_idx_assign(0, 3));
+        assert((y == 3) && (x[0] == 3));
+        SimpleAssignments_y_plus_assign(SimpleAssignments_x_idx_minus_assign(0, 3));
+        assert((y == 3) && (x[0] == 0));
+        SimpleAssignments_x_idx_assign(SimpleAssignments_y_minus_assign(3), 1);
+        assert((y == 0) && (x[0] == 1));
+        SimpleAssignments_y_assign(plusOne(SimpleAssignments_x_idx_assign(y, 5)));
+        assert((x[0] == 5) && (y == 6));
+        for (SimpleAssignments_z_assign(0); z < y; SimpleAssignments_z_assign(z + 1)) {}
+    }
+
+    function SimpleAssignments_y_assign(uint ARG0) internal returns (uint256 RET0) {
+        y = ARG0;
+        RET0 = y;
+    }
+
+    function SimpleAssignments_x_idx_assign(uint256 ARG1, uint ARG2) internal returns (uint256 RET1) {
+        x[ARG1] = ARG2;
+        RET1 = x[ARG1];
+    }
+
+    function SimpleAssignments_y_plus_assign(uint ARG3) internal returns (uint256 RET2) {
+        y += ARG3;
+        RET2 = y;
+    }
+
+    function SimpleAssignments_x_idx_minus_assign(uint256 ARG4, uint ARG5) internal returns (uint256 RET3) {
+        x[ARG4] -= ARG5;
+        RET3 = x[ARG4];
+    }
+
+    function SimpleAssignments_y_minus_assign(uint ARG6) internal returns (uint256 RET4) {
+        y -= ARG6;
+        RET4 = y;
+    }
+
+    function SimpleAssignments_z_assign(uint ARG7) internal returns (uint256 RET5) {
+        z = ARG7;
+        RET5 = z;
+    }
+}`
+        ],
+        [
+            "tuple_assignments.sol",
+            `pragma solidity 0.6.0;
+
+contract TupleAssignments {
+    uint x;
+    uint y;
+
+    function getTwo() internal pure returns (uint, uint) {
+        return (3, 4);
+    }
+
+    function main() public {
+        (x, y) = (1, 2);
+        assert(x == 1 && y == 2);
+        (x, y) = (y, x);
+        assert(x == 2 && y == 1);
+        
+        (x, y) = getTwo();
+        assert(x == 3 && y == 4);
+        
+        (x, x) = getTwo();
+        assert(x == 3 && y == 4);
+        
+        (x, (x ,x)) = (1, (2, 3));
+        
+        assert(x == 1);
+        
+        ((x, x), x) = ((2, 3), 1);
+        
+        assert(x == 2);
+    }
+}
+`,
+            "//ContractDefinition/FunctionDefinition/Block//Assignment",
+            `pragma solidity 0.6.0;
+
+contract TupleAssignments {
+    struct vars0 {
+        uint256 tuple_tmp_0;
+        uint256 tuple_tmp_1;
+        uint256 tuple_tmp_2;
+        uint256 tuple_tmp_3;
+        uint256 tuple_tmp_4;
+        uint256 tuple_tmp_5;
+        uint256 tuple_tmp_6;
+        uint256 tuple_tmp_7;
+        uint256 tuple_tmp_8;
+        uint256 tuple_tmp_9;
+        uint256 tuple_tmp_10;
+        uint256 tuple_tmp_11;
+        uint256 tuple_tmp_12;
+        uint256 tuple_tmp_13;
+    }
+
+    uint internal x;
+    uint internal y;
+
+    function getTwo() internal pure returns (uint, uint) {
+        return (3, 4);
+    }
+
+    function main() public {
+        vars0 memory _v;
+        (_v.tuple_tmp_1, _v.tuple_tmp_0) = (1, 2);
+        TupleAssignments_y_assign(_v.tuple_tmp_0);
+        TupleAssignments_x_assign(_v.tuple_tmp_1);
+        assert((x == 1) && (y == 2));
+        (_v.tuple_tmp_3, _v.tuple_tmp_2) = (y, x);
+        TupleAssignments_y_assign(_v.tuple_tmp_2);
+        TupleAssignments_x_assign(_v.tuple_tmp_3);
+        assert((x == 2) && (y == 1));
+        (_v.tuple_tmp_5, _v.tuple_tmp_4) = getTwo();
+        TupleAssignments_y_assign(_v.tuple_tmp_4);
+        TupleAssignments_x_assign(_v.tuple_tmp_5);
+        assert((x == 3) && (y == 4));
+        (_v.tuple_tmp_7, _v.tuple_tmp_6) = getTwo();
+        TupleAssignments_x_assign(_v.tuple_tmp_6);
+        TupleAssignments_x_assign(_v.tuple_tmp_7);
+        assert((x == 3) && (y == 4));
+        (_v.tuple_tmp_10, (_v.tuple_tmp_9, _v.tuple_tmp_8)) = (1, (2, 3));
+        TupleAssignments_x_assign(_v.tuple_tmp_8);
+        TupleAssignments_x_assign(_v.tuple_tmp_9);
+        TupleAssignments_x_assign(_v.tuple_tmp_10);
+        assert(x == 1);
+        ((_v.tuple_tmp_13, _v.tuple_tmp_12), _v.tuple_tmp_11) = ((2, 3), 1);
+        TupleAssignments_x_assign(_v.tuple_tmp_11);
+        TupleAssignments_x_assign(_v.tuple_tmp_12);
+        TupleAssignments_x_assign(_v.tuple_tmp_13);
+        assert(x == 2);
+    }
+
+    function TupleAssignments_y_assign(uint ARG0) internal returns (uint256 RET0) {
+        y = ARG0;
+        RET0 = y;
+    }
+
+    function TupleAssignments_x_assign(uint ARG1) internal returns (uint256 RET1) {
+        x = ARG1;
+        RET1 = x;
+    }
+}`
+        ]
+    ];
+    for (const [fileName, content, selector, expectedInstrumented] of goodSamples) {
+        it(`Interpose on state vars in #${fileName}`, () => {
+            const [sources, reader, files, compilerVersion] = toAst(fileName, content);
+            const result = new XPath(sources[0]).query(selector);
+            const nodes = result instanceof Array ? result : [result];
+            const factory = new ASTNodeFactory(reader.context);
+            const contract = sources[0].vContracts[0];
+            const vars = new Set(contract.vStateVariables);
+
+            const ctx = makeInstrumentationCtx(sources, factory, files, "log", compilerVersion);
+            for (const node of nodes) {
+                if (node instanceof Assignment && node.vLeftHandSide instanceof TupleExpression) {
+                    const container = node.getClosestParentByType(
+                        FunctionDefinition
+                    ) as FunctionDefinition;
+                    const transCtx = ctx.getTranspilingCtx(container);
+
+                    interposeTupleAssignment(transCtx, node, vars);
+                } else {
+                    interposeSimpleStateVarUpdate(ctx, node);
+                }
+            }
+
+            ctx.finalize();
+
+            const instrumented = print(sources, [content], "0.6.0").get(sources[0]);
             expect(instrumented).toEqual(expectedInstrumented);
         });
     }

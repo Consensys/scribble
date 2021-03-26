@@ -1,9 +1,12 @@
 import {
     ASTNodeFactory,
+    Block,
     ContractDefinition,
     DataLocation,
+    Expression,
     FunctionDefinition,
     FunctionVisibility,
+    MemberAccess,
     Mutability,
     StateVariableVisibility,
     StructDefinition,
@@ -23,13 +26,15 @@ import { InstrumentationContext } from "./instrumentation_context";
  * binding names generated while transpiling the expressions.
  */
 export class TranspilingContext {
-    private static firstInstance = true;
     private bindingMap: Map<string, string> = new Map();
-    public readonly scratchField = "__mstore_scratch__";
-    public readonly checkInvsFlag = "__scribble_check_invs_at_end";
-    public readonly bindingsStructDef: StructDefinition;
-    public readonly bindingsVar: VariableDeclaration;
-    public readonly factory: ASTNodeFactory;
+    private bindingDefMap: Map<string, VariableDeclaration> = new Map();
+    private varRefc = 0;
+    private bindingsStructDef: StructDefinition;
+    private bindingsVar: VariableDeclaration;
+
+    public get factory(): ASTNodeFactory {
+        return this.instrCtx.factory;
+    }
 
     constructor(
         public readonly typeEnv: TypeEnv,
@@ -37,8 +42,6 @@ export class TranspilingContext {
         public readonly container: FunctionDefinition,
         public readonly instrCtx: InstrumentationContext
     ) {
-        this.factory = instrCtx.factory;
-
         // Create the StructDefinition for temporary bindings.
         const contract = this.container.vScope;
         assert(
@@ -70,13 +73,35 @@ export class TranspilingContext {
             undefined,
             this.factory.makeUserDefinedTypeName("<missing>", structName, this.bindingsStructDef.id)
         );
+    }
 
-        // Make sure that on the first run we reserve this.scratchField and this.checkInvsFlag as field names.
-        if (TranspilingContext.firstInstance) {
-            TranspilingContext.firstInstance = false;
-            this.instrCtx.nameGenerator.getFresh(this.scratchField, true);
-            this.instrCtx.nameGenerator.getFresh(this.checkInvsFlag, true);
+    /**
+     * When interposing on tuple assignments we generate temporary variables for components of the lhs of the tuple. E.g. for:
+     *
+     * ```
+     *     (x, (a.y, z[1])) = ....
+     * ```
+     *
+     * We would generate:
+     *
+     * ```
+     *     (_v.tmp1, (_v.tmp2, _v.tmp3)) = ....
+     *     z[1] = _v.tmp3;
+     *     a.y = _v.tmp2;
+     *     x = _v.tmp1;
+     * ```
+     *
+     * This is used for state var update interposing.
+     */
+    getTupleAssignmentBinding(tupleComp: Expression): string {
+        const key = `tuple_temp_${tupleComp.id}`;
+        if (!this.bindingMap.has(key)) {
+            const fieldName = this.instrCtx.nameGenerator.getFresh(`tuple_tmp_`);
+            this.bindingMap.set(key, fieldName);
+            return fieldName;
         }
+
+        return this.bindingMap.get(key) as string;
     }
 
     /**
@@ -153,6 +178,8 @@ export class TranspilingContext {
     }
 
     addBinding(name: string, type: TypeName): VariableDeclaration {
+        assert(!this.bindingDefMap.has(name), `Binding ${name} already defined.`);
+
         const decl = this.factory.makeVariableDeclaration(
             false,
             false,
@@ -167,7 +194,43 @@ export class TranspilingContext {
             type
         );
 
+        this.bindingDefMap.set(name, decl);
         this.bindingsStructDef.appendChild(decl);
         return decl;
+    }
+
+    refBinding(name: string): MemberAccess {
+        const member = this.bindingDefMap.get(name);
+        assert(member !== undefined, `No temp binding ${name} defined`);
+
+        this.varRefc++;
+        return this.factory.makeMemberAccess(
+            member.typeString,
+            this.factory.makeIdentifierFor(this.bindingsVar),
+            name,
+            member.id
+        );
+    }
+
+    getBindingVarSId(): SId {
+        const res = new SId(this.bindingsVar.name);
+        res.defSite = this.bindingsVar;
+        this.varRefc++;
+        return res;
+    }
+
+    finalize(): void {
+        if (this.varRefc == 0) {
+            return;
+        }
+
+        const contract = this.container.parent;
+        assert(contract instanceof ContractDefinition, ``);
+        contract.appendChild(this.bindingsStructDef);
+        const block = this.container.vBody as Block;
+        const localVarStmt = this.factory.makeVariableDeclarationStatement([], [this.bindingsVar]);
+
+        this.instrCtx.addGeneralInstrumentation(localVarStmt);
+        block.insertBefore(localVarStmt, block.children[0]);
     }
 }

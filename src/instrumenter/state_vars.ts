@@ -315,7 +315,7 @@ export function* getAssignments(node: ASTNode): Iterable<[LHS, RHS]> {
  * Return true IFF the type `t` is aliasable by a storage pointer.
  * @param t
  */
-function isTypeAliasable(t: TypeName): boolean {
+export function isTypeAliasable(t: TypeName): boolean {
     return (
         t instanceof ArrayTypeName ||
         t instanceof Mapping ||
@@ -449,6 +449,11 @@ export function unaliasedVars(
  * expression.
  */
 export type ConcreteDatastructurePath = Array<Expression | string>;
+export type StateVarUpdateNode =
+    | [Assignment, number[]]
+    | VariableDeclaration
+    | FunctionCall
+    | UnaryOperation;
 /**
  * Tuple describing a location in the AST where a state variable is modified. Has the following
  * 4 fields:
@@ -471,25 +476,45 @@ export type ConcreteDatastructurePath = Array<Expression | string>;
  *
  */
 export type StateVarUpdateLoc = [
-    [Assignment, number[]] | VariableDeclaration | FunctionCall | UnaryOperation,
+    StateVarUpdateNode,
     VariableDeclaration,
     ConcreteDatastructurePath,
     Expression | [Expression, number] | undefined
 ];
 
 /**
- * Given an expression that may be wrapped in `MemberAccess` and `IndexAccess`-es,
- * unwrap it into a base expression that is not a `MemberAccess` or `IndexAccess` and
- * a list describing the `MemberAccess`-es and `IndexAccess`-es.
+ * Map version of the `StateVarUpdateLoc[]` type.
  */
-function decomposePath(e: Expression): [Expression, ConcreteDatastructurePath] {
+export type StateVarUpdateMap = Map<
+    VariableDeclaration,
+    Array<
+        [
+            StateVarUpdateNode,
+            ConcreteDatastructurePath,
+            Expression | [Expression, number] | undefined
+        ]
+    >
+>;
+
+/**
+ * Given a LHS expression that may be wrapped in `MemberAccess` and
+ * `IndexAccess`-es, unwrap it into a base expression that is either an
+ * `Identifier` or a `MemberAccess` that refers to a local var, argument,
+ * return or state variable and a list describing the `MemberAccess`-es and
+ * `IndexAccess`-es.
+ *
+ * @note there is one exception here: `arr.push() = 10`. But honestly screw it.
+ */
+export function decomposeLHS(
+    e: Expression
+): [Identifier | MemberAccess, ConcreteDatastructurePath] {
     const path: ConcreteDatastructurePath = [];
     while (true) {
         if (
             e instanceof MemberAccess &&
             !(
                 e.vReferencedDeclaration instanceof VariableDeclaration &&
-                e.vReferencedDeclaration.stateVariable
+                !(e.vReferencedDeclaration.parent instanceof StructDefinition)
             )
         ) {
             path.unshift(e.memberName);
@@ -507,13 +532,14 @@ function decomposePath(e: Expression): [Expression, ConcreteDatastructurePath] {
         break;
     }
 
+    assert(e instanceof Identifier || e instanceof MemberAccess, ``);
     return [e, path];
 }
 
 /**
  * Return true IFF `node` refers to same state variable
  */
-function isStateVarRef(node: ASTNode): node is Identifier | MemberAccess {
+export function isStateVarRef(node: ASTNode): node is Identifier | MemberAccess {
     return (
         (node instanceof Identifier || node instanceof MemberAccess) &&
         node.vReferencedDeclaration instanceof VariableDeclaration &&
@@ -573,7 +599,7 @@ export function findStateVarUpdates(units: SourceUnit[]): StateVarUpdateLoc[] {
         lhs: Expression,
         rhs: Expression | [Expression, number] | undefined
     ): void => {
-        const [baseExp, path] = decomposePath(lhs);
+        const [baseExp, path] = decomposeLHS(lhs);
 
         // Skip assignments where the base of the LHS is not a direct reference to a state variable
         if (!isStateVarRef(baseExp)) {
@@ -604,9 +630,10 @@ export function findStateVarUpdates(units: SourceUnit[]): StateVarUpdateLoc[] {
                 );
                 // State variable inline initializer
                 res.push([lhs, lhs, [], rhs]);
+                continue;
             }
 
-            const [baseExp, path] = decomposePath(lhs);
+            const [baseExp, path] = decomposeLHS(lhs);
 
             // Skip assignments where the base of the LHS is not a direct reference to a state variable
             if (!isStateVarRef(baseExp)) {

@@ -28,6 +28,7 @@ import {
     UserDefinedTypeName,
     VariableDeclaration
 } from "solc-typed-ast";
+import { findAliasedStateVars, findStateVarUpdates, replaceNode } from "..";
 import { print, rewriteImports } from "../ast_to_source_printer";
 import {
     PropertyMetaData,
@@ -47,6 +48,7 @@ import {
     FunctionInstrumenter,
     generateUtilsContract
 } from "../instrumenter/instrument";
+import { instrumentStateVars } from "../instrumenter/state_var_instrumenter";
 import { InstrumentationContext } from "../instrumenter/instrumentation_context";
 import { merge } from "../rewriter/merge";
 import { isSane } from "../rewriter/sanity";
@@ -63,7 +65,8 @@ import {
     generateInstrumentationMetadata,
     flatten,
     dedup,
-    topoSort
+    topoSort,
+    getOr
 } from "../util";
 import cli from "./scribble_cli.json";
 
@@ -168,15 +171,15 @@ function computeContractsNeedingInstr(
 function instrumentFiles(
     ctx: InstrumentationContext,
     annotMap: AnnotationMap,
-    contractsNeedingInstr: Set<ContractDefinition>,
-    typeEnv: TypeEnv,
-    semInfo: SemMap
+    contractsNeedingInstr: Set<ContractDefinition>
 ): [SourceUnit[], SourceUnit[]] {
     const units = ctx.units;
 
     const worklist: Array<
         [ContractDefinition, FunctionDefinition | undefined, AnnotationMetaData[]]
     > = [];
+    const stateVarsWithAnnot: VariableDeclaration[] = [];
+
     const changedSourceUnits: SourceUnit[] = [];
 
     for (const unit of units) {
@@ -187,12 +190,7 @@ function instrumentFiles(
         assert(contents !== undefined, `Missing source for ${unit.absolutePath}`);
 
         for (const contract of unit.vContracts) {
-            let contractAnnot = annotMap.get(contract);
-
-            if (contractAnnot === undefined) {
-                contractAnnot = [];
-            }
-
+            const contractAnnot = getOr(annotMap, contract, []);
             const needsContrInstr = contractsNeedingInstr.has(contract);
 
             // Nothing to instrument on interfaces
@@ -207,6 +205,13 @@ function instrumentFiles(
                     ![ContractKind.Library, ContractKind.Interface].includes(contract.kind),
                     `Shouldn't be instrumenting ${contract.kind} ${contract.name} with contract invs`
                 );
+            }
+
+            for (const stateVar of contract.vStateVariables) {
+                const stateVarAnnots = getOr(annotMap, stateVar, []);
+                if (stateVarAnnots.length > 0) {
+                    stateVarsWithAnnot.push(stateVar);
+                }
             }
 
             for (const fun of contract.vFunctions) {
@@ -246,22 +251,28 @@ function instrumentFiles(
     const contractInstrumenter = new ContractInstrumenter();
     const functionInstrumenter = new FunctionInstrumenter();
 
-    for (const [contract, fn, annotations] of worklist) {
-        if (fn === undefined) {
-            contractInstrumenter.instrument(ctx, typeEnv, semInfo, annotations, contract);
+    for (const [contract, contractElement, annotations] of worklist) {
+        if (contractElement === undefined) {
+            contractInstrumenter.instrument(ctx, annotations, contract);
         } else {
             functionInstrumenter.instrument(
                 ctx,
-                typeEnv,
-                semInfo,
                 annotations,
                 contract,
-                fn,
+                contractElement,
                 contractsNeedingInstr.has(contract)
             );
         }
     }
 
+    if (stateVarsWithAnnot.length > 0) {
+        const aliasedStateVars = findAliasedStateVars(ctx.units);
+        const stateVarUpdates = findStateVarUpdates(ctx.units);
+
+        instrumentStateVars(ctx, annotMap, aliasedStateVars, stateVarUpdates);
+    }
+
+    ctx.finalize();
     return [units, changedSourceUnits];
 }
 
@@ -332,77 +343,6 @@ function getFQName(
 
         return scope.name + "." + def.name;
     }
-}
-
-/**
- * Replace the node `oldNode` in the tree with `newNode`.
- *
- * If `p` is the parent of `oldNode`, this function needs to find a property
- * `propName` of `p` such that `p[propName] === oldNode`. `ASTNode`s have both
- * own properties and getters/setters, so this function first:
- *
- * 1. Iterates over the own properties of `p`
- * 2. Walks the prototype chain of `p` iterating over all getters/setters
- *
- * Once found, it re-assigns `p[propName] = newNode` and sets
- * `newNode.parent=p` using `acceptChildren`. Since `children` is a getter
- * there is nothing further to do.
- *
- * @param oldNode - old node to replace
- * @param newNode - new node with which we are replacing it
- */
-function replaceNode(oldNode: ASTNode, newNode: ASTNode): void {
-    assert(oldNode.context === newNode.context, `Context mismatch`);
-    const parent = oldNode.parent;
-
-    if (!parent) return;
-
-    // First check if parent has an OWN property with the child
-    const ownProps = Object.getOwnPropertyDescriptors(parent);
-    for (const propName in ownProps) {
-        if (ownProps[propName].value === oldNode) {
-            const tmpObj: any = {};
-            tmpObj[propName] = newNode;
-
-            Object.assign(parent, tmpObj);
-            parent.acceptChildren();
-            return;
-        }
-    }
-
-    // If not, walk up the inheritance tree, looking for a getter/setter pair that matches
-    // this child
-    let proto = Object.getPrototypeOf(parent);
-
-    while (proto) {
-        for (const name of Object.getOwnPropertyNames(proto)) {
-            if (name === "__proto__") {
-                continue;
-            }
-
-            const descriptor = Object.getOwnPropertyDescriptor(proto, name);
-
-            if (
-                descriptor &&
-                typeof descriptor.get === "function" &&
-                typeof descriptor.set === "function"
-            ) {
-                const val = descriptor.get.call(parent);
-                if (val === oldNode) {
-                    descriptor.set.call(parent, newNode);
-                    parent.acceptChildren();
-                    return;
-                }
-            }
-        }
-
-        proto = Object.getPrototypeOf(proto);
-    }
-
-    assert(
-        false,
-        `Couldn't find child ${oldNode.type}#${oldNode.id} under parent ${parent.type}#${parent.id}`
-    );
 }
 
 /**
@@ -963,18 +903,14 @@ if ("version" in options) {
             compilerVersionUsed,
             debugEvents,
             new Map(),
-            outputMode
+            outputMode,
+            typeEnv,
+            semMap
         );
 
         const utilsUnit = makeUtilsUnit(utilsOutputDir, factory, compilerVersionUsed, instrCtx);
 
-        const [allUnits, changedUnits] = instrumentFiles(
-            instrCtx,
-            annotMap,
-            contractsNeedingInstr,
-            typeEnv,
-            semMap
-        );
+        const [allUnits, changedUnits] = instrumentFiles(instrCtx, annotMap, contractsNeedingInstr);
 
         allUnits.push(utilsUnit);
 
