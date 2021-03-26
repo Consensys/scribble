@@ -69,18 +69,18 @@ export function getKeysAndCompTypes(
     factory: ASTNodeFactory,
     varDecl: VariableDeclaration,
     path: ConcreteDatastructurePath
-): [Array<TypeName | null>, TypeName] {
+): [Array<[TypeName, Expression] | null>, TypeName] {
     let typ = varDecl.vType as TypeName;
-    const keyTypes: Array<TypeName | null> = [];
+    const keyTypes: Array<[TypeName, Expression] | null> = [];
 
     for (const comp of path) {
         if (comp instanceof Expression) {
             if (typ instanceof ArrayTypeName) {
-                keyTypes.push(factory.makeElementaryTypeName("<missing>", "uint256"));
+                keyTypes.push([factory.makeElementaryTypeName("<missing>", "uint256"), comp]);
                 typ = typ.vBaseType;
             } else {
                 assert(typ instanceof Mapping, ``);
-                keyTypes.push(typ.vKeyType);
+                keyTypes.push([typ.vKeyType, comp]);
                 typ = typ.vValueType;
             }
         } else {
@@ -253,9 +253,9 @@ function makeWrapper(
         }
 
         const keyT = pathIdxTs[i];
-        assert(keyT instanceof TypeName, ``);
+        assert(keyT instanceof Array, ``);
         replMap.set(pathEl.id, formalParamTs.length);
-        formalParamTs.push(keyT);
+        formalParamTs.push(keyT[0]);
     }
 
     for (const [actual, formalT] of additionalArgs) {
@@ -498,7 +498,8 @@ export function interposeTupleAssignment(
         }
     };
 
-    const replMap: Array<[Expression, Identifier | MemberAccess]> = [];
+    const keyReplMap: Array<[Expression, Identifier | MemberAccess]> = [];
+    const lhsReplMap: Array<[Expression, Identifier | MemberAccess]> = [];
 
     // Walk over LHS tuple and replace each expression with a temporary Identifier/MemberAccess
     const replaceLHS = (lhs: TupleExpression, rhs: Expression): void => {
@@ -517,14 +518,23 @@ export function interposeTupleAssignment(
                 replaceLHS(lhsComp, rhsComp);
             } else {
                 const lhsT = getExprType(lhsComp, factory);
-                const [base] = decomposeLHS(lhsComp);
-                const freshLHS = makeTempHelper(
-                    lhsComp,
-                    lhsT,
-                    getLocation(base.vReferencedDeclaration as VariableDeclaration)
-                );
+                const [base, path] = decomposeLHS(lhsComp);
+                const varDecl = base.vReferencedDeclaration as VariableDeclaration;
+                const freshLHS = makeTempHelper(lhsComp, lhsT, getLocation(varDecl));
                 replaceNode(lhsComp, freshLHS);
-                replMap.push([lhsComp, freshLHS]);
+                lhsReplMap.push([lhsComp, freshLHS]);
+
+                for (const el of getKeysAndCompTypes(factory, varDecl, path)[0]) {
+                    if (el === null) {
+                        continue;
+                    }
+
+                    const [typ, idxExp] = el;
+
+                    const freshKey = makeTempHelper(idxExp, typ, DataLocation.Memory);
+                    replaceNode(idxExp, freshKey);
+                    keyReplMap.push([idxExp, freshKey]);
+                }
             }
         }
     };
@@ -534,10 +544,23 @@ export function interposeTupleAssignment(
 
     const containingStmt = updateNode.parent as ExpressionStatement;
     const containingBlock = containingStmt.parent as Block;
+    // First store the key expressions in temporaries before the tuple assignment
+    for (const [originalKey, temporary] of keyReplMap) {
+        const temporaryUpdate: Expression = factory.makeAssignment(
+            "<missing>",
+            "=",
+            temporary,
+            originalKey
+        );
+
+        const temporaryUpdateStmt = factory.makeExpressionStatement(temporaryUpdate);
+        containingBlock.insertBefore(temporaryUpdateStmt, containingStmt);
+    }
+
     let marker: Statement = containingStmt;
     // Insert an assginment/update function call for each pair of original LHS
-    // expression, and temporary expression used to substitute it.
-    for (const [originalLHS, temporary] of replMap) {
+    // expression, and temporary expression used to substitute it after the tuple assignment.
+    for (const [originalLHS, temporary] of lhsReplMap) {
         const temporaryUpdate: Expression = factory.makeAssignment(
             "<missing>",
             "=",

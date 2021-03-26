@@ -15,7 +15,6 @@ import {
     FunctionStateMutability,
     FunctionVisibility,
     LiteralKind,
-    MemberAccess,
     Mutability,
     OverrideSpecifier,
     resolveByName,

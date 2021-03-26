@@ -952,6 +952,8 @@ contract SimpleAssignments {
 contract TupleAssignments {
     uint x;
     uint y;
+    uint[] a;
+    uint[][] aa;
 
     function getTwo() internal pure returns (uint, uint) {
         return (3, 4);
@@ -976,6 +978,30 @@ contract TupleAssignments {
         ((x, x), x) = ((2, 3), 1);
         
         assert(x == 2);
+
+        a.push(42);
+        a.push(41);
+        assert(a[0] == 42 && a[1] == 41);
+
+        uint t = 0;
+        (a[t], t) = (2, 1);
+
+        assert(t == 1 && a[0] == 2);
+        
+        (t, a[t]) = (0, 3);
+
+        assert(t == 0 && a[1] == 3);
+        
+        x = 0;
+        (a[x], x) = (4, 1);
+
+        assert(x == 1 && a[0] == 4);
+        
+        aa.push(a);
+        x  = y = 0;
+        (x, aa[x][y], y) = (10, 5, 10);
+    
+        assert(x == 10 && y == 10 && aa[0][0] == 5);
     }
 }
 `,
@@ -998,10 +1024,26 @@ contract TupleAssignments {
         uint256 tuple_tmp_11;
         uint256 tuple_tmp_12;
         uint256 tuple_tmp_13;
+        uint256 tuple_tmp_14;
+        uint256 tuple_tmp_15;
+        uint256 tuple_tmp_16;
+        uint256 tuple_tmp_17;
+        uint256 tuple_tmp_18;
+        uint256 tuple_tmp_19;
+        uint256 tuple_tmp_20;
+        uint256 tuple_tmp_21;
+        uint256 tuple_tmp_22;
+        uint256 tuple_tmp_23;
+        uint256 tuple_tmp_24;
+        uint256 tuple_tmp_25;
+        uint256 tuple_tmp_26;
+        uint256 tuple_tmp_27;
     }
 
     uint internal x;
     uint internal y;
+    uint[] internal a;
+    uint[][] internal aa;
 
     function getTwo() internal pure returns (uint, uint) {
         return (3, 4);
@@ -1035,6 +1077,35 @@ contract TupleAssignments {
         TupleAssignments_x_assign(_v.tuple_tmp_12);
         TupleAssignments_x_assign(_v.tuple_tmp_13);
         assert(x == 2);
+        a.push(42);
+        a.push(41);
+        assert((a[0] == 42) && (a[1] == 41));
+        uint t = 0;
+        _v.tuple_tmp_16 = t;
+        (_v.tuple_tmp_15, _v.tuple_tmp_14) = (2, 1);
+        t = _v.tuple_tmp_14;
+        TupleAssignments_a_idx_assign(_v.tuple_tmp_16, _v.tuple_tmp_15);
+        assert((t == 1) && (a[0] == 2));
+        _v.tuple_tmp_18 = t;
+        (_v.tuple_tmp_19, _v.tuple_tmp_17) = (0, 3);
+        TupleAssignments_a_idx_assign(_v.tuple_tmp_18, _v.tuple_tmp_17);
+        t = _v.tuple_tmp_19;
+        assert((t == 0) && (a[1] == 3));
+        TupleAssignments_x_assign(0);
+        _v.tuple_tmp_22 = x;
+        (_v.tuple_tmp_21, _v.tuple_tmp_20) = (4, 1);
+        TupleAssignments_x_assign(_v.tuple_tmp_20);
+        TupleAssignments_a_idx_assign(_v.tuple_tmp_22, _v.tuple_tmp_21);
+        assert((x == 1) && (a[0] == 4));
+        aa.push(a);
+        TupleAssignments_x_assign(TupleAssignments_y_assign(0));
+        _v.tuple_tmp_25 = x;
+        _v.tuple_tmp_26 = y;
+        (_v.tuple_tmp_27, _v.tuple_tmp_24, _v.tuple_tmp_23) = (10, 5, 10);
+        TupleAssignments_y_assign(_v.tuple_tmp_23);
+        TupleAssignments_aa_idx_idx_assign(_v.tuple_tmp_25, _v.tuple_tmp_26, _v.tuple_tmp_24);
+        TupleAssignments_x_assign(_v.tuple_tmp_27);
+        assert(((x == 10) && (y == 10)) && (aa[0][0] == 5));
     }
 
     function TupleAssignments_y_assign(uint ARG0) internal returns (uint256 RET0) {
@@ -1045,6 +1116,16 @@ contract TupleAssignments {
     function TupleAssignments_x_assign(uint ARG1) internal returns (uint256 RET1) {
         x = ARG1;
         RET1 = x;
+    }
+
+    function TupleAssignments_a_idx_assign(uint256 ARG2, uint ARG3) internal returns (uint256 RET2) {
+        a[ARG2] = ARG3;
+        RET2 = a[ARG2];
+    }
+
+    function TupleAssignments_aa_idx_idx_assign(uint256 ARG4, uint256 ARG5, uint ARG6) internal returns (uint256 RET3) {
+        aa[ARG4][ARG5] = ARG6;
+        RET3 = aa[ARG4][ARG5];
     }
 }`
         ]
