@@ -17,6 +17,7 @@ import { SId, SLet, SUnaryOperation, SUserFunctionDefinition } from "../spec-lan
 import { SemMap, TypeEnv } from "../spec-lang/tc";
 import { assert } from "../util";
 import { InstrumentationContext } from "./instrumentation_context";
+import { makeTypeString } from "./type_string";
 
 /**
  * Class containing all the context necessary to transpile
@@ -59,6 +60,12 @@ export class TranspilingContext {
             []
         );
 
+        const bindingsVarType = this.factory.makeUserDefinedTypeName(
+            "<missing>",
+            structName,
+            this.bindingsStructDef.id
+        );
+
         // Create the local struct variable where the temporary bindigngs live
         this.bindingsVar = this.factory.makeVariableDeclaration(
             false,
@@ -69,9 +76,9 @@ export class TranspilingContext {
             DataLocation.Memory,
             StateVariableVisibility.Default,
             Mutability.Mutable,
-            "<missing>",
+            makeTypeString(bindingsVarType, DataLocation.Memory),
             undefined,
-            this.factory.makeUserDefinedTypeName("<missing>", structName, this.bindingsStructDef.id)
+            bindingsVarType
         );
     }
 
@@ -205,7 +212,7 @@ export class TranspilingContext {
 
         this.varRefc++;
         return this.factory.makeMemberAccess(
-            member.typeString,
+            makeTypeString(member.vType as TypeName, DataLocation.Memory),
             this.factory.makeIdentifierFor(this.bindingsVar),
             name,
             member.id

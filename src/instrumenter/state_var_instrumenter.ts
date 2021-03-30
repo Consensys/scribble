@@ -6,7 +6,6 @@ import {
     ContractDefinition,
     DataLocation,
     DoWhileStatement,
-    ElementaryTypeName,
     Expression,
     ExpressionStatement,
     ExternalReferenceType,
@@ -41,6 +40,7 @@ import {
     decomposeLHS,
     generateTypeAst,
     getOrInit,
+    getTypeLocation,
     isStateVarRef,
     isTypeAliasable,
     pp,
@@ -51,27 +51,49 @@ import { assert } from "../util";
 import { InstrumentationContext } from "./instrumentation_context";
 import { parse as parseTypeString } from "../spec-lang/typeString_parser";
 import { TranspilingContext } from "./transpiling_context";
+import {
+    SAddressType,
+    SArrayType,
+    SBoolType,
+    SBytes,
+    SFixedBytes,
+    SIntLiteralType,
+    SIntType,
+    SMappingType,
+    SPointer,
+    SString,
+    STupleType,
+    SType,
+    SUserDefinedType
+} from "../spec-lang/ast";
+import { SStringLiteralType } from "../spec-lang/ast/types/string_literal";
+import { astTypeNameToSType } from "../spec-lang/tc";
+import { makeTypeString } from "./type_string";
 
-function getExprType(e: Expression, factory: ASTNodeFactory): TypeName {
-    const sType = parseTypeString(e.typeString);
-    return generateTypeAst(sType, factory);
-}
+function getExprSType(e: Expression, exprSurroundingT?: SType): SType {
+    const sType: SType = parseTypeString(e.typeString);
 
-function needsLocation(t: TypeName): boolean {
-    return (
-        t instanceof ArrayTypeName ||
-        t instanceof Mapping ||
-        (t instanceof UserDefinedTypeName && t.vReferencedDeclaration instanceof StructDefinition)
-    );
+    if (sType instanceof SIntLiteralType) {
+        if (exprSurroundingT !== undefined) {
+            assert(exprSurroundingT instanceof SIntType, ``);
+            return exprSurroundingT;
+        }
+
+        return sType;
+    } else if (sType instanceof SStringLiteralType) {
+        return new SPointer(new SString(), DataLocation.Memory);
+    }
+
+    return sType;
 }
 
 export function getKeysAndCompTypes(
     factory: ASTNodeFactory,
     varDecl: VariableDeclaration,
     path: ConcreteDatastructurePath
-): [Array<[TypeName, Expression] | null>, TypeName] {
+): [Array<[TypeName, Expression] | string>, TypeName] {
     let typ = varDecl.vType as TypeName;
-    const keyTypes: Array<[TypeName, Expression] | null> = [];
+    const keyTypes: Array<[TypeName, Expression] | string> = [];
 
     for (const comp of path) {
         if (comp instanceof Expression) {
@@ -94,7 +116,7 @@ export function getKeysAndCompTypes(
                 typ.vReferencedDeclaration.vMembers.filter((member) => member.name === comp)
             ).vType as TypeName;
 
-            keyTypes.push(null);
+            keyTypes.push(comp);
         }
     }
 
@@ -115,13 +137,78 @@ const assignSuffixMap: { [key: string]: string } = {
     "%=": "mod_assign"
 };
 
+/**
+ * Get a string descriptor for a type to be used in naming conventions
+ * @param typ
+ */
+function getTypeDescriptor(typ: SType): string {
+    if (typ instanceof SAddressType) {
+        return `address${typ.payable ? "_payable" : ""}`;
+    }
+
+    if (typ instanceof SArrayType) {
+        const baseStr = getTypeDescriptor(typ.elementT);
+        return `arr_${baseStr}${typ.size ? "_" + typ.size : ""}`;
+    }
+
+    if (typ instanceof SBoolType) {
+        return `bool`;
+    }
+
+    if (typ instanceof SBytes) {
+        return `bytes`;
+    }
+
+    if (typ instanceof SFixedBytes) {
+        return `bytes_${typ.size}`;
+    }
+
+    if (typ instanceof SIntType) {
+        return (typ.signed ? "" : "u") + `int${typ.nBits}`;
+    }
+
+    if (typ instanceof SMappingType) {
+        return `mapping_${getTypeDescriptor(typ.keyType)}_${getTypeDescriptor(typ.valueType)}`;
+    }
+
+    if (typ instanceof SPointer) {
+        return `ptr_${getTypeDescriptor(typ.to)}_${typ.location}`;
+    }
+
+    if (typ instanceof SString) {
+        return `string`;
+    }
+
+    if (typ instanceof SUserDefinedType) {
+        // @todo use FQ name here
+        return `ud_${typ.name}`;
+    }
+
+    throw new Error(`NYI type descriptor for ${typ.pp()}`);
+}
+
 function getWrapperName(
     updateNode: Assignment | FunctionCall | UnaryOperation,
     varDecl: VariableDeclaration,
-    path: ConcreteDatastructurePath
+    path: Array<string | [TypeName, Expression]>,
+    additionalArgs: Array<[Expression, TypeName]>
 ): string {
     const defContract = varDecl.vScope as ContractDefinition;
-    const pathString = path.map((el) => (el instanceof Expression ? "idx" : el)).join("_");
+    const pathString = path
+        .map((el) => {
+            if (typeof el === "string") {
+                return el;
+            }
+            const [expectedTyp, expr] = el;
+
+            const exprT = getExprSType(expr, astTypeNameToSType(expectedTyp));
+            return `idx_${getTypeDescriptor(exprT)}`;
+        })
+        .join("_");
+    const additionalArgsString = additionalArgs
+        .map(([expr, typ]) => getTypeDescriptor(getExprSType(expr, astTypeNameToSType(typ))))
+        .join("_");
+
     let suffix: string;
 
     if (updateNode instanceof Assignment) {
@@ -141,9 +228,17 @@ function getWrapperName(
         }
     }
 
-    return `${defContract.name}_${varDecl.name}_${
-        pathString !== "" ? pathString + "_" : ""
-    }${suffix}`;
+    let res = `${defContract.name}_${varDecl.name}_`;
+
+    if (pathString !== "") {
+        res += pathString + "_";
+    }
+
+    if (additionalArgsString !== "") {
+        res += additionalArgsString + "_";
+    }
+
+    return res + suffix;
 }
 
 function decomposeStateVarUpdated(
@@ -230,37 +325,47 @@ function makeWrapper(
     // and put it inside the body of the wrapper
     updateNode = factory.copy(updateNode);
 
+    // Decomposing is a 2 step process.
+    // 1) Call decomposeStateVarUpdated to decompose the various update statements - assignments, function calls, unaries..
     const [stateVarExp, additionalArgs] = decomposeStateVarUpdated(updateNode, factory);
+    // 2) Call decomposeLHS to identify the actuall state variable, and the path of the part of it which is updated
     const [baseExp, path] = decomposeLHS(stateVarExp);
     assert(isStateVarRef(baseExp), ``);
 
     const varDecl = baseExp.vReferencedDeclaration as VariableDeclaration;
-    const definingContract = varDecl.vScope as ContractDefinition;
-    const funName = getWrapperName(updateNode, varDecl, path);
-
-    const formalParamTs: TypeName[] = [];
-    const replMap = new Map<number, number>();
     const [pathIdxTs] = getKeysAndCompTypes(
         factory,
         baseExp.vReferencedDeclaration as VariableDeclaration,
         path
     );
 
-    for (let i = 0; i < path.length; i++) {
-        const pathEl = path[i];
+    const definingContract = varDecl.vScope as ContractDefinition;
+    const funName = getWrapperName(updateNode, varDecl, pathIdxTs, additionalArgs);
+
+    // Check if we have already built a wrapper for this variable/path/update type. Otherwise build one now.
+    const cached = ctx.getWrapper(definingContract, funName);
+    if (cached !== undefined) {
+        return cached;
+    }
+
+    const formalParamTs: SType[] = [];
+    const replMap = new Map<number, number>();
+
+    for (const pathEl of pathIdxTs) {
         if (typeof pathEl === "string") {
             continue;
         }
 
-        const keyT = pathIdxTs[i];
-        assert(keyT instanceof Array, ``);
-        replMap.set(pathEl.id, formalParamTs.length);
-        formalParamTs.push(keyT[0]);
+        const [keyT, keyExp] = pathEl;
+        replMap.set(keyExp.id, formalParamTs.length);
+        const exprT = getExprSType(keyExp, astTypeNameToSType(keyT));
+        formalParamTs.push(exprT);
     }
 
     for (const [actual, formalT] of additionalArgs) {
         replMap.set(actual.id, formalParamTs.length);
-        formalParamTs.push(formalT);
+        const exprT = getExprSType(actual, astTypeNameToSType(formalT));
+        formalParamTs.push(exprT);
     }
 
     const wrapperFun = factory.makeFunctionDefinition(
@@ -285,8 +390,6 @@ function makeWrapper(
 
     for (let i = 0; i < formalParamTs.length; i++) {
         const formalT = formalParamTs[i];
-        // @todo Is this hack correct?
-        const loc = needsLocation(formalT) ? DataLocation.Memory : DataLocation.Default;
 
         wrapperFun.vParameters.appendChild(
             factory.makeVariableDeclaration(
@@ -295,12 +398,12 @@ function makeWrapper(
                 ctx.nameGenerator.getFresh(`ARG`),
                 wrapperFun.vParameters.id,
                 false,
-                loc,
+                getTypeLocation(formalT),
                 StateVariableVisibility.Default,
                 Mutability.Mutable,
                 "<missing>",
                 undefined,
-                formalT
+                generateTypeAst(formalT, factory)
             )
         );
     }
@@ -310,26 +413,31 @@ function makeWrapper(
         replaceNode(node, factory.makeIdentifierFor(wrapperFun.vParameters.vParameters[argIdx]));
     }
 
-    const retParamTs: TypeName[] = [];
+    const retParamTs: SType[] = [];
     // Add the re-written update node in the body of the wrapper
     body.appendChild(factory.makeExpressionStatement(updateNode));
 
     // Add any return parameters if needed
     if (updateNode instanceof UnaryOperation) {
         if (["++", "--"].includes(updateNode.operator)) {
-            const retT = getExprType(updateNode, factory);
-            assert(retT instanceof ElementaryTypeName, ``);
+            const retT = getExprSType(updateNode);
+            assert(retT instanceof SIntType, ``);
             retParamTs.push(retT);
         }
     } else if (updateNode instanceof Assignment) {
-        const retT = getExprType(updateNode.vLeftHandSide, factory);
+        const retT = getExprSType(updateNode.vLeftHandSide);
+        assert(
+            !(retT instanceof STupleType),
+            `makeWrapper should only be invoked on primitive assignments.`
+        );
         retParamTs.push(retT);
     }
 
     for (let i = 0; i < retParamTs.length; i++) {
         const formalT = retParamTs[i];
         // @todo Is this hack correct?
-        const loc = needsLocation(formalT) ? DataLocation.Storage : DataLocation.Default;
+        const loc = formalT instanceof SPointer ? formalT.location : DataLocation.Default;
+        const solFromalT = generateTypeAst(formalT, factory);
 
         wrapperFun.vReturnParameters.appendChild(
             factory.makeVariableDeclaration(
@@ -343,7 +451,7 @@ function makeWrapper(
                 Mutability.Mutable,
                 "<missing>",
                 undefined,
-                formalT
+                solFromalT
             )
         );
     }
@@ -433,14 +541,6 @@ function ensureToplevelExprInBlock(e: Expression, factory: ASTNodeFactory): void
     }
 }
 
-function getLocation(v: VariableDeclaration): DataLocation {
-    if (v.stateVariable) {
-        return DataLocation.Storage;
-    }
-
-    return v.storageLocation;
-}
-
 /**
  * Complex interposing case - when `updateNode` is a (potentially nested) tuple assignment with multiple
  * state vars and other expressions updated toghether.
@@ -485,7 +585,7 @@ export function interposeTupleAssignment(
                 loc,
                 StateVariableVisibility.Default,
                 Mutability.Mutable,
-                "<missing>",
+                makeTypeString(typ, DataLocation.Storage),
                 undefined,
                 typ
             );
@@ -517,15 +617,34 @@ export function interposeTupleAssignment(
                 assert(rhsComp !== null, ``);
                 replaceLHS(lhsComp, rhsComp);
             } else {
-                const lhsT = getExprType(lhsComp, factory);
+                const rhsT = parseTypeString(rhs.typeString);
+                assert(
+                    rhsT instanceof STupleType,
+                    `Unexpected rhs type ${rhsT.pp()}(${rhs.typeString}) in tuple assignment.`
+                );
+                const rhsCompT = rhsT.elements[i];
+                let tempT: SType;
+
+                if (rhsCompT instanceof SIntLiteralType) {
+                    tempT = parseTypeString(lhsComp.typeString);
+                    assert(tempT instanceof SIntType, ``);
+                } else if (rhsCompT instanceof SStringLiteralType) {
+                    tempT = new SPointer(new SString(), DataLocation.Memory);
+                } else {
+                    tempT = rhsCompT;
+                }
+
+                const solTempT = generateTypeAst(tempT, factory);
+                const loc = tempT instanceof SPointer ? tempT.location : DataLocation.Default;
+
                 const [base, path] = decomposeLHS(lhsComp);
                 const varDecl = base.vReferencedDeclaration as VariableDeclaration;
-                const freshLHS = makeTempHelper(lhsComp, lhsT, getLocation(varDecl));
+                const freshLHS = makeTempHelper(lhsComp, solTempT, loc);
                 replaceNode(lhsComp, freshLHS);
                 lhsReplMap.push([lhsComp, freshLHS]);
 
                 for (const el of getKeysAndCompTypes(factory, varDecl, path)[0]) {
-                    if (el === null) {
+                    if (typeof el === "string") {
                         continue;
                     }
 
@@ -603,16 +722,7 @@ export function interposeSimpleStateVarUpdate(
     const [baseExp, path] = decomposeLHS(stateVarExp);
     assert(isStateVarRef(baseExp), ``);
 
-    const varDecl = baseExp.vReferencedDeclaration as VariableDeclaration;
-    const definingContract = varDecl.vScope as ContractDefinition;
-    const funName = getWrapperName(updateNode, varDecl, path);
-
-    // Check if we have already built a wrapper for this variable/path/update type. Otherwise build one now.
-    let wrapperFun = ctx.getWrapper(definingContract, funName);
-
-    if (wrapperFun === undefined) {
-        wrapperFun = makeWrapper(ctx, updateNode);
-    }
+    const wrapperFun = makeWrapper(ctx, updateNode);
 
     const actualParams: Expression[] = [];
 

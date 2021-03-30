@@ -709,15 +709,15 @@ contract PushPop {
     uint[][] internal z;
 
     function main() public {
-        PushPop_x_push(1 + 1);
+        PushPop_x_uint256_push(1 + 1);
         PushPop_x_pop();
         PushPop_x_push_noarg();
-        PushPop_z_push(x);
+        PushPop_z_ptr_arr_uint256_storage_push(x);
         uint t = 0;
-        PushPop_z_idx_push(t, 1);
+        PushPop_z_idx_uint256_uint256_push(t, 1);
     }
 
-    function PushPop_x_push(uint ARG0) internal {
+    function PushPop_x_uint256_push(uint256 ARG0) internal {
         x.push(ARG0);
     }
 
@@ -729,11 +729,11 @@ contract PushPop {
         x.push();
     }
 
-    function PushPop_z_push(uint[] memory ARG1) internal {
+    function PushPop_z_ptr_arr_uint256_storage_push(uint256[] storage ARG1) internal {
         z.push(ARG1);
     }
 
-    function PushPop_z_idx_push(uint256 ARG2, uint ARG3) internal {
+    function PushPop_z_idx_uint256_uint256_push(uint256 ARG2, uint256 ARG3) internal {
         z[ARG2].push(ARG3);
     }
 }`
@@ -797,16 +797,16 @@ contract Unary {
         assert(x.length == 0);
         uint t = 1;
         m[t - 1] = 1;
-        Unary_m_idx_delete(t - 1);
+        Unary_m_idx_uint256_delete(t - 1);
         assert(m[t - 1] == 0);
         x.push(1);
-        Unary_x_idx_delete(uint(y));
+        Unary_x_idx_uint256_delete(uint(y));
         assert(x[uint(y)] == 0);
         assert(0 == Unary_y_inc__postfix());
         assert(y == 1);
         assert(0 == Unary_y_dec__prefix());
-        assert(0 == Unary_x_idx_inc__postfix(0));
-        assert(1 == Unary_x_idx_dec__postfix(0));
+        assert(0 == Unary_x_idx_uint256_inc__postfix(0));
+        assert(1 == Unary_x_idx_uint256_dec__postfix(0));
     }
 
     function Unary_y_delete() internal {
@@ -817,11 +817,11 @@ contract Unary {
         delete x;
     }
 
-    function Unary_m_idx_delete(uint ARG0) internal {
+    function Unary_m_idx_uint256_delete(uint256 ARG0) internal {
         delete m[ARG0];
     }
 
-    function Unary_x_idx_delete(uint256 ARG1) internal {
+    function Unary_x_idx_uint256_delete(uint256 ARG1) internal {
         delete x[ARG1];
     }
 
@@ -835,12 +835,12 @@ contract Unary {
         RET1 = y;
     }
 
-    function Unary_x_idx_inc__postfix(uint256 ARG2) internal returns (uint256 RET2) {
+    function Unary_x_idx_uint256_inc__postfix(uint256 ARG2) internal returns (uint256 RET2) {
         RET2 = x[ARG2];
         x[ARG2]++;
     }
 
-    function Unary_x_idx_dec__postfix(uint256 ARG3) internal returns (uint256 RET3) {
+    function Unary_x_idx_uint256_dec__postfix(uint256 ARG3) internal returns (uint256 RET3) {
         RET3 = x[ARG3];
         x[ARG3]--;
     }
@@ -898,48 +898,48 @@ contract SimpleAssignments {
     }
 
     function main() public {
-        SimpleAssignments_y_assign(1);
+        SimpleAssignments_y_uint256_assign(1);
         assert(y == 1);
         x.push(1);
-        SimpleAssignments_x_idx_assign(0, 2);
+        SimpleAssignments_x_idx_uint256_uint256_assign(0, 2);
         assert(x[0] == 2);
-        SimpleAssignments_y_assign(SimpleAssignments_x_idx_assign(0, 3));
+        SimpleAssignments_y_uint256_assign(SimpleAssignments_x_idx_uint256_uint256_assign(0, 3));
         assert((y == 3) && (x[0] == 3));
-        SimpleAssignments_y_plus_assign(SimpleAssignments_x_idx_minus_assign(0, 3));
+        SimpleAssignments_y_uint256_plus_assign(SimpleAssignments_x_idx_uint256_uint256_minus_assign(0, 3));
         assert((y == 3) && (x[0] == 0));
-        SimpleAssignments_x_idx_assign(SimpleAssignments_y_minus_assign(3), 1);
+        SimpleAssignments_x_idx_uint256_uint256_assign(SimpleAssignments_y_uint256_minus_assign(3), 1);
         assert((y == 0) && (x[0] == 1));
-        SimpleAssignments_y_assign(plusOne(SimpleAssignments_x_idx_assign(y, 5)));
+        SimpleAssignments_y_uint256_assign(plusOne(SimpleAssignments_x_idx_uint256_uint256_assign(y, 5)));
         assert((x[0] == 5) && (y == 6));
-        for (SimpleAssignments_z_assign(0); z < y; SimpleAssignments_z_assign(z + 1)) {}
+        for (SimpleAssignments_z_uint256_assign(0); z < y; SimpleAssignments_z_uint256_assign(z + 1)) {}
     }
 
-    function SimpleAssignments_y_assign(uint ARG0) internal returns (uint256 RET0) {
+    function SimpleAssignments_y_uint256_assign(uint256 ARG0) internal returns (uint256 RET0) {
         y = ARG0;
         RET0 = y;
     }
 
-    function SimpleAssignments_x_idx_assign(uint256 ARG1, uint ARG2) internal returns (uint256 RET1) {
+    function SimpleAssignments_x_idx_uint256_uint256_assign(uint256 ARG1, uint256 ARG2) internal returns (uint256 RET1) {
         x[ARG1] = ARG2;
         RET1 = x[ARG1];
     }
 
-    function SimpleAssignments_y_plus_assign(uint ARG3) internal returns (uint256 RET2) {
+    function SimpleAssignments_y_uint256_plus_assign(uint256 ARG3) internal returns (uint256 RET2) {
         y += ARG3;
         RET2 = y;
     }
 
-    function SimpleAssignments_x_idx_minus_assign(uint256 ARG4, uint ARG5) internal returns (uint256 RET3) {
+    function SimpleAssignments_x_idx_uint256_uint256_minus_assign(uint256 ARG4, uint256 ARG5) internal returns (uint256 RET3) {
         x[ARG4] -= ARG5;
         RET3 = x[ARG4];
     }
 
-    function SimpleAssignments_y_minus_assign(uint ARG6) internal returns (uint256 RET4) {
+    function SimpleAssignments_y_uint256_minus_assign(uint256 ARG6) internal returns (uint256 RET4) {
         y -= ARG6;
         RET4 = y;
     }
 
-    function SimpleAssignments_z_assign(uint ARG7) internal returns (uint256 RET5) {
+    function SimpleAssignments_z_uint256_assign(uint256 ARG7) internal returns (uint256 RET5) {
         z = ARG7;
         RET5 = z;
     }
@@ -1052,30 +1052,30 @@ contract TupleAssignments {
     function main() public {
         vars0 memory _v;
         (_v.tuple_tmp_1, _v.tuple_tmp_0) = (1, 2);
-        TupleAssignments_y_assign(_v.tuple_tmp_0);
-        TupleAssignments_x_assign(_v.tuple_tmp_1);
+        TupleAssignments_y_uint256_assign(_v.tuple_tmp_0);
+        TupleAssignments_x_uint256_assign(_v.tuple_tmp_1);
         assert((x == 1) && (y == 2));
         (_v.tuple_tmp_3, _v.tuple_tmp_2) = (y, x);
-        TupleAssignments_y_assign(_v.tuple_tmp_2);
-        TupleAssignments_x_assign(_v.tuple_tmp_3);
+        TupleAssignments_y_uint256_assign(_v.tuple_tmp_2);
+        TupleAssignments_x_uint256_assign(_v.tuple_tmp_3);
         assert((x == 2) && (y == 1));
         (_v.tuple_tmp_5, _v.tuple_tmp_4) = getTwo();
-        TupleAssignments_y_assign(_v.tuple_tmp_4);
-        TupleAssignments_x_assign(_v.tuple_tmp_5);
+        TupleAssignments_y_uint256_assign(_v.tuple_tmp_4);
+        TupleAssignments_x_uint256_assign(_v.tuple_tmp_5);
         assert((x == 3) && (y == 4));
         (_v.tuple_tmp_7, _v.tuple_tmp_6) = getTwo();
-        TupleAssignments_x_assign(_v.tuple_tmp_6);
-        TupleAssignments_x_assign(_v.tuple_tmp_7);
+        TupleAssignments_x_uint256_assign(_v.tuple_tmp_6);
+        TupleAssignments_x_uint256_assign(_v.tuple_tmp_7);
         assert((x == 3) && (y == 4));
         (_v.tuple_tmp_10, (_v.tuple_tmp_9, _v.tuple_tmp_8)) = (1, (2, 3));
-        TupleAssignments_x_assign(_v.tuple_tmp_8);
-        TupleAssignments_x_assign(_v.tuple_tmp_9);
-        TupleAssignments_x_assign(_v.tuple_tmp_10);
+        TupleAssignments_x_uint256_assign(_v.tuple_tmp_8);
+        TupleAssignments_x_uint256_assign(_v.tuple_tmp_9);
+        TupleAssignments_x_uint256_assign(_v.tuple_tmp_10);
         assert(x == 1);
         ((_v.tuple_tmp_13, _v.tuple_tmp_12), _v.tuple_tmp_11) = ((2, 3), 1);
-        TupleAssignments_x_assign(_v.tuple_tmp_11);
-        TupleAssignments_x_assign(_v.tuple_tmp_12);
-        TupleAssignments_x_assign(_v.tuple_tmp_13);
+        TupleAssignments_x_uint256_assign(_v.tuple_tmp_11);
+        TupleAssignments_x_uint256_assign(_v.tuple_tmp_12);
+        TupleAssignments_x_uint256_assign(_v.tuple_tmp_13);
         assert(x == 2);
         a.push(42);
         a.push(41);
@@ -1084,48 +1084,204 @@ contract TupleAssignments {
         _v.tuple_tmp_16 = t;
         (_v.tuple_tmp_15, _v.tuple_tmp_14) = (2, 1);
         t = _v.tuple_tmp_14;
-        TupleAssignments_a_idx_assign(_v.tuple_tmp_16, _v.tuple_tmp_15);
+        TupleAssignments_a_idx_uint256_uint256_assign(_v.tuple_tmp_16, _v.tuple_tmp_15);
         assert((t == 1) && (a[0] == 2));
         _v.tuple_tmp_18 = t;
         (_v.tuple_tmp_19, _v.tuple_tmp_17) = (0, 3);
-        TupleAssignments_a_idx_assign(_v.tuple_tmp_18, _v.tuple_tmp_17);
+        TupleAssignments_a_idx_uint256_uint256_assign(_v.tuple_tmp_18, _v.tuple_tmp_17);
         t = _v.tuple_tmp_19;
         assert((t == 0) && (a[1] == 3));
-        TupleAssignments_x_assign(0);
+        TupleAssignments_x_uint256_assign(0);
         _v.tuple_tmp_22 = x;
         (_v.tuple_tmp_21, _v.tuple_tmp_20) = (4, 1);
-        TupleAssignments_x_assign(_v.tuple_tmp_20);
-        TupleAssignments_a_idx_assign(_v.tuple_tmp_22, _v.tuple_tmp_21);
+        TupleAssignments_x_uint256_assign(_v.tuple_tmp_20);
+        TupleAssignments_a_idx_uint256_uint256_assign(_v.tuple_tmp_22, _v.tuple_tmp_21);
         assert((x == 1) && (a[0] == 4));
         aa.push(a);
-        TupleAssignments_x_assign(TupleAssignments_y_assign(0));
+        TupleAssignments_x_uint256_assign(TupleAssignments_y_uint256_assign(0));
         _v.tuple_tmp_25 = x;
         _v.tuple_tmp_26 = y;
         (_v.tuple_tmp_27, _v.tuple_tmp_24, _v.tuple_tmp_23) = (10, 5, 10);
-        TupleAssignments_y_assign(_v.tuple_tmp_23);
-        TupleAssignments_aa_idx_idx_assign(_v.tuple_tmp_25, _v.tuple_tmp_26, _v.tuple_tmp_24);
-        TupleAssignments_x_assign(_v.tuple_tmp_27);
+        TupleAssignments_y_uint256_assign(_v.tuple_tmp_23);
+        TupleAssignments_aa_idx_uint256_idx_uint256_uint256_assign(_v.tuple_tmp_25, _v.tuple_tmp_26, _v.tuple_tmp_24);
+        TupleAssignments_x_uint256_assign(_v.tuple_tmp_27);
         assert(((x == 10) && (y == 10)) && (aa[0][0] == 5));
     }
 
-    function TupleAssignments_y_assign(uint ARG0) internal returns (uint256 RET0) {
+    function TupleAssignments_y_uint256_assign(uint256 ARG0) internal returns (uint256 RET0) {
         y = ARG0;
         RET0 = y;
     }
 
-    function TupleAssignments_x_assign(uint ARG1) internal returns (uint256 RET1) {
+    function TupleAssignments_x_uint256_assign(uint256 ARG1) internal returns (uint256 RET1) {
         x = ARG1;
         RET1 = x;
     }
 
-    function TupleAssignments_a_idx_assign(uint256 ARG2, uint ARG3) internal returns (uint256 RET2) {
+    function TupleAssignments_a_idx_uint256_uint256_assign(uint256 ARG2, uint256 ARG3) internal returns (uint256 RET2) {
         a[ARG2] = ARG3;
         RET2 = a[ARG2];
     }
 
-    function TupleAssignments_aa_idx_idx_assign(uint256 ARG4, uint256 ARG5, uint ARG6) internal returns (uint256 RET3) {
+    function TupleAssignments_aa_idx_uint256_idx_uint256_uint256_assign(uint256 ARG4, uint256 ARG5, uint256 ARG6) internal returns (uint256 RET3) {
         aa[ARG4][ARG5] = ARG6;
         RET3 = aa[ARG4][ARG5];
+    }
+}`
+        ],
+        [
+            "inherited_vars.sol",
+            `pragma solidity 0.6.0;
+
+contract Base {
+    uint x;
+
+    function main() public {
+        x = 1;
+    }
+}
+
+contract Child is Base{
+    function main1() public {
+        x = 2;
+    }
+}
+`,
+            "//ContractDefinition/FunctionDefinition/Block//Assignment",
+            `pragma solidity 0.6.0;
+
+contract Base {
+    uint internal x;
+
+    function main() public {
+        Base_x_uint256_assign(1);
+    }
+
+    function Base_x_uint256_assign(uint256 ARG0) internal returns (uint256 RET0) {
+        x = ARG0;
+        RET0 = x;
+    }
+}
+
+contract Child is Base {
+    function main1() public {
+        Base_x_uint256_assign(2);
+    }
+}`
+        ],
+        [
+            "complex_datastructures_assign.sol",
+            `pragma solidity 0.6.0;
+
+contract ComplexDatastructures {
+    struct T {
+        uint[] z;
+        string a;
+    }
+    uint[] a;
+    uint[][] aa;
+    mapping(uint => uint) m1;
+    mapping(uint => uint) m2;
+    string s;
+    bytes b;
+    
+    function main() public {
+        s = "abcd";
+        b = new bytes(5);
+        
+        a = [1,2,3];
+        
+        a = a;
+        
+        mapping(uint => uint) storage p1 = m1;
+        
+        uint t;
+        (s, b, t) = ("def", new bytes(4), 1);
+        
+        aa.push(a);
+        
+        (aa[0], aa[0][0]) = (a, 5);
+        assert(aa[0][0] == 1);
+    }
+}
+`,
+            "//ContractDefinition/FunctionDefinition/Block//Assignment",
+            `pragma solidity 0.6.0;
+
+contract ComplexDatastructures {
+    struct T {
+        uint[] z;
+        string a;
+    }
+
+    struct vars0 {
+        uint256 tuple_tmp_0;
+        bytes tuple_tmp_1;
+        string tuple_tmp_2;
+        uint256 tuple_tmp_3;
+        uint256 tuple_tmp_4;
+        uint256 tuple_tmp_5;
+        uint256 tuple_tmp_7;
+    }
+
+    uint[] internal a;
+    uint[][] internal aa;
+    mapping(uint => uint) internal m1;
+    mapping(uint => uint) internal m2;
+    string internal s;
+    bytes internal b;
+
+    function main() public {
+        vars0 memory _v;
+        uint256[] storage tuple_tmp_6;
+        ComplexDatastructures_s_ptr_string_memory_assign("abcd");
+        ComplexDatastructures_b_ptr_bytes_memory_assign(new bytes(5));
+        ComplexDatastructures_a_ptr_arr_uint8_3_memory_assign([1, 2, 3]);
+        ComplexDatastructures_a_ptr_arr_uint256_storage_assign(a);
+        mapping(uint => uint) storage p1 = m1;
+        uint t;
+        (_v.tuple_tmp_2, _v.tuple_tmp_1, _v.tuple_tmp_0) = ("def", new bytes(4), 1);
+        t = _v.tuple_tmp_0;
+        ComplexDatastructures_b_ptr_bytes_memory_assign(_v.tuple_tmp_1);
+        ComplexDatastructures_s_ptr_string_memory_assign(_v.tuple_tmp_2);
+        aa.push(a);
+        _v.tuple_tmp_4 = 0;
+        _v.tuple_tmp_5 = 0;
+        _v.tuple_tmp_7 = 0;
+        (tuple_tmp_6, _v.tuple_tmp_3) = (a, 5);
+        ComplexDatastructures_aa_idx_uint256_idx_uint256_uint256_assign(_v.tuple_tmp_4, _v.tuple_tmp_5, _v.tuple_tmp_3);
+        ComplexDatastructures_aa_idx_uint256_ptr_arr_uint256_storage_assign(_v.tuple_tmp_7, tuple_tmp_6);
+        assert(aa[0][0] == 1);
+    }
+
+    function ComplexDatastructures_s_ptr_string_memory_assign(string memory ARG0) internal returns (string storage RET0) {
+        s = ARG0;
+        RET0 = s;
+    }
+
+    function ComplexDatastructures_b_ptr_bytes_memory_assign(bytes memory ARG1) internal returns (bytes storage RET1) {
+        b = ARG1;
+        RET1 = b;
+    }
+
+    function ComplexDatastructures_a_ptr_arr_uint8_3_memory_assign(uint8[3] memory ARG2) internal returns (uint256[] storage RET2) {
+        a = ARG2;
+        RET2 = a;
+    }
+
+    function ComplexDatastructures_a_ptr_arr_uint256_storage_assign(uint256[] storage ARG3) internal returns (uint256[] storage RET3) {
+        a = ARG3;
+        RET3 = a;
+    }
+
+    function ComplexDatastructures_aa_idx_uint256_idx_uint256_uint256_assign(uint256 ARG4, uint256 ARG5, uint256 ARG6) internal returns (uint256 RET4) {
+        aa[ARG4][ARG5] = ARG6;
+        RET4 = aa[ARG4][ARG5];
+    }
+
+    function ComplexDatastructures_aa_idx_uint256_ptr_arr_uint256_storage_assign(uint256 ARG7, uint256[] storage ARG8) internal returns (uint256[] storage RET5) {
+        aa[ARG7] = ARG8;
+        RET5 = aa[ARG7];
     }
 }`
         ]

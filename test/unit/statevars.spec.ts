@@ -10,21 +10,14 @@ import {
     StateVarUpdateLoc
 } from "../../src/instrumenter";
 import { Logger } from "../../src/logger";
-import {
-    ASTNode,
-    ASTWriter,
-    DefaultASTWriterMapping,
-    Expression,
-    PrettyFormatter
-} from "solc-typed-ast";
+import { ASTNode, Expression } from "solc-typed-ast";
+import { print as printNode } from "../../src/util";
 
 export type LocationDesc = [string, string];
 
-const writer = new ASTWriter(DefaultASTWriterMapping, new PrettyFormatter(4), "0.8.0");
-
 function print(n: ASTNode | RHS | LHS): string {
     if (n instanceof ASTNode) {
-        return writer.write(n);
+        return printNode(n);
     }
 
     if (typeof n[1] === "string") {

@@ -245,3 +245,15 @@ export function zip<T1, T2>(a1: readonly T1[], a2: readonly T2[]): Array<[T1, T2
 
     return res;
 }
+
+const writersCache = new Map<string, ASTWriter>();
+
+export function print(n: ASTNode, version = "0.8.0"): string {
+    let writer = writersCache.get(version);
+    if (writer === undefined) {
+        writer = new ASTWriter(DefaultASTWriterMapping, new PrettyFormatter(4), "0.8.0");
+        writersCache.set(version, writer);
+    }
+
+    return writer.write(n);
+}

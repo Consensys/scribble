@@ -18,3 +18,4 @@ export * from "./builtin_typename_type";
 export * from "./function_set_type";
 export * from "./user_defined_typename_type";
 export * from "./builtin_struct_type";
+export * from "./string_literal";
