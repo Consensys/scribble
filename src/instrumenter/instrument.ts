@@ -637,7 +637,11 @@ export function generateExpressions(
         if (typeof names === "string") {
             lhs = transCtx.refBinding(names);
         } else {
-            lhs = factory.makeTupleExpression("<missing>", false, names.map(transCtx.refBinding));
+            lhs = factory.makeTupleExpression(
+                "<missing>",
+                false,
+                names.map((name) => transCtx.refBinding(name))
+            );
         }
 
         const rhs = generateExprAST(expr, transCtx, [contract, fn]);

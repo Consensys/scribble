@@ -77,11 +77,9 @@ export function generateTypeAst(type: SType, factory: ASTNodeFactory): TypeName 
     }
 
     if (type instanceof SUserDefinedType) {
-        if (type.definition === undefined) {
-            throw new Error(`Missing definition for user defined type ${type.pp()}`);
-        }
-
-        return factory.makeUserDefinedTypeName("<missing>", type.pp(), type.definition.id);
+        // @todo remove this hack when we fix the types obtained from the typeString parser in getExprSType()
+        const id = type.definition !== undefined ? type.definition.id : -1;
+        return factory.makeUserDefinedTypeName("<missing>", type.pp(), id);
     }
 
     if (type instanceof SArrayType) {

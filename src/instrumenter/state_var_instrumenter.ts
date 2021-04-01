@@ -70,21 +70,54 @@ import { SStringLiteralType } from "../spec-lang/ast/types/string_literal";
 import { astTypeNameToSType } from "../spec-lang/tc";
 import { makeTypeString } from "./type_string";
 
-function getExprSType(e: Expression, exprSurroundingT?: SType): SType {
-    const sType: SType = parseTypeString(e.typeString);
-
-    if (sType instanceof SIntLiteralType) {
-        if (exprSurroundingT !== undefined) {
-            assert(exprSurroundingT instanceof SIntType, ``);
-            return exprSurroundingT;
+/**
+ * Given a Solidity `Expression` `e` and the expected `SType` `expectedType` where its being used,
+ * compute the actual `SType` of `e`. This may be different from `expectedType` due to implicit
+ * casts.
+ * @param e
+ * @param expectedType
+ */
+function getExprSType(e: Expression, expectedType?: SType): SType {
+    /**
+     * Sanitize the parsed `actualType` by replacing any int_const types with the
+     * concrete integer type expected at that location, and any string literal types with
+     * `string memory`. Note this code makes the assumption that int literals and string literal
+     * types CANNOT show up inside array/mapping types (which I think is true?).
+     *
+     * @param actualType
+     * @param expectedType
+     */
+    const sanitizeType = (actualType: SType, expectedType: SType): SType => {
+        if (actualType instanceof SIntLiteralType) {
+            assert(
+                expectedType instanceof SIntType,
+                `Expected ${expectedType.pp()} got ${actualType.pp()}`
+            );
+            return expectedType;
         }
 
-        return sType;
-    } else if (sType instanceof SStringLiteralType) {
-        return new SPointer(new SString(), DataLocation.Memory);
-    }
+        if (actualType instanceof SStringLiteralType) {
+            return new SPointer(new SString(), DataLocation.Memory);
+        }
 
-    return sType;
+        if (actualType instanceof STupleType) {
+            assert(
+                expectedType instanceof STupleType &&
+                    expectedType.elements.length === actualType.elements.length,
+                `Expected ${expectedType.pp()} got ${actualType.pp()}`
+            );
+
+            return new STupleType(
+                actualType.elements.map((el, i) => sanitizeType(el, expectedType.elements[i]))
+            );
+        }
+
+        return actualType;
+    };
+
+    const parsedType: SType = parseTypeString(e.typeString);
+
+    return expectedType !== undefined ? sanitizeType(parsedType, expectedType) : parsedType;
 }
 
 export function getKeysAndCompTypes(
@@ -180,8 +213,7 @@ function getTypeDescriptor(typ: SType): string {
     }
 
     if (typ instanceof SUserDefinedType) {
-        // @todo use FQ name here
-        return `ud_${typ.name}`;
+        return `ud_${typ.name.replace(".", "_")}`;
     }
 
     throw new Error(`NYI type descriptor for ${typ.pp()}`);
@@ -601,60 +633,97 @@ export function interposeTupleAssignment(
     const keyReplMap: Array<[Expression, Identifier | MemberAccess]> = [];
     const lhsReplMap: Array<[Expression, Identifier | MemberAccess]> = [];
 
-    // Walk over LHS tuple and replace each expression with a temporary Identifier/MemberAccess
-    const replaceLHS = (lhs: TupleExpression, rhs: Expression): void => {
-        // Assignments are evaluated in right-to-left order apparently.
-        for (let i = lhs.vOriginalComponents.length - 1; i >= 0; i--) {
-            const lhsComp = lhs.vOriginalComponents[i];
+    const replanceLHSComp = (lhsComp: Expression, rhsT: SType): void => {
+        const solTempT = generateTypeAst(rhsT, factory);
+        const loc = getTypeLocation(rhsT);
 
-            if (lhsComp === null) {
+        const [base, path] = decomposeLHS(lhsComp);
+        const varDecl = base.vReferencedDeclaration as VariableDeclaration;
+        const freshLHS = makeTempHelper(lhsComp, solTempT, loc);
+        replaceNode(lhsComp, freshLHS);
+        lhsReplMap.push([lhsComp, freshLHS]);
+
+        for (const el of getKeysAndCompTypes(factory, varDecl, path)[0]) {
+            if (typeof el === "string") {
                 continue;
             }
 
-            if (lhsComp instanceof TupleExpression) {
-                assert(rhs instanceof TupleExpression, `Functions can't return nested tuples`);
-                const rhsComp = rhs.vOriginalComponents[i];
-                assert(rhsComp !== null, ``);
-                replaceLHS(lhsComp, rhsComp);
-            } else {
-                const rhsT = parseTypeString(rhs.typeString);
-                assert(
-                    rhsT instanceof STupleType,
-                    `Unexpected rhs type ${rhsT.pp()}(${rhs.typeString}) in tuple assignment.`
-                );
-                const rhsCompT = rhsT.elements[i];
-                let tempT: SType;
+            const [typ, idxExp] = el;
 
-                if (rhsCompT instanceof SIntLiteralType) {
-                    tempT = parseTypeString(lhsComp.typeString);
-                    assert(tempT instanceof SIntType, ``);
-                } else if (rhsCompT instanceof SStringLiteralType) {
-                    tempT = new SPointer(new SString(), DataLocation.Memory);
-                } else {
-                    tempT = rhsCompT;
-                }
+            const freshKey = makeTempHelper(idxExp, typ, DataLocation.Memory);
+            replaceNode(idxExp, freshKey);
+            keyReplMap.push([idxExp, freshKey]);
+        }
+    };
 
-                const solTempT = generateTypeAst(tempT, factory);
-                const loc = tempT instanceof SPointer ? tempT.location : DataLocation.Default;
+    const skipSingletons = (e: Expression): Expression => {
+        while (e instanceof TupleExpression && e.vOriginalComponents.length === 1) {
+            const innerT = e.vOriginalComponents[0];
+            assert(innerT !== null, ``);
+            e = innerT;
+        }
 
-                const [base, path] = decomposeLHS(lhsComp);
-                const varDecl = base.vReferencedDeclaration as VariableDeclaration;
-                const freshLHS = makeTempHelper(lhsComp, solTempT, loc);
-                replaceNode(lhsComp, freshLHS);
-                lhsReplMap.push([lhsComp, freshLHS]);
+        return e;
+    };
 
-                for (const el of getKeysAndCompTypes(factory, varDecl, path)[0]) {
-                    if (typeof el === "string") {
+    // Walk over LHS tuple and replace each expression with a temporary Identifier/MemberAccess
+    const replaceLHS = (lhs: Expression, rhs: Expression): void => {
+        // Skip singleton tuples
+        lhs = skipSingletons(lhs);
+        rhs = skipSingletons(rhs);
+
+        if (lhs instanceof TupleExpression) {
+            if (rhs instanceof TupleExpression) {
+                assert(rhs.vOriginalComponents.length == lhs.vOriginalComponents.length, ``);
+                for (let i = lhs.vOriginalComponents.length - 1; i >= 0; i--) {
+                    const lhsComp = lhs.vOriginalComponents[i];
+
+                    if (lhsComp === null) {
                         continue;
                     }
 
-                    const [typ, idxExp] = el;
+                    const rhsComp = rhs.vOriginalComponents[i];
+                    assert(rhsComp !== null, ``);
+                    replaceLHS(lhsComp, rhsComp);
+                }
+            } else {
+                assert(rhs instanceof FunctionCall, ``);
+                const lhsT = getExprSType(lhs);
+                const rhsT = getExprSType(rhs, lhsT);
 
-                    const freshKey = makeTempHelper(idxExp, typ, DataLocation.Memory);
-                    replaceNode(idxExp, freshKey);
-                    keyReplMap.push([idxExp, freshKey]);
+                assert(
+                    rhsT instanceof STupleType &&
+                        rhsT.elements.length === lhs.vOriginalComponents.length,
+                    `Type mismatch between lhs tuple ${pp(lhs)} with ${
+                        lhs.vOriginalComponents.length
+                    } elements and rhs ${pp(rhs)}`
+                );
+
+                for (let i = lhs.vOriginalComponents.length - 1; i >= 0; i--) {
+                    const lhsComp = lhs.vOriginalComponents[i];
+                    const rhsCompT = rhsT.elements[i];
+
+                    if (lhsComp === null) {
+                        continue;
+                    }
+
+                    assert(
+                        !(lhsComp instanceof TupleExpression),
+                        `Functions can't return nested tuples`
+                    );
+
+                    replanceLHSComp(lhsComp, rhsCompT);
                 }
             }
+        } else {
+            const lhsT = getExprSType(lhs);
+            const rhsT = getExprSType(rhs, lhsT);
+
+            assert(
+                !(rhsT instanceof STupleType),
+                `Unexpected rhs type ${rhsT.pp()}(${rhs.typeString}) in assignment.`
+            );
+            replanceLHSComp(lhs, rhsT);
         }
     };
 

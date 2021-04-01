@@ -1284,6 +1284,316 @@ contract ComplexDatastructures {
         RET5 = aa[ARG7];
     }
 }`
+        ],
+        [
+            "storage_pointer_var.sol",
+            `pragma solidity 0.6.0;
+
+contract Foo {
+    uint[] x;
+    uint y;
+    function main() public {
+        uint[] storage ptr = x;
+        
+        (x, y) = (x, 1);
+}
+}
+`,
+            "//ContractDefinition/FunctionDefinition/Block//Assignment",
+            `pragma solidity 0.6.0;
+
+contract Foo {
+    struct vars0 {
+        uint256 tuple_tmp_0;
+    }
+
+    uint[] internal x;
+    uint internal y;
+
+    function main() public {
+        vars0 memory _v;
+        uint256[] storage tuple_tmp_1;
+        uint[] storage ptr = x;
+        (tuple_tmp_1, _v.tuple_tmp_0) = (x, 1);
+        Foo_y_uint256_assign(_v.tuple_tmp_0);
+        Foo_x_ptr_arr_uint256_storage_assign(tuple_tmp_1);
+    }
+
+    function Foo_y_uint256_assign(uint256 ARG0) internal returns (uint256 RET0) {
+        y = ARG0;
+        RET0 = y;
+    }
+
+    function Foo_x_ptr_arr_uint256_storage_assign(uint256[] storage ARG1) internal returns (uint256[] storage RET1) {
+        x = ARG1;
+        RET1 = x;
+    }
+}`
+        ],
+        [
+            "complex_datastructures_assign.sol",
+            `pragma solidity 0.6.0;
+
+contract Foo {
+    uint y;
+    function retOne() internal returns (uint) {
+        return y = 1;
+    }
+
+    function main() public {
+        uint t = retOne();
+    }
+}
+`,
+            "//ContractDefinition/FunctionDefinition/Block//Assignment",
+            `pragma solidity 0.6.0;
+
+contract Foo {
+    uint internal y;
+
+    function retOne() internal returns (uint) {
+        return Foo_y_uint256_assign(1);
+    }
+
+    function main() public {
+        uint t = retOne();
+    }
+
+    function Foo_y_uint256_assign(uint256 ARG0) internal returns (uint256 RET0) {
+        y = ARG0;
+        RET0 = y;
+    }
+}`
+        ],
+        [
+            "structs_assign.sol",
+            `pragma solidity 0.6.0;
+
+contract Foo {
+    struct Simple {
+        uint x;
+        uint y;
+    }
+
+    struct Complex {
+        uint len;
+        uint[] arr;
+    }
+
+    Simple sV;
+    Simple sV1;
+    Complex cV;
+    Complex cV1;
+
+    function simple_tests() public {
+        sV.x = 0;
+        sV.y = 1;
+
+        assert(sV.x == 0 && sV.y == 1);
+        (sV.x, sV.y) = (3, 4);
+        assert(sV.x == 3 && sV.y == 4);
+        (sV.x, sV.y) = (sV.y, sV.x);
+        assert(sV.x == 4 && sV.y == 3);
+
+        sV = Simple({x: 5, y: 6});
+        assert(sV.x == 5 && sV.y == 6);
+
+        Simple memory mV = Simple({x: 7, y: 8});
+        sV = mV;
+        assert(sV.x == 7 && sV.y == 8);
+
+        sV1 = sV;
+        assert(sV1.x == 7 && sV1.y == 8);
+    }
+
+    function complex_tests() public {
+        cV.len = 3;
+        cV.arr = [1,2,3];
+        assert(cV.len == 3 && cV.arr.length == 3);
+
+        uint[] memory m = new uint[](2);
+        cV = Complex(2, m);
+        assert(cV.len == 2 && cV.arr.length == 2);
+        
+        cV1 = cV;
+        assert(cV1.len == 2 && cV1.arr.length == 2);
+        Complex memory mV = Complex(3, m);
+        cV = mV;
+        assert(cV.len == 3 && cV.arr.length == 2);
+    }
+
+    function main() public {
+        simple_tests();
+        complex_tests();
+    }
+}
+`,
+            "//ContractDefinition/FunctionDefinition/Block//Assignment",
+            `pragma solidity 0.6.0;
+
+contract Foo {
+    struct Simple {
+        uint x;
+        uint y;
+    }
+
+    struct Complex {
+        uint len;
+        uint[] arr;
+    }
+
+    struct vars0 {
+        uint256 tuple_tmp_0;
+        uint256 tuple_tmp_1;
+        uint256 tuple_tmp_2;
+        uint256 tuple_tmp_3;
+    }
+
+    Simple internal sV;
+    Simple internal sV1;
+    Complex internal cV;
+    Complex internal cV1;
+
+    function simple_tests() public {
+        vars0 memory _v;
+        Foo_sV_x_uint256_assign(0);
+        Foo_sV_y_uint256_assign(1);
+        assert((sV.x == 0) && (sV.y == 1));
+        (_v.tuple_tmp_1, _v.tuple_tmp_0) = (3, 4);
+        Foo_sV_y_uint256_assign(_v.tuple_tmp_0);
+        Foo_sV_x_uint256_assign(_v.tuple_tmp_1);
+        assert((sV.x == 3) && (sV.y == 4));
+        (_v.tuple_tmp_3, _v.tuple_tmp_2) = (sV.y, sV.x);
+        Foo_sV_y_uint256_assign(_v.tuple_tmp_2);
+        Foo_sV_x_uint256_assign(_v.tuple_tmp_3);
+        assert((sV.x == 4) && (sV.y == 3));
+        Foo_sV_ptr_ud_Foo_Simple_memory_assign(Simple(5, 6));
+        assert((sV.x == 5) && (sV.y == 6));
+        Simple memory mV = Simple(7, 8);
+        Foo_sV_ptr_ud_Foo_Simple_memory_assign(mV);
+        assert((sV.x == 7) && (sV.y == 8));
+        Foo_sV1_ptr_ud_Foo_Simple_storage_assign(sV);
+        assert((sV1.x == 7) && (sV1.y == 8));
+    }
+
+    function complex_tests() public {
+        Foo_cV_len_uint256_assign(3);
+        Foo_cV_arr_ptr_arr_uint8_3_memory_assign([1, 2, 3]);
+        assert((cV.len == 3) && (cV.arr.length == 3));
+        uint[] memory m = new uint[](2);
+        Foo_cV_ptr_ud_Foo_Complex_memory_assign(Complex(2, m));
+        assert((cV.len == 2) && (cV.arr.length == 2));
+        Foo_cV1_ptr_ud_Foo_Complex_storage_assign(cV);
+        assert((cV1.len == 2) && (cV1.arr.length == 2));
+        Complex memory mV = Complex(3, m);
+        Foo_cV_ptr_ud_Foo_Complex_memory_assign(mV);
+        assert((cV.len == 3) && (cV.arr.length == 2));
+    }
+
+    function main() public {
+        simple_tests();
+        complex_tests();
+    }
+
+    function Foo_sV_x_uint256_assign(uint256 ARG0) internal returns (uint256 RET0) {
+        sV.x = ARG0;
+        RET0 = sV.x;
+    }
+
+    function Foo_sV_y_uint256_assign(uint256 ARG1) internal returns (uint256 RET1) {
+        sV.y = ARG1;
+        RET1 = sV.y;
+    }
+
+    function Foo_sV_ptr_ud_Foo_Simple_memory_assign(Foo.Simple memory ARG2) internal returns (Foo.Simple storage RET2) {
+        sV = ARG2;
+        RET2 = sV;
+    }
+
+    function Foo_sV1_ptr_ud_Foo_Simple_storage_assign(Foo.Simple storage ARG3) internal returns (Foo.Simple storage RET3) {
+        sV1 = ARG3;
+        RET3 = sV1;
+    }
+
+    function Foo_cV_len_uint256_assign(uint256 ARG4) internal returns (uint256 RET4) {
+        cV.len = ARG4;
+        RET4 = cV.len;
+    }
+
+    function Foo_cV_arr_ptr_arr_uint8_3_memory_assign(uint8[3] memory ARG5) internal returns (uint256[] storage RET5) {
+        cV.arr = ARG5;
+        RET5 = cV.arr;
+    }
+
+    function Foo_cV_ptr_ud_Foo_Complex_memory_assign(Foo.Complex memory ARG6) internal returns (Foo.Complex storage RET6) {
+        cV = ARG6;
+        RET6 = cV;
+    }
+
+    function Foo_cV1_ptr_ud_Foo_Complex_storage_assign(Foo.Complex storage ARG7) internal returns (Foo.Complex storage RET7) {
+        cV1 = ARG7;
+        RET7 = cV1;
+    }
+}`
+        ],
+        [
+            "signleton_tuple.sol",
+            `pragma solidity 0.6.0;
+
+contract Foo {
+    uint x;
+    function main() public {
+        (x) = (1);
+        assert(x == 1);
+
+        (x) = 2;
+        assert(x == 2);
+
+        uint t;
+        int r;
+
+        (r, (t, ((x)))) = (1, (2, 3));
+
+        assert(x == 3);
+    }
+}
+`,
+            "//ContractDefinition/FunctionDefinition/Block//Assignment",
+            `pragma solidity 0.6.0;
+
+contract Foo {
+    struct vars0 {
+        uint256 tuple_tmp_0;
+        uint256 tuple_tmp_1;
+        uint256 tuple_tmp_2;
+        uint256 tuple_tmp_3;
+        int256 tuple_tmp_4;
+    }
+
+    uint internal x;
+
+    function main() public {
+        vars0 memory _v;
+        (_v.tuple_tmp_0) = (1);
+        Foo_x_uint256_assign(_v.tuple_tmp_0);
+        assert(x == 1);
+        (_v.tuple_tmp_1) = 2;
+        Foo_x_uint256_assign(_v.tuple_tmp_1);
+        assert(x == 2);
+        uint t;
+        int r;
+        (_v.tuple_tmp_4, (_v.tuple_tmp_3, ((_v.tuple_tmp_2)))) = (1, (2, 3));
+        Foo_x_uint256_assign(_v.tuple_tmp_2);
+        t = _v.tuple_tmp_3;
+        r = _v.tuple_tmp_4;
+        assert(x == 3);
+    }
+
+    function Foo_x_uint256_assign(uint256 ARG0) internal returns (uint256 RET0) {
+        x = ARG0;
+        RET0 = x;
+    }
+}`
         ]
     ];
     for (const [fileName, content, selector, expectedInstrumented] of goodSamples) {
@@ -1313,6 +1623,60 @@ contract ComplexDatastructures {
 
             const instrumented = print(sources, [content], "0.6.0").get(sources[0]);
             expect(instrumented).toEqual(expectedInstrumented);
+        });
+    }
+});
+
+describe("State variable disallowed interposing Unit Tests", () => {
+    const badSamples: Array<[string, string, string]> = [
+        [
+            "length_assign.sol",
+            `pragma solidity 0.5.0;
+contract PushPop{
+    uint[] x;
+    function main() public {
+        x.length = 1;
+        x.push(1);
+    }
+}`,
+            "//ContractDefinition/FunctionDefinition/Block/ExpressionStatement/FunctionCall"
+        ]
+    ];
+    for (const [fileName, content, selector] of badSamples) {
+        it(`Interpose on state vars in #${fileName}`, () => {
+            const [sources, reader, files, compilerVersion] = toAst(fileName, content);
+            const result = new XPath(sources[0]).query(selector);
+            const nodes = result instanceof Array ? result : [result];
+            const factory = new ASTNodeFactory(reader.context);
+            const contract = sources[0].vContracts[0];
+            const vars = new Set(contract.vStateVariables);
+
+            const ctx = makeInstrumentationCtx(sources, factory, files, "log", compilerVersion);
+            const instrumentAll = () => {
+                try {
+                    for (const node of nodes) {
+                        if (
+                            node instanceof Assignment &&
+                            node.vLeftHandSide instanceof TupleExpression
+                        ) {
+                            const container = node.getClosestParentByType(
+                                FunctionDefinition
+                            ) as FunctionDefinition;
+                            const transCtx = ctx.getTranspilingCtx(container);
+
+                            interposeTupleAssignment(transCtx, node, vars);
+                        } else {
+                            interposeSimpleStateVarUpdate(ctx, node);
+                        }
+                    }
+                    ctx.finalize();
+                } catch (e) {
+                    console.log(e, e.message);
+                    throw e;
+                }
+            };
+
+            expect(instrumentAll).toThrow();
         });
     }
 });
