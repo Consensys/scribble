@@ -257,3 +257,23 @@ export function print(n: ASTNode, version = "0.8.0"): string {
 
     return writer.write(n);
 }
+
+/**
+ * Destructively updates the `updatee` map by adding any mappings found in the `newVals` map.
+ * If `disjoint` is specified asserts that the maps are disjoint.
+ * @param updatee
+ * @param newVals
+ */
+export function updateMap<T1, T2>(
+    updatee: Map<T1, T2>,
+    newVals: Map<T1, T2>,
+    disjoint = false
+): void {
+    for (const [key, val] of newVals.entries()) {
+        if (disjoint) {
+            assert(!updatee.has(key), `Expected maps to be disjoint. Instead both have ${key}`);
+        }
+
+        updatee.set(key, val);
+    }
+}

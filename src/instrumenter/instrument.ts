@@ -805,53 +805,51 @@ export function getAssertionFailedEvent(
     return event;
 }
 
-function insertInvChecks(
+export function insertInvChecks(
     transCtx: TranspilingContext,
-    invExprs: Expression[],
+    instrResult: InstrumentationResult,
     annotations: PropertyMetaData[],
     contract: ContractDefinition,
-    body: Block,
-    debugEventInfo: Array<[EventDefinition, EmitStatement] | undefined>
+    body: Block
 ): Recipe {
     const instrCtx = transCtx.instrCtx;
     const factory = instrCtx.factory;
 
     const recipe: Recipe = [];
 
-    for (let i = 0; i < invExprs.length; i++) {
-        const predicate = invExprs[i];
+    const marker = body.vStatements[0];
+    for (const oldAssignment of instrResult.oldAssignments) {
+        recipe.push(
+            new InsertStatement(
+                factory,
+                factory.makeExpressionStatement(oldAssignment),
+                "before",
+                body,
+                marker
+            )
+        );
+    }
+
+    for (const newAssignment of instrResult.newAssignments) {
+        recipe.push(
+            new InsertStatement(
+                factory,
+                factory.makeExpressionStatement(newAssignment),
+                "end",
+                body
+            )
+        );
+    }
+
+    for (let i = 0; i < instrResult.transpiledPredicates.length; i++) {
+        const predicate = instrResult.transpiledPredicates[i];
 
         const event = getAssertionFailedEvent(factory, contract);
-        const dbgInfo = debugEventInfo[i];
+        const dbgInfo = instrResult.debugEventsInfo[i];
         const emitStmt = dbgInfo !== undefined ? dbgInfo[1] : undefined;
         const check = emitAssert(transCtx, predicate, annotations[i], event, emitStmt);
 
         recipe.push(new InsertStatement(factory, check, "end", body));
-    }
-
-    return recipe;
-}
-
-function insertAssignments(
-    factory: ASTNodeFactory,
-    assignments: Assignment[],
-    body: Block,
-    originalCall?: Statement
-): Recipe {
-    const recipe = [];
-
-    const position = originalCall == undefined ? "end" : "before";
-
-    for (const assignment of assignments) {
-        recipe.push(
-            new InsertStatement(
-                factory,
-                factory.makeExpressionStatement(assignment),
-                position,
-                body,
-                originalCall
-            )
-        );
     }
 
     return recipe;
@@ -1100,17 +1098,7 @@ export class ContractInstrumenter {
             }
         }
 
-        recipe.push(
-            ...insertAssignments(factory, instrResult.newAssignments, body),
-            ...insertInvChecks(
-                transCtx,
-                instrResult.transpiledPredicates,
-                annotations,
-                contract,
-                body,
-                instrResult.debugEventsInfo
-            )
-        );
+        recipe.push(...insertInvChecks(transCtx, instrResult, annotations, contract, body));
 
         return [checker, recipe];
     }
@@ -1435,18 +1423,7 @@ export class FunctionInstrumenter {
             );
         }
 
-        recipe.push(
-            ...insertAssignments(factory, instrResult.oldAssignments, body, originalCall),
-            ...insertAssignments(factory, instrResult.newAssignments, body),
-            ...insertInvChecks(
-                transCtx,
-                instrResult.transpiledPredicates,
-                annotations,
-                contract,
-                body,
-                instrResult.debugEventsInfo
-            )
-        );
+        recipe.push(...insertInvChecks(transCtx, instrResult, annotations, contract, body));
 
         if (checkStateInvs) {
             recipe.push(...this.insertExitMarker(factory, instrResult, contract, stub, transCtx));

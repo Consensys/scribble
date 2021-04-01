@@ -38,14 +38,19 @@ import {
     AnnotationMap,
     ConcreteDatastructurePath,
     decomposeLHS,
+    generateExpressions,
     generateTypeAst,
     getOrInit,
     getTypeLocation,
+    insertInvChecks,
     isStateVarRef,
     isTypeAliasable,
     pp,
+    PropertyMetaData,
     single,
-    StateVarUpdateLoc
+    StateVarUpdateLoc,
+    StateVarUpdateNode,
+    updateMap
 } from "..";
 import { assert } from "../util";
 import { InstrumentationContext } from "./instrumentation_context";
@@ -57,6 +62,8 @@ import {
     SBoolType,
     SBytes,
     SFixedBytes,
+    SId,
+    SIfUpdated,
     SIntLiteralType,
     SIntType,
     SMappingType,
@@ -69,11 +76,17 @@ import {
 import { SStringLiteralType } from "../spec-lang/ast/types/string_literal";
 import { astTypeNameToSType } from "../spec-lang/tc";
 import { makeTypeString } from "./type_string";
+import { cook } from "../rewriter";
 
 /**
- * Given a Solidity `Expression` `e` and the expected `SType` `expectedType` where its being used,
+ * Given a Solidity `Expression` `e` and the `expectedType` where its being used,
  * compute the actual `SType` of `e`. This may be different from `expectedType` due to implicit
  * casts.
+ *
+ * Note: We only need `expectedType` here due to limitation in typeString parsing in the case
+ * of int literals. This function should be removed after we add "get type of arbitrary expression" to
+ * solc-typed-ast.
+ *
  * @param e
  * @param expectedType
  */
@@ -219,6 +232,22 @@ function getTypeDescriptor(typ: SType): string {
     throw new Error(`NYI type descriptor for ${typ.pp()}`);
 }
 
+/**
+ * Compute the name of the wrapper function for a given `updateNode`. `updateNode` must only update
+ * a single state variable (tuple assignments are handled separately).
+ *
+ * The name encodes the following:
+ *  - the contract name and state var name
+ *  - the datastructure path inside the state var if only a part of it is updated
+ *  - the types of the arguments (key/array indices). This is done to avoid dealing with casting and introducing extra memory copies.
+ *    Note that as a result we may get multiple wrappers for the same var/var path due to implicit casts
+ *  - the type of the new value being assigned/pushed (if any)
+ *  - the kind of update node this is - pop, push, push without arg, assignment, delete, pre/post fix inc/dec
+ * @param updateNode
+ * @param varDecl
+ * @param path
+ * @param additionalArgs
+ */
 function getWrapperName(
     updateNode: Assignment | FunctionCall | UnaryOperation,
     varDecl: VariableDeclaration,
@@ -273,6 +302,16 @@ function getWrapperName(
     return res + suffix;
 }
 
+/**
+ * Helper to decompose a `Statement` that updates a SINGLE state variable into
+ * a tuple `[varExp, additionalArgs]` where `varExp` is the actual expression
+ * that is being updated (either a reference to the state var itself or some
+ * part of it) and `additionalArgs` is an array includes the new value being
+ * assigned/pushed and its type (if there is such a value).
+ *
+ * @param updateNode
+ * @param factory
+ */
 function decomposeStateVarUpdated(
     updateNode: Assignment | FunctionCall | UnaryOperation,
     factory: ASTNodeFactory
@@ -585,12 +624,13 @@ export function interposeTupleAssignment(
     transCtx: TranspilingContext,
     updateNode: Assignment,
     stateVars: Set<VariableDeclaration>
-): void /** @todo return what here? */ {
+): Map<string, FunctionDefinition> {
     const ctx = transCtx.instrCtx;
     const factory = ctx.factory;
     const containingFun = updateNode.getClosestParentByType(
         FunctionDefinition
     ) as FunctionDefinition;
+    const res = new Map<string, FunctionDefinition>();
 
     // First make sure we can instrument this node
     ensureToplevelExprInBlock(updateNode, factory);
@@ -633,7 +673,9 @@ export function interposeTupleAssignment(
     const keyReplMap: Array<[Expression, Identifier | MemberAccess]> = [];
     const lhsReplMap: Array<[Expression, Identifier | MemberAccess]> = [];
 
-    const replanceLHSComp = (lhsComp: Expression, rhsT: SType): void => {
+    const freshLHSToPathM = new Map<number, number[]>();
+
+    const replanceLHSComp = (lhsComp: Expression, rhsT: SType, tuplePath: number[]): void => {
         const solTempT = generateTypeAst(rhsT, factory);
         const loc = getTypeLocation(rhsT);
 
@@ -642,6 +684,7 @@ export function interposeTupleAssignment(
         const freshLHS = makeTempHelper(lhsComp, solTempT, loc);
         replaceNode(lhsComp, freshLHS);
         lhsReplMap.push([lhsComp, freshLHS]);
+        freshLHSToPathM.set(freshLHS.id, tuplePath);
 
         for (const el of getKeysAndCompTypes(factory, varDecl, path)[0]) {
             if (typeof el === "string") {
@@ -667,7 +710,7 @@ export function interposeTupleAssignment(
     };
 
     // Walk over LHS tuple and replace each expression with a temporary Identifier/MemberAccess
-    const replaceLHS = (lhs: Expression, rhs: Expression): void => {
+    const replaceLHS = (lhs: Expression, rhs: Expression, tuplePath: number[]): void => {
         // Skip singleton tuples
         lhs = skipSingletons(lhs);
         rhs = skipSingletons(rhs);
@@ -684,7 +727,7 @@ export function interposeTupleAssignment(
 
                     const rhsComp = rhs.vOriginalComponents[i];
                     assert(rhsComp !== null, ``);
-                    replaceLHS(lhsComp, rhsComp);
+                    replaceLHS(lhsComp, rhsComp, tuplePath.concat(i));
                 }
             } else {
                 assert(rhs instanceof FunctionCall, ``);
@@ -712,7 +755,7 @@ export function interposeTupleAssignment(
                         `Functions can't return nested tuples`
                     );
 
-                    replanceLHSComp(lhsComp, rhsCompT);
+                    replanceLHSComp(lhsComp, rhsCompT, tuplePath.concat(i));
                 }
             }
         } else {
@@ -723,12 +766,12 @@ export function interposeTupleAssignment(
                 !(rhsT instanceof STupleType),
                 `Unexpected rhs type ${rhsT.pp()}(${rhs.typeString}) in assignment.`
             );
-            replanceLHSComp(lhs, rhsT);
+            replanceLHSComp(lhs, rhsT, tuplePath);
         }
     };
 
     assert(updateNode.vLeftHandSide instanceof TupleExpression, ``);
-    replaceLHS(updateNode.vLeftHandSide, updateNode.vRightHandSide);
+    replaceLHS(updateNode.vLeftHandSide, updateNode.vRightHandSide, []);
 
     const containingStmt = updateNode.parent as ExpressionStatement;
     const containingBlock = containingStmt.parent as Block;
@@ -768,9 +811,16 @@ export function interposeTupleAssignment(
 
         // @todo enhance this to account for paths of interest
         if (stateVar !== undefined && stateVars.has(stateVar)) {
-            interposeSimpleStateVarUpdate(ctx, temporaryUpdate as Assignment);
+            const [, wrapper] = interposeSimpleStateVarUpdate(ctx, temporaryUpdate as Assignment);
+            const tuplePath = freshLHSToPathM.get(temporary.id);
+            assert(tuplePath !== undefined, ``);
+
+            const updateNodeKey = stateVarUpdateNode2Str([updateNode, tuplePath]);
+            res.set(updateNodeKey, wrapper);
         }
     }
+
+    return res;
 }
 
 /**
@@ -810,13 +860,72 @@ export function interposeSimpleStateVarUpdate(
     return [wrapperCall, wrapperFun];
 }
 
+/**
+ * Checks whether the given `StateVarUpdateLoc` `loc` matches the given annotation `annot`.
+ * @param loc
+ * @param annot
+ */
+function updateLocMatchesAnnotation(loc: StateVarUpdateLoc, annot: AnnotationMetaData): boolean {
+    if (!(annot instanceof PropertyMetaData && annot.parsedAnnot instanceof SIfUpdated)) {
+        return false;
+    }
+
+    const [, stateVar, concretePath] = loc;
+
+    if (annot.target !== stateVar) {
+        return false;
+    }
+
+    // @todo update this logic when I add IfAssigned
+    // Check that the concrete update path matches the formal update path specified in the annotation.
+    // The only possible mismatch is when the two paths diverge in the name of a struct field. Otherwise
+    // they match even if one is shorter than the other.
+    const formalPath = annot.parsedAnnot.datastructurePath;
+    const minLen =
+        formalPath.length > concretePath.length ? concretePath.length : formalPath.length;
+
+    for (let i = 0; i < minLen; i++) {
+        const concreteEl = concretePath[i];
+        const formalEl = formalPath[i];
+
+        if (formalEl instanceof SId) {
+            assert(concreteEl instanceof Expression, ``);
+            continue;
+        }
+
+        assert(typeof concreteEl === "string", ``);
+
+        if (concreteEl !== formalEl) {
+            return false;
+        }
+    }
+
+    return true;
+}
+
+/**
+ * Helper to convert `StateVarUpdateNode` to string keys to be used in maps.
+ * @param node
+ */
+function stateVarUpdateNode2Str(node: StateVarUpdateNode): string {
+    const astNode = node instanceof Array ? node[0] : node;
+    let res = `${astNode.id}`;
+
+    if (node instanceof Array) {
+        res += node[1].join("_");
+    }
+
+    return res;
+}
+
 export function instrumentStateVars(
     ctx: InstrumentationContext,
-    annotations: AnnotationMap,
+    allAnnotations: AnnotationMap,
     aliasedStateVars: Set<VariableDeclaration>,
     stateVarUpdates: StateVarUpdateLoc[]
 ): void {
-    for (const varDef of annotations.keys()) {
+    // First check if any of the annotated vars is aliased - if so throw an error
+    for (const varDef of allAnnotations.keys()) {
         if (!(varDef instanceof VariableDeclaration)) {
             continue;
         }
@@ -830,37 +939,53 @@ export function instrumentStateVars(
         }
     }
 
-    const stateVarUpdateMap = new Map();
-    for (const [node, varDecl, path, newVal] of stateVarUpdates) {
-        getOrInit(varDecl, stateVarUpdateMap, []).push([node, path, newVal]);
-    }
-
     // A single instrumented location can contain multiple variables to
-    // instrument due to tuple assignments. We pre-comupte the set of
-    // locations to update in the below map
+    // instrument due to tuple assignments. This is an inverse map from ASTNodes
+    // to a list of `StateVarUpdateLoc` Each entry in that list describes a
+    // concrete state var update inside this ASTNode, for which there are
+    // annotations.
     const locInstrumentMap = new Map<
         VariableDeclaration | Assignment | FunctionCall | UnaryOperation,
         StateVarUpdateLoc[]
     >();
 
-    for (const [varDecl, locs] of stateVarUpdateMap.entries()) {
-        if (
-            !annotations.has(varDecl) ||
-            (annotations.get(varDecl) as AnnotationMetaData[]).length > 0
-        ) {
+    // This map keeps track of all annotations that match a given `StateVarUpdateNode` location,
+    // where the location is encode as string by stateVarUpdateNode2Str
+    const annotMap = new Map<string, AnnotationMetaData[]>();
+
+    // Compute `locInstrumentMap` and `annotMap`
+    for (const stateVarUpdate of stateVarUpdates) {
+        const [loc, varDecl, path, newVal] = stateVarUpdate;
+
+        const allVarAnnots = allAnnotations.get(varDecl);
+        if (allVarAnnots === undefined || allVarAnnots.length === 0) {
             continue;
         }
 
-        for (const [loc, path, newVal] of locs) {
-            const node = loc instanceof Array ? loc[0] : loc;
-            const locList = getOrInit(node, locInstrumentMap, []);
-            locList.push([loc, varDecl, path, newVal]);
+        const matchingVarAnnots = allVarAnnots.filter((annot) =>
+            updateLocMatchesAnnotation(stateVarUpdate, annot)
+        );
+
+        if (matchingVarAnnots.length === 0) {
+            continue;
         }
+
+        const node = loc instanceof Array ? loc[0] : loc;
+        const locList = getOrInit(node, locInstrumentMap, []);
+
+        locList.push([loc, varDecl, path, newVal]);
+        annotMap.set(stateVarUpdateNode2Str(loc), matchingVarAnnots);
     }
 
+    // This is a map from `StateVarUpdateNodes` that were updated to the wrapper function generated for each node
+    const wrapperMap = new Map<string, FunctionDefinition>();
+
+    // Next use `locInstrumentMap` to interpose on all the state var update locations.
+    // Populte the `wrapperMap` as we go with the wrappers that were generated.
     for (const [node, locs] of locInstrumentMap.entries()) {
         if (node instanceof VariableDeclaration) {
-            throw new Error(`NYI instrumenting inline initializers`);
+            //throw new Error(`NYI instrumenting inline initializers`);
+            continue;
         }
 
         if (node instanceof Assignment && node.vLeftHandSide instanceof TupleExpression) {
@@ -869,12 +994,38 @@ export function instrumentStateVars(
                 FunctionDefinition
             ) as FunctionDefinition;
             const transCtx = ctx.getTranspilingCtx(containingFun);
-            interposeTupleAssignment(transCtx, node, varsOfInterest);
+            const tupleWrappedMap = interposeTupleAssignment(transCtx, node, varsOfInterest);
+
+            updateMap(wrapperMap, tupleWrappedMap);
         } else {
             assert(locs.length === 1, `Expected single updated var loc, not ${pp(locs)}`);
-            interposeSimpleStateVarUpdate(ctx, node);
+            const [, wrapper] = interposeSimpleStateVarUpdate(ctx, node);
+            wrapperMap.set(stateVarUpdateNode2Str(locs[0][0]), wrapper);
         }
-        // @todo return map from [varDecl, path] => arg
-        // @todo compile invariants using above map
+    }
+
+    const seen = new Set<FunctionDefinition>();
+
+    // Finally use `wrapperMap` and `annotMap` to add instrumentation to each of the wrappers.
+    // Note that the same wrapper may appear multiple times in `wrapperMap` so we use the `seen` set
+    // to not double-instrument.
+    // @todo the logic is inefficient here - we should be able to iterate just over the wrappers.
+    for (const [updateLocKey, wrapper] of wrapperMap.entries()) {
+        if (seen.has(wrapper)) {
+            continue;
+        }
+
+        seen.add(wrapper);
+        const relevantAnnotats = annotMap.get(updateLocKey) as PropertyMetaData[];
+        assert(relevantAnnotats !== undefined, ``);
+
+        // @todo need a map from [varDecl, path] => arg
+        const transCtx = ctx.getTranspilingCtx(wrapper);
+        const body = wrapper.vBody as Block;
+
+        const instrResult = generateExpressions(relevantAnnotats, transCtx);
+        const contract = wrapper.vScope as ContractDefinition;
+        const recipe = insertInvChecks(transCtx, instrResult, relevantAnnotats, contract, body);
+        cook(recipe);
     }
 }

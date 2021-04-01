@@ -483,20 +483,6 @@ export type StateVarUpdateLoc = [
 ];
 
 /**
- * Map version of the `StateVarUpdateLoc[]` type.
- */
-export type StateVarUpdateMap = Map<
-    VariableDeclaration,
-    Array<
-        [
-            StateVarUpdateNode,
-            ConcreteDatastructurePath,
-            Expression | [Expression, number] | undefined
-        ]
-    >
->;
-
-/**
  * Given a LHS expression that may be wrapped in `MemberAccess` and
  * `IndexAccess`-es, unwrap it into a base expression that is either an
  * `Identifier` or a `MemberAccess` that refers to a local var, argument,
