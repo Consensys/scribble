@@ -15,8 +15,8 @@ import {
 } from "solc-typed-ast";
 import { spawnSync } from "child_process";
 import { AnnotationTarget, assert, pp } from "../../src";
-import { IfUpdatedScope, STypingCtx } from "../../src/spec-lang/tc";
-import { SAnnotation, SIfUpdated } from "../../src/spec-lang/ast";
+import { StateVarScope, STypingCtx } from "../../src/spec-lang/tc";
+import { SAnnotation, SStateVarProp } from "../../src/spec-lang/ast";
 
 export function searchRecursive(directory: string, pattern: RegExp): string[] {
     let results: string[] = [];
@@ -108,7 +108,7 @@ export function getTarget(typeCtx: STypingCtx): AnnotationTarget {
         return topCtx;
     }
 
-    if (topCtx instanceof IfUpdatedScope) {
+    if (topCtx instanceof StateVarScope) {
         return topCtx.target;
     }
 
@@ -142,8 +142,8 @@ export function getTypeCtx(
 
                 for (const stateVar of contract.vStateVariables) {
                     if (stateVar.name == subTarget) {
-                        assert(annotation instanceof SIfUpdated, ``);
-                        res.push(new IfUpdatedScope(stateVar, annotation));
+                        assert(annotation instanceof SStateVarProp, ``);
+                        res.push(new StateVarScope(stateVar, annotation));
                         return res;
                     }
                 }

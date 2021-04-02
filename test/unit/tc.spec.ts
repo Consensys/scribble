@@ -729,33 +729,33 @@ describe("TypeChecker Annotation Tests", () => {
                 ["if_updated z>w;", ["Unrelated", "z"], new SBoolType(), true],
                 ["if_updated true;", ["Unrelated", "arr"], new SBoolType(), true],
                 ["if_updated arr.length > 0;", ["Unrelated", "arr"], new SBoolType(), true],
-                ["if_updated[i] arr[i+1] == 1;", ["Unrelated", "arr"], new SBoolType(), true],
+                ["if_assigned[i] arr[i+1] == 1;", ["Unrelated", "arr"], new SBoolType(), true],
                 [
-                    "if_updated[bts] bts[0] == byte(0x01);",
+                    "if_assigned[bts] bts[0] == byte(0x01);",
                     ["Unrelated", "m1"],
                     new SBoolType(),
                     true
                 ],
                 [
-                    "if_updated[addr] addr == address(0x0);",
+                    "if_assigned[addr] addr == address(0x0);",
                     ["Unrelated", "m2"],
                     new SBoolType(),
                     true
                 ],
                 [
-                    "if_updated[addr][bts] addr == address(0x0) && bts[0] == byte(0x01);",
+                    "if_assigned[addr][bts] addr == address(0x0) && bts[0] == byte(0x01);",
                     ["Unrelated", "m2"],
                     new SBoolType(),
                     true
                 ],
                 [
-                    "if_updated[addr].sArr.arr[x] addr == address(0x0) && x <= 10;",
+                    "if_assigned[addr].sArr.arr[x] addr == address(0x0) && x <= 10;",
                     ["Unrelated", "m3"],
                     new SBoolType(),
                     true
                 ],
                 [
-                    "if_updated[str] bytes(str)[0] == byte(0x00);",
+                    "if_assigned[str] bytes(str)[0] == byte(0x00);",
                     ["Unrelated", "m4"],
                     new SBoolType(),
                     true
@@ -816,13 +816,13 @@ describe("TypeChecker Annotation Tests", () => {
                 ["define foo() uint = 1;", ["Base", "plus"]],
                 ["define foo() uint = $result;", ["Base", undefined]],
                 ["define foo(uint t) uint = user_plusOne(t);", ["Unrelated", undefined]],
-                ["if_updated.foo true;", ["Unrelated", "z"]],
-                ["if_updated[x] true;", ["Unrelated", "z"]],
-                ["if_updated.foo true;", ["Unrelated", "arr"]],
-                ["if_updated[x][y] true;", ["Unrelated", "arr"]],
-                ["if_updated[bts][bad] bts[0] == byte(0x01);", ["Unrelated", "m1"]],
+                ["if_assigned.foo true;", ["Unrelated", "z"]],
+                ["if_assigned[x] true;", ["Unrelated", "z"]],
+                ["if_assigned.foo true;", ["Unrelated", "arr"]],
+                ["if_assigned[x][y] true;", ["Unrelated", "arr"]],
+                ["if_assigned[bts][bad] bts[0] == byte(0x01);", ["Unrelated", "m1"]],
                 [
-                    "if_updated[bts][addr] addr == address(0x0) && bts[0] == byte(0x01);",
+                    "if_assigned[bts][addr] addr == address(0x0) && bts[0] == byte(0x01);",
                     ["Unrelated", "m2"]
                 ]
             ]

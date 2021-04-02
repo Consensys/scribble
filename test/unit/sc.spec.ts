@@ -366,6 +366,7 @@ describe("SemanticChecker Expression Unit Tests", () => {
             [
                 ["define foo(uint x) uint = x + sV;", ["Foo", undefined]],
                 ["if_updated old(sV) < sV;", ["Foo", "sV"]],
+                ["if_assigned old(sV) < sV;", ["Foo", "sV"]],
                 ["if_succeeds old(y) + y > add;", ["Foo", "add"]],
                 ["invariant sV > 0;", ["Foo", undefined]]
             ]

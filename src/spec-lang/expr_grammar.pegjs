@@ -3,6 +3,7 @@ Annotation
     = StartingWhiteSpace annotation: (Invariant
     / If_Succeeds
     / If_Updated
+    / If_Assigned
     / UserFunctionDefinition) .* { return annotation; }
 
 Expression =
@@ -41,9 +42,15 @@ IndexPath = (DatastructurePath_Field / DatastructurePath_Index)*
 // TODO: Eventually remove hacking '/' from if_updated rule. This is to work around
 // limitations in Solidity's 
 If_Updated =
-  ("/" __)? type: IF_UPDATED path: IndexPath __ label: AnnotationLabel? __ expr: Expression __ ";"
+  ("/" __)? type: IF_UPDATED __ label: AnnotationLabel? __ expr: Expression __ ";"
   {
-    return new SIfUpdated(expr, path, label !== null ? label : undefined, location());
+    return new SIfUpdated(expr, [], label !== null ? label : undefined, location());
+  }
+
+If_Assigned =
+  ("/" __)? type: IF_ASSIGNED path: IndexPath __ label: AnnotationLabel? __ expr: Expression __ ";"
+  {
+    return new SIfAssigned(expr, path, label !== null ? label : undefined, location());
   }
 
 UserFunctionDefinition = 
@@ -113,6 +120,7 @@ RESULT = "$result"
 INVARIANT = "invariant"
 IF_SUCCEEDS = "if_succeeds"
 IF_UPDATED = "if_updated"
+IF_ASSIGNED = "if_assigned"
 DEFINE = "define"
 
 Keyword

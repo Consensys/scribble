@@ -68,6 +68,7 @@ import {
     SIntType,
     SMappingType,
     SPointer,
+    SStateVarProp,
     SString,
     STupleType,
     SType,
@@ -866,7 +867,7 @@ export function interposeSimpleStateVarUpdate(
  * @param annot
  */
 function updateLocMatchesAnnotation(loc: StateVarUpdateLoc, annot: AnnotationMetaData): boolean {
-    if (!(annot instanceof PropertyMetaData && annot.parsedAnnot instanceof SIfUpdated)) {
+    if (!(annot instanceof PropertyMetaData && annot.parsedAnnot instanceof SStateVarProp)) {
         return false;
     }
 
@@ -876,15 +877,22 @@ function updateLocMatchesAnnotation(loc: StateVarUpdateLoc, annot: AnnotationMet
         return false;
     }
 
-    // @todo update this logic when I add IfAssigned
-    // Check that the concrete update path matches the formal update path specified in the annotation.
-    // The only possible mismatch is when the two paths diverge in the name of a struct field. Otherwise
-    // they match even if one is shorter than the other.
-    const formalPath = annot.parsedAnnot.datastructurePath;
-    const minLen =
-        formalPath.length > concretePath.length ? concretePath.length : formalPath.length;
+    // Currently if_updated cannot have a path
+    if (annot.parsedAnnot instanceof SIfUpdated) {
+        assert(annot.parsedAnnot.datastructurePath.length === 0, ``);
+        return true;
+    }
 
-    for (let i = 0; i < minLen; i++) {
+    // This is an if_assigned annotation. Check that the concrete update path
+    // matches the formal update path specified in the annotation EXACTLY.
+    // @todo may need to change this logic in the future if we change the semantics of if_assigned
+    const formalPath = annot.parsedAnnot.datastructurePath;
+
+    if (formalPath.length !== concretePath.length) {
+        return false;
+    }
+
+    for (let i = 0; i < formalPath.length; i++) {
         const concreteEl = concretePath[i];
         const formalEl = formalPath[i];
 

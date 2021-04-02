@@ -38,7 +38,8 @@ import {
     AnnotationType,
     SUserFunctionDefinition,
     SAnnotation,
-    SIfUpdated
+    SIfUpdated,
+    SIfAssigned
 } from "./ast";
 
 function buildBinaryExpression(head: SNode, tail: Array<[string, SNode]>, src?: Range): SNode {

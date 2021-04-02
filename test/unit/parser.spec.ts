@@ -29,7 +29,8 @@ import {
     SUserFunctionDefinition,
     SProperty,
     AnnotationType,
-    SIfUpdated
+    SIfUpdated,
+    SIfAssigned
 } from "../../src/spec-lang/ast";
 import { eq } from "../../src/util/struct_equality";
 import bigInt from "big-integer";
@@ -777,31 +778,31 @@ describe("Annotation Parser Unit Tests", () => {
             )
         ],
         [
-            `* if_updated[a]
+            `* if_assigned[a]
                 {:msg 
                        "bye"
                     }
                     true;
                      ;`,
-            new SIfUpdated(new SBooleanLiteral(true), [new SId("a")], "bye")
+            new SIfAssigned(new SBooleanLiteral(true), [new SId("a")], "bye")
         ],
         [
-            `* if_updated.foo
+            `* if_assigned.foo
                 {:msg 
                        "bye"
                     }
                     true;
                      ;`,
-            new SIfUpdated(new SBooleanLiteral(true), ["foo"], "bye")
+            new SIfAssigned(new SBooleanLiteral(true), ["foo"], "bye")
         ],
         [
-            `* if_updated._bar0.boo[a][b].foo[c]
+            `* if_assigned._bar0.boo[a][b].foo[c]
                 {:msg 
                        "felicia"
                     }
                     false;
                      ;`,
-            new SIfUpdated(
+            new SIfAssigned(
                 new SBooleanLiteral(false),
                 ["_bar0", "boo", new SId("a"), new SId("b"), "foo", new SId("c")],
                 "felicia"
@@ -902,23 +903,35 @@ describe("Annotation Parser Unit Tests", () => {
     ];
 
     const badSamples: string[] = [
-        `* if_updated[1+2]
+        `* if_assigned[1+2]
                 {:msg 
                        "felicia"
                     }
                     false;
                      ;`,
-        `* if_updated0ab
+        `* if_assigned0ab
                 {:msg 
                        "felicia"
                     }
                     false;
                      ;`,
-        `* if_updated,ab
+        `* if_assigned,ab
                 {:msg 
                        "felicia"
                     }
                     false;
+                     ;`,
+        `* if_updated[a]
+                {:msg 
+                       "bye"
+                    }
+                    true;
+                     ;`,
+        `* if_updated.foo
+                {:msg 
+                       "bye"
+                    }
+                    true;
                      ;`
     ];
 

@@ -63,7 +63,7 @@ import {
     SResult,
     SUserFunctionDefinition
 } from "../spec-lang/ast";
-import { IfUpdatedScope, SemMap, TypeEnv } from "../spec-lang/tc";
+import { StateVarScope, SemMap, TypeEnv } from "../spec-lang/tc";
 import { parse as parseTypeString } from "../spec-lang/typeString_parser";
 import { assert, isChangingState, isExternallyVisible, single } from "../util";
 import {
@@ -210,7 +210,7 @@ function gatherDebugIds(n: SNode, typeEnv: TypeEnv): Set<SId> {
             key = `${id.defSite.id}`;
         } else {
             const t = id.defSite[0];
-            assert(!(t instanceof IfUpdatedScope), `NYI: Debug events on if_updated annotations.`);
+            assert(!(t instanceof StateVarScope), `NYI: Debug events on state var annotations.`);
             key = `${t.id}_${id.defSite[1]}`;
         }
 

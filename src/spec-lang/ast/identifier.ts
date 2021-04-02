@@ -2,13 +2,13 @@ import { SNode, Range } from "./node";
 import { VariableDeclaration } from "solc-typed-ast";
 import { SLet } from ".";
 import { SUserFunctionDefinition } from "./declarations";
-import { IfUpdatedScope } from "../tc";
+import { StateVarScope } from "../tc";
 
 export type VarDefSite =
     | VariableDeclaration
     | [SLet, number]
     | [SUserFunctionDefinition, number]
-    | [IfUpdatedScope, number];
+    | [StateVarScope, number];
 
 export type IdDefSite =
     | VarDefSite

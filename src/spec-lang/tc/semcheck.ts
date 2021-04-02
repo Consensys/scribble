@@ -271,7 +271,8 @@ export function scUnary(
         if (
             !(
                 ctx.annotation.type === AnnotationType.IfSucceeds ||
-                ctx.annotation.type === AnnotationType.IfUpdated
+                ctx.annotation.type === AnnotationType.IfUpdated ||
+                ctx.annotation.type === AnnotationType.IfAssigned
             )
         ) {
             throw new SemError(

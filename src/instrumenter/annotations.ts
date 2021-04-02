@@ -330,7 +330,10 @@ export class AnnotationExtractor {
                 );
             }
         } else {
-            if (annotation.type !== AnnotationType.IfUpdated) {
+            if (
+                annotation.type !== AnnotationType.IfUpdated &&
+                annotation.type !== AnnotationType.IfAssigned
+            ) {
                 throw new UnsupportedByTargetError(
                     `The "${annotation.type}" annotation is not applicable to state variables`,
                     annotation.original,
@@ -370,7 +373,7 @@ export class AnnotationExtractor {
 
         const result: AnnotationMetaData[] = [];
 
-        const rx = /\s*(\*|\/\/\/)\s*(if_succeeds|if_updated|invariant|define)/g;
+        const rx = /\s*(\*|\/\/\/)\s*(if_succeeds|if_updated|if_assigned|invariant|define)/g;
 
         let match = rx.exec(meta.text);
 

@@ -43,6 +43,7 @@ import {
     SNumber,
     SProperty,
     SResult,
+    SStateVarProp,
     SStringLiteral,
     SUnaryOperation,
     SUserFunctionDefinition,
@@ -73,7 +74,7 @@ import { STupleType } from "../ast/types/tuple_type";
 import { BuiltinAddressMembers, BuiltinSymbols } from "./builtins";
 import { TypeEnv } from "./typeenv";
 
-export class IfUpdatedScope {
+export class StateVarScope {
     constructor(
         public readonly target: VariableDeclaration,
         public readonly annotation: SIfUpdated
@@ -85,7 +86,7 @@ export type SScope =
     | FunctionDefinition
     | SLet
     | SUserFunctionDefinition
-    | IfUpdatedScope;
+    | StateVarScope;
 export type STypingCtx = SScope[];
 
 export function ppTypingCtx(ctx: STypingCtx): string {
@@ -270,7 +271,7 @@ export function lookupVarDef(name: string, ctx: STypingCtx): VarDefSite | undefi
         } else if (scope instanceof Array) {
             // No variable definitions at the global scope
             return undefined;
-        } else if (scope instanceof IfUpdatedScope) {
+        } else if (scope instanceof StateVarScope) {
             const prop = scope.annotation;
 
             for (let i = 0; i < prop.datastructurePath.length; i++) {
@@ -683,12 +684,12 @@ export function tcAnnotation(
     if (annot instanceof SProperty) {
         let predCtx;
 
-        if (annot instanceof SIfUpdated) {
+        if (annot instanceof SStateVarProp) {
             assert(
                 target instanceof VariableDeclaration,
                 `Unexpected if_updated target: ${pp(target)}`
             );
-            predCtx = [...ctx, new IfUpdatedScope(target, annot)];
+            predCtx = [...ctx, new StateVarScope(target, annot)];
             assert(target.vType !== undefined, `State var ${target.name} is missing a type.`);
 
             // Check to make sure the datastructure path matches the type of the
@@ -1057,7 +1058,7 @@ function tcIdVariable(expr: SId, ctx: STypingCtx, typeEnv: TypeEnv): SType | und
         return rhsT;
     }
 
-    if (defNode instanceof IfUpdatedScope) {
+    if (defNode instanceof StateVarScope) {
         assert(
             defNode.target.vType !== undefined,
             `Expected target ${pp(defNode.target)} for if_updated to have a vType.`
