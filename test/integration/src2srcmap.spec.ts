@@ -338,6 +338,19 @@ describe("Src2src map test", () => {
                 }
             });
 
+            it("All assertion ranges are inside of an instrumentation range", () => {
+                assert(
+                    forAll(instrMD.propertyMap, (prop) =>
+                        forAll(prop.assertionRanges, (assertionRange) =>
+                            forAny(prop.instrumentationRanges, (instrRange) =>
+                                contains(instrRange, assertionRange)
+                            )
+                        )
+                    ),
+                    "Some assertion ranges are out of instrumentation ranges (they shouldn't be)"
+                );
+            });
+
             it("Bytecode map is covered by instrumentation metadata", () => {
                 // Some compiler-generated code maps to the whole file. Skip it.
                 const src2SrcMap = new Map(instrMD.instrToOriginalMap);
@@ -413,9 +426,9 @@ describe("Src2src map test", () => {
 
                             // OR it must be part of the general instrumentation
                             if (
-                                forAny(instrMD.otherInstrumentation, (range) => {
-                                    return contains(range, strEntry);
-                                })
+                                forAny(instrMD.otherInstrumentation, (range) =>
+                                    contains(range, strEntry)
+                                )
                             ) {
                                 continue;
                             }
@@ -426,6 +439,7 @@ describe("Src2src map test", () => {
                                 prop.checkRanges.forEach((checkRange, checkRangeIdx) => {
                                     if (contains(checkRange, strEntry)) {
                                         const key = `${propIdx}_${checkRangeIdx}`;
+
                                         propertyChecksHit.add(key);
                                     }
                                 });

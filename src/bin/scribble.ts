@@ -146,7 +146,11 @@ function computeContractsNeedingInstr(
 ): Set<ContractDefinition> {
     // Find the contracts needing instrumentaion by doing bfs starting from the annotated contracts
     const wave = [...annotMap.entries()]
-        .filter(([n, annots]) => n instanceof ContractDefinition && annots.length > 0)
+        .filter(
+            ([n, annots]) =>
+                n instanceof ContractDefinition &&
+                annots.filter((annot) => annot instanceof PropertyMetaData).length > 0
+        )
         .map(([contract]) => contract);
     const visited = new Set<ContractDefinition>();
 
@@ -191,14 +195,18 @@ function instrumentFiles(
 
         for (const contract of unit.vContracts) {
             const contractAnnot = getOr(annotMap, contract, []);
-            const needsContrInstr = contractsNeedingInstr.has(contract);
+            const needsStateInvariantInstr = contractsNeedingInstr.has(contract);
+
+            const userFuns = contractAnnot.filter(
+                (annot) => annot instanceof UserFunctionDefinitionMetaData
+            );
 
             // Nothing to instrument on interfaces
             if (contract.kind === ContractKind.Interface) {
                 continue;
             }
 
-            if (needsContrInstr) {
+            if (needsStateInvariantInstr || userFuns.length > 0) {
                 worklist.push([contract, undefined, contractAnnot]);
                 changed = true;
                 assert(
@@ -230,7 +238,7 @@ function instrumentFiles(
                  */
                 if (
                     annotations.length > 0 ||
-                    (needsContrInstr &&
+                    (needsStateInvariantInstr &&
                         isExternallyVisible(fun) &&
                         isChangingState(fun) &&
                         contract.kind === ContractKind.Contract &&
@@ -253,7 +261,12 @@ function instrumentFiles(
 
     for (const [contract, contractElement, annotations] of worklist) {
         if (contractElement === undefined) {
-            contractInstrumenter.instrument(ctx, annotations, contract);
+            contractInstrumenter.instrument(
+                ctx,
+                annotations,
+                contract,
+                contractsNeedingInstr.has(contract)
+            );
         } else {
             functionInstrumenter.instrument(
                 ctx,
@@ -609,10 +622,10 @@ function pickVersion(versionUsedMap: Map<string, string>): string {
     return versions[0];
 }
 
-if ("version" in options) {
-    const { version } = require("../../package.json");
+const pkg = fse.readJSONSync(path.join(__dirname, "../../package.json"), { encoding: "utf-8" });
 
-    console.log(version);
+if ("version" in options) {
+    console.log(pkg.version);
 } else if ("help" in options || !("solFiles" in options)) {
     const usage = commandLineUsage(params);
 
@@ -1037,6 +1050,7 @@ if ("version" in options) {
                         flatCompiled,
                         sortedUnits,
                         flatSrcMap,
+                        pkg.version,
                         options.output,
                         options["arm"] !== undefined
                     ),
@@ -1086,6 +1100,7 @@ if ("version" in options) {
                 newSrcMap,
                 originalUnits,
                 options["arm"] !== undefined,
+                pkg.version,
                 options["output"]
             );
 

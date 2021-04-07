@@ -732,6 +732,7 @@ function emitAssert(
     if (instrCtx.assertionMode === "log") {
         const strMessage = `${annotation.id}: ${annotation.message}`;
         const message = factory.makeLiteral("<missing>", LiteralKind.String, "", strMessage);
+
         userAssertFailed = factory.makeEmitStatement(
             factory.makeFunctionCall(
                 "<missing>",
@@ -740,9 +741,9 @@ function emitAssert(
                 [message]
             )
         );
-        instrCtx.addAnnotationInstrumentation(annotation, userAssertFailed);
     } else {
         const failBitPattern = getBitPattern(factory, annotation.id);
+
         userAssertFailed = factory.makeExpressionStatement(
             factory.makeAssignment(
                 "<missing>",
@@ -751,11 +752,14 @@ function emitAssert(
                 failBitPattern
             )
         );
+
         assert(
             annotation.id < 0x1000,
             `Can't instrument more than ${0x1000} ids currently in mstore mode.`
         );
+
         const successBitPattern = getBitPattern(factory, annotation.id | 0x1000);
+
         userAssertionHit = factory.makeExpressionStatement(
             factory.makeAssignment(
                 "<missing>",
@@ -797,15 +801,14 @@ function emitAssert(
     instrCtx.addAnnotationInstrumentation(annotation, userAssertFailed);
     instrCtx.addAnnotationInstrumentation(annotation, ifStmt);
     instrCtx.addAnnotationCheck(annotation, condition);
-    if (userAssertionHit) {
-        instrCtx.addAnnotationInstrumentation(annotation, userAssertionHit);
-    }
+    instrCtx.addAnnotationFailureCheck(annotation, ...ifBody);
 
     if (userAssertionHit) {
+        instrCtx.addAnnotationInstrumentation(annotation, userAssertionHit);
         return factory.makeBlock([userAssertionHit, ifStmt]);
-    } else {
-        return ifStmt;
     }
+
+    return ifStmt;
 }
 
 export function getAssertionFailedEvent(
@@ -919,14 +922,14 @@ export class ContractInstrumenter {
     instrument(
         ctx: InstrumentationContext,
         annotations: AnnotationMetaData[],
-        contract: ContractDefinition
+        contract: ContractDefinition,
+        needsStateInvChecks: boolean
     ): void {
         const recipe: Recipe = [];
         const typeEnv = ctx.typeEnv;
         const semInfo = ctx.semMap;
 
         const userFunctionsAnnotations = filterByType(annotations, UserFunctionDefinitionMetaData);
-        const propertyAnnotations = filterByType(annotations, PropertyMetaData);
 
         const [, userFuncsRecipe] = this.makeUserFunctions(
             ctx,
@@ -936,42 +939,49 @@ export class ContractInstrumenter {
             contract
         );
 
-        const [internalInvChecker, internalCheckerRecipe] = this.makeInternalInvariantChecker(
-            ctx,
-            typeEnv,
-            semInfo,
-            propertyAnnotations,
-            contract
-        );
+        recipe.push(...userFuncsRecipe);
 
-        const [generalInvChecker, generalCheckerRecipe] = this.makeGeneralInvariantChecker(
-            ctx,
-            contract,
-            internalInvChecker
-        );
-
-        recipe.push(
-            new AddBaseContract(ctx.factory, contract, ctx.utilsContract, "start"),
-            ...userFuncsRecipe,
-            ...internalCheckerRecipe,
-            ...generalCheckerRecipe,
-            ...this.instrumentConstructor(ctx, contract, generalInvChecker),
-            ...this.replaceExternalCallSites(ctx, contract, generalInvChecker)
-        );
-
-        const utilsUnit = ctx.utilsContract.vScope;
-        if (!this.hasImport(contract.vScope, utilsUnit)) {
-            const path = relative(dirname(contract.vScope.absolutePath), utilsUnit.absolutePath);
-            contract.vScope.appendChild(
-                ctx.factory.makeImportDirective(
-                    `./${path}`,
-                    utilsUnit.absolutePath,
-                    "",
-                    [],
-                    contract.vScope.id,
-                    utilsUnit.id
-                )
+        const propertyAnnotations = filterByType(annotations, PropertyMetaData);
+        if (needsStateInvChecks) {
+            const [internalInvChecker, internalCheckerRecipe] = this.makeInternalInvariantChecker(
+                ctx,
+                typeEnv,
+                semInfo,
+                propertyAnnotations,
+                contract
             );
+
+            const [generalInvChecker, generalCheckerRecipe] = this.makeGeneralInvariantChecker(
+                ctx,
+                contract,
+                internalInvChecker
+            );
+
+            recipe.push(
+                new AddBaseContract(ctx.factory, contract, ctx.utilsContract, "start"),
+                ...internalCheckerRecipe,
+                ...generalCheckerRecipe,
+                ...this.instrumentConstructor(ctx, contract, generalInvChecker),
+                ...this.replaceExternalCallSites(ctx, contract, generalInvChecker)
+            );
+
+            const utilsUnit = ctx.utilsContract.vScope;
+            if (!this.hasImport(contract.vScope, utilsUnit)) {
+                const path = relative(
+                    dirname(contract.vScope.absolutePath),
+                    utilsUnit.absolutePath
+                );
+                contract.vScope.appendChild(
+                    ctx.factory.makeImportDirective(
+                        `./${path}`,
+                        utilsUnit.absolutePath,
+                        "",
+                        [],
+                        contract.vScope.id,
+                        utilsUnit.id
+                    )
+                );
+            }
         }
 
         cook(recipe);

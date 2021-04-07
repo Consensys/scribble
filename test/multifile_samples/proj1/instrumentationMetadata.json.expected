@@ -165,6 +165,10 @@
       ],
       "checkRanges": [
         "448:8:0"
+      ],
+      "assertionRanges": [
+        "472:29:0",
+        "515:13:0"
       ]
     },
     {
@@ -184,14 +188,18 @@
       ],
       "checkRanges": [
         "1311:22:0"
+      ],
+      "assertionRanges": [
+        "1349:29:0",
+        "1392:13:0"
       ]
     },
     {
       "id": 2,
       "contract": "Child2",
       "filename": "test/multifile_samples/proj1/child2.sol",
-      "propertySource": "117:14:1",
-      "annotationSource": "93:39:1",
+      "propertySource": "117:14:2",
+      "annotationSource": "93:39:2",
       "target": "function",
       "targetName": "double",
       "debugEventSignature": "",
@@ -203,6 +211,10 @@
       ],
       "checkRanges": [
         "2621:22:0"
+      ],
+      "assertionRanges": [
+        "2659:29:0",
+        "2702:13:0"
       ]
     }
   ],

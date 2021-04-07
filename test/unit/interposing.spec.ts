@@ -453,7 +453,7 @@ contract Foo is __scribble_ReentrancyUtils {
                 assertionMode,
                 compilerVersion
             );
-            contractInstrumenter.instrument(ctx, [], contract);
+            contractInstrumenter.instrument(ctx, [], contract, true);
             ctx.finalize();
 
             const instrumented = print(sources, [content], "0.6.0").get(sources[0]);
