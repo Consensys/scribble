@@ -78,6 +78,7 @@ import { SStringLiteralType } from "../spec-lang/ast/types/string_literal";
 import { astTypeNameToSType } from "../spec-lang/tc";
 import { makeTypeString } from "./type_string";
 import { cook } from "../rewriter";
+import { getOrAddConstructor } from "./instrument";
 
 /**
  * Given a Solidity `Expression` `e` and the `expectedType` where its being used,
@@ -250,7 +251,7 @@ function getTypeDescriptor(typ: SType): string {
  * @param additionalArgs
  */
 function getWrapperName(
-    updateNode: Assignment | FunctionCall | UnaryOperation,
+    updateNode: Assignment | FunctionCall | UnaryOperation | VariableDeclaration,
     varDecl: VariableDeclaration,
     path: Array<string | [TypeName, Expression]>,
     additionalArgs: Array<[Expression, TypeName]>
@@ -281,6 +282,8 @@ function getWrapperName(
         if (suffix === "push" && updateNode.vArguments.length === 0) {
             suffix += "_noarg";
         }
+    } else if (updateNode instanceof VariableDeclaration) {
+        suffix = "inline_initializer";
     } else {
         if (updateNode.operator === "delete") {
             suffix = "delete";
@@ -487,7 +490,9 @@ function makeWrapper(
 
     const retParamTs: SType[] = [];
     // Add the re-written update node in the body of the wrapper
-    body.appendChild(factory.makeExpressionStatement(updateNode));
+    const updateNodeStmt = factory.makeExpressionStatement(updateNode);
+    body.appendChild(updateNodeStmt);
+    ctx.addGeneralInstrumentation(updateNodeStmt);
 
     // Add any return parameters if needed
     if (updateNode instanceof UnaryOperation) {
@@ -511,21 +516,22 @@ function makeWrapper(
         const loc = formalT instanceof SPointer ? formalT.location : DataLocation.Default;
         const solFromalT = generateTypeAst(formalT, factory);
 
-        wrapperFun.vReturnParameters.appendChild(
-            factory.makeVariableDeclaration(
-                false,
-                false,
-                ctx.nameGenerator.getFresh(`RET`),
-                wrapperFun.vParameters.id,
-                false,
-                loc,
-                StateVariableVisibility.Default,
-                Mutability.Mutable,
-                "<missing>",
-                undefined,
-                solFromalT
-            )
+        const decl = factory.makeVariableDeclaration(
+            false,
+            false,
+            ctx.nameGenerator.getFresh(`RET`),
+            wrapperFun.vParameters.id,
+            false,
+            loc,
+            StateVariableVisibility.Default,
+            Mutability.Mutable,
+            "<missing>",
+            undefined,
+            solFromalT
         );
+
+        ctx.addGeneralInstrumentation(decl);
+        wrapperFun.vReturnParameters.appendChild(decl);
     }
 
     // Add the actual return statements (assignments) if we have return parameters
@@ -546,6 +552,7 @@ function makeWrapper(
                 value
             )
         );
+        ctx.addGeneralInstrumentation(retStmt);
 
         if (updateNode instanceof UnaryOperation && ["++", "--"].includes(updateNode.operator)) {
             if (updateNode.prefix) {
@@ -667,6 +674,8 @@ export function interposeTupleAssignment(
                 body.vStatements[0]
             );
 
+            ctx.addGeneralInstrumentation(decl);
+
             return factory.makeIdentifierFor(decl);
         }
     };
@@ -676,7 +685,14 @@ export function interposeTupleAssignment(
 
     const freshLHSToPathM = new Map<number, number[]>();
 
-    const replanceLHSComp = (lhsComp: Expression, rhsT: SType, tuplePath: number[]): void => {
+    const mapTmpSrc = (tmp: Identifier | MemberAccess, original: Expression): void => {
+        tmp.src = original.src;
+        if (tmp instanceof MemberAccess) {
+            ctx.addGeneralInstrumentation(tmp.vExpression);
+        }
+    };
+
+    const replaceLHSComp = (lhsComp: Expression, rhsT: SType, tuplePath: number[]): void => {
         const solTempT = generateTypeAst(rhsT, factory);
         const loc = getTypeLocation(rhsT);
 
@@ -686,6 +702,7 @@ export function interposeTupleAssignment(
         replaceNode(lhsComp, freshLHS);
         lhsReplMap.push([lhsComp, freshLHS]);
         freshLHSToPathM.set(freshLHS.id, tuplePath);
+        mapTmpSrc(freshLHS, lhsComp);
 
         for (const el of getKeysAndCompTypes(factory, varDecl, path)[0]) {
             if (typeof el === "string") {
@@ -697,6 +714,7 @@ export function interposeTupleAssignment(
             const freshKey = makeTempHelper(idxExp, typ, DataLocation.Memory);
             replaceNode(idxExp, freshKey);
             keyReplMap.push([idxExp, freshKey]);
+            mapTmpSrc(freshKey, idxExp);
         }
     };
 
@@ -756,7 +774,7 @@ export function interposeTupleAssignment(
                         `Functions can't return nested tuples`
                     );
 
-                    replanceLHSComp(lhsComp, rhsCompT, tuplePath.concat(i));
+                    replaceLHSComp(lhsComp, rhsCompT, tuplePath.concat(i));
                 }
             }
         } else {
@@ -767,7 +785,7 @@ export function interposeTupleAssignment(
                 !(rhsT instanceof STupleType),
                 `Unexpected rhs type ${rhsT.pp()}(${rhs.typeString}) in assignment.`
             );
-            replanceLHSComp(lhs, rhsT, tuplePath);
+            replaceLHSComp(lhs, rhsT, tuplePath);
         }
     };
 
@@ -778,31 +796,35 @@ export function interposeTupleAssignment(
     const containingBlock = containingStmt.parent as Block;
     // First store the key expressions in temporaries before the tuple assignment
     for (const [originalKey, temporary] of keyReplMap) {
+        const lhs = factory.copy(temporary);
         const temporaryUpdate: Expression = factory.makeAssignment(
             "<missing>",
             "=",
-            temporary,
+            lhs,
             originalKey
         );
 
         const temporaryUpdateStmt = factory.makeExpressionStatement(temporaryUpdate);
         containingBlock.insertBefore(temporaryUpdateStmt, containingStmt);
+        ctx.addGeneralInstrumentation(temporaryUpdateStmt);
     }
 
     let marker: Statement = containingStmt;
     // Insert an assginment/update function call for each pair of original LHS
     // expression, and temporary expression used to substitute it after the tuple assignment.
     for (const [originalLHS, temporary] of lhsReplMap) {
+        const rhs = factory.copy(temporary);
         const temporaryUpdate: Expression = factory.makeAssignment(
             "<missing>",
             "=",
             originalLHS,
-            temporary
+            rhs
         );
 
         const temporaryUpdateStmt = factory.makeExpressionStatement(temporaryUpdate);
         containingBlock.insertAfter(temporaryUpdateStmt, marker);
         marker = temporaryUpdateStmt;
+        ctx.addGeneralInstrumentation(temporaryUpdateStmt);
 
         // If this is a state var update re-write it to a wrapped call
         const [base] = decomposeLHS(originalLHS);
@@ -822,6 +844,67 @@ export function interposeTupleAssignment(
     }
 
     return res;
+}
+
+export function interposeInlineInitializer(
+    ctx: InstrumentationContext,
+    updateNode: VariableDeclaration
+): [FunctionCall, FunctionDefinition] {
+    const factory = ctx.factory;
+    const containingContract = updateNode.vScope;
+    assert(containingContract instanceof ContractDefinition, ``);
+
+    const wrapperName = getWrapperName(updateNode, updateNode, [], []);
+
+    assert(
+        ctx.getWrapper(containingContract, wrapperName) === undefined,
+        `inline wrappers should be defined only once`
+    );
+
+    const wrapperFun = factory.makeFunctionDefinition(
+        containingContract.id,
+        FunctionKind.Function,
+        wrapperName,
+        false,
+        FunctionVisibility.Internal,
+        FunctionStateMutability.NonPayable,
+        false,
+        factory.makeParameterList([]),
+        factory.makeParameterList([]),
+        [],
+        undefined,
+        factory.makeBlock([]),
+        ``
+    );
+
+    containingContract.appendChild(wrapperFun);
+    ctx.setWrapper(containingContract, wrapperName, wrapperFun);
+
+    const actualParams: Expression[] = [];
+
+    const wrapperCall = factory.makeFunctionCall(
+        "<missing>",
+        FunctionCallKind.FunctionCall,
+        factory.makeIdentifierFor(wrapperFun),
+        actualParams
+    );
+    const wrapperCallStmt = factory.makeExpressionStatement(wrapperCall);
+
+    ctx.addGeneralInstrumentation(wrapperCallStmt);
+
+    const constr = getOrAddConstructor(containingContract, factory);
+    assert(
+        constr.vBody !== undefined,
+        `We don't support instrumenting the state var ${containingContract.name}.${updateNode.name} with iniline-initializer in a contract with an abstract constructor.`
+    );
+
+    if (constr.vBody.vStatements.length > 0) {
+        (constr.vBody as Block).insertBefore(wrapperCallStmt, constr.vBody.vStatements[0]);
+    } else {
+        (constr.vBody as Block).appendChild(wrapperCallStmt);
+    }
+
+    return [wrapperCall, wrapperFun];
 }
 
 /**
@@ -856,7 +939,12 @@ export function interposeSimpleStateVarUpdate(
         actualParams
     );
 
+    ctx.addGeneralInstrumentation(wrapperCall);
+    if (updateNode.parent instanceof ExpressionStatement) {
+        updateNode.parent.src = "0:0:0";
+    }
     replaceNode(updateNode, wrapperCall);
+    wrapperCall.src = updateNode.src;
 
     return [wrapperCall, wrapperFun];
 }
@@ -933,8 +1021,8 @@ export function instrumentStateVars(
     stateVarUpdates: StateVarUpdateLoc[]
 ): void {
     // First check if any of the annotated vars is aliased - if so throw an error
-    for (const varDef of allAnnotations.keys()) {
-        if (!(varDef instanceof VariableDeclaration)) {
+    for (const [varDef, annots] of allAnnotations.entries()) {
+        if (!(varDef instanceof VariableDeclaration && annots.length > 0)) {
             continue;
         }
 
@@ -991,16 +1079,17 @@ export function instrumentStateVars(
     // Next use `locInstrumentMap` to interpose on all the state var update locations.
     // Populte the `wrapperMap` as we go with the wrappers that were generated.
     for (const [node, locs] of locInstrumentMap.entries()) {
+        const containingFun = node.getClosestParentByType(FunctionDefinition) as FunctionDefinition;
+
         if (node instanceof VariableDeclaration) {
-            //throw new Error(`NYI instrumenting inline initializers`);
+            assert(locs.length === 1, ``);
+            const [, wrapper] = interposeInlineInitializer(ctx, node);
+            wrapperMap.set(stateVarUpdateNode2Str(node), wrapper);
             continue;
         }
 
         if (node instanceof Assignment && node.vLeftHandSide instanceof TupleExpression) {
             const varsOfInterest = new Set(locs.map((loc) => loc[1]));
-            const containingFun = node.getClosestParentByType(
-                FunctionDefinition
-            ) as FunctionDefinition;
             const transCtx = ctx.getTranspilingCtx(containingFun);
             const tupleWrappedMap = interposeTupleAssignment(transCtx, node, varsOfInterest);
 
@@ -1035,5 +1124,14 @@ export function instrumentStateVars(
         const contract = wrapper.vScope as ContractDefinition;
         const recipe = insertInvChecks(transCtx, instrResult, relevantAnnotats, contract, body);
         cook(recipe);
+    }
+
+    // Finally strip the documentation, otherwise solidity may fail due to about natspec on internal vars
+    for (const [target, annots] of allAnnotations.entries()) {
+        if (!(target instanceof VariableDeclaration && annots.length > 0)) {
+            continue;
+        }
+
+        target.documentation = undefined;
     }
 }

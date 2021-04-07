@@ -13,6 +13,7 @@ import { PropertyMetaData } from "../instrumenter/annotations";
 import { InstrumentationContext } from "../instrumenter/instrumentation_context";
 import { Range } from "../spec-lang/ast";
 import { dedup, assert, pp } from ".";
+import { getOr } from "..";
 
 type TargetType = "function" | "variable" | "contract";
 interface PropertyDesc {
@@ -227,9 +228,10 @@ function generatePropertyMap(
         const signature = debugEvent !== undefined ? debugEvent.canonicalSignature : "";
         const propertySource = rangeToSrc(predRange, unit.sourceListIndex);
         const annotationSource = rangeToSrc(annotationRange, unit.sourceListIndex);
+        const evalStmts = getOr(ctx.evaluationStatements, annotation, []);
 
         const instrumentationRanges = dedup(
-            (ctx.evaluationStatements.get(annotation) as ASTNode[]).map((node) => {
+            evalStmts.map((node) => {
                 const src = newSrcMap.get(node);
                 assert(
                     src !== undefined,
@@ -243,12 +245,7 @@ function generatePropertyMap(
             })
         );
 
-        const annotationChecks = ctx.instrumetnedCheck.get(annotation);
-        assert(
-            annotationChecks !== undefined,
-            `Missing check expression for ${annotation.original}`
-        );
-
+        const annotationChecks = getOr(ctx.instrumetnedCheck, annotation, []);
         const checkRanges: string[] = dedup(
             annotationChecks.map((annotationCheck) => {
                 const checkRange = newSrcMap.get(annotationCheck);

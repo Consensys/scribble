@@ -634,7 +634,7 @@ describe("Finding all state variable updates.", () => {
             new Set([
                 "uint[] internal arr = [1, 2, 3], arr, [], [1, 2, 3]",
                 "S internal s = S(1, address(0), arr), s, [], S(1, address(0), arr)",
-                "s = S(mArr, address(0x10), 0), s, [], S(mArr, address(0x10), 0)",
+                "s = S({arr: mArr, a: address(0x10), x: 0}), s, [], S({arr: mArr, a: address(0x10), x: 0})",
                 "s = S(x, address(0), mArr), s, [], S(x, address(0), mArr)",
                 "s.x = 41, s, [x], 41",
                 "s.a = address(0x1), s, [a], address(0x1)",

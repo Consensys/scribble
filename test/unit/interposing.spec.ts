@@ -7,6 +7,7 @@ import {
     FunctionDefinition,
     SourceUnit,
     TupleExpression,
+    VariableDeclaration,
     XPath
 } from "solc-typed-ast";
 import expect from "expect";
@@ -17,6 +18,7 @@ import {
     generateUtilsContract,
     interpose,
     interposeCall,
+    interposeInlineInitializer,
     interposeSimpleStateVarUpdate,
     interposeTupleAssignment
 } from "../../src/instrumenter";
@@ -1467,9 +1469,9 @@ contract Foo {
         Foo_sV_y_uint256_assign(_v.tuple_tmp_2);
         Foo_sV_x_uint256_assign(_v.tuple_tmp_3);
         assert((sV.x == 4) && (sV.y == 3));
-        Foo_sV_ptr_ud_Foo_Simple_memory_assign(Simple(5, 6));
+        Foo_sV_ptr_ud_Foo_Simple_memory_assign(Simple({x: 5, y: 6}));
         assert((sV.x == 5) && (sV.y == 6));
-        Simple memory mV = Simple(7, 8);
+        Simple memory mV = Simple({x: 7, y: 8});
         Foo_sV_ptr_ud_Foo_Simple_memory_assign(mV);
         assert((sV.x == 7) && (sV.y == 8));
         Foo_sV1_ptr_ud_Foo_Simple_storage_assign(sV);
@@ -1594,6 +1596,45 @@ contract Foo {
         RET0 = x;
     }
 }`
+        ],
+        [
+            "inline_initializer.sol",
+            `pragma solidity 0.6.0;
+
+contract Foo {
+    uint x = 1;
+    constructor() public {
+        x = 2;
+    }
+}
+
+contract Child is Foo {
+    uint y = 1;
+}
+`,
+            "//ContractDefinition/VariableDeclaration",
+            `pragma solidity 0.6.0;
+
+contract Foo {
+    uint internal x = 1;
+
+    constructor() public {
+        Foo_x_inline_initializer();
+        x = 2;
+    }
+
+    function Foo_x_inline_initializer() internal {}
+}
+
+contract Child is Foo {
+    uint internal y = 1;
+
+    function Child_y_inline_initializer() internal {}
+
+    constructor() public {
+        Child_y_inline_initializer();
+    }
+}`
         ]
     ];
     for (const [fileName, content, selector, expectedInstrumented] of goodSamples) {
@@ -1614,6 +1655,8 @@ contract Foo {
                     const transCtx = ctx.getTranspilingCtx(container);
 
                     interposeTupleAssignment(transCtx, node, vars);
+                } else if (node instanceof VariableDeclaration) {
+                    interposeInlineInitializer(ctx, node);
                 } else {
                     interposeSimpleStateVarUpdate(ctx, node);
                 }
@@ -1623,60 +1666,6 @@ contract Foo {
 
             const instrumented = print(sources, [content], "0.6.0").get(sources[0]);
             expect(instrumented).toEqual(expectedInstrumented);
-        });
-    }
-});
-
-describe("State variable disallowed interposing Unit Tests", () => {
-    const badSamples: Array<[string, string, string]> = [
-        [
-            "length_assign.sol",
-            `pragma solidity 0.5.0;
-contract PushPop{
-    uint[] x;
-    function main() public {
-        x.length = 1;
-        x.push(1);
-    }
-}`,
-            "//ContractDefinition/FunctionDefinition/Block/ExpressionStatement/FunctionCall"
-        ]
-    ];
-    for (const [fileName, content, selector] of badSamples) {
-        it(`Interpose on state vars in #${fileName}`, () => {
-            const [sources, reader, files, compilerVersion] = toAst(fileName, content);
-            const result = new XPath(sources[0]).query(selector);
-            const nodes = result instanceof Array ? result : [result];
-            const factory = new ASTNodeFactory(reader.context);
-            const contract = sources[0].vContracts[0];
-            const vars = new Set(contract.vStateVariables);
-
-            const ctx = makeInstrumentationCtx(sources, factory, files, "log", compilerVersion);
-            const instrumentAll = () => {
-                try {
-                    for (const node of nodes) {
-                        if (
-                            node instanceof Assignment &&
-                            node.vLeftHandSide instanceof TupleExpression
-                        ) {
-                            const container = node.getClosestParentByType(
-                                FunctionDefinition
-                            ) as FunctionDefinition;
-                            const transCtx = ctx.getTranspilingCtx(container);
-
-                            interposeTupleAssignment(transCtx, node, vars);
-                        } else {
-                            interposeSimpleStateVarUpdate(ctx, node);
-                        }
-                    }
-                    ctx.finalize();
-                } catch (e) {
-                    console.log(e, e.message);
-                    throw e;
-                }
-            };
-
-            expect(instrumentAll).toThrow();
         });
     }
 });

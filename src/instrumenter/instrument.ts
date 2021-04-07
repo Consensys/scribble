@@ -296,6 +296,10 @@ export function flattenExpr(expr: SNode, ctx: TranspilingContext): [SNode, SBind
                 return [_registerNode(renamedId, expr), []];
             }
 
+            if (defNode instanceof StateVarScope) {
+                return [expr, []];
+            }
+
             throw new Error(`Unknown array def site`);
         }
 
@@ -817,13 +821,13 @@ export function insertInvChecks(
 
     const recipe: Recipe = [];
 
-    const marker = body.vStatements[0];
+    const marker = body.vStatements.length > 0 ? body.vStatements[0] : undefined;
     for (const oldAssignment of instrResult.oldAssignments) {
         recipe.push(
             new InsertStatement(
                 factory,
                 factory.makeExpressionStatement(oldAssignment),
-                "before",
+                marker !== undefined ? "before" : "end",
                 body,
                 marker
             )
@@ -1541,4 +1545,40 @@ export class FunctionInstrumenter {
 
         return recipe;
     }
+}
+
+/**
+ * Return the constructor of `contract`. If there is no constructor defined,
+ * add an empty public constructor and return it.
+ *
+ * @param contract
+ * @param factory
+ * @returns
+ */
+export function getOrAddConstructor(
+    contract: ContractDefinition,
+    factory: ASTNodeFactory
+): FunctionDefinition {
+    if (contract.vConstructor !== undefined) {
+        return contract.vConstructor;
+    }
+
+    const emptyConstructor = factory.makeFunctionDefinition(
+        contract.id,
+        FunctionKind.Constructor,
+        "",
+        false,
+        FunctionVisibility.Public,
+        FunctionStateMutability.NonPayable,
+        true,
+        factory.makeParameterList([]),
+        factory.makeParameterList([]),
+        [],
+        undefined,
+        factory.makeBlock([])
+    );
+
+    contract.appendChild(emptyConstructor);
+
+    return emptyConstructor;
 }

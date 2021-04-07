@@ -35,7 +35,6 @@ import {
     SFunctionCall,
     SHexLiteral,
     SId,
-    SIfUpdated,
     SIndexAccess,
     SLet,
     SMemberAccess,
@@ -77,7 +76,7 @@ import { TypeEnv } from "./typeenv";
 export class StateVarScope {
     constructor(
         public readonly target: VariableDeclaration,
-        public readonly annotation: SIfUpdated
+        public readonly annotation: SStateVarProp
     ) {}
 }
 export type SScope =

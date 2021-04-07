@@ -11,7 +11,8 @@ import {
     ASTReader,
     ASTNode,
     FunctionDefinition,
-    ContractDefinition
+    ContractDefinition,
+    ASTKind
 } from "solc-typed-ast";
 import { spawnSync } from "child_process";
 import { AnnotationTarget, assert, pp } from "../../src";
@@ -55,8 +56,7 @@ export function toAst(
 
         if (errors.length === 0) {
             const reader = new ASTReader();
-
-            return [reader.read(data), reader, files, compilerVersion];
+            return [reader.read(data, ASTKind.Any, files), reader, files, compilerVersion];
         }
 
         failures.push({ compilerVersion, errors });
@@ -88,7 +88,8 @@ export function scribble(fileName: string | string[], ...args: string[]): string
     const processArgs = (fileName instanceof Array ? fileName : [fileName]).concat(args);
     const result = spawnSync("scribble", processArgs, {
         encoding: "utf8",
-        env: scrubbedEnv
+        env: scrubbedEnv,
+        maxBuffer: 4 * 1024 * 1024
     });
 
     if (result.stderr) {
