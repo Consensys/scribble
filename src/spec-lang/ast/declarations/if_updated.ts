@@ -1,6 +1,6 @@
 import { AnnotationType } from ".";
 import { SNode, Range } from "..";
-import { assert } from "../../..";
+import { assert } from "../../../util/misc";
 import { DatastructurePath, SStateVarProp } from "./state_var_prop";
 
 /**

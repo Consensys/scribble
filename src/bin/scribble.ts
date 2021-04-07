@@ -28,7 +28,7 @@ import {
     UserDefinedTypeName,
     VariableDeclaration
 } from "solc-typed-ast";
-import { findAliasedStateVars, findStateVarUpdates, replaceNode } from "..";
+import { findAliasedStateVars, findStateVarUpdates, replaceNode, UnsupportedConstruct } from "..";
 import { print, rewriteImports } from "../ast_to_source_printer";
 import {
     PropertyMetaData,
@@ -38,12 +38,12 @@ import {
     UserFunctionDefinitionMetaData,
     buildAnnotationMap,
     AnnotationMap,
-    gatherFunctionAnnotations
+    gatherFunctionAnnotations,
+    AnnotationFilterOptions
 } from "../instrumenter/annotations";
 import { getCallGraph } from "../instrumenter/callgraph";
 import { CHA, getCHA } from "../instrumenter/cha";
 import {
-    AnnotationFilterOptions,
     ContractInstrumenter,
     FunctionInstrumenter,
     generateUtilsContract
@@ -84,20 +84,20 @@ function prettyError(
     message: string,
     unit: SourceUnit,
     location: Range | Location,
-    annotation: string
+    annotation?: string
 ): never {
     const coords =
         "line" in location
             ? `${location.line}:${location.column}`
             : `${location.start.line}:${location.start.column}`;
 
-    const description = [
-        `${unit.absolutePath}:${coords} ${type}: ${message}`,
-        "In:",
-        annotation
-    ].join("\n\n");
+    const descriptionLines = [`${unit.absolutePath}:${coords} ${type}: ${message}`];
 
-    error(description);
+    if (annotation !== undefined) {
+        descriptionLines.push("In:", annotation);
+    }
+
+    error(descriptionLines.join("\n\n"));
 }
 
 function compile(
@@ -910,7 +910,17 @@ if ("version" in options) {
 
         const utilsUnit = makeUtilsUnit(utilsOutputDir, factory, compilerVersionUsed, instrCtx);
 
-        const [allUnits, changedUnits] = instrumentFiles(instrCtx, annotMap, contractsNeedingInstr);
+        let allUnits: SourceUnit[];
+        let changedUnits: SourceUnit[];
+
+        try {
+            [allUnits, changedUnits] = instrumentFiles(instrCtx, annotMap, contractsNeedingInstr);
+        } catch (e) {
+            if (e instanceof UnsupportedConstruct) {
+                prettyError(e.name, e.message, e.unit, e.range);
+            }
+            throw e;
+        }
 
         allUnits.push(utilsUnit);
 

@@ -30,7 +30,7 @@ import {
     VariableDeclaration,
     VariableDeclarationStatement
 } from "solc-typed-ast";
-import { assert, pp, single, zip } from "..";
+import { assert, pp, print, single, zip } from "..";
 
 export type LHS = Expression | VariableDeclaration | [Expression, string];
 export type RHS = Expression | [Expression, number];
@@ -332,11 +332,14 @@ export function isTypeAliasable(t: TypeName): boolean {
  * @todo (dimo) This code is hacky. To do this cleanly we need proper dataflow analysis.
  * Its tricky to implement dataflow analysis over an AST.
  *
+ * Returns a map from variable declarations to ASTNodes, where the node is a possible aliasing
+ * assignment for that state var
+ *
  * @param units
  */
-export function findAliasedStateVars(units: SourceUnit[]): Set<VariableDeclaration> {
+export function findAliasedStateVars(units: SourceUnit[]): Map<VariableDeclaration, ASTNode> {
     const assignments: Array<[LHS, RHS]> = [];
-    const res: Set<VariableDeclaration> = new Set();
+    const res = new Map<VariableDeclaration, ASTNode>();
 
     // First collect all assignments
     for (const unit of units) {
@@ -424,7 +427,8 @@ export function findAliasedStateVars(units: SourceUnit[]): Set<VariableDeclarati
             `Unexpected base ${pp(exp)} of rhs in assignment  ${pp(rhs)} -> ${pp(lhs)}`
         );
 
-        res.add(exp.vReferencedDeclaration);
+        const lhsNode = lhs instanceof Array ? lhs[0] : lhs;
+        res.set(exp.vReferencedDeclaration, lhsNode);
     }
 
     return res;
@@ -495,6 +499,8 @@ export function decomposeLHS(
     e: Expression
 ): [Identifier | MemberAccess, ConcreteDatastructurePath] {
     const path: ConcreteDatastructurePath = [];
+    const originalExp = e;
+
     while (true) {
         if (
             e instanceof MemberAccess &&
@@ -516,6 +522,14 @@ export function decomposeLHS(
         }
 
         break;
+    }
+
+    if (e instanceof FunctionCall && e.vFunctionName === "push") {
+        throw new Error(
+            `Scribble doesn't support instrument assignments where the LHS is a push(). Problematic LHS: ${print(
+                originalExp
+            )}`
+        );
     }
 
     assert(e instanceof Identifier || e instanceof MemberAccess, ``);

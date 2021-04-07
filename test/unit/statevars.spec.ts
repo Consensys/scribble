@@ -275,7 +275,7 @@ describe("Finding aliased vars.", () => {
             const unit = single(sources);
 
             const aliased = findAliasedStateVars([unit]);
-            const aliasedNames = new Set([...aliased].map((decl) => decl.name));
+            const aliasedNames = new Set([...aliased.keys()].map((decl) => decl.name));
             Logger.debug(
                 `Expected aliased set ${pp(expectedAliasedNames)} got ${pp(aliasedNames)}`
             );

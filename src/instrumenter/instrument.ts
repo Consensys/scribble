@@ -23,7 +23,8 @@ import {
     StateVariableVisibility,
     VariableDeclaration,
     EmitStatement,
-    Literal
+    Literal,
+    ASTNode
 } from "solc-typed-ast";
 import {
     AddBaseContract,
@@ -65,11 +66,20 @@ import {
 } from "../spec-lang/ast";
 import { StateVarScope, SemMap, TypeEnv } from "../spec-lang/tc";
 import { parse as parseTypeString } from "../spec-lang/typeString_parser";
-import { assert, isChangingState, isExternallyVisible, single } from "../util";
+import {
+    assert,
+    isChangingState,
+    isExternallyVisible,
+    parseSrcTriple,
+    print,
+    single
+} from "../util";
 import {
     AnnotationMetaData,
     PropertyMetaData,
-    UserFunctionDefinitionMetaData
+    UserFunctionDefinitionMetaData,
+    PPAbleError,
+    rangeToLocRange
 } from "./annotations";
 import { walk } from "../spec-lang/walk";
 import { interpose, interposeCall } from "./interpose";
@@ -81,10 +91,30 @@ import { TranspilingContext } from "./transpiling_context";
 export type SBinding = [string | string[], SType, SNode, boolean];
 export type SBindings = SBinding[];
 
-export type AnnotationFilterOptions = {
-    type?: string;
-    message?: string;
-};
+export class InstrumentationError extends PPAbleError {}
+/**
+ * Base class for all type errors due to some valid Solidity feature that
+ * we do not yet support
+ */
+export class UnsupportedConstruct extends InstrumentationError {
+    public readonly unsupportedNode: ASTNode;
+    public readonly unit: SourceUnit;
+
+    constructor(msg: string, unsupportedNode: ASTNode, files: Map<string, string>) {
+        const unit = unsupportedNode.getClosestParentByType(SourceUnit);
+        assert(unit !== undefined, `No unit for node ${print(unsupportedNode)}`);
+        const contents = files.get(unit.sourceEntryKey);
+        assert(contents !== undefined, `Missing contents for ${unit.sourceEntryKey}`);
+
+        const unitLoc = parseSrcTriple(unsupportedNode.src);
+        const range = rangeToLocRange(unitLoc[0], unitLoc[1], contents);
+
+        super(msg, range);
+
+        this.unsupportedNode = unsupportedNode;
+        this.unit = unit;
+    }
+}
 
 export interface InstrumentationResult {
     oldAssignments: Assignment[];
@@ -210,7 +240,13 @@ function gatherDebugIds(n: SNode, typeEnv: TypeEnv): Set<SId> {
             key = `${id.defSite.id}`;
         } else {
             const t = id.defSite[0];
-            assert(!(t instanceof StateVarScope), `NYI: Debug events on state var annotations.`);
+            if (t instanceof StateVarScope) {
+                throw new Error(
+                    `Scribble doesn't yet support --debug-events in the presence of instrumented state vars: ${
+                        (t.target.vScope as ContractDefinition).name
+                    }.${t.target.name}`
+                );
+            }
             key = `${t.id}_${id.defSite[1]}`;
         }
 

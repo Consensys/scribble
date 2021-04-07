@@ -1,6 +1,7 @@
 import {
     ArrayTypeName,
     Assignment,
+    ASTNode,
     ASTNodeFactory,
     Block,
     ContractDefinition,
@@ -50,6 +51,7 @@ import {
     single,
     StateVarUpdateLoc,
     StateVarUpdateNode,
+    UnsupportedConstruct,
     updateMap
 } from "..";
 import { assert } from "../util";
@@ -79,6 +81,7 @@ import { astTypeNameToSType } from "../spec-lang/tc";
 import { makeTypeString } from "./type_string";
 import { cook } from "../rewriter";
 import { getOrAddConstructor } from "./instrument";
+import { lt } from "semver";
 
 /**
  * Given a Solidity `Expression` `e` and the `expectedType` where its being used,
@@ -154,17 +157,17 @@ export function getKeysAndCompTypes(
                 typ = typ.vValueType;
             }
         } else {
-            assert(
-                typ instanceof UserDefinedTypeName &&
-                    typ.vReferencedDeclaration instanceof StructDefinition,
-                ``
-            );
+            if (typ instanceof UserDefinedTypeName) {
+                assert(typ.vReferencedDeclaration instanceof StructDefinition, ``);
+                typ = single(
+                    typ.vReferencedDeclaration.vMembers.filter((member) => member.name === comp)
+                ).vType as TypeName;
 
-            typ = single(
-                typ.vReferencedDeclaration.vMembers.filter((member) => member.name === comp)
-            ).vType as TypeName;
-
-            keyTypes.push(comp);
+                keyTypes.push(comp);
+            } else {
+                assert(typ instanceof ArrayTypeName, ``);
+                typ = factory.makeElementaryTypeName("<missing>", "uint256");
+            }
         }
     }
 
@@ -669,10 +672,22 @@ export function interposeTupleAssignment(
                 undefined,
                 typ
             );
-            body.insertBefore(
-                factory.makeVariableDeclarationStatement([], [decl]),
-                body.vStatements[0]
-            );
+
+            let declStmt: Statement;
+
+            if (lt(ctx.compilerVersion, "0.6.0")) {
+                // Prior to 0.6.0 its a compiler error to have a storage pointer
+                // variable declaration without an initializer.
+                throw new UnsupportedConstruct(
+                    `Scribble cannot instrument certain tuple assignments with storage pointers on compilers older than 0.6.0.`,
+                    updateNode,
+                    ctx.files
+                );
+            } else {
+                declStmt = factory.makeVariableDeclarationStatement([], [decl]);
+            }
+
+            body.insertAtBeginning(declStmt);
 
             ctx.addGeneralInstrumentation(decl);
 
@@ -1017,7 +1032,7 @@ function stateVarUpdateNode2Str(node: StateVarUpdateNode): string {
 export function instrumentStateVars(
     ctx: InstrumentationContext,
     allAnnotations: AnnotationMap,
-    aliasedStateVars: Set<VariableDeclaration>,
+    aliasedStateVars: Map<VariableDeclaration, ASTNode>,
     stateVarUpdates: StateVarUpdateLoc[]
 ): void {
     // First check if any of the annotated vars is aliased - if so throw an error
@@ -1027,10 +1042,12 @@ export function instrumentStateVars(
         }
 
         if (aliasedStateVars.has(varDef)) {
-            throw new Error(
+            throw new UnsupportedConstruct(
                 `Cannot instrument state var ${(varDef.parent as ContractDefinition).name}.${
                     varDef.name
-                } as it may be aliased by a storage pointer`
+                } as it may be aliased by a storage pointer`,
+                aliasedStateVars.get(varDef) as ASTNode,
+                ctx.files
             );
         }
     }
@@ -1067,6 +1084,17 @@ export function instrumentStateVars(
         }
 
         const node = loc instanceof Array ? loc[0] : loc;
+
+        if (path.length > 0 && path[path.length - 1] === "length") {
+            throw new UnsupportedConstruct(
+                `Cannot instrument state var ${(varDecl.vScope as ContractDefinition).name}.${
+                    varDecl.name
+                } due to unsupported assignments to .length.`,
+                node,
+                ctx.files
+            );
+        }
+
         const locList = getOrInit(node, locInstrumentMap, []);
 
         locList.push([loc, varDecl, path, newVal]);

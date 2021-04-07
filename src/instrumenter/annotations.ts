@@ -18,16 +18,20 @@ import {
 } from "../spec-lang/ast";
 import { parseAnnotation, SyntaxError as ExprPEGSSyntaxError } from "../spec-lang/expr_parser";
 import { getScopeUnit } from "../util/misc";
-import { AnnotationFilterOptions } from "./instrument";
 
 const srcLocation = require("src-location");
+
+export type AnnotationFilterOptions = {
+    type?: string;
+    message?: string;
+};
 
 function indexToLocation(contents: string, ind: number): Location {
     const t = srcLocation.indexToLocation(contents, ind, true);
     return { offset: ind, line: t.line, column: t.column };
 }
 
-function rangeToLocRange(start: number, length: number, contents: string): Range {
+export function rangeToLocRange(start: number, length: number, contents: string): Range {
     return {
         start: indexToLocation(contents, start),
         end: indexToLocation(contents, start + length)
@@ -207,16 +211,22 @@ export class PropertyMetaData extends AnnotationMetaData<SProperty> {
     }
 }
 
-export class AnnotationError extends Error {
-    readonly annotation: string;
+export class PPAbleError extends Error {
     readonly range: Range;
+    constructor(msg: string, range: Range) {
+        super(msg);
+        this.range = range;
+    }
+}
+
+export class AnnotationError extends PPAbleError {
+    readonly annotation: string;
     readonly target: AnnotationTarget;
 
     constructor(msg: string, annotation: string, range: Range, target: AnnotationTarget) {
-        super(msg);
+        super(msg, range);
 
         this.annotation = annotation;
-        this.range = range;
         this.target = target;
     }
 }

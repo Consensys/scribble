@@ -16,10 +16,9 @@ import { assert } from "..";
 import { SUserFunctionDefinition } from "../spec-lang/ast";
 import { SemMap, TypeEnv } from "../spec-lang/tc";
 import { NameGenerator } from "../util/name_generator";
-import { AnnotationMetaData } from "./annotations";
+import { AnnotationMetaData, AnnotationFilterOptions } from "./annotations";
 import { CallGraph, FunSet } from "./callgraph";
 import { CHA } from "./cha";
-import { AnnotationFilterOptions } from "./instrument";
 import { TranspilingContext } from "./transpiling_context";
 
 /**
