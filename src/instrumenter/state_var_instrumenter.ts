@@ -91,9 +91,6 @@ import { lt } from "semver";
  * Note: We only need `expectedType` here due to limitation in typeString parsing in the case
  * of int literals. This function should be removed after we add "get type of arbitrary expression" to
  * solc-typed-ast.
- *
- * @param e
- * @param expectedType
  */
 function getExprSType(e: Expression, expectedType?: SType): SType {
     /**
@@ -101,9 +98,6 @@ function getExprSType(e: Expression, expectedType?: SType): SType {
      * concrete integer type expected at that location, and any string literal types with
      * `string memory`. Note this code makes the assumption that int literals and string literal
      * types CANNOT show up inside array/mapping types (which I think is true?).
-     *
-     * @param actualType
-     * @param expectedType
      */
     const sanitizeType = (actualType: SType, expectedType: SType): SType => {
         if (actualType instanceof SIntLiteralType) {
@@ -190,7 +184,6 @@ const assignSuffixMap: { [key: string]: string } = {
 
 /**
  * Get a string descriptor for a type to be used in naming conventions
- * @param typ
  */
 function getTypeDescriptor(typ: SType): string {
     if (typ instanceof SAddressType) {
@@ -248,10 +241,6 @@ function getTypeDescriptor(typ: SType): string {
  *    Note that as a result we may get multiple wrappers for the same var/var path due to implicit casts
  *  - the type of the new value being assigned/pushed (if any)
  *  - the kind of update node this is - pop, push, push without arg, assignment, delete, pre/post fix inc/dec
- * @param updateNode
- * @param varDecl
- * @param path
- * @param additionalArgs
  */
 function getWrapperName(
     updateNode: Assignment | FunctionCall | UnaryOperation | VariableDeclaration,
@@ -278,7 +267,6 @@ function getWrapperName(
     let suffix: string;
 
     if (updateNode instanceof Assignment) {
-        //'=' | '|=' | '^=' | '&=' | '<<=' | '>>=' | '+=' | '-=' | '*=' | '/=' | '%='
         suffix = assignSuffixMap[updateNode.operator];
     } else if (updateNode instanceof FunctionCall) {
         suffix = updateNode.vFunctionName;
@@ -315,9 +303,6 @@ function getWrapperName(
  * that is being updated (either a reference to the state var itself or some
  * part of it) and `additionalArgs` is an array includes the new value being
  * assigned/pushed and its type (if there is such a value).
- *
- * @param updateNode
- * @param factory
  */
 function decomposeStateVarUpdated(
     updateNode: Assignment | FunctionCall | UnaryOperation,
@@ -575,10 +560,8 @@ function makeWrapper(
 /**
  * Given the expression `e` make sure that `e` is contained in an `ExpressionStatement`, which itself
  * is contained in a `Block`. There are several cases where we may need to create the block itself
- * @param e
- * @param factory
  */
-function ensureToplevelExprInBlock(e: Expression, factory: ASTNodeFactory): void {
+function ensureTopLevelExprInBlock(e: Expression, factory: ASTNodeFactory): void {
     assert(e.parent instanceof ExpressionStatement, ``);
     const container = e.parent.parent;
     if (container instanceof Block || container instanceof UncheckedBlock) {
@@ -644,7 +627,7 @@ export function interposeTupleAssignment(
     const res = new Map<string, FunctionDefinition>();
 
     // First make sure we can instrument this node
-    ensureToplevelExprInBlock(updateNode, factory);
+    ensureTopLevelExprInBlock(updateNode, factory);
 
     // Helper function for creating temporary LHSs. Can be either
     // fields of a temporary struct var, or temporary local vars.
@@ -928,8 +911,6 @@ export function interposeInlineInitializer(
  * 1. Simple assignments (LHS is not a tuple) (updateNode instanceof Assignment)
  * 2. Array push/pop (udpateNode instanceof FunctionCall)
  * 3. Stateful unary ops - delete, ++, -- (updateNode instanceof UnaryOperation )
- * @param ctx
- * @param updateNode
  */
 export function interposeSimpleStateVarUpdate(
     ctx: InstrumentationContext,
@@ -966,8 +947,6 @@ export function interposeSimpleStateVarUpdate(
 
 /**
  * Checks whether the given `StateVarUpdateLoc` `loc` matches the given annotation `annot`.
- * @param loc
- * @param annot
  */
 function updateLocMatchesAnnotation(loc: StateVarUpdateLoc, annot: AnnotationMetaData): boolean {
     if (!(annot instanceof PropertyMetaData && annot.parsedAnnot instanceof SStateVarProp)) {
@@ -1016,7 +995,6 @@ function updateLocMatchesAnnotation(loc: StateVarUpdateLoc, annot: AnnotationMet
 
 /**
  * Helper to convert `StateVarUpdateNode` to string keys to be used in maps.
- * @param node
  */
 function stateVarUpdateNode2Str(node: StateVarUpdateNode): string {
     const astNode = node instanceof Array ? node[0] : node;

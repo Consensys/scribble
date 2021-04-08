@@ -247,11 +247,10 @@ export class AnnotationExtractor {
         meta: RawMetaData,
         source: string
     ): AnnotationMetaData {
-        let slice: string;
+        const slice = meta.text.slice(match.index);
         let parsedAnnot: SAnnotation;
 
         try {
-            slice = meta.text.slice(match.index);
             parsedAnnot = parseAnnotation(slice);
         } catch (e) {
             if (e instanceof ExprPEGSSyntaxError) {

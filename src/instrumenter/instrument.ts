@@ -1596,10 +1596,6 @@ export class FunctionInstrumenter {
 /**
  * Return the constructor of `contract`. If there is no constructor defined,
  * add an empty public constructor and return it.
- *
- * @param contract
- * @param factory
- * @returns
  */
 export function getOrAddConstructor(
     contract: ContractDefinition,

@@ -38,9 +38,6 @@ export type RHS = Expression | [Expression, number];
 /**
  * Given potentially complex assignments involving tuples and function return desugaring, return an
  * iterable of all the primitive assignments happening between. (i.e. assignments where the LHS is not a tuple)
- *
- * @param lhs
- * @param rhs
  */
 function* getAssignmentComponents(lhs: Expression, rhs: Expression): Iterable<[LHS, RHS]> {
     if (lhs instanceof TupleExpression) {
@@ -80,6 +77,7 @@ function* getAssignmentComponents(lhs: Expression, rhs: Expression): Iterable<[L
 
 /**
  * Find all explicit and implicit assignments that occur within `node`. These include:
+ *
  *  1) Normal assignments - `a = 1` yields [a, 1]
  *
  *  2) Tuple assignments - these are broken down into primitive assignments.
@@ -108,7 +106,6 @@ function* getAssignmentComponents(lhs: Expression, rhs: Expression): Iterable<[L
  *  9) Base constructor calls (using InheritanceSpecifiers)
  *
  * Returns a list of [lhs, rhs] tuples.
- * @param node
  */
 export function* getAssignments(node: ASTNode): Iterable<[LHS, RHS]> {
     const helper = (
@@ -313,7 +310,6 @@ export function* getAssignments(node: ASTNode): Iterable<[LHS, RHS]> {
 
 /**
  * Return true IFF the type `t` is aliasable by a storage pointer.
- * @param t
  */
 export function isTypeAliasable(t: TypeName): boolean {
     return (
@@ -334,8 +330,6 @@ export function isTypeAliasable(t: TypeName): boolean {
  *
  * Returns a map from variable declarations to ASTNodes, where the node is a possible aliasing
  * assignment for that state var
- *
- * @param units
  */
 export function findAliasedStateVars(units: SourceUnit[]): Map<VariableDeclaration, ASTNode> {
     const assignments: Array<[LHS, RHS]> = [];
