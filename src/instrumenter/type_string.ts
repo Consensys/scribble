@@ -15,6 +15,9 @@ function fqName(e: EnumDefinition | StructDefinition): string {
     return `${e.vScope instanceof ContractDefinition ? e.vScope.name + "." : ""}${e.name}`;
 }
 
+/**
+ * Return a `typeString` similar to what Solidity generates in the AST for the specified `typeName` and `loc`
+ */
 export function makeTypeString(typeName: TypeName, loc: DataLocation): string {
     if (typeName instanceof ElementaryTypeName) {
         if (["bytes", "string"].includes(typeName.name)) {

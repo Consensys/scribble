@@ -340,7 +340,7 @@ describe("SemanticChecker Expression Unit Tests", () => {
     }
 });
 
-describe("SemanticChecker Expression Unit Tests", () => {
+describe("SemanticChecker Annotation Unit Tests", () => {
     const goodSamples: Array<[string, string, Array<[string, LocationDesc]>]> = [
         [
             "foo.sol",

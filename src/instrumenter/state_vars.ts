@@ -2,6 +2,7 @@ import {
     ArrayTypeName,
     Assignment,
     ASTNode,
+    Conditional,
     ContractDefinition,
     ContractKind,
     DataLocation,
@@ -53,9 +54,7 @@ function* getAssignmentComponents(lhs: Expression, rhs: Expression): Iterable<[L
 
                 assert(rhsComp !== null, `Unexpected null in rhs of ${pp(rhs)} in position ${i}`);
 
-                for (const [subLhs, subRhs] of getAssignmentComponents(lhsComp, rhsComp)) {
-                    yield [subLhs, subRhs];
-                }
+                yield* getAssignmentComponents(lhsComp, rhsComp);
             }
         } else if (rhs instanceof FunctionCall) {
             for (let i = 0; i < lhs.vOriginalComponents.length; i++) {
@@ -108,6 +107,21 @@ function* getAssignmentComponents(lhs: Expression, rhs: Expression): Iterable<[L
  * Returns a list of [lhs, rhs] tuples.
  */
 export function* getAssignments(node: ASTNode): Iterable<[LHS, RHS]> {
+    /**
+     * Given a list of formal parameters/returns `formals` and actual values that are assigned to them `actuals`
+     * return a list of assignments. This handles several cases:
+     *
+     * 1) Normal function call - e.g. foo(1,2) where foo is defined as foo(uint x, int8 y) returns [[uint x, 1], [int8 y, 2]]
+     * 2) Library function call - e.g. arr.extend(otherArr) where extend is defined in a library as `function extend(uint[] a1, uint[] a2)` returns
+     *      [[uint[] a1, arr], [uint[] a2, otherArr]]
+     * 3) Return with a single value  - e.g. `return 1;` in a function with `returns (uint RET)` returns [[uint RET, 1]]
+     * 4) Return with tuples - e.g. `return (1,2)` in a function with `returns (uint RET0, RET1)` returns [[uint RET0, 1], [uint RET1, 2]]
+     *
+     *
+     * @param formals
+     * @param actuals
+     * @returns
+     */
     const helper = (
         formals: VariableDeclaration[],
         actuals: Expression[] | Expression
@@ -152,12 +166,7 @@ export function* getAssignments(node: ASTNode): Iterable<[LHS, RHS]> {
             n instanceof InheritanceSpecifier
     )) {
         if (candidate instanceof Assignment) {
-            for (const [lhs, rhs] of getAssignmentComponents(
-                candidate.vLeftHandSide,
-                candidate.vRightHandSide
-            )) {
-                yield [lhs, rhs];
-            }
+            yield* getAssignmentComponents(candidate.vLeftHandSide, candidate.vRightHandSide);
         } else if (candidate instanceof VariableDeclarationStatement) {
             if (candidate.vInitialValue === undefined) {
                 continue;
@@ -264,7 +273,7 @@ export function* getAssignments(node: ASTNode): Iterable<[LHS, RHS]> {
             ) {
                 assert(
                     candidate.vExpression instanceof MemberAccess,
-                    `Unexpected calle in library call ${pp(candidate)}`
+                    `Unexpected callee in library call ${pp(candidate)}`
                 );
 
                 actuals.unshift(candidate.vExpression.vExpression);
@@ -340,6 +349,48 @@ export function findAliasedStateVars(units: SourceUnit[]): Map<VariableDeclarati
         assignments.push(...getAssignments(unit));
     }
 
+    /**
+     * Given a potentially complex RHS expression, return the list of
+     * state variable declarations that it may alias
+     */
+    const gatherRHSVars = (rhs: Expression): VariableDeclaration[] => {
+        if (isStateVarRef(rhs)) {
+            return [rhs.vReferencedDeclaration as VariableDeclaration];
+        }
+
+        if (rhs instanceof MemberAccess) {
+            return gatherRHSVars(rhs.vExpression);
+        }
+
+        if (rhs instanceof IndexAccess) {
+            return gatherRHSVars(rhs.vBaseExpression);
+        }
+
+        if (rhs instanceof FunctionCall) {
+            if (rhs.kind === FunctionCallKind.TypeConversion) {
+                return gatherRHSVars(single(rhs.vArguments));
+            } else {
+                // If the rhs is the result of a function call. no need to
+                // do anything - we will catch any aliasing inside the
+                // callee
+                return [];
+            }
+        }
+
+        if (rhs instanceof Conditional) {
+            const trueVars = gatherRHSVars(rhs.vTrueExpression);
+            const falseVars = gatherRHSVars(rhs.vFalseExpression);
+
+            return trueVars.concat(falseVars);
+        }
+
+        if (rhs instanceof TupleExpression && rhs.vOriginalComponents.length === 1) {
+            return gatherRHSVars(rhs.vOriginalComponents[0] as Expression);
+        }
+
+        throw new Error(`Unexpected RHS element ${print(rhs)} in assignment to state var pointer`);
+    };
+
     for (const [lhs, rhs] of assignments) {
         // Storage pointers can't be nested in
         // structs or arrays so the LHS can't be a `MemberAccess` or
@@ -377,69 +428,15 @@ export function findAliasedStateVars(units: SourceUnit[]): Map<VariableDeclarati
             continue;
         }
 
-        let exp: Expression | undefined = rhs;
+        const varDecls = gatherRHSVars(rhs);
 
-        // The RHS is a squecne of MemberAccess/IndexAccess that has a reference
-        // to a state variable at the base. The reference to the state variable is either
-        // an Identifier or a MemberAccess of the shape `ContractName.StateVarName`
-        while (
-            exp !== undefined &&
-            !(
-                exp instanceof Identifier ||
-                (exp instanceof MemberAccess &&
-                    exp.vReferencedDeclaration instanceof VariableDeclaration &&
-                    exp.vReferencedDeclaration.stateVariable)
-            )
-        ) {
-            if (exp instanceof MemberAccess) {
-                exp = exp.vExpression;
-            } else if (exp instanceof IndexAccess) {
-                exp = exp.vBaseExpression;
-            } else if (exp instanceof FunctionCall) {
-                if (exp.kind === FunctionCallKind.TypeConversion) {
-                    exp = single(exp.vArguments);
-                } else {
-                    // If the rhs is the result of a function call. no need to
-                    // do anything - we will catch any aliasing inside the
-                    // callee
-                    exp = undefined;
-                }
-            } else {
-                throw new Error(
-                    `Unexpected RHS element ${pp(rhs)} in assignment ${pp(rhs)} -> ${pp(lhs)}`
-                );
-            }
+        for (const decl of varDecls) {
+            const lhsNode = lhs instanceof Array ? lhs[0] : lhs;
+            res.set(decl, lhsNode);
         }
-
-        if (exp === undefined) {
-            continue;
-        }
-
-        assert(
-            exp.vReferencedDeclaration instanceof VariableDeclaration &&
-                exp.vReferencedDeclaration.stateVariable,
-            `Unexpected base ${pp(exp)} of rhs in assignment  ${pp(rhs)} -> ${pp(lhs)}`
-        );
-
-        const lhsNode = lhs instanceof Array ? lhs[0] : lhs;
-        res.set(exp.vReferencedDeclaration, lhsNode);
     }
 
     return res;
-}
-
-/**
- * Given a list of state variable declarations `vars` and a list of SourceUnits
- * `units` return only those `VariableDeclaration`s from `vars` that are not
- * aliased (and no sub-component of theirs is alised) by a storage pointer on
- * stack.
- */
-export function unaliasedVars(
-    vars: VariableDeclaration[],
-    units: SourceUnit[]
-): VariableDeclaration[] {
-    const aliasedDecls = findAliasedStateVars(units);
-    return vars.filter((decl) => !aliasedDecls.has(decl));
 }
 
 /**
@@ -453,12 +450,13 @@ export type StateVarUpdateNode =
     | FunctionCall
     | UnaryOperation;
 /**
- * Tuple describing a location in the AST where a state variable is modified. Has the following
+ * Tuple describing a location in the AST where a SINGLE state variable is modified. Has the following
  * 4 fields:
  *
  *  1) `ASTNode` containing the update. It can be one of the following:
- *    - `[Assignment, number[]]` - describes a path inside an assignment. The numbers array is to describe a location
- *      in potentially nested tuples. (see statevars.spec.ts for examples)
+ *    - `[Assignment, number[]]` - an assignment. The LHS can potentiall be a
+ *      tuple, in which case the second tuple argument describes the location in the
+ *      tuple where the state var reference is (see statevars.spec.ts for examples)
  *    - `VariableDeclaration` - corresponds to an inline initializer at the state var definition site.
  *    - `FunctionCall` - corresponds to `.push(..)` and `.pop()` calls on arrays
  *    - `UnaryOperation` - corresponds to a `delete ...`, `++` or `--` operation
@@ -473,7 +471,7 @@ export type StateVarUpdateNode =
  *    this undefined.
  *
  */
-export type StateVarUpdateLoc = [
+export type StateVarUpdateDesc = [
     StateVarUpdateNode,
     VariableDeclaration,
     ConcreteDatastructurePath,
@@ -512,6 +510,11 @@ export function decomposeLHS(
             assert(e.vIndexExpression !== undefined, ``);
             path.unshift(e.vIndexExpression);
             e = e.vBaseExpression;
+            continue;
+        }
+
+        if (e instanceof TupleExpression && e.vOriginalComponents.length === 1) {
+            e = e.vOriginalComponents[0] as Expression;
             continue;
         }
 
@@ -558,7 +561,8 @@ export function isStateVarRef(node: ASTNode): node is Identifier | MemberAccess 
  *          points[0].x = 1;
  * ```
  *
- *  Below are the definitions of the tuple elements:
+ * We would get `[points[0].x = 1, Point[] points, [0, "x"],  1]`.
+ * Below are the definitions of the tuple elements:
  *
  *  - `node` is the ASTNode where the update happens. In the above example its the assignment `point[0].x = 1;`
  *  - `variable` is the `VariableDeclaration` for the modified variable. In the above example its the def `Point[] points`
@@ -566,10 +570,14 @@ export function isStateVarRef(node: ASTNode): node is Identifier | MemberAccess 
  *     elements of the array refer to indexing, and string elements refer to field lookups in structs.
  *  - `newValue` is the new expression that is being assigned. In the above example its `1`.
  */
-export function findStateVarUpdates(units: SourceUnit[]): StateVarUpdateLoc[] {
-    const res: StateVarUpdateLoc[] = [];
+export function findStateVarUpdates(units: SourceUnit[]): StateVarUpdateDesc[] {
+    const res: StateVarUpdateDesc[] = [];
 
-    const getLHSAssignmentNode = (lhs: Expression): [Assignment, number[]] => {
+    /**
+     * Given some `lhs` expression, return the containing `Assignment`, and build the tuple path
+     * from the `Assignment` to `lhs`.
+     */
+    const getLHSAssignmentAndPath = (lhs: Expression): [Assignment, number[]] => {
         const idxPath: number[] = [];
 
         while (lhs.parent instanceof TupleExpression) {
@@ -588,6 +596,9 @@ export function findStateVarUpdates(units: SourceUnit[]): StateVarUpdateLoc[] {
         return [assignment, idxPath];
     };
 
+    /**
+     * Helper to skip assignment locations where the LHS is not a state variable ref
+     */
     const addStateVarUpdateLocDesc = (
         node: [Assignment, number[]] | FunctionCall | UnaryOperation,
         lhs: Expression,
@@ -606,6 +617,7 @@ export function findStateVarUpdates(units: SourceUnit[]): StateVarUpdateLoc[] {
     };
 
     for (const unit of units) {
+        // First find all updates due to assignments
         for (const [lhs, rhs] of getAssignments(unit)) {
             // Assignments to struct constructor fields - ignore
             if (lhs instanceof Array) {
@@ -627,19 +639,10 @@ export function findStateVarUpdates(units: SourceUnit[]): StateVarUpdateLoc[] {
                 continue;
             }
 
-            const [baseExp, path] = decomposeLHS(lhs);
-
-            // Skip assignments where the base of the LHS is not a direct reference to a state variable
-            if (!isStateVarRef(baseExp)) {
-                continue;
-            }
-
-            const stateVarDecl: VariableDeclaration = baseExp.vReferencedDeclaration as VariableDeclaration;
-
-            res.push([getLHSAssignmentNode(lhs), stateVarDecl, path, rhs]);
+            addStateVarUpdateLocDesc(getLHSAssignmentAndPath(lhs), lhs, rhs);
         }
 
-        // Find .push() and pop()
+        // Find all state var updates due to .push() and pop() calls
         for (const candidate of unit.getChildrenBySelector(
             (node) =>
                 node instanceof FunctionCall &&
@@ -655,7 +658,7 @@ export function findStateVarUpdates(units: SourceUnit[]): StateVarUpdateLoc[] {
             );
         }
 
-        // Find all deletes
+        // Find all state var updates due to unary operations (delete, ++, --)
         for (const candidate of unit.getChildrenBySelector(
             (node) =>
                 node instanceof UnaryOperation &&

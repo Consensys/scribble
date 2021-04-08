@@ -39,8 +39,8 @@ DatastructurePath_Index = "[" __ id: Identifier __"]" { return id; }
 DatastructurePath_Field = "." id: Identifier {return id.name;}
 IndexPath = (DatastructurePath_Field / DatastructurePath_Index)*
 
-// TODO: Eventually remove hacking '/' from if_updated rule. This is to work around
-// limitations in Solidity's 
+// TODO: Eventually remove hacky '/' from if_updated rule. This is to work around
+// limitations in Solidity - it throws if it sees natspec on internal state vars
 If_Updated =
   ("/" __)? type: IF_UPDATED __ label: AnnotationLabel? __ expr: Expression __ ";"
   {

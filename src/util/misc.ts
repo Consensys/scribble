@@ -8,7 +8,8 @@ import {
     FunctionVisibility,
     VariableDeclaration,
     SourceUnit,
-    ContractDefinition
+    ContractDefinition,
+    LatestCompilerVersion
 } from "solc-typed-ast";
 import { pp } from ".";
 
@@ -190,11 +191,13 @@ export function topoSort<T>(things: T[], order: Array<[T, T]>): T[] {
         successors.set(thing, new Set());
     }
 
+    // Populate nPreds and successors according to the partial order `order`
     for (const [a, b] of order) {
         nPreds.set(b, (nPreds.get(b) as number) + 1);
         (successors.get(a) as Set<T>).add(b);
     }
 
+    // Compute the initial roots and add them to res
     const res: T[] = [];
     for (const thing of things) {
         if ((nPreds.get(thing) as number) === 0) {
@@ -205,8 +208,12 @@ export function topoSort<T>(things: T[], order: Array<[T, T]>): T[] {
     assert(res.length > 0, `Order ${pp(order)} is not a proper partial order`);
     let i = 0;
 
+    // Add nodes to the order until all are added
     while (res.length < things.length) {
         const curLength = res.length;
+
+        // For every newly added node N from last iteration ([i...curLength-1]),
+        // and for all successors S of N, reduce nPreds[S]. If nPreds[S] == 0 add to res.
         for (; i < curLength; i++) {
             for (const successor of successors.get(res[i]) as Set<T>) {
                 const newCount = (nPreds.get(successor) as number) - 1;
@@ -229,6 +236,9 @@ export function topoSort<T>(things: T[], order: Array<[T, T]>): T[] {
     return res;
 }
 
+/**
+ * Zips the two arrays `a1` and `a2` and return the result.
+ */
 export function zip<T1, T2>(a1: readonly T1[], a2: readonly T2[]): Array<[T1, T2]> {
     assert(
         a1.length === a2.length,
@@ -245,7 +255,10 @@ export function zip<T1, T2>(a1: readonly T1[], a2: readonly T2[]): Array<[T1, T2
 
 const writersCache = new Map<string, ASTWriter>();
 
-export function print(n: ASTNode, version = "0.8.0"): string {
+/**
+ * Print the ASTNode `n` as Solidity code. Optionally accepts a version string (otherwise assumes 0.8.0)
+ */
+export function print(n: ASTNode, version = LatestCompilerVersion): string {
     let writer = writersCache.get(version);
     if (writer === undefined) {
         writer = new ASTWriter(DefaultASTWriterMapping, new PrettyFormatter(4), "0.8.0");

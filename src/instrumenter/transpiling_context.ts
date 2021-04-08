@@ -27,10 +27,27 @@ import { makeTypeString } from "./type_string";
  * binding names generated while transpiling the expressions.
  */
 export class TranspilingContext {
+    /**
+     * Map from 'binding keys' to the actual temporary binding names. 'binding keys' uniquely identify
+     * the location where a given temporary is generated. We use this 2-level mapping to avoid name collisions
+     */
     private bindingMap: Map<string, string> = new Map();
+    /**
+     * Map from a binding name to the corresponding `VariableDeclaration` for the member field for this binding.
+     */
     private bindingDefMap: Map<string, VariableDeclaration> = new Map();
+    /**
+     * A ref-counter for how many times the temporary bindings struct and temporary bindings var have been used.
+     * As on optimization we only emit those in `finalize()` only if `varRefc > 0`.
+     */
     private varRefc = 0;
+    /**
+     * A struct definition containing any temporary values used in the compilation of this context
+     */
     private bindingsStructDef: StructDefinition;
+    /**
+     * The declaration of a local var of type `this.bindingsStructDef` used for temporary values.
+     */
     private bindingsVar: VariableDeclaration;
 
     public get factory(): ASTNodeFactory {
@@ -184,6 +201,9 @@ export class TranspilingContext {
         return res;
     }
 
+    /**
+     * Add a new binding named `name` with type `type` to the temporary struct.
+     */
     addBinding(name: string, type: TypeName): VariableDeclaration {
         assert(!this.bindingDefMap.has(name), `Binding ${name} already defined.`);
 
@@ -206,6 +226,9 @@ export class TranspilingContext {
         return decl;
     }
 
+    /**
+     * Return an ASTNode (MemberAccess) referring to a particular binding.
+     */
     refBinding(name: string): MemberAccess {
         const member = this.bindingDefMap.get(name);
         assert(member !== undefined, `No temp binding ${name} defined`);
@@ -219,6 +242,9 @@ export class TranspilingContext {
         );
     }
 
+    /**
+     * Return an `SId` refering to the temporary bindings local var. (set defSite accordingly)
+     */
     getBindingVarSId(): SId {
         const res = new SId(this.bindingsVar.name);
         res.defSite = this.bindingsVar;
@@ -226,6 +252,9 @@ export class TranspilingContext {
         return res;
     }
 
+    /**
+     * Finalize this context. Currently adds the temporaries StructDef and local var if they are neccessary
+     */
     finalize(): void {
         if (this.varRefc == 0) {
             return;

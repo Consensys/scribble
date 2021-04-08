@@ -35,15 +35,15 @@ contract Base {
     }
 
     function main() public {
-        Base_x_inc__postfix();
-        for (Base_x_uint256_assign(5); x < 10; Base_x_inc__postfix()) Base_y_inc__postfix();
+        Base_x_inc_postfix();
+        for (Base_x_uint256_assign(5); x < 10; Base_x_inc_postfix()) Base_y_inc_postfix();
         Base_x_uint256_assign(Base_x_uint256_assign(5));
         Base_x_uint256_assign(id(Base_x_uint256_assign(6)));
         Base_t_delete();
         Base_y_uint256_assign(y + 1);
-        Base_x_uint256_assign(Base_x_inc__postfix());
+        Base_x_uint256_assign(Base_x_inc_postfix());
         assert(x == 6);
-        Base_x_uint256_assign(Base_x_inc__prefix());
+        Base_x_uint256_assign(Base_x_inc_prefix());
         assert(x == 7);
         arr.push(1);
         arr.push(2);
@@ -101,7 +101,7 @@ contract Base {
         }
     }
 
-    function Base_x_inc__postfix() internal returns (uint256 RET3) {
+    function Base_x_inc_postfix() internal returns (uint256 RET3) {
         RET3 = x;
         x++;
         if (!(x >= 1)) {
@@ -110,7 +110,7 @@ contract Base {
         }
     }
 
-    function Base_y_inc__postfix() internal returns (uint256 RET4) {
+    function Base_y_inc_postfix() internal returns (uint256 RET4) {
         vars7 memory _v;
         _v.old_2 = y;
         RET4 = y;
@@ -129,7 +129,7 @@ contract Base {
         }
     }
 
-    function Base_x_inc__prefix() internal returns (uint256 RET5) {
+    function Base_x_inc_prefix() internal returns (uint256 RET5) {
         ++x;
         RET5 = x;
         if (!(x >= 1)) {

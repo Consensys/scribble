@@ -7,7 +7,7 @@ import {
     LHS,
     RHS,
     findStateVarUpdates,
-    StateVarUpdateLoc
+    StateVarUpdateDesc
 } from "../../src/instrumenter";
 import { Logger } from "../../src/logger";
 import { ASTNode, Expression } from "solc-typed-ast";
@@ -191,6 +191,9 @@ describe("Finding aliased vars.", () => {
                 uint[] x8;
                 uint[] x9;
                 uint[] x10;
+                uint[] x11;
+                uint[] x12;
+                uint[] x13;
                 
                 modifier M(uint[] storage p) {
                     p.push(1);
@@ -239,11 +242,29 @@ describe("Finding aliased vars.", () => {
 
                     ret1();
                     ret2();
+
+                    y = v > 0 ? x11 : x12;
+
+                    y = (x13);
                 }
             }
             `,
 
-            new Set(["s", "x1", "x2", "x3", "x4", "x5", "x6", "x7", "x8", "y1"])
+            new Set([
+                "s",
+                "x1",
+                "x2",
+                "x3",
+                "x4",
+                "x5",
+                "x6",
+                "x7",
+                "x8",
+                "y1",
+                "x11",
+                "x12",
+                "x13"
+            ])
         ],
         [
             "library.sol",
@@ -284,7 +305,7 @@ describe("Finding aliased vars.", () => {
     }
 });
 
-function printStateVarUpdateDesc(desc: StateVarUpdateLoc): string {
+function printStateVarUpdateDesc(desc: StateVarUpdateDesc): string {
     const [node, decl, path, newVal] = desc;
     let nodeStr = print(node instanceof Array ? node[0] : node);
     if (node instanceof Array && node[1].length > 0) {

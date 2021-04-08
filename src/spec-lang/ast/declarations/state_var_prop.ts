@@ -3,6 +3,10 @@ import { SNode, Range } from "..";
 import { SId } from "../identifier";
 import { SProperty } from "./property";
 
+/**
+ * A path inside of a complex data structure. The `SId` components correspond to indexing inside of an array/map. The
+ * `string` components correspond to field lookups inside structs.
+ */
 export type DatastructurePath = Array<SId | string>;
 /**
  * `SIfUpdated` is a special kind of property annotation that can also
@@ -23,7 +27,7 @@ export class SStateVarProp extends SProperty {
     }
 
     getFields(): any[] {
-        return [this.expression, this.datastructurePath, this.label];
+        return [this.type, this.expression, this.datastructurePath, this.label];
     }
 
     pp(): string {

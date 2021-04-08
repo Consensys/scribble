@@ -1,6 +1,6 @@
 #!/usr/bin/env node
 import fse from "fs-extra";
-import path, { dirname, relative } from "path";
+import { dirname, relative, join } from "path";
 import {
     ASTContext,
     ASTNode,
@@ -469,7 +469,7 @@ function oneOf(input: any, options: string[], msg: string): any {
 /**
  * Sort source units in topological order based on their imports.
  *
- * @param units
+ * @param units - units to sort
  */
 function sortUnits(units: SourceUnit[]): SourceUnit[] {
     // Map from absolute paths to source units
@@ -512,12 +512,9 @@ function makeUtilsUnit(
     let utilsAbsPath = "__scribble_ReentrancyUtils.sol";
 
     if (utilsOutputDir !== "--") {
-        utilsPath = path.join(utilsOutputDir, "__scribble_ReentrancyUtils.sol");
+        utilsPath = join(utilsOutputDir, "__scribble_ReentrancyUtils.sol");
 
-        utilsAbsPath = path.join(
-            fse.realpathSync(utilsOutputDir),
-            "__scribble_ReentrancyUtils.sol"
-        );
+        utilsAbsPath = join(fse.realpathSync(utilsOutputDir), "__scribble_ReentrancyUtils.sol");
     }
 
     return generateUtilsContract(factory, utilsPath, utilsAbsPath, version, ctx);
@@ -562,7 +559,7 @@ function pickVersion(versionUsedMap: Map<string, string>): string {
     return versions[0];
 }
 
-const pkg = fse.readJSONSync(path.join(__dirname, "../../package.json"), { encoding: "utf-8" });
+const pkg = fse.readJSONSync(join(__dirname, "../../package.json"), { encoding: "utf-8" });
 
 if ("version" in options) {
     console.log(pkg.version);
@@ -672,10 +669,7 @@ if ("version" in options) {
                 }
 
                 if (utilsOutputDir !== "--") {
-                    const helperFileName = path.join(
-                        utilsOutputDir,
-                        "__scribble_ReentrancyUtils.sol"
-                    );
+                    const helperFileName = join(utilsOutputDir, "__scribble_ReentrancyUtils.sol");
 
                     if (fse.existsSync(helperFileName)) {
                         instrumentationFiles.add(helperFileName);

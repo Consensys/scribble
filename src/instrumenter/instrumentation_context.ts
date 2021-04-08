@@ -108,7 +108,14 @@ export class InstrumentationContext {
         return this.utilsContract.parent as SourceUnit;
     }
 
+    /**
+     * Map keeping track of the `TranspilingContext`s for each `FunctionDefinition`.
+     */
     private transCtxMap = new Map<FunctionDefinition, TranspilingContext>();
+    /**
+     * 2-level Map keeping track of the wrappers functions generated for each contract.
+     * The inner map is a mapping from wrapper names to their definition.
+     */
     private wrapperCache = new Map<ContractDefinition, Map<string, FunctionDefinition>>();
 
     constructor(

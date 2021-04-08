@@ -26,6 +26,7 @@ import { Logger } from "../../logger";
 import { assert, pp, single, topoSort } from "../../util";
 import { eq } from "../../util/struct_equality";
 import {
+    DatastructurePath,
     Range,
     SAddressLiteral,
     SAnnotation,
@@ -892,7 +893,7 @@ function tcIdBuiltin(expr: SId): SType | undefined {
  * Given the type of some state variable `type`, a 'data-structure path' `path` find the path of the
  * element of the data structre pointed to by the data-structure path.
  */
-function locateElementType(type: TypeName, path: Array<SId | string>): SType {
+function locateElementType(type: TypeName, path: DatastructurePath): SType {
     for (let i = 0; i < path.length; i++) {
         const element = path[i];
 
@@ -947,60 +948,25 @@ function locateElementType(type: TypeName, path: Array<SId | string>): SType {
 function locateKeyType(type: TypeName, idx: number, path: Array<SId | string>): SType {
     assert(idx < path.length, ``);
 
-    for (let i = 0; i < idx; i++) {
-        const element = path[i];
+    const idxCompT = locateElementType(type, path.slice(0, idx));
 
-        if (element instanceof SId) {
-            if (type instanceof ArrayTypeName) {
-                type = type.vBaseType;
-            } else if (type instanceof Mapping) {
-                type = type.vValueType;
-            } else {
-                throw new Error(
-                    `Mismatch between path ${pp(
-                        path
-                    )} and actual type at index ${i}: Expected indexable type but got ${pp(type)}`
-                );
-            }
-        } else {
-            if (
-                !(
-                    type instanceof UserDefinedTypeName &&
-                    type.vReferencedDeclaration instanceof StructDefinition
-                )
-            ) {
-                throw new Error(
-                    `Mismatch between path ${pp(
-                        path
-                    )} and actual type at index ${i}: Expected struct but got ${pp(type)}`
-                );
-            }
-
-            const structDef = type.vReferencedDeclaration;
-            const field = single(
-                structDef.vMembers.filter((def) => def.name === element),
-                `Expected a single field with name ${element} on struct  ${pp(structDef)}`
-            );
-
-            assert(
-                field.vType !== undefined,
-                `Missing type on field ${field.name} of struct ${pp(structDef)}`
-            );
-
-            type = field.vType;
-        }
+    if (!(idxCompT instanceof SPointer)) {
+        throw new Error(
+            `Can't compute key type for field ${idx} in path ${pp(
+                path
+            )}: arrive at non-indexable type ${idxCompT.pp()}`
+        );
     }
 
-    if (type instanceof ArrayTypeName) {
+    if (idxCompT.to instanceof SArrayType) {
         return new SIntType(256, false);
-    } else if (type instanceof Mapping) {
-        // When the keys are strings/bytes assume they are in "memory". Not sure this matters ATM.
-        return specializeType(astTypeNameToSType(type.vKeyType), DataLocation.Memory);
+    } else if (idxCompT.to instanceof SMappingType) {
+        return idxCompT.to.keyType;
     } else {
         throw new Error(
             `Can't compute key type for field ${idx} in path ${pp(
                 path
-            )}: arrive at non-indexable type ${pp(type)}`
+            )}: arrive at non-indexable type ${idxCompT.pp()}`
         );
     }
 }

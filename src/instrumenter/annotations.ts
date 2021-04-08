@@ -241,7 +241,7 @@ type RawMetaData = {
     loc: OffsetRange;
 };
 
-export class AnnotationExtractor {
+class AnnotationExtractor {
     private makeAnnotationFromMatch(
         match: RegExpExecArray,
         meta: RawMetaData,

@@ -909,6 +909,12 @@ describe("Annotation Parser Unit Tests", () => {
                     }
                     false;
                      ;`,
+        `* if_assigned [a]
+                {:msg 
+                       "felicia"
+                    }
+                    false;
+                     ;`,
         `* if_assigned0ab
                 {:msg 
                        "felicia"

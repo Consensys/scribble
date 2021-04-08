@@ -377,13 +377,15 @@ describe("Src2src map test", () => {
                         const bytecodeMap = contractJSON.evm.bytecode.sourceMap;
                         const deployedBytecodeMap = contractJSON.evm.deployedBytecode.sourceMap;
 
-                        // Since 0.7.2 builtin utility code has a source range with source idnex -1.
-                        // Want to skip those
+                        // Since 0.7.2 builtin utility code has a source range with source index -1.
+                        // Since 0.8.0 builtin utility code is emitted and has a positive source index 1 greater than the source list.
+                        // Want to ignore utility code in both the bytecode and deployedBytecode maps
                         const bytecodeMapEntries = parseBytecodeSourceMapping(bytecodeMap).filter(
                             (entry) =>
                                 entry.sourceIndex !== -1 &&
                                 entry.sourceIndex < instrMD.instrSourceList.length
                         );
+
                         const deployedBytecodeMapEntries = parseBytecodeSourceMapping(
                             deployedBytecodeMap
                         ).filter(

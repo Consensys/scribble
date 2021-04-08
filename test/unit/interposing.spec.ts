@@ -804,11 +804,11 @@ contract Unary {
         x.push(1);
         Unary_x_idx_uint256_delete(uint(y));
         assert(x[uint(y)] == 0);
-        assert(0 == Unary_y_inc__postfix());
+        assert(0 == Unary_y_inc_postfix());
         assert(y == 1);
-        assert(0 == Unary_y_dec__prefix());
-        assert(0 == Unary_x_idx_uint256_inc__postfix(0));
-        assert(1 == Unary_x_idx_uint256_dec__postfix(0));
+        assert(0 == Unary_y_dec_prefix());
+        assert(0 == Unary_x_idx_uint256_inc_postfix(0));
+        assert(1 == Unary_x_idx_uint256_dec_postfix(0));
     }
 
     function Unary_y_delete() internal {
@@ -827,22 +827,22 @@ contract Unary {
         delete x[ARG1];
     }
 
-    function Unary_y_inc__postfix() internal returns (int256 RET0) {
+    function Unary_y_inc_postfix() internal returns (int256 RET0) {
         RET0 = y;
         y++;
     }
 
-    function Unary_y_dec__prefix() internal returns (int256 RET1) {
+    function Unary_y_dec_prefix() internal returns (int256 RET1) {
         --y;
         RET1 = y;
     }
 
-    function Unary_x_idx_uint256_inc__postfix(uint256 ARG2) internal returns (uint256 RET2) {
+    function Unary_x_idx_uint256_inc_postfix(uint256 ARG2) internal returns (uint256 RET2) {
         RET2 = x[ARG2];
         x[ARG2]++;
     }
 
-    function Unary_x_idx_uint256_dec__postfix(uint256 ARG3) internal returns (uint256 RET3) {
+    function Unary_x_idx_uint256_dec_postfix(uint256 ARG3) internal returns (uint256 RET3) {
         RET3 = x[ARG3];
         x[ARG3]--;
     }
