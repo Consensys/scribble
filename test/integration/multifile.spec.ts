@@ -78,10 +78,11 @@ describe("Multiple-file project instrumentation", () => {
                 expectedFlat = fse.readFileSync(`${dirName}/flat.sol.expected`, {
                     encoding: "utf-8"
                 });
-                expectedInstrMetadata = JSON.parse(
-                    fse.readFileSync(`${dirName}/instrumentationMetadata.json.expected`, {
+                expectedInstrMetadata = fse.readJSONSync(
+                    `${dirName}/instrumentationMetadata.json.expected`,
+                    {
                         encoding: "utf-8"
-                    })
+                    }
                 );
             });
 

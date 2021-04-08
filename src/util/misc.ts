@@ -179,9 +179,6 @@ export function flatten<T>(arr: Iterable<T[]>): T[] {
  * Given a list of T's `things` and a partial ordering between them `order` return
  * a topologically sorted version of `things`. For any pair `[a,b]` in `order` we assume
  * that `a` has to come before `b`.
- *
- * @param things
- * @param relation
  */
 export function topoSort<T>(things: T[], order: Array<[T, T]>): T[] {
     const successors = new Map<T, Set<T>>();
@@ -261,8 +258,6 @@ export function print(n: ASTNode, version = "0.8.0"): string {
 /**
  * Destructively updates the `updatee` map by adding any mappings found in the `newVals` map.
  * If `disjoint` is specified asserts that the maps are disjoint.
- * @param updatee
- * @param newVals
  */
 export function updateMap<T1, T2>(
     updatee: Map<T1, T2>,

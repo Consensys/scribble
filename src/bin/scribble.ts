@@ -493,66 +493,6 @@ function sortUnits(units: SourceUnit[]): SourceUnit[] {
 
     return topoSort(units, order);
 }
-/**
- * Sort the passed in source-units in topological order of their imports.
- *
- * @param units list of source-units to sort
- */
-/*
-function topoSort(units: SourceUnit[]): SourceUnit[] {
-    // Map from a source unit A, to the set of source units that import A
-    const importersM = new Map<SourceUnit, Set<SourceUnit>>();
-    // Map from a source unit A, to the number of different source units that A imports
-    const nImportsM = new Map<SourceUnit, number>();
-    // Map from absolute paths to source units
-    const pathMap = new Map(units.map((unit) => [unit.absolutePath, unit]));
-
-    for (const unit of units) {
-        const importees: Set<SourceUnit> = new Set();
-
-        for (const imp of unit.vImportDirectives) {
-            const importee = pathMap.get(imp.vSourceUnit.absolutePath);
-            assert(importee !== undefined, ``);
-            importees.add(importee);
-
-            const importers = getOrInit(importee, importersM, new Set());
-
-            importers.add(unit);
-
-            importersM.set(imp.vSourceUnit, importers);
-        }
-
-        nImportsM.set(unit, importees.size);
-    }
-
-    const sorted: SourceUnit[] = [];
-    const q = units.filter((unit) => (nImportsM.get(unit) as number) === 0);
-
-    while (q.length > 0) {
-        const cur = q.shift() as SourceUnit;
-
-        sorted.push(cur);
-
-        for (const importer of getOrInit(cur, importersM, new Set())) {
-            const newNImports = (nImportsM.get(importer) as number) - 1;
-
-            assert(newNImports >= 0, ``);
-
-            nImportsM.set(importer, newNImports);
-
-            if (newNImports === 0) {
-                q.push(importer);
-            }
-        }
-    }
-
-    assert(
-        sorted.length === units.length,
-        `Topo sort didn't preserve list: sorted - ${sorted.length} original - ${units.length}`
-    );
-
-    return sorted;
-}*/
 
 function writeOut(contents: string, fileName: string) {
     if (fileName === "--") {

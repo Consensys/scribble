@@ -553,7 +553,6 @@ function specializeType(type: SType, toLocation: DataLocation): SType {
 /**
  * Given a type `type` specialized to a specific storage location, return the
  * original type template from which `type` can be generated.
- * @param type
  */
 export function despecializeType(type: SType): SType {
     if (type instanceof SPointer) {
@@ -589,8 +588,6 @@ function isInty(type: SType): boolean {
 
 /**
  * Sort `contracts` in topological order with respect to inheritance.
- *
- * @param contracts
  */
 function sortContracts(contracts: ContractDefinition[]): ContractDefinition[] {
     const order: Array<[ContractDefinition, ContractDefinition]> = [];
@@ -668,11 +665,7 @@ export function tcUnits(
 }
 
 /**
- * Type-check a top-level annotation.
- *
- * @param annot
- * @param ctx
- * @param typeEnv
+ * Type-check a top-level annotation `annot` in a typing context `ctx`.
  */
 export function tcAnnotation(
     annot: SAnnotation,
@@ -898,9 +891,6 @@ function tcIdBuiltin(expr: SId): SType | undefined {
 /**
  * Given the type of some state variable `type`, a 'data-structure path' `path` find the path of the
  * element of the data structre pointed to by the data-structure path.
- *
- * @param type
- * @param path
  */
 function locateElementType(type: TypeName, path: Array<SId | string>): SType {
     for (let i = 0; i < path.length; i++) {
@@ -953,10 +943,6 @@ function locateElementType(type: TypeName, path: Array<SId | string>): SType {
 /**
  * Given the type of some state variable `type`, a 'data-structure path' `path`, and an index `idx` in that path that
  * corresponds to some index variable, find the type of that index variable.
- *
- * @param type
- * @param idx
- * @param path
  */
 function locateKeyType(type: TypeName, idx: number, path: Array<SId | string>): SType {
     assert(idx < path.length, ``);
