@@ -8,8 +8,10 @@ import {
     FunctionVisibility,
     VariableDeclaration,
     SourceUnit,
-    ContractDefinition
+    ContractDefinition,
+    LatestCompilerVersion
 } from "solc-typed-ast";
+import { pp } from ".";
 
 export function nodeToSource(main: ASTNode, targetCompilerVersion = "0.6.0"): string {
     const formatter = new PrettyFormatter(4);
@@ -160,4 +162,126 @@ export function dedup<T>(arr: T[]): T[] {
     }
 
     return res;
+}
+
+/**
+ * Build a flattened version of the array of arrays `arr` and return it.
+ */
+export function flatten<T>(arr: Iterable<T[]>): T[] {
+    const res: T[] = [];
+    for (const el of arr) {
+        res.push(...el);
+    }
+
+    return res;
+}
+
+/**
+ * Given a list of T's `things` and a partial ordering between them `order` return
+ * a topologically sorted version of `things`. For any pair `[a,b]` in `order` we assume
+ * that `a` has to come before `b`.
+ */
+export function topoSort<T>(things: T[], order: Array<[T, T]>): T[] {
+    const successors = new Map<T, Set<T>>();
+    const nPreds = new Map<T, number>();
+
+    // Initialize datastructures
+    for (const thing of things) {
+        nPreds.set(thing, 0);
+        successors.set(thing, new Set());
+    }
+
+    // Populate nPreds and successors according to the partial order `order`
+    for (const [a, b] of order) {
+        nPreds.set(b, (nPreds.get(b) as number) + 1);
+        (successors.get(a) as Set<T>).add(b);
+    }
+
+    // Compute the initial roots and add them to res
+    const res: T[] = [];
+    for (const thing of things) {
+        if ((nPreds.get(thing) as number) === 0) {
+            res.push(thing);
+        }
+    }
+
+    assert(res.length > 0, `Order ${pp(order)} is not a proper partial order`);
+    let i = 0;
+
+    // Add nodes to the order until all are added
+    while (res.length < things.length) {
+        const curLength = res.length;
+
+        // For every newly added node N from last iteration ([i...curLength-1]),
+        // and for all successors S of N, reduce nPreds[S]. If nPreds[S] == 0 add to res.
+        for (; i < curLength; i++) {
+            for (const successor of successors.get(res[i]) as Set<T>) {
+                const newCount = (nPreds.get(successor) as number) - 1;
+                nPreds.set(successor, newCount);
+
+                if (newCount === 0) {
+                    res.push(successor);
+                }
+            }
+        }
+
+        assert(
+            res.length > curLength,
+            `Order ${pp(order)} is not a valid proper order. Topo sort stalled at ${
+                res.length
+            } out of ${things.length}`
+        );
+    }
+
+    return res;
+}
+
+/**
+ * Zips the two arrays `a1` and `a2` and return the result.
+ */
+export function zip<T1, T2>(a1: readonly T1[], a2: readonly T2[]): Array<[T1, T2]> {
+    assert(
+        a1.length === a2.length,
+        `Mismatch in length between ${pp(a1)} of len ${a1.length} and ${pp(a2)} of len ${a2.length}`
+    );
+
+    const res: Array<[T1, T2]> = [];
+    for (let i = 0; i < a1.length; i++) {
+        res.push([a1[i], a2[i]]);
+    }
+
+    return res;
+}
+
+const writersCache = new Map<string, ASTWriter>();
+
+/**
+ * Print the ASTNode `n` as Solidity code. Optionally accepts a version string (otherwise assumes 0.8.0)
+ */
+export function print(n: ASTNode, version = LatestCompilerVersion): string {
+    let writer = writersCache.get(version);
+    if (writer === undefined) {
+        writer = new ASTWriter(DefaultASTWriterMapping, new PrettyFormatter(4), "0.8.0");
+        writersCache.set(version, writer);
+    }
+
+    return writer.write(n);
+}
+
+/**
+ * Destructively updates the `updatee` map by adding any mappings found in the `newVals` map.
+ * If `disjoint` is specified asserts that the maps are disjoint.
+ */
+export function updateMap<T1, T2>(
+    updatee: Map<T1, T2>,
+    newVals: Map<T1, T2>,
+    disjoint = false
+): void {
+    for (const [key, val] of newVals.entries()) {
+        if (disjoint) {
+            assert(!updatee.has(key), `Expected maps to be disjoint. Instead both have ${key}`);
+        }
+
+        updatee.set(key, val);
+    }
 }

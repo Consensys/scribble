@@ -129,7 +129,6 @@
     "2148:35:0",
     "2193:33:0",
     "1274:23:0",
-    "1113:15:0",
     "1138:60:0",
     "1208:34:0",
     "1462:35:0",
@@ -141,12 +140,13 @@
     "3455:35:0",
     "3500:33:0",
     "2582:25:0",
-    "2421:15:0",
     "2446:60:0",
     "2516:34:0",
     "2772:35:0",
     "2735:72:0",
-    "2817:60:0"
+    "2817:60:0",
+    "1113:15:0",
+    "2421:15:0"
   ],
   "propertyMap": [
     {
@@ -165,6 +165,10 @@
       ],
       "checkRanges": [
         "448:8:0"
+      ],
+      "assertionRanges": [
+        "472:29:0",
+        "515:13:0"
       ]
     },
     {
@@ -184,14 +188,18 @@
       ],
       "checkRanges": [
         "1311:22:0"
+      ],
+      "assertionRanges": [
+        "1349:29:0",
+        "1392:13:0"
       ]
     },
     {
       "id": 2,
       "contract": "Child2",
       "filename": "test/multifile_samples/proj1/child2.sol",
-      "propertySource": "117:14:1",
-      "annotationSource": "93:39:1",
+      "propertySource": "117:14:2",
+      "annotationSource": "93:39:2",
       "target": "function",
       "targetName": "double",
       "debugEventSignature": "",
@@ -203,6 +211,10 @@
       ],
       "checkRanges": [
         "2621:22:0"
+      ],
+      "assertionRanges": [
+        "2659:29:0",
+        "2702:13:0"
       ]
     }
   ],

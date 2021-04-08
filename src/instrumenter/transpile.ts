@@ -47,7 +47,7 @@ import {
     SResult,
     SUserFunctionDefinition
 } from "../spec-lang/ast";
-import { BuiltinSymbols, STypingCtx } from "../spec-lang/tc";
+import { BuiltinSymbols, StateVarScope, STypingCtx } from "../spec-lang/tc";
 import { assert, single } from "../util";
 import { TranspilingContext } from "./transpiling_context";
 
@@ -77,11 +77,9 @@ export function generateTypeAst(type: SType, factory: ASTNodeFactory): TypeName 
     }
 
     if (type instanceof SUserDefinedType) {
-        if (type.definition === undefined) {
-            throw new Error(`Missing definition for user defined type ${type.pp()}`);
-        }
-
-        return factory.makeUserDefinedTypeName("<missing>", type.pp(), type.definition.id);
+        // @todo remove this hack when we fix the types obtained from the typeString parser in getExprSType()
+        const id = type.definition !== undefined ? type.definition.id : -1;
+        return factory.makeUserDefinedTypeName("<missing>", type.pp(), id);
     }
 
     if (type instanceof SArrayType) {
@@ -147,6 +145,21 @@ export function generateIdAST(
 
     if (BuiltinSymbols.has(spec.name)) {
         return factory.makeIdentifier("<missing>", spec.name, -1);
+    }
+
+    // State Var Property index identifier
+    if (spec.defSite instanceof Array && spec.defSite[0] instanceof StateVarScope) {
+        const [scope, idx] = spec.defSite;
+        const prop = scope.annotation;
+        // Count the indices (omitting member accesses) before `idx`
+        let argIdx = 0;
+        for (let i = 0; i < idx; i++) {
+            const el = prop.datastructurePath[i];
+            if (typeof el !== "string") {
+                argIdx++;
+            }
+        }
+        return factory.makeIdentifierFor(transCtx.container.vParameters.vParameters[argIdx]);
     }
 
     // User function argument

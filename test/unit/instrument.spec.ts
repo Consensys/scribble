@@ -1,7 +1,6 @@
 import expect from "expect";
 import { SourceUnit, ContractDefinition, ASTReader } from "solc-typed-ast";
-import { toAst } from "../integration/utils";
-import { findContract } from "../integration/utils";
+import { getTypeCtx, toAst } from "../integration/utils";
 import { findExternalCalls } from "../../src/instrumenter/instrument";
 import { nodeToSource } from "../../src/util";
 
@@ -64,13 +63,15 @@ contract Main {
         ]
     ];
 
-    for (const [fileName, content, contractName, expectedExtCalls] of goodSamples) {
-        it(`Find external calls in ${contractName} in #${fileName}`, () => {
+    for (const [fileName, content, loc, expectedExtCalls] of goodSamples) {
+        it(`Find external calls in ${loc} in #${fileName}`, () => {
             const [sources]: [SourceUnit[], ASTReader, Map<string, string>, string] = toAst(
                 fileName,
                 content
             );
-            const contract: ContractDefinition = findContract(contractName[0], sources);
+
+            const ctx = getTypeCtx(loc, sources);
+            const contract: ContractDefinition = ctx[1] as ContractDefinition;
             const extCalls: string[] = findExternalCalls(contract).map((call) =>
                 nodeToSource(call.vExpression)
             );

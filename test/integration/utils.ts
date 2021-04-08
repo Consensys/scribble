@@ -9,12 +9,15 @@ import {
     compile,
     detectCompileErrors,
     ASTReader,
-    ContractDefinition,
+    ASTNode,
     FunctionDefinition,
-    ASTNode
+    ContractDefinition,
+    ASTKind
 } from "solc-typed-ast";
 import { spawnSync } from "child_process";
-import { assert } from "../../src";
+import { AnnotationTarget, assert, pp } from "../../src";
+import { StateVarScope, STypingCtx } from "../../src/spec-lang/tc";
+import { SAnnotation, SStateVarProp } from "../../src/spec-lang/ast";
 
 export function searchRecursive(directory: string, pattern: RegExp): string[] {
     let results: string[] = [];
@@ -53,8 +56,7 @@ export function toAst(
 
         if (errors.length === 0) {
             const reader = new ASTReader();
-
-            return [reader.read(data), reader, files, compilerVersion];
+            return [reader.read(data, ASTKind.Any, files), reader, files, compilerVersion];
         }
 
         failures.push({ compilerVersion, errors });
@@ -86,7 +88,8 @@ export function scribble(fileName: string | string[], ...args: string[]): string
     const processArgs = (fileName instanceof Array ? fileName : [fileName]).concat(args);
     const result = spawnSync("scribble", processArgs, {
         encoding: "utf8",
-        env: scrubbedEnv
+        env: scrubbedEnv,
+        maxBuffer: 4 * 1024 * 1024
     });
 
     if (result.stderr) {
@@ -100,26 +103,60 @@ export function scribble(fileName: string | string[], ...args: string[]): string
     return result.stdout;
 }
 
-export function findContract(name: string, sources: SourceUnit[]): ContractDefinition {
+export function getTarget(typeCtx: STypingCtx): AnnotationTarget {
+    const topCtx = typeCtx[typeCtx.length - 1] as AnnotationTarget;
+    if (topCtx instanceof FunctionDefinition || topCtx instanceof ContractDefinition) {
+        return topCtx;
+    }
+
+    if (topCtx instanceof StateVarScope) {
+        return topCtx.target;
+    }
+
+    assert(false, `NYI getTarget(${pp(typeCtx)})`);
+}
+
+export function getTypeCtx(
+    raw: [string, string | undefined],
+    sources: SourceUnit[],
+    annotation?: SAnnotation
+): STypingCtx {
+    const res: STypingCtx = [sources];
+
     for (const unit of sources) {
         for (const contract of unit.vContracts) {
-            if (contract.name === name) {
-                return contract;
+            if (contract.name === raw[0]) {
+                res.push(contract);
+
+                const subTarget = raw[1];
+
+                if (subTarget === undefined) {
+                    return res;
+                }
+
+                for (const fun of contract.vFunctions) {
+                    if (fun.name == subTarget) {
+                        res.push(fun);
+                        return res;
+                    }
+                }
+
+                for (const stateVar of contract.vStateVariables) {
+                    if (stateVar.name == subTarget) {
+                        assert(annotation instanceof SStateVarProp, ``);
+                        res.push(new StateVarScope(stateVar, annotation));
+                        return res;
+                    }
+                }
+
+                throw new Error(
+                    `Couldn't find annotation target ${subTarget} in contract ${raw[0]}`
+                );
             }
         }
     }
-    throw new Error(``);
+    throw new Error(`Couldn't find contract ${raw[0]}`);
 }
-
-export function findFunction(name: string, contract: ContractDefinition): FunctionDefinition {
-    for (const fun of contract.vFunctions) {
-        if (name === fun.name) {
-            return fun;
-        }
-    }
-    throw new Error(``);
-}
-
 /**
  * Helper function to check that 2 ASTNodes are (roughly) isomorphic. It checks that:
  *  1) They have the same tree structure (i.e. type of node at each branch, and number of children)

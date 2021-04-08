@@ -2,6 +2,8 @@
 Annotation
     = StartingWhiteSpace annotation: (Invariant
     / If_Succeeds
+    / If_Updated
+    / If_Assigned
     / UserFunctionDefinition) .* { return annotation; }
 
 Expression =
@@ -31,6 +33,24 @@ If_Succeeds =
   type: IF_SUCCEEDS __ label: AnnotationLabel? __ expr: Expression __ ";"
   {
     return new SProperty(type as AnnotationType, expr, label !== null ? label : undefined, location());
+  }
+
+DatastructurePath_Index = "[" __ id: Identifier __"]" { return id; }
+DatastructurePath_Field = "." id: Identifier {return id.name;}
+IndexPath = (DatastructurePath_Field / DatastructurePath_Index)*
+
+// TODO: Eventually remove hacky '/' from if_updated rule. This is to work around
+// limitations in Solidity - it throws if it sees natspec on internal state vars
+If_Updated =
+  ("/" __)? type: IF_UPDATED __ label: AnnotationLabel? __ expr: Expression __ ";"
+  {
+    return new SIfUpdated(expr, [], label !== null ? label : undefined, location());
+  }
+
+If_Assigned =
+  ("/" __)? type: IF_ASSIGNED path: IndexPath __ label: AnnotationLabel? __ expr: Expression __ ";"
+  {
+    return new SIfAssigned(expr, path, label !== null ? label : undefined, location());
   }
 
 UserFunctionDefinition = 
@@ -99,6 +119,8 @@ NONPAYABLE = "nonpayable"
 RESULT = "$result"
 INVARIANT = "invariant"
 IF_SUCCEEDS = "if_succeeds"
+IF_UPDATED = "if_updated"
+IF_ASSIGNED = "if_assigned"
 DEFINE = "define"
 
 Keyword
@@ -404,7 +426,7 @@ BoolType = BOOL { return new SBoolType(location()) }
 AddressType = ADDRESS __ payable:(PAYABLE?) { return new SAddressType(payable !== null, location())}
 IntType = unsigned:("u"?) "int" width:(Number?) { 
   const signed = unsigned === null;
-  const bitWidth = width === null ? 256 : width;
+  const bitWidth = width === null ? 256 : width.num.toString(10);
   return new SIntType(bitWidth, signed, location());
 }
 FixedSizeBytesType

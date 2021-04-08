@@ -28,7 +28,9 @@ import {
     SAnnotation,
     SUserFunctionDefinition,
     SProperty,
-    AnnotationType
+    AnnotationType,
+    SIfUpdated,
+    SIfAssigned
 } from "../../src/spec-lang/ast";
 import { eq } from "../../src/util/struct_equality";
 import bigInt from "big-integer";
@@ -736,7 +738,7 @@ describe("Type Parser Unit Tests", () => {
     }
 });
 
-describe("Definition Parser Unit Tests", () => {
+describe("Annotation Parser Unit Tests", () => {
     const goodSamples: Array<[string, SAnnotation]> = [
         ["if_succeeds true;", new SProperty(AnnotationType.IfSucceeds, new SBooleanLiteral(true))],
         [
@@ -759,6 +761,51 @@ describe("Definition Parser Unit Tests", () => {
                 AnnotationType.IfSucceeds,
                 new SBinaryOperation(new SNumber(bigInt(1), 10), "-", new SNumber(bigInt(2), 10)),
                 "hi"
+            )
+        ],
+        [
+            `* if_updated 
+                {:msg 
+                       "hi"
+                    }
+                     1 -
+                     2
+                     ;`,
+            new SIfUpdated(
+                new SBinaryOperation(new SNumber(bigInt(1), 10), "-", new SNumber(bigInt(2), 10)),
+                [],
+                "hi"
+            )
+        ],
+        [
+            `* if_assigned[a]
+                {:msg 
+                       "bye"
+                    }
+                    true;
+                     ;`,
+            new SIfAssigned(new SBooleanLiteral(true), [new SId("a")], "bye")
+        ],
+        [
+            `* if_assigned.foo
+                {:msg 
+                       "bye"
+                    }
+                    true;
+                     ;`,
+            new SIfAssigned(new SBooleanLiteral(true), ["foo"], "bye")
+        ],
+        [
+            `* if_assigned._bar0.boo[a][b].foo[c]
+                {:msg 
+                       "felicia"
+                    }
+                    false;
+                     ;`,
+            new SIfAssigned(
+                new SBooleanLiteral(false),
+                ["_bar0", "boo", new SId("a"), new SId("b"), "foo", new SId("c")],
+                "felicia"
             )
         ],
         [
@@ -855,7 +902,44 @@ describe("Definition Parser Unit Tests", () => {
         ]
     ];
 
-    const badSamples: string[] = [];
+    const badSamples: string[] = [
+        `* if_assigned[1+2]
+                {:msg 
+                       "felicia"
+                    }
+                    false;
+                     ;`,
+        `* if_assigned [a]
+                {:msg 
+                       "felicia"
+                    }
+                    false;
+                     ;`,
+        `* if_assigned0ab
+                {:msg 
+                       "felicia"
+                    }
+                    false;
+                     ;`,
+        `* if_assigned,ab
+                {:msg 
+                       "felicia"
+                    }
+                    false;
+                     ;`,
+        `* if_updated[a]
+                {:msg 
+                       "bye"
+                    }
+                    true;
+                     ;`,
+        `* if_updated.foo
+                {:msg 
+                       "bye"
+                    }
+                    true;
+                     ;`
+    ];
 
     for (const [sample, expected] of goodSamples) {
         describe(`Sample ${sample}`, () => {

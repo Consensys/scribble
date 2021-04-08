@@ -10,14 +10,17 @@ import {
     VariableDeclaration,
     ImportDirective,
     ASTNode,
-    Expression
+    Expression,
+    Statement
 } from "solc-typed-ast";
+import { assert } from "..";
 import { SUserFunctionDefinition } from "../spec-lang/ast";
+import { SemMap, TypeEnv } from "../spec-lang/tc";
 import { NameGenerator } from "../util/name_generator";
-import { AnnotationMetaData } from "./annotations";
+import { AnnotationMetaData, AnnotationFilterOptions } from "./annotations";
 import { CallGraph, FunSet } from "./callgraph";
 import { CHA } from "./cha";
-import { AnnotationFilterOptions } from "./instrument";
+import { TranspilingContext } from "./transpiling_context";
 
 /**
  * Gather all named nodes in the provided source units.
@@ -67,6 +70,9 @@ export class InstrumentationContext {
     public readonly structVar: string;
     public readonly checkStateInvsFuncName: string;
     public readonly outOfContractFlagName: string;
+    public readonly scratchField: string;
+    public readonly checkInvsFlag: string;
+
     public readonly utilsContractName: string;
     private internalInvariantCheckers: Map<ContractDefinition, string> = new Map();
     public readonly userFunctions: Map<SUserFunctionDefinition, FunctionDefinition> = new Map();
@@ -79,7 +85,12 @@ export class InstrumentationContext {
      * Map from Annotations to the actual `Expression` that corresponds to the
      * annotation being fully checked.
      */
-    public readonly instrumetnedCheck: Map<AnnotationMetaData, Expression[]> = new Map();
+    public readonly instrumentedCheck: Map<AnnotationMetaData, Expression[]> = new Map();
+    /**
+     * Map from Annotations to the actual asserts and event emissions
+     * that are hit if the annotation fails.
+     */
+    public readonly failureCheck: Map<AnnotationMetaData, Statement[]> = new Map();
     /**
      * List of statements added for general instrumentation, not tied to any
      * particular annotation.
@@ -97,6 +108,16 @@ export class InstrumentationContext {
         return this.utilsContract.parent as SourceUnit;
     }
 
+    /**
+     * Map keeping track of the `TranspilingContext`s for each `FunctionDefinition`.
+     */
+    private transCtxMap = new Map<FunctionDefinition, TranspilingContext>();
+    /**
+     * 2-level Map keeping track of the wrappers functions generated for each contract.
+     * The inner map is a mapping from wrapper names to their definition.
+     */
+    private wrapperCache = new Map<ContractDefinition, Map<string, FunctionDefinition>>();
+
     constructor(
         public readonly factory: ASTNodeFactory,
         public readonly units: SourceUnit[],
@@ -112,7 +133,9 @@ export class InstrumentationContext {
         public readonly compilerVersion: string,
         public readonly debugEvents: boolean,
         public readonly debugEventDefs: Map<number, EventDefinition>,
-        public readonly outputMode: "files" | "flat" | "json"
+        public readonly outputMode: "files" | "flat" | "json",
+        public readonly typeEnv: TypeEnv,
+        public readonly semMap: SemMap
     ) {
         this.nameGenerator = new NameGenerator(getAllNames(units));
         this.structVar = this.nameGenerator.getFresh("_v", true);
@@ -124,7 +147,41 @@ export class InstrumentationContext {
             "__scribble_out_of_contract",
             true
         );
+
+        this.scratchField = this.nameGenerator.getFresh("__mstore_scratch__", true);
+        this.checkInvsFlag = this.nameGenerator.getFresh("__scribble_check_invs_at_end", true);
         this.utilsContractName = this.nameGenerator.getFresh("__scribble_ReentrancyUtils", true);
+    }
+
+    getWrapper(contract: ContractDefinition, name: string): FunctionDefinition | undefined {
+        const m = this.wrapperCache.get(contract);
+        if (m === undefined) {
+            return undefined;
+        }
+
+        return m.get(name);
+    }
+
+    setWrapper(contract: ContractDefinition, name: string, wrapper: FunctionDefinition): void {
+        let m = this.wrapperCache.get(contract);
+        if (m === undefined) {
+            m = new Map();
+            this.wrapperCache.set(contract, m);
+        }
+
+        assert(!m.has(name), `Wrapper ${name} in ${contract.name} already defined.`);
+        m.set(name, wrapper);
+    }
+
+    getTranspilingCtx(container: FunctionDefinition): TranspilingContext {
+        if (!this.transCtxMap.has(container)) {
+            this.transCtxMap.set(
+                container,
+                new TranspilingContext(this.typeEnv, this.semMap, container, this)
+            );
+        }
+
+        return this.transCtxMap.get(container) as TranspilingContext;
     }
 
     getInternalInvariantCheckerName(contract: ContractDefinition): string {
@@ -146,18 +203,38 @@ export class InstrumentationContext {
     }
 
     addAnnotationInstrumentation(annotation: AnnotationMetaData, ...nodes: ASTNode[]): void {
-        if (this.evaluationStatements.has(annotation)) {
-            (this.evaluationStatements.get(annotation) as ASTNode[]).push(...nodes);
-        } else {
+        const targets = this.evaluationStatements.get(annotation);
+
+        if (targets === undefined) {
             this.evaluationStatements.set(annotation, nodes);
+        } else {
+            targets.push(...nodes);
         }
     }
 
     addAnnotationCheck(annotation: AnnotationMetaData, pred: Expression): void {
-        if (this.instrumetnedCheck.has(annotation)) {
-            (this.instrumetnedCheck.get(annotation) as Expression[]).push(pred);
+        const targets = this.instrumentedCheck.get(annotation);
+
+        if (targets === undefined) {
+            this.instrumentedCheck.set(annotation, [pred]);
         } else {
-            this.instrumetnedCheck.set(annotation, [pred]);
+            targets.push(pred);
+        }
+    }
+
+    addAnnotationFailureCheck(annotation: AnnotationMetaData, ...nodes: Statement[]): void {
+        const targets = this.failureCheck.get(annotation);
+
+        if (targets === undefined) {
+            this.failureCheck.set(annotation, nodes);
+        } else {
+            targets.push(...nodes);
+        }
+    }
+
+    finalize(): void {
+        for (const transCtx of this.transCtxMap.values()) {
+            transCtx.finalize();
         }
     }
 }

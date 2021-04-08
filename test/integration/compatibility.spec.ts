@@ -163,7 +163,11 @@ describe("Interface compatibility test", () => {
             };
 
             it("Instrumented source in 'log' mode has compatible external interface", () => {
-                const [outLogAst] = toAst(fileName, scribble(fileName, "--debug-events"));
+                const args = [fileName];
+                if (!(fileName.includes("if_updated") || fileName.includes("if_assigned"))) {
+                    args.push("--debug-events");
+                }
+                const [outLogAst] = toAst(fileName, scribble(args));
                 compareSourceUnits(inAst, outLogAst);
             });
 

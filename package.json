@@ -12,7 +12,7 @@
         "scribble": "dist/bin/scribble.js"
     },
     "dependencies": {
-        "solc-typed-ast": "^3.2.1",
+        "solc-typed-ast": "^3.2.2",
         "big-integer": "^1.6.48",
         "command-line-args": "5.1.1",
         "command-line-usage": "6.1.1",
@@ -24,10 +24,9 @@
     "scripts": {
         "clean": "rm -rf dist/*",
         "build-expr-parser": "tspegjs -o src/spec-lang/expr_parser.ts --custom-header-file src/spec-lang/expr_parser_header.ts --allowed-start-rules Annotation,Expression --cache src/spec-lang/expr_grammar.pegjs",
-        "build-annotation-parser": "tspegjs -o src/spec-lang/annotation_parser.ts --custom-header-file src/spec-lang/annotation_parser_header.ts --cache src/spec-lang/annotation_grammar.pegjs",
         "build-type-parser": "tspegjs -o src/spec-lang/typeString_parser.ts --custom-header-file src/spec-lang/typeString_parser_header.ts --cache src/spec-lang/typeString_grammar.pegjs",
         "build-import-parser": "tspegjs -o src/rewriter/import_directive_parser.ts --custom-header-file src/rewriter/import_directive_header.ts --cache src/rewriter/import_directive.pegjs",
-        "build-parsers": "npm run build-expr-parser && npm run build-type-parser && npm run build-import-parser && npm run build-annotation-parser",
+        "build-parsers": "npm run build-expr-parser && npm run build-type-parser && npm run build-import-parser",
         "transpile": "tsc",
         "build": "npm run clean && npm run build-parsers && npm run transpile",
         "test": "NODE_OPTIONS='--max-old-space-size=2048' nyc mocha",
@@ -42,6 +41,7 @@
         "@types/node": "^12.19.7",
         "@typescript-eslint/eslint-plugin": "^4.8.2",
         "@typescript-eslint/parser": "^4.8.2",
+        "@types/semver": "^7.3.4",
         "codecov": "^3.8.1",
         "eslint": "^7.14.0",
         "eslint-config-prettier": "^6.15.0",

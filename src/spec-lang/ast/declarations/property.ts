@@ -9,7 +9,7 @@ export class SProperty extends SAnnotation {
     }
 
     getFields(): any[] {
-        return [this.expression, this.label];
+        return [this.type, this.expression, this.label];
     }
 
     pp(): string {
