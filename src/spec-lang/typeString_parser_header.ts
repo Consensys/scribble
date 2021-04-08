@@ -16,7 +16,10 @@ import {
     SMemberAccess,
     SUserDefinedType,
     SMappingType,
-    SFunctionType
+    SFunctionType,
+    STupleType,
+    SIntLiteralType,
+    SStringLiteralType
 } from "./ast";
 import { DataLocation, FunctionVisibility, FunctionStateMutability } from "solc-typed-ast";
 

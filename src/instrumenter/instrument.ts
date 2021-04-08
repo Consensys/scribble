@@ -15,17 +15,16 @@ import {
     FunctionStateMutability,
     FunctionVisibility,
     LiteralKind,
-    MemberAccess,
     Mutability,
     OverrideSpecifier,
     resolveByName,
     SourceUnit,
     Statement,
     StateVariableVisibility,
-    StructDefinition,
     VariableDeclaration,
     EmitStatement,
-    Literal
+    Literal,
+    ASTNode
 } from "solc-typed-ast";
 import {
     AddBaseContract,
@@ -33,7 +32,6 @@ import {
     cook,
     InsertFunction,
     InsertStatement,
-    InsertStructDef,
     Recipe,
     InsertEvent
 } from "../rewriter";
@@ -66,13 +64,22 @@ import {
     SResult,
     SUserFunctionDefinition
 } from "../spec-lang/ast";
-import { SemMap, TypeEnv } from "../spec-lang/tc";
+import { StateVarScope, SemMap, TypeEnv } from "../spec-lang/tc";
 import { parse as parseTypeString } from "../spec-lang/typeString_parser";
-import { assert, isChangingState, isExternallyVisible, single } from "../util";
+import {
+    assert,
+    isChangingState,
+    isExternallyVisible,
+    parseSrcTriple,
+    print,
+    single
+} from "../util";
 import {
     AnnotationMetaData,
     PropertyMetaData,
-    UserFunctionDefinitionMetaData
+    UserFunctionDefinitionMetaData,
+    PPAbleError,
+    rangeToLocRange
 } from "./annotations";
 import { walk } from "../spec-lang/walk";
 import { interpose, interposeCall } from "./interpose";
@@ -84,14 +91,32 @@ import { TranspilingContext } from "./transpiling_context";
 export type SBinding = [string | string[], SType, SNode, boolean];
 export type SBindings = SBinding[];
 
-export type AnnotationFilterOptions = {
-    type?: string;
-    message?: string;
-};
+export class InstrumentationError extends PPAbleError {}
+/**
+ * Base class for all type errors due to some valid Solidity feature that
+ * we do not yet support
+ */
+export class UnsupportedConstruct extends InstrumentationError {
+    public readonly unsupportedNode: ASTNode;
+    public readonly unit: SourceUnit;
+
+    constructor(msg: string, unsupportedNode: ASTNode, files: Map<string, string>) {
+        const unit = unsupportedNode.getClosestParentByType(SourceUnit);
+        assert(unit !== undefined, `No unit for node ${print(unsupportedNode)}`);
+        const contents = files.get(unit.sourceEntryKey);
+        assert(contents !== undefined, `Missing contents for ${unit.sourceEntryKey}`);
+
+        const unitLoc = parseSrcTriple(unsupportedNode.src);
+        const range = rangeToLocRange(unitLoc[0], unitLoc[1], contents);
+
+        super(msg, range);
+
+        this.unsupportedNode = unsupportedNode;
+        this.unit = unit;
+    }
+}
 
 export interface InstrumentationResult {
-    struct: StructDefinition;
-    structLocalVariable: VariableDeclaration;
     oldAssignments: Assignment[];
     newAssignments: Assignment[];
     transpiledPredicates: Expression[];
@@ -209,10 +234,21 @@ function gatherDebugIds(n: SNode, typeEnv: TypeEnv): Set<SId> {
             return;
         }
 
-        const key =
-            id.defSite instanceof VariableDeclaration
-                ? `${id.defSite.id}`
-                : `${id.defSite[0].id}_${id.defSite[1]}`;
+        let key: string;
+
+        if (id.defSite instanceof VariableDeclaration) {
+            key = `${id.defSite.id}`;
+        } else {
+            const t = id.defSite[0];
+            if (t instanceof StateVarScope) {
+                throw new Error(
+                    `Scribble doesn't yet support --debug-events in the presence of instrumented state vars: ${
+                        (t.target.vScope as ContractDefinition).name
+                    }.${t.target.name}`
+                );
+            }
+            key = `${t.id}_${id.defSite[1]}`;
+        }
 
         if (debugIds.has(key)) {
             return;
@@ -276,10 +312,7 @@ export function flattenExpr(expr: SNode, ctx: TranspilingContext): [SNode, SBind
     };
 
     const getTmpVar = (name: string, oldN: SNode, src?: Range) => {
-        const id = new SId(ctx.bindingsVar.name);
-
-        id.defSite = ctx.bindingsVar;
-
+        const id = ctx.getBindingVarSId();
         return _registerNode(new SMemberAccess(id, name, src), oldN);
     };
 
@@ -297,6 +330,10 @@ export function flattenExpr(expr: SNode, ctx: TranspilingContext): [SNode, SBind
                 const renamedId = new SId(ctx.getUserFunArg(defNode, idx), expr.src);
                 renamedId.defSite = expr.defSite;
                 return [_registerNode(renamedId, expr), []];
+            }
+
+            if (defNode instanceof StateVarScope) {
+                return [expr, []];
             }
 
             throw new Error(`Unknown array def site`);
@@ -496,7 +533,7 @@ export function generateExpressions(
 
     if (instrCtx.assertionMode === "mstore") {
         transCtx.addBinding(
-            transCtx.scratchField,
+            instrCtx.scratchField,
             factory.makeElementaryTypeName("<missing>", "uint256")
         );
     }
@@ -533,9 +570,6 @@ export function generateExpressions(
                 const idType = transCtx.typeEnv.typeOf(id);
                 assert(info !== undefined, `Internal: No type or seminfo computed for ${id.pp()}`);
 
-                const baseVar = new SId(transCtx.bindingsVar.name);
-                baseVar.defSite = transCtx.bindingsVar;
-
                 if (info.isOld && id.defSite instanceof VariableDeclaration) {
                     const tmpName = `dbg_old_${id.name}`;
 
@@ -544,7 +578,7 @@ export function generateExpressions(
 
                     dbgVars.push(
                         registerNode(
-                            new SMemberAccess(baseVar, tmpName),
+                            new SMemberAccess(transCtx.getBindingVarSId(), tmpName),
                             id,
                             transCtx.typeEnv
                         ) as SMemberAccess
@@ -553,7 +587,7 @@ export function generateExpressions(
                     const letVarField = transCtx.getLetBinding(id);
                     dbgVars.push(
                         registerNode(
-                            new SMemberAccess(baseVar, letVarField),
+                            new SMemberAccess(transCtx.getBindingVarSId(), letVarField),
                             id,
                             transCtx.typeEnv
                         ) as SMemberAccess
@@ -627,21 +661,10 @@ export function generateExpressions(
     });
 
     // Step 3: Populate the struct def with fields for each temporary variable
-    const memberDeclMap: Map<string, VariableDeclaration> = new Map();
-
     for (const [name, sType] of bindingMap) {
         const astType = generateTypeAst(sType, factory);
-        const decl = transCtx.addBinding(name, astType);
-        memberDeclMap.set(name, decl);
+        transCtx.addBinding(name, astType);
     }
-
-    const getTmpVar = (name: string): MemberAccess =>
-        factory.makeMemberAccess(
-            "<missing>",
-            factory.makeIdentifierFor(transCtx.bindingsVar),
-            name,
-            (memberDeclMap.get(name) as VariableDeclaration).id
-        );
 
     const oldAssignments: Assignment[] = [];
     const newAssignments: Assignment[] = [];
@@ -652,9 +675,13 @@ export function generateExpressions(
         let lhs: Expression;
 
         if (typeof names === "string") {
-            lhs = getTmpVar(names);
+            lhs = transCtx.refBinding(names);
         } else {
-            lhs = factory.makeTupleExpression("<missing>", false, names.map(getTmpVar));
+            lhs = factory.makeTupleExpression(
+                "<missing>",
+                false,
+                names.map((name) => transCtx.refBinding(name))
+            );
         }
 
         const rhs = generateExprAST(expr, transCtx, [contract, fn]);
@@ -673,8 +700,6 @@ export function generateExpressions(
     );
 
     return {
-        struct: transCtx.bindingsStructDef,
-        structLocalVariable: transCtx.bindingsVar,
         oldAssignments,
         newAssignments,
         transpiledPredicates,
@@ -697,7 +722,6 @@ function emitAssert(
     expr: Expression,
     annotation: PropertyMetaData,
     event: EventDefinition,
-    structLocalVar: VariableDeclaration,
     emitStmt?: EmitStatement
 ): Statement {
     const instrCtx = transCtx.instrCtx;
@@ -718,14 +742,13 @@ function emitAssert(
             )
         );
     } else {
-        const id = factory.makeIdentifierFor(structLocalVar);
         const failBitPattern = getBitPattern(factory, annotation.id);
 
         userAssertFailed = factory.makeExpressionStatement(
             factory.makeAssignment(
                 "<missing>",
                 "=",
-                factory.makeMemberAccess("<missing>", id, transCtx.scratchField, -1),
+                transCtx.refBinding(instrCtx.scratchField),
                 failBitPattern
             )
         );
@@ -741,7 +764,7 @@ function emitAssert(
             factory.makeAssignment(
                 "<missing>",
                 "=",
-                factory.makeMemberAccess("<missing>", id, transCtx.scratchField, -1),
+                transCtx.refBinding(instrCtx.scratchField),
                 successBitPattern
             )
         );
@@ -778,12 +801,10 @@ function emitAssert(
     instrCtx.addAnnotationInstrumentation(annotation, userAssertFailed);
     instrCtx.addAnnotationInstrumentation(annotation, ifStmt);
     instrCtx.addAnnotationCheck(annotation, condition);
-
     instrCtx.addAnnotationFailureCheck(annotation, ...ifBody);
 
     if (userAssertionHit) {
         instrCtx.addAnnotationInstrumentation(annotation, userAssertionHit);
-
         return factory.makeBlock([userAssertionHit, ifStmt]);
     }
 
@@ -827,92 +848,54 @@ export function getAssertionFailedEvent(
     return event;
 }
 
-function insertInvChecks(
+export function insertInvChecks(
     transCtx: TranspilingContext,
-    invExprs: Expression[],
+    instrResult: InstrumentationResult,
     annotations: PropertyMetaData[],
     contract: ContractDefinition,
-    body: Block,
-    structLocalVar: VariableDeclaration,
-    debugEventInfo: Array<[EventDefinition, EmitStatement] | undefined>
+    body: Block
 ): Recipe {
     const instrCtx = transCtx.instrCtx;
     const factory = instrCtx.factory;
 
     const recipe: Recipe = [];
 
-    for (let i = 0; i < invExprs.length; i++) {
-        const predicate = invExprs[i];
+    const marker = body.vStatements.length > 0 ? body.vStatements[0] : undefined;
+    for (const oldAssignment of instrResult.oldAssignments) {
+        recipe.push(
+            new InsertStatement(
+                factory,
+                factory.makeExpressionStatement(oldAssignment),
+                marker !== undefined ? "before" : "end",
+                body,
+                marker
+            )
+        );
+    }
+
+    for (const newAssignment of instrResult.newAssignments) {
+        recipe.push(
+            new InsertStatement(
+                factory,
+                factory.makeExpressionStatement(newAssignment),
+                "end",
+                body
+            )
+        );
+    }
+
+    for (let i = 0; i < instrResult.transpiledPredicates.length; i++) {
+        const predicate = instrResult.transpiledPredicates[i];
 
         const event = getAssertionFailedEvent(factory, contract);
-        const dbgInfo = debugEventInfo[i];
+        const dbgInfo = instrResult.debugEventsInfo[i];
         const emitStmt = dbgInfo !== undefined ? dbgInfo[1] : undefined;
-        const check = emitAssert(
-            transCtx,
-            predicate,
-            annotations[i],
-            event,
-            structLocalVar,
-            emitStmt
-        );
+        const check = emitAssert(transCtx, predicate, annotations[i], event, emitStmt);
 
         recipe.push(new InsertStatement(factory, check, "end", body));
     }
 
     return recipe;
-}
-
-function insertAssignments(
-    factory: ASTNodeFactory,
-    assignments: Assignment[],
-    body: Block,
-    originalCall?: Statement
-): Recipe {
-    const recipe = [];
-
-    const position = originalCall == undefined ? "end" : "before";
-
-    for (const assignment of assignments) {
-        recipe.push(
-            new InsertStatement(
-                factory,
-                factory.makeExpressionStatement(assignment),
-                position,
-                body,
-                originalCall
-            )
-        );
-    }
-
-    return recipe;
-}
-
-/**
- * Build the recipe for adding a temporary vars struct. This involves
- *  1) adding the struct defs to the contract
- *  2) adding the local var to the target function.
- *
- * @param ctx
- * @param result - instrumentation result result holding the the struct def and generated local struct var
- * @param contract - contract where we are adding the temporary var struct
- * @param body - body of the function where we are adding the struct def
- * @param originalCall
- */
-function insertVarsStruct(
-    ctx: InstrumentationContext,
-    result: InstrumentationResult,
-    contract: ContractDefinition,
-    body: Block
-): Recipe {
-    const factory = ctx.factory;
-
-    const localVarDecl = factory.makeVariableDeclarationStatement([], [result.structLocalVariable]);
-    ctx.addGeneralInstrumentation(localVarDecl);
-
-    return [
-        new InsertStructDef(factory, result.struct, contract),
-        new InsertStatement(factory, localVarDecl, "start", body)
-    ];
 }
 
 function getCheckStateInvsFuncs(
@@ -938,13 +921,13 @@ export class ContractInstrumenter {
      */
     instrument(
         ctx: InstrumentationContext,
-        typeEnv: TypeEnv,
-        semInfo: SemMap,
         annotations: AnnotationMetaData[],
         contract: ContractDefinition,
         needsStateInvChecks: boolean
     ): void {
         const recipe: Recipe = [];
+        const typeEnv = ctx.typeEnv;
+        const semInfo = ctx.semMap;
 
         const userFunctionsAnnotations = filterByType(annotations, UserFunctionDefinitionMetaData);
 
@@ -1000,6 +983,7 @@ export class ContractInstrumenter {
                 );
             }
         }
+
         cook(recipe);
     }
 
@@ -1044,7 +1028,7 @@ export class ContractInstrumenter {
             ctx.userFunctions.set(funDef, userFun);
 
             const body = userFun.vBody as Block;
-            const transCtx = new TranspilingContext(typeEnv, semInfo, userFun, ctx);
+            const transCtx = ctx.getTranspilingCtx(userFun);
 
             for (let i = 0; i < funDef.parameters.length; i++) {
                 const [, paramType] = funDef.parameters[i];
@@ -1080,23 +1064,19 @@ export class ContractInstrumenter {
                     memberDeclMap.set(name, decl);
                 }
 
-                const getTmpVar = (name: string): MemberAccess =>
-                    factory.makeMemberAccess(
-                        "<missing>",
-                        factory.makeIdentifierFor(transCtx.bindingsVar),
-                        name,
-                        (memberDeclMap.get(name) as VariableDeclaration).id
-                    );
-
                 // Step 4: Build temp assignments
                 for (const [names, , expr, isOld] of bindings) {
                     let lhs: Expression;
                     assert(!isOld, `Unexpected old expresion in user function: ${expr.pp()}`);
 
                     if (typeof names === "string") {
-                        lhs = getTmpVar(names);
+                        lhs = transCtx.refBinding(names);
                     } else {
-                        lhs = factory.makeTupleExpression("<missing>", false, names.map(getTmpVar));
+                        lhs = factory.makeTupleExpression(
+                            "<missing>",
+                            false,
+                            names.map(transCtx.refBinding)
+                        );
                     }
 
                     const rhs = generateExprAST(expr, transCtx, [contract, userFun]);
@@ -1104,12 +1084,6 @@ export class ContractInstrumenter {
 
                     body.appendChild(factory.makeExpressionStatement(assignment));
                 }
-
-                body.insertBefore(
-                    factory.makeVariableDeclarationStatement([], [transCtx.bindingsVar]),
-                    body.firstChild as Statement
-                );
-                recipe.push(new InsertStructDef(factory, transCtx.bindingsStructDef, contract));
             }
 
             // Step 5: Build the final result
@@ -1158,17 +1132,13 @@ export class ContractInstrumenter {
             )
         );
 
-        const transCtx = new TranspilingContext(typeEnv, semInfo, checker, ctx);
+        const transCtx = ctx.getTranspilingCtx(checker);
 
         const instrResult = generateExpressions(annotations, transCtx);
 
         assert(instrResult.oldAssignments.length === 0, ``);
 
         recipe.push(new InsertFunction(ctx.factory, contract, checker));
-
-        if (instrResult.struct.vMembers.length > 0) {
-            recipe.push(...insertVarsStruct(ctx, instrResult, contract, body));
-        }
 
         assert(instrResult.oldAssignments.length === 0, ``);
 
@@ -1178,18 +1148,7 @@ export class ContractInstrumenter {
             }
         }
 
-        recipe.push(
-            ...insertAssignments(factory, instrResult.newAssignments, body),
-            ...insertInvChecks(
-                transCtx,
-                instrResult.transpiledPredicates,
-                annotations,
-                contract,
-                body,
-                instrResult.structLocalVariable,
-                instrResult.debugEventsInfo
-            )
-        );
+        recipe.push(...insertInvChecks(transCtx, instrResult, annotations, contract, body));
 
         return [checker, recipe];
     }
@@ -1461,8 +1420,6 @@ export class FunctionInstrumenter {
      */
     instrument(
         ctx: InstrumentationContext,
-        typeEnv: TypeEnv,
-        semInfo: SemMap,
         allAnnotations: AnnotationMetaData[],
         contract: ContractDefinition,
         fn: FunctionDefinition,
@@ -1487,7 +1444,7 @@ export class FunctionInstrumenter {
             `Expected stub block for ${stub.name} have a single statement (call to original function), not ${body.vStatements.length}`
         );
 
-        const transCtx = new TranspilingContext(typeEnv, semInfo, stub, ctx);
+        const transCtx = ctx.getTranspilingCtx(stub);
 
         const instrResult = generateExpressions(annotations, transCtx);
 
@@ -1504,10 +1461,6 @@ export class FunctionInstrumenter {
             isChangingState(stub) &&
             fn.kind !== FunctionKind.Fallback;
 
-        if (instrResult.struct.vMembers.length > 0 || (checkStateInvs && isPublic(stub))) {
-            recipe.push(...insertVarsStruct(ctx, instrResult, contract, body));
-        }
-
         for (const dbgInfo of instrResult.debugEventsInfo) {
             if (dbgInfo !== undefined) {
                 recipe.push(new InsertEvent(factory, contract, dbgInfo[0]));
@@ -1520,19 +1473,7 @@ export class FunctionInstrumenter {
             );
         }
 
-        recipe.push(
-            ...insertAssignments(factory, instrResult.oldAssignments, body, originalCall),
-            ...insertAssignments(factory, instrResult.newAssignments, body),
-            ...insertInvChecks(
-                transCtx,
-                instrResult.transpiledPredicates,
-                annotations,
-                contract,
-                body,
-                instrResult.structLocalVariable,
-                instrResult.debugEventsInfo
-            )
-        );
+        recipe.push(...insertInvChecks(transCtx, instrResult, annotations, contract, body));
 
         if (checkStateInvs) {
             recipe.push(...this.insertExitMarker(factory, instrResult, contract, stub, transCtx));
@@ -1568,7 +1509,7 @@ export class FunctionInstrumenter {
             recipe.push(new InsertStatement(factory, enter, "before", body, originalCall));
         } else if (isPublic(stub)) {
             transCtx.addBinding(
-                transCtx.checkInvsFlag,
+                instrCtx.checkInvsFlag,
                 factory.makeElementaryTypeName("<missing>", "bool")
             );
 
@@ -1576,12 +1517,7 @@ export class FunctionInstrumenter {
                 factory.makeAssignment(
                     "<missing>",
                     "=",
-                    factory.makeMemberAccess(
-                        "<missing>",
-                        factory.makeIdentifierFor(instrResult.structLocalVariable),
-                        transCtx.checkInvsFlag,
-                        -1
-                    ),
+                    transCtx.refBinding(instrCtx.checkInvsFlag),
                     factory.makeIdentifier("<missing>", instrCtx.outOfContractFlagName, -1)
                 )
             );
@@ -1629,12 +1565,7 @@ export class FunctionInstrumenter {
 
         if (isPublic(stub)) {
             const ifStmt = factory.makeIfStatement(
-                factory.makeMemberAccess(
-                    "bool",
-                    factory.makeIdentifierFor(instrResult.structLocalVariable),
-                    transCtx.checkInvsFlag,
-                    -1
-                ),
+                transCtx.refBinding(instrCtx.checkInvsFlag),
                 checkInvsCall
             );
 
@@ -1651,12 +1582,7 @@ export class FunctionInstrumenter {
                 factory.makeIdentifier("<missing>", instrCtx.outOfContractFlagName, -1),
                 stub.visibility === FunctionVisibility.External
                     ? factory.makeLiteral("bool", LiteralKind.Bool, "", "true")
-                    : factory.makeMemberAccess(
-                          "bool",
-                          factory.makeIdentifierFor(instrResult.structLocalVariable),
-                          transCtx.checkInvsFlag,
-                          -1
-                      )
+                    : transCtx.refBinding(instrCtx.checkInvsFlag)
             )
         );
 
@@ -1665,4 +1591,36 @@ export class FunctionInstrumenter {
 
         return recipe;
     }
+}
+
+/**
+ * Return the constructor of `contract`. If there is no constructor defined,
+ * add an empty public constructor and return it.
+ */
+export function getOrAddConstructor(
+    contract: ContractDefinition,
+    factory: ASTNodeFactory
+): FunctionDefinition {
+    if (contract.vConstructor !== undefined) {
+        return contract.vConstructor;
+    }
+
+    const emptyConstructor = factory.makeFunctionDefinition(
+        contract.id,
+        FunctionKind.Constructor,
+        "",
+        false,
+        FunctionVisibility.Public,
+        FunctionStateMutability.NonPayable,
+        true,
+        factory.makeParameterList([]),
+        factory.makeParameterList([]),
+        [],
+        undefined,
+        factory.makeBlock([])
+    );
+
+    contract.appendChild(emptyConstructor);
+
+    return emptyConstructor;
 }

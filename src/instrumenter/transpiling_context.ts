@@ -1,9 +1,12 @@
 import {
     ASTNodeFactory,
+    Block,
     ContractDefinition,
     DataLocation,
+    Expression,
     FunctionDefinition,
     FunctionVisibility,
+    MemberAccess,
     Mutability,
     StateVariableVisibility,
     StructDefinition,
@@ -14,6 +17,7 @@ import { SId, SLet, SUnaryOperation, SUserFunctionDefinition } from "../spec-lan
 import { SemMap, TypeEnv } from "../spec-lang/tc";
 import { assert } from "../util";
 import { InstrumentationContext } from "./instrumentation_context";
+import { makeTypeString } from "./type_string";
 
 /**
  * Class containing all the context necessary to transpile
@@ -23,13 +27,32 @@ import { InstrumentationContext } from "./instrumentation_context";
  * binding names generated while transpiling the expressions.
  */
 export class TranspilingContext {
-    private static firstInstance = true;
+    /**
+     * Map from 'binding keys' to the actual temporary binding names. 'binding keys' uniquely identify
+     * the location where a given temporary is generated. We use this 2-level mapping to avoid name collisions
+     */
     private bindingMap: Map<string, string> = new Map();
-    public readonly scratchField = "__mstore_scratch__";
-    public readonly checkInvsFlag = "__scribble_check_invs_at_end";
-    public readonly bindingsStructDef: StructDefinition;
-    public readonly bindingsVar: VariableDeclaration;
-    public readonly factory: ASTNodeFactory;
+    /**
+     * Map from a binding name to the corresponding `VariableDeclaration` for the member field for this binding.
+     */
+    private bindingDefMap: Map<string, VariableDeclaration> = new Map();
+    /**
+     * A ref-counter for how many times the temporary bindings struct and temporary bindings var have been used.
+     * As on optimization we only emit those in `finalize()` only if `varRefc > 0`.
+     */
+    private varRefc = 0;
+    /**
+     * A struct definition containing any temporary values used in the compilation of this context
+     */
+    private bindingsStructDef: StructDefinition;
+    /**
+     * The declaration of a local var of type `this.bindingsStructDef` used for temporary values.
+     */
+    private bindingsVar: VariableDeclaration;
+
+    public get factory(): ASTNodeFactory {
+        return this.instrCtx.factory;
+    }
 
     constructor(
         public readonly typeEnv: TypeEnv,
@@ -37,8 +60,6 @@ export class TranspilingContext {
         public readonly container: FunctionDefinition,
         public readonly instrCtx: InstrumentationContext
     ) {
-        this.factory = instrCtx.factory;
-
         // Create the StructDefinition for temporary bindings.
         const contract = this.container.vScope;
         assert(
@@ -56,6 +77,12 @@ export class TranspilingContext {
             []
         );
 
+        const bindingsVarType = this.factory.makeUserDefinedTypeName(
+            "<missing>",
+            structName,
+            this.bindingsStructDef.id
+        );
+
         // Create the local struct variable where the temporary bindigngs live
         this.bindingsVar = this.factory.makeVariableDeclaration(
             false,
@@ -66,17 +93,39 @@ export class TranspilingContext {
             DataLocation.Memory,
             StateVariableVisibility.Default,
             Mutability.Mutable,
-            "<missing>",
+            makeTypeString(bindingsVarType, DataLocation.Memory),
             undefined,
-            this.factory.makeUserDefinedTypeName("<missing>", structName, this.bindingsStructDef.id)
+            bindingsVarType
         );
+    }
 
-        // Make sure that on the first run we reserve this.scratchField and this.checkInvsFlag as field names.
-        if (TranspilingContext.firstInstance) {
-            TranspilingContext.firstInstance = false;
-            this.instrCtx.nameGenerator.getFresh(this.scratchField, true);
-            this.instrCtx.nameGenerator.getFresh(this.checkInvsFlag, true);
+    /**
+     * When interposing on tuple assignments we generate temporary variables for components of the lhs of the tuple. E.g. for:
+     *
+     * ```
+     *     (x, (a.y, z[1])) = ....
+     * ```
+     *
+     * We would generate:
+     *
+     * ```
+     *     (_v.tmp1, (_v.tmp2, _v.tmp3)) = ....
+     *     z[1] = _v.tmp3;
+     *     a.y = _v.tmp2;
+     *     x = _v.tmp1;
+     * ```
+     *
+     * This is used for state var update interposing.
+     */
+    getTupleAssignmentBinding(tupleComp: Expression): string {
+        const key = `tuple_temp_${tupleComp.id}`;
+        if (!this.bindingMap.has(key)) {
+            const fieldName = this.instrCtx.nameGenerator.getFresh(`tuple_tmp_`);
+            this.bindingMap.set(key, fieldName);
+            return fieldName;
         }
+
+        return this.bindingMap.get(key) as string;
     }
 
     /**
@@ -152,7 +201,12 @@ export class TranspilingContext {
         return res;
     }
 
+    /**
+     * Add a new binding named `name` with type `type` to the temporary struct.
+     */
     addBinding(name: string, type: TypeName): VariableDeclaration {
+        assert(!this.bindingDefMap.has(name), `Binding ${name} already defined.`);
+
         const decl = this.factory.makeVariableDeclaration(
             false,
             false,
@@ -167,7 +221,52 @@ export class TranspilingContext {
             type
         );
 
+        this.bindingDefMap.set(name, decl);
         this.bindingsStructDef.appendChild(decl);
         return decl;
+    }
+
+    /**
+     * Return an ASTNode (MemberAccess) referring to a particular binding.
+     */
+    refBinding(name: string): MemberAccess {
+        const member = this.bindingDefMap.get(name);
+        assert(member !== undefined, `No temp binding ${name} defined`);
+
+        this.varRefc++;
+        return this.factory.makeMemberAccess(
+            makeTypeString(member.vType as TypeName, DataLocation.Memory),
+            this.factory.makeIdentifierFor(this.bindingsVar),
+            name,
+            member.id
+        );
+    }
+
+    /**
+     * Return an `SId` refering to the temporary bindings local var. (set defSite accordingly)
+     */
+    getBindingVarSId(): SId {
+        const res = new SId(this.bindingsVar.name);
+        res.defSite = this.bindingsVar;
+        this.varRefc++;
+        return res;
+    }
+
+    /**
+     * Finalize this context. Currently adds the temporaries StructDef and local var if they are neccessary
+     */
+    finalize(): void {
+        if (this.varRefc == 0) {
+            return;
+        }
+
+        const contract = this.container.parent;
+        assert(contract instanceof ContractDefinition, ``);
+        contract.appendChild(this.bindingsStructDef);
+        const block = this.container.vBody as Block;
+        const localVarStmt = this.factory.makeVariableDeclarationStatement([], [this.bindingsVar]);
+
+        this.instrCtx.addGeneralInstrumentation(localVarStmt);
+        block.insertBefore(localVarStmt, block.children[0]);
     }
 }

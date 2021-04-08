@@ -1,6 +1,6 @@
 #!/usr/bin/env node
 import fse from "fs-extra";
-import path from "path";
+import { dirname, relative, join } from "path";
 import {
     ASTContext,
     ASTNode,
@@ -28,45 +28,45 @@ import {
     UserDefinedTypeName,
     VariableDeclaration
 } from "solc-typed-ast";
+import { findAliasedStateVars, findStateVarUpdates, replaceNode, UnsupportedConstruct } from "..";
 import { print, rewriteImports } from "../ast_to_source_printer";
 import {
-    AnnotationExtractor,
-    AnnotationMetaData,
     PropertyMetaData,
     SyntaxError,
     UnsupportedByTargetError,
-    UserFunctionDefinitionMetaData
+    AnnotationMetaData,
+    UserFunctionDefinitionMetaData,
+    buildAnnotationMap,
+    AnnotationMap,
+    gatherFunctionAnnotations,
+    AnnotationFilterOptions
 } from "../instrumenter/annotations";
 import { getCallGraph } from "../instrumenter/callgraph";
-import { CHA, chaDFS, getCHA } from "../instrumenter/cha";
+import { CHA, getCHA } from "../instrumenter/cha";
 import {
-    AnnotationFilterOptions,
     ContractInstrumenter,
     FunctionInstrumenter,
     generateUtilsContract
 } from "../instrumenter/instrument";
+import { instrumentStateVars } from "../instrumenter/state_var_instrumenter";
 import { InstrumentationContext } from "../instrumenter/instrumentation_context";
 import { merge } from "../rewriter/merge";
 import { isSane } from "../rewriter/sanity";
 import { Location, Range } from "../spec-lang/ast";
-import {
-    scAnnotation,
-    SemError,
-    SemMap,
-    STypeError,
-    STypingCtx,
-    tcAnnotation,
-    TypeEnv
-} from "../spec-lang/tc";
+import { scUnits, SemError, SemMap, STypeError, tcUnits, TypeEnv } from "../spec-lang/tc";
 import {
     assert,
-    buildOutputJSON,
-    generateInstrumentationMetadata,
     getOrInit,
     getScopeUnit,
     isChangingState,
     isExternallyVisible,
-    pp
+    pp,
+    buildOutputJSON,
+    generateInstrumentationMetadata,
+    flatten,
+    dedup,
+    topoSort,
+    getOr
 } from "../util";
 import cli from "./scribble_cli.json";
 
@@ -84,78 +84,20 @@ function prettyError(
     message: string,
     unit: SourceUnit,
     location: Range | Location,
-    annotation: string
+    annotation?: string
 ): never {
     const coords =
         "line" in location
             ? `${location.line}:${location.column}`
             : `${location.start.line}:${location.start.column}`;
 
-    const description = [
-        `${unit.absolutePath}:${coords} ${type}: ${message}`,
-        "In:",
-        annotation
-    ].join("\n\n");
+    const descriptionLines = [`${unit.absolutePath}:${coords} ${type}: ${message}`];
 
-    error(description);
-}
-
-function getAnnotationsOrDie(
-    node: ContractDefinition | FunctionDefinition,
-    sources: Map<string, string>,
-    filters: AnnotationFilterOptions
-): AnnotationMetaData[] {
-    try {
-        const extractor = new AnnotationExtractor();
-        const annotations = extractor.extract(node, sources, filters);
-
-        return annotations;
-    } catch (e) {
-        if (e instanceof SyntaxError || e instanceof UnsupportedByTargetError) {
-            const unit = getScopeUnit(node);
-
-            prettyError(e.constructor.name, e.message, unit, e.range.start, e.annotation);
-        }
-
-        throw e;
+    if (annotation !== undefined) {
+        descriptionLines.push("In:", annotation);
     }
-}
 
-function tcOrDie(
-    annotation: AnnotationMetaData,
-    ctx: STypingCtx,
-    typeEnv: TypeEnv,
-    semInfo: SemMap,
-    fn: FunctionDefinition | undefined,
-    contract: ContractDefinition,
-    source: string
-): void {
-    const unit = contract.vScope;
-    const annotNode = annotation.parsedAnnot;
-
-    try {
-        tcAnnotation(annotNode, ctx, typeEnv);
-        scAnnotation(annotNode, typeEnv, semInfo);
-    } catch (err) {
-        const scope = fn === undefined ? `${contract.name}` : `${contract.name}.${fn.name}`;
-
-        if (err instanceof STypeError || err instanceof SemError) {
-            const loc = err.loc();
-            let fileLoc;
-
-            if (annotation instanceof PropertyMetaData) {
-                fileLoc = annotation.predOffToFileLoc([loc.start.offset, loc.end.offset], source);
-            } else if (annotation instanceof UserFunctionDefinitionMetaData) {
-                fileLoc = annotation.bodyOffToFileLoc([loc.start.offset, loc.end.offset], source);
-            } else {
-                throw new Error(`NYI Annotation MD for ${annotation.parsedAnnot.pp()}`);
-            }
-
-            prettyError("TypeError", err.message, unit, fileLoc, annotation.original);
-        } else {
-            error(`Internal error in type-checking ${annotNode.pp()} of ${scope}: ${err.message}`);
-        }
-    }
+    error(descriptionLines.join("\n\n"));
 }
 
 function compile(
@@ -189,25 +131,6 @@ function compile(
         : compileSol(fileName, compilerVersion, remapping);
 }
 
-function computeContractInvs(
-    cha: CHA<ContractDefinition>,
-    filterOptions: AnnotationFilterOptions,
-    files: Map<string, string>,
-    contractAnnotMap: Map<ContractDefinition, AnnotationMetaData[]>
-): void {
-    chaDFS(cha, (contract: ContractDefinition): void => {
-        if (contractAnnotMap.has(contract)) {
-            return;
-        }
-
-        const annotations = getAnnotationsOrDie(contract, files, filterOptions);
-
-        if (annotations.length > 0) {
-            contractAnnotMap.set(contract, annotations);
-        }
-    });
-}
-
 /**
  * Not all contracts in the CHA need to have contract-wide invariants instrumentation.
  *
@@ -215,19 +138,20 @@ function computeContractInvs(
  * instrumentation IFF at least one contract in it's DAG has contract invariant annotations.
  *
  * @param cha - contract inheritance hierarchy
- * @param contractAnnotMap - map with extracted contract annotations
+ * @param annotMap - map with extracted contract annotations
  */
 function computeContractsNeedingInstr(
     cha: CHA<ContractDefinition>,
-    contractAnnotMap: Map<ContractDefinition, PropertyMetaData[]>
+    annotMap: AnnotationMap
 ): Set<ContractDefinition> {
     // Find the contracts needing instrumentaion by doing bfs starting from the annotated contracts
-    const wave = [...contractAnnotMap.entries()]
+    const wave = [...annotMap.entries()]
         .filter(
-            ([, annots]) => annots.filter((annot) => annot instanceof PropertyMetaData).length > 0
+            ([n, annots]) =>
+                n instanceof ContractDefinition &&
+                annots.filter((annot) => annot instanceof PropertyMetaData).length > 0
         )
         .map(([contract]) => contract);
-
     const visited = new Set<ContractDefinition>();
 
     while (wave.length > 0) {
@@ -250,17 +174,16 @@ function computeContractsNeedingInstr(
 
 function instrumentFiles(
     ctx: InstrumentationContext,
-    contractInvMap: Map<ContractDefinition, PropertyMetaData[]>,
+    annotMap: AnnotationMap,
     contractsNeedingInstr: Set<ContractDefinition>
 ): [SourceUnit[], SourceUnit[]] {
     const units = ctx.units;
-    const filters = ctx.filterOptions;
 
     const worklist: Array<
         [ContractDefinition, FunctionDefinition | undefined, AnnotationMetaData[]]
     > = [];
-    const typeEnv = new TypeEnv();
-    const semInfo: SemMap = new Map();
+    const stateVarsWithAnnot: VariableDeclaration[] = [];
+
     const changedSourceUnits: SourceUnit[] = [];
 
     for (const unit of units) {
@@ -270,31 +193,13 @@ function instrumentFiles(
 
         assert(contents !== undefined, `Missing source for ${unit.absolutePath}`);
 
-        for (const fun of unit.vFunctions) {
-            /**
-             * We call `getAnnotationsOrDie()` here to make sure there are no annotations on free functions.
-             */
-            getAnnotationsOrDie(fun, ctx.files, filters);
-        }
-
         for (const contract of unit.vContracts) {
-            const typeCtx: STypingCtx = [units, contract];
-
-            let contractAnnot = contractInvMap.get(contract);
-
-            if (contractAnnot === undefined) {
-                contractAnnot = [];
-            }
+            const contractAnnot = getOr(annotMap, contract, []);
+            const needsStateInvariantInstr = contractsNeedingInstr.has(contract);
 
             const userFuns = contractAnnot.filter(
                 (annot) => annot instanceof UserFunctionDefinitionMetaData
             );
-
-            for (const annot of contractAnnot) {
-                tcOrDie(annot, typeCtx, typeEnv, semInfo, undefined, contract, contents);
-            }
-
-            const needsStateInvariantInstr = contractsNeedingInstr.has(contract);
 
             // Nothing to instrument on interfaces
             if (contract.kind === ContractKind.Interface) {
@@ -303,12 +208,18 @@ function instrumentFiles(
 
             if (needsStateInvariantInstr || userFuns.length > 0) {
                 worklist.push([contract, undefined, contractAnnot]);
-                ctx.annotations.push(...contractAnnot);
                 changed = true;
                 assert(
                     ![ContractKind.Library, ContractKind.Interface].includes(contract.kind),
                     `Shouldn't be instrumenting ${contract.kind} ${contract.name} with contract invs`
                 );
+            }
+
+            for (const stateVar of contract.vStateVariables) {
+                const stateVarAnnots = getOr(annotMap, stateVar, []);
+                if (stateVarAnnots.length > 0) {
+                    stateVarsWithAnnot.push(stateVar);
+                }
             }
 
             for (const fun of contract.vFunctions) {
@@ -317,13 +228,7 @@ function instrumentFiles(
                     continue;
                 }
 
-                const typeCtx: STypingCtx = [units, contract, fun];
-                const annotations = getAnnotationsOrDie(fun, ctx.files, filters);
-
-                for (const annot of annotations) {
-                    tcOrDie(annot, typeCtx, typeEnv, semInfo, fun, contract, contents);
-                }
-
+                const annotations = gatherFunctionAnnotations(fun, annotMap);
                 /**
                  * We interpose on functions if either of these is true
                  *  a) They have annotations
@@ -342,7 +247,6 @@ function instrumentFiles(
                     changed = true;
 
                     worklist.push([contract, fun, annotations]);
-                    ctx.annotations.push(...annotations);
                 }
             }
         }
@@ -355,12 +259,10 @@ function instrumentFiles(
     const contractInstrumenter = new ContractInstrumenter();
     const functionInstrumenter = new FunctionInstrumenter();
 
-    for (const [contract, fn, annotations] of worklist) {
-        if (fn === undefined) {
+    for (const [contract, contractElement, annotations] of worklist) {
+        if (contractElement === undefined) {
             contractInstrumenter.instrument(
                 ctx,
-                typeEnv,
-                semInfo,
                 annotations,
                 contract,
                 contractsNeedingInstr.has(contract)
@@ -368,16 +270,22 @@ function instrumentFiles(
         } else {
             functionInstrumenter.instrument(
                 ctx,
-                typeEnv,
-                semInfo,
                 annotations,
                 contract,
-                fn,
+                contractElement,
                 contractsNeedingInstr.has(contract)
             );
         }
     }
 
+    if (stateVarsWithAnnot.length > 0) {
+        const aliasedStateVars = findAliasedStateVars(ctx.units);
+        const stateVarUpdates = findStateVarUpdates(ctx.units);
+
+        instrumentStateVars(ctx, annotMap, aliasedStateVars, stateVarUpdates);
+    }
+
+    ctx.finalize();
     return [units, changedSourceUnits];
 }
 
@@ -448,77 +356,6 @@ function getFQName(
 
         return scope.name + "." + def.name;
     }
-}
-
-/**
- * Replace the node `oldNode` in the tree with `newNode`.
- *
- * If `p` is the parent of `oldNode`, this function needs to find a property
- * `propName` of `p` such that `p[propName] === oldNode`. `ASTNode`s have both
- * own properties and getters/setters, so this function first:
- *
- * 1. Iterates over the own properties of `p`
- * 2. Walks the prototype chain of `p` iterating over all getters/setters
- *
- * Once found, it re-assigns `p[propName] = newNode` and sets
- * `newNode.parent=p` using `acceptChildren`. Since `children` is a getter
- * there is nothing further to do.
- *
- * @param oldNode - old node to replace
- * @param newNode - new node with which we are replacing it
- */
-function replaceNode(oldNode: ASTNode, newNode: ASTNode): void {
-    assert(oldNode.context === newNode.context, `Context mismatch`);
-    const parent = oldNode.parent;
-
-    if (!parent) return;
-
-    // First check if parent has an OWN property with the child
-    const ownProps = Object.getOwnPropertyDescriptors(parent);
-    for (const propName in ownProps) {
-        if (ownProps[propName].value === oldNode) {
-            const tmpObj: any = {};
-            tmpObj[propName] = newNode;
-
-            Object.assign(parent, tmpObj);
-            parent.acceptChildren();
-            return;
-        }
-    }
-
-    // If not, walk up the inheritance tree, looking for a getter/setter pair that matches
-    // this child
-    let proto = Object.getPrototypeOf(parent);
-
-    while (proto) {
-        for (const name of Object.getOwnPropertyNames(proto)) {
-            if (name === "__proto__") {
-                continue;
-            }
-
-            const descriptor = Object.getOwnPropertyDescriptor(proto, name);
-
-            if (
-                descriptor &&
-                typeof descriptor.get === "function" &&
-                typeof descriptor.set === "function"
-            ) {
-                const val = descriptor.get.call(parent);
-                if (val === oldNode) {
-                    descriptor.set.call(parent, newNode);
-                    parent.acceptChildren();
-                    return;
-                }
-            }
-        }
-
-        proto = Object.getPrototypeOf(proto);
-    }
-
-    assert(
-        false,
-        `Couldn't find child ${oldNode.type}#${oldNode.id} under parent ${parent.type}#${parent.id}`
-    );
 }
 
 /**
@@ -630,63 +467,31 @@ function oneOf(input: any, options: string[], msg: string): any {
 }
 
 /**
- * Sort the passed in source-units in topological order of their imports.
+ * Sort source units in topological order based on their imports.
  *
- * @param units list of source-units to sort
+ * @param units - units to sort
  */
-function topoSort(units: SourceUnit[]): SourceUnit[] {
-    // Map from a source unit A, to the set of source units that import A
-    const importersM = new Map<SourceUnit, Set<SourceUnit>>();
-    // Map from a source unit A, to the number of different source units that A imports
-    const nImportsM = new Map<SourceUnit, number>();
+function sortUnits(units: SourceUnit[]): SourceUnit[] {
     // Map from absolute paths to source units
     const pathMap = new Map(units.map((unit) => [unit.absolutePath, unit]));
+    // Partial order of imports
+    const order: Array<[SourceUnit, SourceUnit]> = [];
 
     for (const unit of units) {
-        const importees: Set<SourceUnit> = new Set();
-
+        const seen = new Set<SourceUnit>();
         for (const imp of unit.vImportDirectives) {
             const importee = pathMap.get(imp.vSourceUnit.absolutePath);
             assert(importee !== undefined, ``);
-            importees.add(importee);
-
-            const importers = getOrInit(importee, importersM, new Set());
-
-            importers.add(unit);
-
-            importersM.set(imp.vSourceUnit, importers);
-        }
-
-        nImportsM.set(unit, importees.size);
-    }
-
-    const sorted: SourceUnit[] = [];
-    const q = units.filter((unit) => (nImportsM.get(unit) as number) === 0);
-
-    while (q.length > 0) {
-        const cur = q.shift() as SourceUnit;
-
-        sorted.push(cur);
-
-        for (const importer of getOrInit(cur, importersM, new Set())) {
-            const newNImports = (nImportsM.get(importer) as number) - 1;
-
-            assert(newNImports >= 0, ``);
-
-            nImportsM.set(importer, newNImports);
-
-            if (newNImports === 0) {
-                q.push(importer);
+            // Avoid duplicats in order
+            if (seen.has(importee)) {
+                continue;
             }
+            seen.add(importee);
+            order.push([importee, unit]);
         }
     }
 
-    assert(
-        sorted.length === units.length,
-        `Topo sort didn't preserve list: sorted - ${sorted.length} original - ${units.length}`
-    );
-
-    return sorted;
+    return topoSort(units, order);
 }
 
 function writeOut(contents: string, fileName: string) {
@@ -707,12 +512,9 @@ function makeUtilsUnit(
     let utilsAbsPath = "__scribble_ReentrancyUtils.sol";
 
     if (utilsOutputDir !== "--") {
-        utilsPath = path.join(utilsOutputDir, "__scribble_ReentrancyUtils.sol");
+        utilsPath = join(utilsOutputDir, "__scribble_ReentrancyUtils.sol");
 
-        utilsAbsPath = path.join(
-            fse.realpathSync(utilsOutputDir),
-            "__scribble_ReentrancyUtils.sol"
-        );
+        utilsAbsPath = join(fse.realpathSync(utilsOutputDir), "__scribble_ReentrancyUtils.sol");
     }
 
     return generateUtilsContract(factory, utilsPath, utilsAbsPath, version, ctx);
@@ -757,7 +559,7 @@ function pickVersion(versionUsedMap: Map<string, string>): string {
     return versions[0];
 }
 
-const pkg = fse.readJSONSync(path.join(__dirname, "../../package.json"), { encoding: "utf-8" });
+const pkg = fse.readJSONSync(join(__dirname, "../../package.json"), { encoding: "utf-8" });
 
 if ("version" in options) {
     console.log(pkg.version);
@@ -794,7 +596,7 @@ if ("version" in options) {
 
     const targetDir =
         targets[0] !== "--"
-            ? path.relative(process.cwd(), path.dirname(fse.realpathSync(targets[0])))
+            ? relative(process.cwd(), dirname(fse.realpathSync(targets[0])))
             : targets[0];
     const utilsOutputDir =
         options["utils-output-path"] === undefined ? targetDir : options["utils-output-path"];
@@ -867,10 +669,7 @@ if ("version" in options) {
                 }
 
                 if (utilsOutputDir !== "--") {
-                    const helperFileName = path.join(
-                        utilsOutputDir,
-                        "__scribble_ReentrancyUtils.sol"
-                    );
+                    const helperFileName = join(utilsOutputDir, "__scribble_ReentrancyUtils.sol");
 
                     if (fse.existsSync(helperFileName)) {
                         instrumentationFiles.add(helperFileName);
@@ -933,7 +732,6 @@ if ("version" in options) {
          * Merge the CHAs and file maps computed for each target
          */
         const contentsMap: Map<string, string> = new Map();
-        const contractsInvMap: Map<ContractDefinition, PropertyMetaData[]> = new Map();
 
         const groups: SourceUnit[][] = targets.map(
             (target) => groupsMap.get(target) as SourceUnit[]
@@ -967,14 +765,62 @@ if ("version" in options) {
 
         const cha = getCHA(mergedUnits);
         const callgraph = getCallGraph(mergedUnits);
-        computeContractInvs(cha, filterOptions, contentsMap, contractsInvMap);
+        let annotMap: AnnotationMap;
+
+        try {
+            annotMap = buildAnnotationMap(mergedUnits, contentsMap, filterOptions);
+        } catch (e) {
+            if (e instanceof SyntaxError || e instanceof UnsupportedByTargetError) {
+                const unit = getScopeUnit(e.target);
+
+                prettyError(e.constructor.name, e.message, unit, e.range.start, e.annotation);
+            }
+
+            throw e;
+        }
+
+        const typeEnv = new TypeEnv();
+        const semMap: SemMap = new Map();
+
+        try {
+            // Type check
+            tcUnits(mergedUnits, annotMap, typeEnv);
+            // Semantic check
+            scUnits(mergedUnits, annotMap, typeEnv, semMap);
+        } catch (err) {
+            if (err instanceof STypeError || err instanceof SemError) {
+                const annotation = err.annotationMetaData;
+                const unit = annotation.target.getClosestParentByType(SourceUnit) as SourceUnit;
+                const source = contentsMap.get(unit.sourceEntryKey) as string;
+                const loc = err.loc();
+                let fileLoc;
+
+                if (annotation instanceof PropertyMetaData) {
+                    fileLoc = annotation.predOffToFileLoc(
+                        [loc.start.offset, loc.end.offset],
+                        source
+                    );
+                } else if (annotation instanceof UserFunctionDefinitionMetaData) {
+                    fileLoc = annotation.bodyOffToFileLoc(
+                        [loc.start.offset, loc.end.offset],
+                        source
+                    );
+                } else {
+                    throw new Error(`NYI Annotation MD for ${annotation.parsedAnnot.pp()}`);
+                }
+
+                prettyError("TypeError", err.message, unit, fileLoc, annotation.original);
+            } else {
+                error(`Internal error in type-checking: ${err.message}`);
+            }
+        }
 
         /**
          * Walk over the computed CHA and compute:
          *  1. The set of contracts that have contract invariants (as the map contractInvs)
          *  2. The set of contracts that NEED contract instrumentation (because they, a parent of theirs, or a child of theirs has contract invariants)
          */
-        const contractsNeedingInstr = computeContractsNeedingInstr(cha, contractsInvMap);
+        const contractsNeedingInstr = computeContractsNeedingInstr(cha, annotMap);
 
         const compilerVersionUsed = pickVersion(compilerVersionUsedMap);
 
@@ -998,22 +844,30 @@ if ("version" in options) {
             cha,
             new Set<FunctionDefinition>(),
             filterOptions,
-            [],
+            dedup(flatten(annotMap.values())),
             new Map(),
             contentsMap,
             compilerVersionUsed,
             debugEvents,
             new Map(),
-            outputMode
+            outputMode,
+            typeEnv,
+            semMap
         );
 
         const utilsUnit = makeUtilsUnit(utilsOutputDir, factory, compilerVersionUsed, instrCtx);
 
-        const [allUnits, changedUnits] = instrumentFiles(
-            instrCtx,
-            contractsInvMap,
-            contractsNeedingInstr
-        );
+        let allUnits: SourceUnit[];
+        let changedUnits: SourceUnit[];
+
+        try {
+            [allUnits, changedUnits] = instrumentFiles(instrCtx, annotMap, contractsNeedingInstr);
+        } catch (e) {
+            if (e instanceof UnsupportedConstruct) {
+                prettyError(e.name, e.message, e.unit, e.range);
+            }
+            throw e;
+        }
 
         allUnits.push(utilsUnit);
 
@@ -1035,7 +889,7 @@ if ("version" in options) {
             // For flat and json modes, we need to flatten out the output. This goes in several steps.
 
             // 1. Sort units in topological order by imports
-            const sortedUnits = topoSort(allUnits);
+            const sortedUnits = sortUnits(allUnits);
 
             // 2. Strip import and compiler pragma directives
             sortedUnits.forEach((unit) => {

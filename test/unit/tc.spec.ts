@@ -1,5 +1,4 @@
 import {
-    ContractDefinition,
     DataLocation,
     FunctionStateMutability,
     FunctionVisibility,
@@ -28,9 +27,9 @@ import { SBoolType } from "../../src/spec-lang/ast/types/bool";
 import { parseAnnotation, parseExpression as parse } from "../../src/spec-lang/expr_parser";
 import { STypingCtx, tc, tcAnnotation, TypeEnv } from "../../src/spec-lang/tc";
 import { eq } from "../../src/util/struct_equality";
-import { findContract, findFunction, toAst } from "../integration/utils";
+import { getTarget, getTypeCtx, toAst } from "../integration/utils";
 import { SStringLiteralType } from "../../src/spec-lang/ast/types/string_literal";
-import { assert } from "../../src/util";
+import { assert, pp } from "../../src/util";
 
 export type LocationDesc = [string, string | undefined];
 
@@ -257,9 +256,9 @@ describe("TypeChecker Expression Unit Tests", () => {
                 ],
                 ["mBy", ["Foo", "foo"], new SPointer(new SBytes(), DataLocation.Memory)],
                 ["mS", ["Foo", "foo"], new SPointer(new SString(), DataLocation.Memory)],
-                ["sBy[1]", ["Foo", undefined], new SIntType(8, false)],
-                ["sBy[sV]", ["Foo", undefined], new SIntType(8, false)],
-                ["sBy[sV1]", ["Foo", undefined], new SIntType(8, false)],
+                ["sBy[1]", ["Foo", undefined], new SFixedBytes(1)],
+                ["sBy[sV]", ["Foo", undefined], new SFixedBytes(1)],
+                ["sBy[sV1]", ["Foo", undefined], new SFixedBytes(1)],
                 ["sFB32[4]", ["Foo", undefined], new SIntType(8, false)],
                 ["sFB32[sV1]", ["Foo", undefined], new SIntType(8, false)],
                 ["sUArr[sV]", ["Foo", undefined], new SIntType(256, false)],
@@ -567,10 +566,7 @@ describe("TypeChecker Expression Unit Tests", () => {
                 ["msg.any", ["Foo", undefined]],
                 ["tx.any", ["Foo", undefined]],
                 ["$result", ["Foo", undefined]],
-                ["$result", ["Foo", "noReturn"]],
-                ["old(5)", ["Foo", undefined]],
-                ["old(sV1)", ["Foo", undefined]],
-                ["old(sA)", ["Foo", undefined]]
+                ["$result", ["Foo", "noReturn"]]
             ]
         ]
     ];
@@ -586,11 +582,7 @@ describe("TypeChecker Expression Unit Tests", () => {
             for (const [specString, loc, expectedType] of testCases) {
                 it(`Typecheck for ${specString} returns ${expectedType.pp()}`, () => {
                     const parsed = parse(specString);
-                    const ctx: STypingCtx = [sources, findContract(loc[0], sources)];
-                    if (loc[1] !== undefined) {
-                        ctx.push(findFunction(loc[1], ctx[1] as ContractDefinition));
-                    }
-                    const type = tc(parsed, ctx);
+                    const type = tc(parsed, getTypeCtx(loc, sources));
                     Logger.debug(
                         `[${specString}]: Got: ${type.pp()} expected: ${expectedType.pp()}`
                     );
@@ -611,11 +603,7 @@ describe("TypeChecker Expression Unit Tests", () => {
             for (const [specString, loc] of testCases) {
                 it(`Typecheck for ${specString} throws`, () => {
                     const parsed = parse(specString);
-                    const ctx: STypingCtx = [sources, findContract(loc[0], sources)];
-                    if (loc[1] !== undefined) {
-                        ctx.push(findFunction(loc[1], ctx[1] as ContractDefinition));
-                    }
-                    expect(tc.bind(tc, parsed, ctx)).toThrow();
+                    expect(tc.bind(tc, parsed, getTypeCtx(loc, sources))).toThrow();
                 });
             }
         });
@@ -649,9 +637,24 @@ describe("TypeChecker Annotation Tests", () => {
                  }
              }
 
+
              contract Unrelated {
                  int64 z;
+                 int64 w;
                  uint[] arr;
+
+                 struct SArr {
+                    uint[] arr;
+                 }
+
+                 struct SStruct {
+                    SArr sArr;
+                 }
+
+                 mapping (bytes => uint) m1;
+                 mapping (address => mapping (bytes => bool)) m2;
+                 mapping (address => SStruct) m3;
+                 mapping (string => bool) m4;
              }`,
             [
                 ["if_succeeds x > 0;", ["Base", "plus"], undefined, true],
@@ -721,7 +724,43 @@ describe("TypeChecker Annotation Tests", () => {
                         FunctionStateMutability.View
                     ),
                     false
-                ]
+                ],
+                ["if_updated z>0;", ["Unrelated", "z"], new SBoolType(), true],
+                ["if_updated z>w;", ["Unrelated", "z"], new SBoolType(), true],
+                ["if_updated true;", ["Unrelated", "arr"], new SBoolType(), true],
+                ["if_updated arr.length > 0;", ["Unrelated", "arr"], new SBoolType(), true],
+                ["if_assigned[i] arr[i+1] == 1;", ["Unrelated", "arr"], new SBoolType(), true],
+                [
+                    "if_assigned[bts] bts[0] == byte(0x01);",
+                    ["Unrelated", "m1"],
+                    new SBoolType(),
+                    true
+                ],
+                [
+                    "if_assigned[addr] addr == address(0x0);",
+                    ["Unrelated", "m2"],
+                    new SBoolType(),
+                    true
+                ],
+                [
+                    "if_assigned[addr][bts] addr == address(0x0) && bts[0] == byte(0x01);",
+                    ["Unrelated", "m2"],
+                    new SBoolType(),
+                    true
+                ],
+                [
+                    "if_assigned[addr].sArr.arr[x] addr == address(0x0) && x <= 10;",
+                    ["Unrelated", "m3"],
+                    new SBoolType(),
+                    true
+                ],
+                [
+                    "if_assigned[str] bytes(str)[0] == byte(0x00);",
+                    ["Unrelated", "m4"],
+                    new SBoolType(),
+                    true
+                ],
+                ["if_updated old(z)>0;", ["Unrelated", "z"], new SBoolType(), true]
             ]
         ]
     ];
@@ -755,18 +794,37 @@ describe("TypeChecker Annotation Tests", () => {
              contract Unrelated {
                  int64 z;
                  uint[] arr;
+
+                 struct SArr {
+                    uint[] arr;
+                 }
+
+                 struct SStruct {
+                    SArr sArr;
+                 }
+
+                 mapping (string => uint) m1;
+                 mapping (address => mapping (string => bool)) m2;
+                
              }`,
             [["define user_plusOne(uint x) uint = x+1;", ["Base", undefined]]],
             [
                 ["if_succeeds z > 0;", ["Base", "plus"]],
-                ["invariant old(x) + 1 == x;", ["Base", undefined]],
                 ["invariant $result > 0;", ["Base", undefined]],
                 ["define foo() uint = true;", ["Base", undefined]],
                 ["define foo() uint = x;", ["Unrelated", undefined]],
                 ["define foo() uint = 1;", ["Base", "plus"]],
-                ["define foo() uint = old(x);", ["Base", undefined]],
                 ["define foo() uint = $result;", ["Base", undefined]],
-                ["define foo(uint t) uint = user_plusOne(t);", ["Unrelated", undefined]]
+                ["define foo(uint t) uint = user_plusOne(t);", ["Unrelated", undefined]],
+                ["if_assigned.foo true;", ["Unrelated", "z"]],
+                ["if_assigned[x] true;", ["Unrelated", "z"]],
+                ["if_assigned.foo true;", ["Unrelated", "arr"]],
+                ["if_assigned[x][y] true;", ["Unrelated", "arr"]],
+                ["if_assigned[bts][bad] bts[0] == byte(0x01);", ["Unrelated", "m1"]],
+                [
+                    "if_assigned[bts][addr] addr == address(0x0) && bts[0] == byte(0x01);",
+                    ["Unrelated", "m2"]
+                ]
             ]
         ]
     ];
@@ -783,16 +841,14 @@ describe("TypeChecker Annotation Tests", () => {
             for (const [specString, loc, expectedType, clearFunsBefore] of testCases) {
                 it(`Typecheck for ${specString} succeeds.`, () => {
                     const parsed = parseAnnotation(specString);
-                    const ctx: STypingCtx = [sources, findContract(loc[0], sources)];
-                    if (loc[1] !== undefined) {
-                        ctx.push(findFunction(loc[1], ctx[1] as ContractDefinition));
-                    }
+                    const ctx: STypingCtx = getTypeCtx(loc, sources, parsed);
+                    const target = getTarget(ctx);
 
                     if (clearFunsBefore) {
                         typeEnv = new TypeEnv();
                     }
 
-                    tcAnnotation(parsed, ctx, typeEnv);
+                    tcAnnotation(parsed, ctx, target, typeEnv);
                     if (parsed instanceof SUserFunctionDefinition) {
                         assert(expectedType !== undefined, ``);
                         const received = tc(new SId(parsed.name.name), ctx, typeEnv);
@@ -815,23 +871,24 @@ describe("TypeChecker Annotation Tests", () => {
                 [sources] = toAst(fileName, content);
                 // Setup any definitions
                 for (const [specString, loc] of setupSteps) {
+                    const ctx: STypingCtx = getTypeCtx(loc, sources);
+                    const target = getTarget(ctx);
                     const parsed = parseAnnotation(specString);
-                    const ctx: STypingCtx = [sources, findContract(loc[0], sources)];
-                    if (loc[1] !== undefined) {
-                        ctx.push(findFunction(loc[1], ctx[1] as ContractDefinition));
-                    }
-                    tcAnnotation(parsed, ctx);
+                    tcAnnotation(parsed, ctx, target);
                 }
             });
 
             for (const [specString, loc] of testCases) {
                 it(`Typecheck for ${specString} throws`, () => {
                     const parsed = parseAnnotation(specString);
-                    const ctx: STypingCtx = [sources, findContract(loc[0], sources)];
-                    if (loc[1] !== undefined) {
-                        ctx.push(findFunction(loc[1], ctx[1] as ContractDefinition));
-                    }
-                    expect(tcAnnotation.bind(tcAnnotation, parsed, ctx, typeEnv)).toThrow();
+                    const ctx: STypingCtx = getTypeCtx(loc, sources, parsed);
+                    const target = getTarget(ctx);
+                    Logger.debug(
+                        `[${specString}]: Expect typechecking of ${parsed.pp()} in ctx ${pp(
+                            ctx
+                        )} to throw`
+                    );
+                    expect(tcAnnotation.bind(tcAnnotation, parsed, ctx, target, typeEnv)).toThrow();
                 });
             }
         });

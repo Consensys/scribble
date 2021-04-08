@@ -657,3 +657,85 @@ export function interposeCall(
 
     return [recipe, wrapper];
 }
+
+/**
+ * Replace the node `oldNode` in the tree with `newNode`.
+ *
+ * If `p` is the parent of `oldNode`, this function needs to find a property
+ * `propName` of `p` such that `p[propName] === oldNode`. `ASTNode`s have both
+ * own properties and getters/setters, so this function first:
+ *
+ * 1. Iterates over the own properties of `p`
+ * 2. Walks the prototype chain of `p` iterating over all getters/setters
+ *
+ * Once found, it re-assigns `p[propName] = newNode` and sets
+ * `newNode.parent=p` using `acceptChildren`. Since `children` is a getter
+ * there is nothing further to do.
+ *
+ * @param oldNode - old node to replace
+ * @param newNode - new node with which we are replacing it
+ */
+export function replaceNode(oldNode: ASTNode, newNode: ASTNode): void {
+    assert(oldNode.context === newNode.context, `Context mismatch`);
+    const parent = oldNode.parent;
+
+    if (!parent) return;
+
+    // First check if parent has an OWN property with the child
+    const ownProps = Object.getOwnPropertyDescriptors(parent);
+    for (const propName in ownProps) {
+        const propVal = ownProps[propName].value;
+        if (propVal === oldNode) {
+            const tmpObj: any = {};
+            tmpObj[propName] = newNode;
+
+            Object.assign(parent, tmpObj);
+            parent.acceptChildren();
+            return;
+        }
+
+        if (propVal instanceof Array) {
+            for (let i = 0; i < propVal.length; i++) {
+                if (propVal[i] === oldNode) {
+                    propVal[i] = newNode;
+                    parent.acceptChildren();
+                    return;
+                }
+            }
+        }
+    }
+
+    // If not, walk up the inheritance tree, looking for a getter/setter pair that matches
+    // this child
+    let proto = Object.getPrototypeOf(parent);
+
+    while (proto) {
+        for (const name of Object.getOwnPropertyNames(proto)) {
+            if (name === "__proto__") {
+                continue;
+            }
+
+            const descriptor = Object.getOwnPropertyDescriptor(proto, name);
+
+            if (
+                descriptor &&
+                typeof descriptor.get === "function" &&
+                typeof descriptor.set === "function"
+            ) {
+                const val = descriptor.get.call(parent);
+                if (val === oldNode) {
+                    descriptor.set.call(parent, newNode);
+                    parent.acceptChildren();
+                    return;
+                }
+            }
+        }
+
+        proto = Object.getPrototypeOf(proto);
+    }
+
+    assert(
+        false,
+        `Couldn't find child ${oldNode.type}#${oldNode.id} under parent ${parent.type}#${parent.id}`
+    );
+}

@@ -13,6 +13,7 @@ import { PropertyMetaData } from "../instrumenter/annotations";
 import { InstrumentationContext } from "../instrumenter/instrumentation_context";
 import { Range } from "../spec-lang/ast";
 import { dedup, assert, pp } from ".";
+import { getOr } from "..";
 
 type TargetType = "function" | "variable" | "contract";
 
@@ -50,7 +51,6 @@ export type InstrumentationMetaData = {
  * - The third element is the file index of the source file containing the fragment in the source list.
  */
 export type SrcTriple = [number, number, number];
-
 export function parseSrcTriple(src: string): SrcTriple {
     return src.split(":").map((sNum) => Number.parseInt(sNum)) as SrcTriple;
 }
@@ -239,10 +239,11 @@ function generatePropertyMap(
         const propertySource = rangeToSrc(predRange, newUnitIdx);
         const annotationSource = rangeToSrc(annotationRange, newUnitIdx);
 
-        const instrumentationRanges = dedup(
-            (ctx.evaluationStatements.get(annotation) as ASTNode[]).map((node) => {
-                const src = newSrcMap.get(node);
+        const evalStmts = getOr(ctx.evaluationStatements, annotation, []);
 
+        const instrumentationRanges = dedup(
+            evalStmts.map((node) => {
+                const src = newSrcMap.get(node);
                 assert(
                     src !== undefined,
                     `Missing source for instrumentation node ${pp(node)} of annotation ${
@@ -251,18 +252,11 @@ function generatePropertyMap(
                 );
 
                 const instrFileIdx = getInstrFileIdx(node, ctx.outputMode, instrSourceList);
-
                 return `${src[0]}:${src[1]}:${instrFileIdx}`;
             })
         );
 
-        const annotationChecks = ctx.instrumentedCheck.get(annotation);
-
-        assert(
-            annotationChecks !== undefined,
-            `Missing check expression for ${annotation.original}`
-        );
-
+        const annotationChecks = getOr(ctx.instrumentedCheck, annotation, []);
         const checkRanges: string[] = dedup(
             annotationChecks.map((check) => {
                 const range = newSrcMap.get(check);
@@ -279,9 +273,7 @@ function generatePropertyMap(
             })
         );
 
-        const failureChecks = ctx.failureCheck.get(annotation);
-
-        assert(failureChecks !== undefined, `Missing assertion checks for ${annotation.original}`);
+        const failureChecks = getOr(ctx.failureCheck, annotation, []);
 
         const assertionRanges = dedup(
             failureChecks.map((check) => {
@@ -294,7 +286,6 @@ function generatePropertyMap(
                         annotation.original
                     }`
                 );
-
                 return `${range[0]}:${range[1]}:${annotationFileIdx}`;
             })
         );

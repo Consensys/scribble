@@ -9,11 +9,11 @@ import expect from "expect";
 import fse from "fs-extra";
 import { toAst, searchRecursive } from "./utils";
 import { scribble } from "./utils";
-import { InstrumentationMetaData, assert } from "../../src/util";
+import { InstrumentationMetaData, assert, pp } from "../../src/util";
 
 function findPredicates(inAST: SourceUnit[]): Map<number, Set<string>> {
     const res: Map<number, Set<string>> = new Map();
-    const rx = /\s*(if_succeeds|if_aborts|invariant)\s*({:msg\s*"([^"]*)"\s*})?\s*([^;]*);/g;
+    const rx = /\s*(if_succeeds|if_aborts|invariant|if_updated|if_assigned)[a-z0-9.[\])_]*\s*({:msg\s*"([^"]*)"\s*})?\s*([^;]*);/g;
 
     for (const unit of inAST) {
         const targets: Array<VariableDeclaration | FunctionDefinition | ContractDefinition> = [];
@@ -103,9 +103,16 @@ describe("Property map test", () => {
                     let extracted = contents.slice(start, start + len).trim();
                     if (extracted.endsWith(";")) extracted = extracted.slice(0, -1);
 
-                    const predSet = preds.get(fileInd);
+                    const predSet = preds.get(fileInd) as Set<string>;
                     expect(predSet).not.toEqual(undefined);
-                    expect((predSet as any).has(extracted)).toEqual(true);
+                    if (!predSet.has(extracted)) {
+                        assert(
+                            false,
+                            `Missing predicate ${extracted} in computed predicate set ${pp(
+                                predSet
+                            )}`
+                        );
+                    }
                 }
             });
         });

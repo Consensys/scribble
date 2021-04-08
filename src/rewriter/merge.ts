@@ -23,6 +23,7 @@ import {
     FunctionDefinition,
     FunctionTypeName,
     Identifier,
+    IdentifierPath,
     IfStatement,
     ImportDirective,
     IndexAccess,
@@ -328,7 +329,7 @@ export function merge(groups: SourceUnit[][]): [SourceUnit[], ASTContext] {
                 // Nothing to do - this will be fixed when walking child.vExpression
             } else if (child instanceof FunctionCallOptions) {
                 // Nothing to do
-            } else if (child instanceof Identifier) {
+            } else if (child instanceof Identifier || child instanceof IdentifierPath) {
                 // Note that identifiers under import directives can have null referencedDeclaration
                 if (child.referencedDeclaration !== null && child.referencedDeclaration > 0) {
                     // Note we can't rely on child.vIdentifierType, since it relies on child.vReferencedDeclaration which

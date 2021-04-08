@@ -200,8 +200,8 @@ SimpleType
   / UserDefinedType
 
 StringLiteralErrorMsg = "(" [^\)]* ")"
-StringLiteralType = LITERAL_STRING __ (StringLiteral / StringLiteralErrorMsg) { throw new Error(`NYI String literal type: ${text()}`); }
-IntLiteralType = INT_CONST __ prefix: MaybeNegNumber ("...(" [^\)]* ")..." Number)? { throw new Error(`NYI Int literal type: ${text()}`); }
+StringLiteralType = LITERAL_STRING __ (StringLiteral / StringLiteralErrorMsg) { return new SStringLiteralType(); }
+IntLiteralType = INT_CONST __ prefix: MaybeNegNumber ("...(" [^\)]* ")..." Number)? { return new SIntLiteralType(); }
 RationalLiteralType = RATIONAL_CONST __ numerator: MaybeNegNumber __ "/" __ denominator: Number { throw new Error(`NYI Int literal type: ${text()}`); }
 
 BoolType = BOOL { return new SBoolType(); }
@@ -264,7 +264,7 @@ ModifierType
   = MODIFIER __ "(" __ args: TypeList? __ ")" { throw new Error(`Shouldn't try to type Modifiers!`); }
 
 TupleType
-  = TUPLE __ "(" __  elements: MaybeTypeList __ ")" { throw new Error(`NYI tuple types: ${text()}`); }
+  = TUPLE __ "(" __  elements: MaybeTypeList __ ")" { return new STupleType(elements); }
 
 TypeExprType
   = TYPE __ "(" innerT: Type ")" { throw new Error(`NYI type expr types: ${text()}`); }

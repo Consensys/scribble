@@ -23,6 +23,7 @@ import {
     FunctionDefinition,
     FunctionTypeName,
     Identifier,
+    IdentifierPath,
     IfStatement,
     ImportDirective,
     IndexAccess,
@@ -355,7 +356,7 @@ export function isSane(unit: SourceUnit, ctx: ASTContext): boolean {
             // Nothing to do
         } else if (child instanceof FunctionCallOptions) {
             // Nothing to do
-        } else if (child instanceof Identifier) {
+        } else if (child instanceof Identifier || child instanceof IdentifierPath) {
             if (
                 child.referencedDeclaration !== null &&
                 child.vReferencedDeclaration !== undefined &&

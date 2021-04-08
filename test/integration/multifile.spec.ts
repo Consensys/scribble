@@ -1,9 +1,10 @@
 import expect from "expect";
 import fse from "fs-extra";
+import { searchRecursive } from "./utils";
+import { scribble } from "./utils";
 import { join } from "path";
-import { assert, pp } from "../../src";
 import { contains, InstrumentationMetaData, parseSrcTriple } from "../../src/util";
-import { scribble, searchRecursive } from "./utils";
+import { assert, pp } from "../../src";
 
 function checkSrc(src: string, fileList: string[], fileContents: Map<string, string>): void {
     const [off, len, fileIdx] = parseSrcTriple(src);
@@ -32,7 +33,6 @@ export function fragment(
     const [off, len, fileIdx] = parseSrcTriple(src);
     const fileName = fileList[fileIdx];
     const contents = fileContents.get(fileName) as string;
-
     return contents.slice(off, off + len);
 }
 
@@ -60,7 +60,6 @@ describe("Multiple-file project instrumentation", () => {
     for (const [dirName, solFiles, version] of samples) {
         describe(`Multi-file Sample ${dirName}`, () => {
             const solPaths: string[] = solFiles.map((name) => join(dirName, name));
-
             let expectedInstrumented: Map<string, string>;
             let expectedFlat: string;
             let expectedInstrMetadata: any;
@@ -70,21 +69,20 @@ describe("Multiple-file project instrumentation", () => {
                     dirName,
                     /.+\.sol.instrumented.expected$/
                 );
-
                 expectedInstrumented = new Map(
                     expectedInstrumentedFiles.map((fileName) => [
                         fileName,
                         fse.readFileSync(fileName, "utf-8")
                     ])
                 );
-
                 expectedFlat = fse.readFileSync(`${dirName}/flat.sol.expected`, {
                     encoding: "utf-8"
                 });
-
-                expectedInstrMetadata = fse.readJsonSync(
+                expectedInstrMetadata = fse.readJSONSync(
                     `${dirName}/instrumentationMetadata.json.expected`,
-                    { encoding: "utf-8" }
+                    {
+                        encoding: "utf-8"
+                    }
                 );
             });
 

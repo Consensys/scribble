@@ -21,10 +21,12 @@ import {
     VariableDeclaration,
     VariableDeclarationStatement
 } from "solc-typed-ast";
+import { AnnotationMap, AnnotationMetaData, AnnotationTarget } from "../../instrumenter";
 import { Logger } from "../../logger";
-import { assert } from "../../util";
+import { assert, pp, single, topoSort } from "../../util";
 import { eq } from "../../util/struct_equality";
 import {
+    DatastructurePath,
     Range,
     SAddressLiteral,
     SAnnotation,
@@ -41,6 +43,7 @@ import {
     SNumber,
     SProperty,
     SResult,
+    SStateVarProp,
     SStringLiteral,
     SUnaryOperation,
     SUserFunctionDefinition,
@@ -71,12 +74,19 @@ import { STupleType } from "../ast/types/tuple_type";
 import { BuiltinAddressMembers, BuiltinSymbols } from "./builtins";
 import { TypeEnv } from "./typeenv";
 
+export class StateVarScope {
+    constructor(
+        public readonly target: VariableDeclaration,
+        public readonly annotation: SStateVarProp
+    ) {}
+}
 export type SScope =
     | SourceUnit[]
     | ContractDefinition
     | FunctionDefinition
     | SLet
-    | SUserFunctionDefinition;
+    | SUserFunctionDefinition
+    | StateVarScope;
 export type STypingCtx = SScope[];
 
 export function ppTypingCtx(ctx: STypingCtx): string {
@@ -122,6 +132,7 @@ function getScopeOfType<T extends ContractDefinition | FunctionDefinition>(
 
 export abstract class STypeError extends Error {
     abstract loc(): Range;
+    public annotationMetaData!: AnnotationMetaData;
 }
 
 export class SGenericTypeError<T extends SNode> extends STypeError {
@@ -260,6 +271,16 @@ export function lookupVarDef(name: string, ctx: STypingCtx): VarDefSite | undefi
         } else if (scope instanceof Array) {
             // No variable definitions at the global scope
             return undefined;
+        } else if (scope instanceof StateVarScope) {
+            const prop = scope.annotation;
+
+            for (let i = 0; i < prop.datastructurePath.length; i++) {
+                const element = prop.datastructurePath[i];
+
+                if (element instanceof SId && element.name === name) {
+                    return [scope, i];
+                }
+            }
         } else {
             for (let bindingIdx = 0; bindingIdx < scope.lhs.length; bindingIdx++) {
                 const binding = scope.lhs[bindingIdx];
@@ -533,7 +554,6 @@ function specializeType(type: SType, toLocation: DataLocation): SType {
 /**
  * Given a type `type` specialized to a specific storage location, return the
  * original type template from which `type` can be generated.
- * @param type
  */
 export function despecializeType(type: SType): SType {
     if (type instanceof SPointer) {
@@ -568,19 +588,111 @@ function isInty(type: SType): boolean {
 }
 
 /**
- * Type-check a top-level annotation.
- *
- * @param annot
- * @param ctx
- * @param typeEnv
+ * Sort `contracts` in topological order with respect to inheritance.
+ */
+function sortContracts(contracts: ContractDefinition[]): ContractDefinition[] {
+    const order: Array<[ContractDefinition, ContractDefinition]> = [];
+    for (const contract of contracts) {
+        for (const base of contract.vLinearizedBaseContracts) {
+            if (base === contract) continue;
+
+            order.push([base, contract]);
+        }
+    }
+
+    return topoSort(contracts, order);
+}
+
+export function tcUnits(
+    units: SourceUnit[],
+    annotMap: AnnotationMap,
+    typeEnv: TypeEnv = new TypeEnv()
+): void {
+    let contracts: ContractDefinition[] = [];
+    const ctx: STypingCtx = [units];
+
+    const tcHelper = (
+        annotationMD: AnnotationMetaData,
+        ctx: STypingCtx,
+        target: AnnotationTarget
+    ): void => {
+        try {
+            tcAnnotation(annotationMD.parsedAnnot, ctx, target, typeEnv);
+        } catch (e) {
+            // Add the annotation metadata to the exception for pretty-printing
+            if (e instanceof STypeError) {
+                e.annotationMetaData = annotationMD;
+            }
+
+            throw e;
+        }
+    };
+
+    // Gather all contracts. buildAnnotationsMap() checks that free
+    // functions/file level constants don't have annotations so we can ignore them.
+    for (const unit of units) {
+        contracts.push(...unit.vContracts);
+    }
+
+    // Sort contracts in topological order of inheritance. This way
+    // user-defined functions in base contracts are added to the type environment
+    // before annotations in child contracts
+    contracts = sortContracts(contracts);
+    for (const contract of contracts) {
+        ctx.push(contract);
+        // First type-check contract-level annotations
+        for (const contractAnnot of annotMap.get(contract) as AnnotationMetaData[]) {
+            tcHelper(contractAnnot, ctx, contract);
+        }
+
+        // Next type-check any state var annotations
+        for (const stateVar of contract.vStateVariables) {
+            for (const svAnnot of annotMap.get(stateVar) as AnnotationMetaData[]) {
+                // The if_updated scope is pushed on ctx inside tcAnnotation
+                tcHelper(svAnnot, ctx, stateVar);
+            }
+        }
+
+        // Finally type-check any function annotations
+        for (const funDef of contract.vFunctions) {
+            ctx.push(funDef);
+            for (const funAnnot of annotMap.get(funDef) as AnnotationMetaData[]) {
+                tcHelper(funAnnot, ctx, funDef);
+            }
+            ctx.pop();
+        }
+        ctx.pop();
+    }
+}
+
+/**
+ * Type-check a top-level annotation `annot` in a typing context `ctx`.
  */
 export function tcAnnotation(
     annot: SAnnotation,
     ctx: STypingCtx,
+    target: AnnotationTarget,
     typeEnv: TypeEnv = new TypeEnv()
 ): void {
     if (annot instanceof SProperty) {
-        const exprType = tc(annot.expression, ctx, typeEnv);
+        let predCtx;
+
+        if (annot instanceof SStateVarProp) {
+            assert(
+                target instanceof VariableDeclaration,
+                `Unexpected if_updated target: ${pp(target)}`
+            );
+            predCtx = [...ctx, new StateVarScope(target, annot)];
+            assert(target.vType !== undefined, `State var ${target.name} is missing a type.`);
+
+            // Check to make sure the datastructure path matches the type of the
+            // underlying target state var
+            locateElementType(target.vType, annot.datastructurePath);
+        } else {
+            predCtx = ctx;
+        }
+
+        const exprType = tc(annot.expression, predCtx, typeEnv);
 
         if (!(exprType instanceof SBoolType)) {
             throw new SWrongType(
@@ -591,8 +703,6 @@ export function tcAnnotation(
         }
     } else if (annot instanceof SUserFunctionDefinition) {
         const funScope = ctx[ctx.length - 1];
-        // NOTE (dimo) If you ever relax this assertion to allow FunctionDefinitions
-        // you must fix tcUnary and tcResult to disallow old() and $reuslt iin user functions.
         if (!(funScope instanceof ContractDefinition)) {
             throw new SGenericTypeError(
                 `User functions can only be defined on contract annotations at the moment.`,
@@ -779,6 +889,88 @@ function tcIdBuiltin(expr: SId): SType | undefined {
     return BuiltinSymbols.get(expr.name);
 }
 
+/**
+ * Given the type of some state variable `type`, a 'data-structure path' `path` find the path of the
+ * element of the data structre pointed to by the data-structure path.
+ */
+function locateElementType(type: TypeName, path: DatastructurePath): SType {
+    for (let i = 0; i < path.length; i++) {
+        const element = path[i];
+
+        if (element instanceof SId) {
+            if (type instanceof ArrayTypeName) {
+                type = type.vBaseType;
+            } else if (type instanceof Mapping) {
+                type = type.vValueType;
+            } else {
+                throw new Error(
+                    `Mismatch between path ${pp(
+                        path
+                    )} and actual type at index ${i}: Expected indexable type but got ${pp(type)}`
+                );
+            }
+        } else {
+            if (
+                !(
+                    type instanceof UserDefinedTypeName &&
+                    type.vReferencedDeclaration instanceof StructDefinition
+                )
+            ) {
+                throw new Error(
+                    `Mismatch between path ${pp(
+                        path
+                    )} and actual type at index ${i}: Expected struct but got ${pp(type)}`
+                );
+            }
+
+            const structDef = type.vReferencedDeclaration;
+            const field = single(
+                structDef.vMembers.filter((def) => def.name === element),
+                `Expected a single field with name ${element} on struct  ${pp(structDef)}`
+            );
+
+            assert(
+                field.vType !== undefined,
+                `Missing type on field ${field.name} of struct ${pp(structDef)}`
+            );
+
+            type = field.vType;
+        }
+    }
+
+    return specializeType(astTypeNameToSType(type), DataLocation.Storage);
+}
+
+/**
+ * Given the type of some state variable `type`, a 'data-structure path' `path`, and an index `idx` in that path that
+ * corresponds to some index variable, find the type of that index variable.
+ */
+function locateKeyType(type: TypeName, idx: number, path: Array<SId | string>): SType {
+    assert(idx < path.length, ``);
+
+    const idxCompT = locateElementType(type, path.slice(0, idx));
+
+    if (!(idxCompT instanceof SPointer)) {
+        throw new Error(
+            `Can't compute key type for field ${idx} in path ${pp(
+                path
+            )}: arrive at non-indexable type ${idxCompT.pp()}`
+        );
+    }
+
+    if (idxCompT.to instanceof SArrayType) {
+        return new SIntType(256, false);
+    } else if (idxCompT.to instanceof SMappingType) {
+        return idxCompT.to.keyType;
+    } else {
+        throw new Error(
+            `Can't compute key type for field ${idx} in path ${pp(
+                path
+            )}: arrive at non-indexable type ${idxCompT.pp()}`
+        );
+    }
+}
+
 function tcIdVariable(expr: SId, ctx: STypingCtx, typeEnv: TypeEnv): SType | undefined {
     const def = lookupVarDef(expr.name, ctx);
 
@@ -815,6 +1007,19 @@ function tcIdVariable(expr: SId, ctx: STypingCtx, typeEnv: TypeEnv): SType | und
         }
 
         return rhsT;
+    }
+
+    if (defNode instanceof StateVarScope) {
+        assert(
+            defNode.target.vType !== undefined,
+            `Expected target ${pp(defNode.target)} for if_updated to have a vType.`
+        );
+
+        return locateKeyType(
+            defNode.target.vType,
+            bindingIdx,
+            defNode.annotation.datastructurePath
+        );
     }
 
     // otherwise defNode is SUserFunctionDefinition
@@ -954,14 +1159,6 @@ export function tcUnary(expr: SUnaryOperation, ctx: STypingCtx, typeEnv: TypeEnv
             `Operation '-' expectes int or int literal, not ${innerT.pp()} in ${expr.pp()}`,
             expr.subexp,
             innerT
-        );
-    }
-
-    // old(..) is only defined in a FunctionDefinition scope.
-    if (getScopeOfType(FunctionDefinition, ctx) === undefined) {
-        throw new SGenericTypeError(
-            `old() expressions only defined for function annotations.`,
-            expr
         );
     }
 
@@ -1253,7 +1450,7 @@ export function tcIndexAccess(expr: SIndexAccess, ctx: STypingCtx, typeEnv: Type
                     indexT
                 );
             }
-            return new SIntType(8, false);
+            return new SFixedBytes(1);
         }
 
         if (toT instanceof SArrayType) {
@@ -1511,7 +1708,7 @@ export function tcFunctionCall(expr: SFunctionCall, ctx: STypingCtx, typeEnv: Ty
             );
         }
 
-        return calleeT.type;
+        return specializeType(calleeT.type, DataLocation.Memory);
     }
 
     // Type-cast to a user-defined type

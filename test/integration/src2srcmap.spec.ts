@@ -1,19 +1,24 @@
 import expect from "expect";
 import fse from "fs-extra";
 import {
+    Assignment,
     ASTKind,
     ASTNode,
     ASTReader,
     ContractDefinition,
+    ExpressionStatement,
+    FunctionCall,
     FunctionDefinition,
     Identifier,
     ImportDirective,
+    MemberAccess,
     OverrideSpecifier,
     ParameterList,
     PragmaDirective,
     SourceUnit,
     StructuredDocumentation,
-    TupleExpression
+    TupleExpression,
+    UnaryOperation
 } from "solc-typed-ast";
 import { searchRecursive, toAst } from "./utils";
 import { scribble } from "./utils";
@@ -27,7 +32,8 @@ import {
     PropertyMap,
     contains,
     reNumber,
-    InstrumentationMetaData
+    InstrumentationMetaData,
+    print
 } from "../../src/util";
 
 type Src2NodeMap = Map<string, Set<ASTNode>>;
@@ -193,20 +199,94 @@ describe("Src2src map test", () => {
                         }
 
                         if (matchingOrignal === undefined) {
-                            // The only exception for finding an exact matching node
-                            // in the original set is for callsite substitution
-                            assert(
+                            // There are several exceptions for this:
+                            // 1) State var update substitutions - (those are substituted with function calls)
+                            // 2) Callsite substitutions
+                            // 3) Converting a type Identifier to a MemberAccess
+                            // 4) Substituting an expression with a temporary on the LHS of a tuple assignment
+                            if (
                                 instrNode instanceof Identifier &&
-                                    instrNode.name.startsWith(`_callsite_`),
-                                `For nodes ${pp(instrNodes)} in ${instrRange} (${fragment(
-                                    instrRange,
-                                    instrContents
-                                )}), no matching original node from ${pp(
-                                    originalNodes
-                                )} in ${originalRange} (${fragment(originalRange, contents)})`
-                            );
-                            const oldCallee = single([...originalNodes]);
-                            oldCallee.walk((n) => coveredOriginalNodes.add(n));
+                                instrNode.name.startsWith(`_callsite_`)
+                            ) {
+                                const oldCallee = single([...originalNodes]);
+                                oldCallee.walk((n) => coveredOriginalNodes.add(n));
+                            } else if (instrNode instanceof FunctionCall) {
+                                for (const node of originalNodes) {
+                                    if (node instanceof ExpressionStatement) {
+                                        // nothing to do
+                                    } else if (node instanceof Assignment) {
+                                        for (const child of node.vLeftHandSide.getChildren(true)) {
+                                            coveredOriginalNodes.add(child);
+                                        }
+                                    } else if (node instanceof UnaryOperation) {
+                                        assert(
+                                            ["++", "--", "delete"].includes(node.operator),
+                                            `Only ++/--/delete may be interposed for state vars`
+                                        );
+                                        for (const child of node.vSubExpression.getChildren(true)) {
+                                            coveredOriginalNodes.add(child);
+                                        }
+                                    } else {
+                                        assert(
+                                            false,
+                                            `Unexpected original node ${print(
+                                                node
+                                            )} in state var update site`
+                                        );
+                                    }
+
+                                    coveredOriginalNodes.add(node);
+                                }
+                            } else if (
+                                forAll(originalNodes, (node) => {
+                                    const tuple = node.getClosestParentByType(TupleExpression);
+
+                                    if (tuple === undefined) {
+                                        return false;
+                                    }
+
+                                    const assignment = tuple.getClosestParentByType(Assignment);
+
+                                    // @todo chech that we are a left chidl of assignment here
+                                    return assignment !== undefined;
+                                })
+                            ) {
+                                for (const original of originalNodes) {
+                                    for (const child of original.getChildren(true)) {
+                                        coveredOriginalNodes.add(child);
+                                    }
+                                }
+                            } else if (
+                                instrNode instanceof MemberAccess &&
+                                originalNodes.size === 1
+                            ) {
+                                const originalNode = single([...originalNodes]);
+                                assert(
+                                    originalNode instanceof Identifier &&
+                                        instrNode.memberName === originalNode.name &&
+                                        instrNode.vExpression instanceof Identifier &&
+                                        instrNode.vExpression.vReferencedDeclaration instanceof
+                                            ContractDefinition,
+                                    `For nodes ${pp(instrNodes)} in ${instrRange} (${fragment(
+                                        instrRange,
+                                        instrContents
+                                    )}), no matching original node from ${pp(
+                                        originalNodes
+                                    )} in ${originalRange} (${fragment(originalRange, contents)})`
+                                );
+
+                                coveredOriginalNodes.add(originalNode);
+                            } else {
+                                assert(
+                                    false,
+                                    `For nodes ${pp(instrNodes)} in ${instrRange} (${fragment(
+                                        instrRange,
+                                        instrContents
+                                    )}), no matching original node from ${pp(
+                                        originalNodes
+                                    )} in ${originalRange} (${fragment(originalRange, contents)})`
+                                );
+                            }
                         } else {
                             coveredOriginalNodes.add(matchingOrignal);
                         }
@@ -220,6 +300,13 @@ describe("Src2src map test", () => {
                         if (!coveredOriginalNodes.has(node)) {
                             // There are several cases of original AST nodes that don't
                             // have a corresponding node in the flattened instrumented output
+                            // 1) SourceUnits - may be removed in flat mode
+                            // 2) PragmaDirectives - maybe removed in flat mode
+                            // 3) ImportDirectives - maybe removed in flat mode
+                            // 4) StructureDocumentations - are stripped
+                            // 5) Empty ParamterLists (especiall in return params) may be removed
+                            // 6) OverrideSpecifiers are moved on interposition
+                            // 7) .push() and .pop() callees that are interposed
                             if (
                                 !(
                                     (
@@ -230,7 +317,11 @@ describe("Src2src map test", () => {
                                         (node instanceof ParameterList &&
                                             node.vParameters.length ==
                                                 0) /* Empty parameter lists */ ||
-                                        node instanceof OverrideSpecifier
+                                        node instanceof OverrideSpecifier ||
+                                        (node instanceof MemberAccess &&
+                                            ["push", "pop"].includes(node.memberName)) ||
+                                        (node.parent instanceof MemberAccess &&
+                                            ["push", "pop"].includes(node.parent.memberName))
                                     ) /* Override specifiers are moved on interposition */
                                 )
                             ) {
@@ -245,6 +336,19 @@ describe("Src2src map test", () => {
                         }
                     });
                 }
+            });
+
+            it("All assertion ranges are inside of an instrumentation range", () => {
+                assert(
+                    forAll(instrMD.propertyMap, (prop) =>
+                        forAll(prop.assertionRanges, (assertionRange) =>
+                            forAny(prop.instrumentationRanges, (instrRange) =>
+                                contains(instrRange, assertionRange)
+                            )
+                        )
+                    ),
+                    "Some assertion ranges are out of instrumentation ranges (they shouldn't be)"
+                );
             });
 
             it("Bytecode map is covered by instrumentation metadata", () => {
@@ -268,20 +372,27 @@ describe("Src2src map test", () => {
 
                 for (const fileName in outJSON["contracts"]) {
                     const fileJSON = outJSON["contracts"][fileName];
-
                     for (const contractName in fileJSON) {
                         const contractJSON = fileJSON[contractName];
                         const bytecodeMap = contractJSON.evm.bytecode.sourceMap;
                         const deployedBytecodeMap = contractJSON.evm.deployedBytecode.sourceMap;
 
-                        // Since 0.7.2 builtin utility code has a source range with source idnex -1.
-                        // Want to skip those
+                        // Since 0.7.2 builtin utility code has a source range with source index -1.
+                        // Since 0.8.0 builtin utility code is emitted and has a positive source index 1 greater than the source list.
+                        // Want to ignore utility code in both the bytecode and deployedBytecode maps
                         const bytecodeMapEntries = parseBytecodeSourceMapping(bytecodeMap).filter(
-                            (entry) => entry.sourceIndex !== -1
+                            (entry) =>
+                                entry.sourceIndex !== -1 &&
+                                entry.sourceIndex < instrMD.instrSourceList.length
                         );
+
                         const deployedBytecodeMapEntries = parseBytecodeSourceMapping(
                             deployedBytecodeMap
-                        ).filter((entry) => entry.sourceIndex !== -1);
+                        ).filter(
+                            (entry) =>
+                                entry.sourceIndex !== -1 &&
+                                entry.sourceIndex < instrMD.instrSourceList.length
+                        );
 
                         // Interfaces have weird source maps. Skip them
                         if (
@@ -293,23 +404,12 @@ describe("Src2src map test", () => {
 
                         assert(
                             forAll(bytecodeMapEntries, (entry) => entry.sourceIndex === 0),
-                            `All source indices in a bytecode map in JSON mode should be 0.`
+                            `Contract ${contractName} in ${fileName} has non-zero source inidices in its bytecode map.`
                         );
 
                         assert(
                             forAll(deployedBytecodeMapEntries, (entry) => entry.sourceIndex === 0),
-                            `All source indices in a deployedBytecode map in JSON mode should be 0.`
-                        );
-
-                        assert(
-                            forAll(instrMD.propertyMap, (prop) =>
-                                forAll(prop.assertionRanges, (assertionRange) =>
-                                    forAny(prop.instrumentationRanges, (instrRange) =>
-                                        contains(instrRange, assertionRange)
-                                    )
-                                )
-                            ),
-                            "Some assertion ranges are out of instrumentation ranges (they shouldn't be)"
+                            `Contract ${contractName} in ${fileName} has non-zero source inidices in its deployedBytecodemap.`
                         );
 
                         const missing = new Set<string>();

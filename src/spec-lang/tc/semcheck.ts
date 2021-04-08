@@ -1,4 +1,5 @@
-import { FunctionStateMutability, VariableDeclaration } from "solc-typed-ast";
+import { FunctionStateMutability, SourceUnit, VariableDeclaration } from "solc-typed-ast";
+import { AnnotationMap, AnnotationMetaData } from "../..";
 import { single } from "../../util";
 import {
     Range,
@@ -24,7 +25,8 @@ import {
     SResult,
     SAnnotation,
     SProperty,
-    SUserFunctionDefinition
+    SUserFunctionDefinition,
+    AnnotationType
 } from "../ast";
 import { TypeEnv } from "./typeenv";
 
@@ -47,9 +49,11 @@ export type SemMap = Map<SNode, SemInfo>;
 
 export interface SemCtx {
     isOld: boolean;
+    annotation: SAnnotation;
 }
 
 export class SemError extends Error {
+    public annotationMetaData!: AnnotationMetaData;
     constructor(msg: string, public readonly node: SNode) {
         super(msg);
     }
@@ -59,12 +63,58 @@ export class SemError extends Error {
     }
 }
 
+export function scUnits(
+    units: SourceUnit[],
+    annotMap: AnnotationMap,
+    typeEnv: TypeEnv,
+    semMap: SemMap = new Map()
+): void {
+    const scHelper = (annotationMD: AnnotationMetaData): void => {
+        try {
+            scAnnotation(annotationMD.parsedAnnot, typeEnv, semMap, {
+                isOld: false,
+                annotation: annotationMD.parsedAnnot
+            });
+        } catch (e) {
+            // Add the annotation metadata to the exception for pretty-printing
+            if (e instanceof SemError) {
+                e.annotationMetaData = annotationMD;
+            }
+
+            throw e;
+        }
+    };
+
+    for (const unit of units) {
+        for (const contract of unit.vContracts) {
+            // First semantic-check contract-level annotations
+            for (const contractAnnot of annotMap.get(contract) as AnnotationMetaData[]) {
+                scHelper(contractAnnot);
+            }
+
+            // Next semantic-check any state var annotations
+            for (const stateVar of contract.vStateVariables) {
+                for (const svAnnot of annotMap.get(stateVar) as AnnotationMetaData[]) {
+                    scHelper(svAnnot);
+                }
+            }
+
+            // Finally semantic-check any function annotations
+            for (const funDef of contract.vFunctions) {
+                for (const funAnnot of annotMap.get(funDef) as AnnotationMetaData[]) {
+                    scHelper(funAnnot);
+                }
+            }
+        }
+    }
+}
+
 export function scAnnotation(
     node: SAnnotation,
     typings: TypeEnv,
-    semMap: SemMap = new Map()
+    semMap: SemMap = new Map(),
+    ctx: SemCtx
 ): void {
-    const ctx: SemCtx = { isOld: false };
     if (node instanceof SProperty) {
         sc(node.expression, ctx, typings, semMap);
     } else if (node instanceof SUserFunctionDefinition) {
@@ -217,9 +267,27 @@ export function scUnary(
                 expr
             );
         }
+
+        if (
+            !(
+                ctx.annotation.type === AnnotationType.IfSucceeds ||
+                ctx.annotation.type === AnnotationType.IfUpdated ||
+                ctx.annotation.type === AnnotationType.IfAssigned
+            )
+        ) {
+            throw new SemError(
+                `old() expressions not allowed in ${ctx.annotation.type} annotations`,
+                expr
+            );
+        }
     }
 
-    return sc(expr.subexp, { isOld: expr.op === "old" }, typeEnv, semMap);
+    return sc(
+        expr.subexp,
+        { isOld: expr.op === "old", annotation: ctx.annotation },
+        typeEnv,
+        semMap
+    );
 }
 
 export function scBinary(
