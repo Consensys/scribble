@@ -431,8 +431,7 @@ function makeWrapper(
         factory.makeParameterList([]),
         [],
         undefined,
-        factory.makeBlock([]),
-        ``
+        factory.makeBlock([])
     );
 
     definingContract.appendChild(wrapperFun);
@@ -864,8 +863,7 @@ export function interposeInlineInitializer(
         factory.makeParameterList([]),
         [],
         undefined,
-        factory.makeBlock([]),
-        ``
+        factory.makeBlock([])
     );
 
     containingContract.appendChild(wrapperFun);
