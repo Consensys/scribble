@@ -29,7 +29,7 @@ contract Foo is __scribble_ReentrancyUtils {
         __scribble_out_of_contract = _v.__scribble_check_invs_at_end;
     }
 
-    function _original_Foo_inc(uint x) private pure returns (uint y) {
+    function _original_Foo_inc(uint x) private view returns (uint y) {
         return x + 1;
     }
 
@@ -58,7 +58,7 @@ contract Foo is __scribble_ReentrancyUtils {
 }
 
 contract Bar is __scribble_ReentrancyUtils, Foo {
-    function inc2(uint x) public pure returns (uint y) {
+    function inc2(uint x) public view returns (uint y) {
         return x + 2;
     }
 

@@ -7,7 +7,7 @@ contract Foo  {
     uint a;
     uint b;
     /// if_succeeds {:msg ""} b == a^1; 
-    function inc(uint x) public pure returns (uint y) {
+    function inc(uint x) public view returns (uint y) {
         return x+1;
     }
 }
