@@ -3,7 +3,7 @@ import path from "path";
 import { executeTestSuite } from "./vm";
 
 describe("VM", () => {
-    const directory = "test/samples/";
+    const directory = "test/samples/vm/";
     const suites = fse.readdirSync(directory).filter((name) => name.endsWith(".vm.json"));
 
     for (const suite of suites) {

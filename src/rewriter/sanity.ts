@@ -49,6 +49,7 @@ import {
     TryStatement,
     TupleExpression,
     UnaryOperation,
+    UncheckedBlock,
     UserDefinedTypeName,
     UsingForDirective,
     VariableDeclaration,
@@ -249,6 +250,8 @@ export function isSane(unit: SourceUnit, ctx: ASTContext): boolean {
             }
         } else if (child instanceof Block) {
             /// ======== STATEMENT NODES ==========================================
+            // Nothing to do
+        } else if (child instanceof UncheckedBlock) {
             // Nothing to do
         } else if (child instanceof Break || child instanceof Continue) {
             // Nothing to do
