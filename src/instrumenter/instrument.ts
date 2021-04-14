@@ -859,8 +859,6 @@ export function insertInvChecks(
 ): Recipe {
     const instrCtx = transCtx.instrCtx;
     const factory = instrCtx.factory;
-    const event = getAssertionFailedEvent(factory, contract);
-
     const recipe: Recipe = [];
 
     const oldAssignmentStmts: Statement[] = instrResult.oldAssignments.map((oldAssignment) =>
@@ -872,6 +870,7 @@ export function insertInvChecks(
     );
 
     const checkStmts: Statement[] = instrResult.transpiledPredicates.map((predicate, i) => {
+        const event = getAssertionFailedEvent(factory, contract);
         const dbgInfo = instrResult.debugEventsInfo[i];
         const emitStmt = dbgInfo !== undefined ? dbgInfo[1] : undefined;
         return emitAssert(transCtx, predicate, annotations[i], event, emitStmt);
