@@ -7,9 +7,11 @@ contract TestUnchecked {
 
     function foo() public {
         _original_TestUnchecked_foo();
-        if (!(x == 1)) {
-            emit AssertionFailed("2: S1");
-            assert(false);
+        unchecked {
+            if (!(x == 1)) {
+                emit AssertionFailed("2: S1");
+                assert(false);
+            }
         }
     }
 
@@ -21,13 +23,15 @@ contract TestUnchecked {
     }
 
     function TestUnchecked_x_inline_initializer() internal {
-        if (!(x > 0)) {
-            emit AssertionFailed("0: A1");
-            assert(false);
-        }
-        if (!(x > 0)) {
-            emit AssertionFailed("1: U1");
-            assert(false);
+        unchecked {
+            if (!(x > 0)) {
+                emit AssertionFailed("0: A1");
+                assert(false);
+            }
+            if (!(x > 0)) {
+                emit AssertionFailed("1: U1");
+                assert(false);
+            }
         }
     }
 
@@ -38,13 +42,15 @@ contract TestUnchecked {
     function TestUnchecked_x_uint8_assign(uint8 ARG0) internal returns (uint8 RET0) {
         x = ARG0;
         RET0 = x;
-        if (!(x > 0)) {
-            emit AssertionFailed("0: A1");
-            assert(false);
-        }
-        if (!(x > 0)) {
-            emit AssertionFailed("1: U1");
-            assert(false);
+        unchecked {
+            if (!(x > 0)) {
+                emit AssertionFailed("0: A1");
+                assert(false);
+            }
+            if (!(x > 0)) {
+                emit AssertionFailed("1: U1");
+                assert(false);
+            }
         }
     }
 
@@ -53,13 +59,15 @@ contract TestUnchecked {
             x += ARG1;
         }
         RET1 = x;
-        if (!(x > 0)) {
-            emit AssertionFailed("0: A1");
-            assert(false);
-        }
-        if (!(x > 0)) {
-            emit AssertionFailed("1: U1");
-            assert(false);
+        unchecked {
+            if (!(x > 0)) {
+                emit AssertionFailed("0: A1");
+                assert(false);
+            }
+            if (!(x > 0)) {
+                emit AssertionFailed("1: U1");
+                assert(false);
+            }
         }
     }
 }

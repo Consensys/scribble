@@ -88,6 +88,8 @@ import { dirname, relative } from "path";
 import { InstrumentationContext } from "./instrumentation_context";
 import { TranspilingContext } from "./transpiling_context";
 
+import { gte } from "semver";
+
 export type SBinding = [string | string[], SType, SNode, boolean];
 export type SBindings = SBinding[];
 
@@ -857,44 +859,72 @@ export function insertInvChecks(
 ): Recipe {
     const instrCtx = transCtx.instrCtx;
     const factory = instrCtx.factory;
+    const event = getAssertionFailedEvent(factory, contract);
 
     const recipe: Recipe = [];
 
-    const marker = body.vStatements.length > 0 ? body.vStatements[0] : undefined;
-    for (const oldAssignment of instrResult.oldAssignments) {
-        recipe.push(
-            new InsertStatement(
-                factory,
-                factory.makeExpressionStatement(oldAssignment),
-                marker !== undefined ? "before" : "end",
-                body,
-                marker
-            )
-        );
-    }
+    const oldAssignmentStmts: Statement[] = instrResult.oldAssignments.map((oldAssignment) =>
+        factory.makeExpressionStatement(oldAssignment)
+    );
 
-    for (const newAssignment of instrResult.newAssignments) {
-        recipe.push(
-            new InsertStatement(
-                factory,
-                factory.makeExpressionStatement(newAssignment),
-                "end",
-                body
-            )
-        );
-    }
+    const newAssignmentStmts: Statement[] = instrResult.newAssignments.map((newAssignment) =>
+        factory.makeExpressionStatement(newAssignment)
+    );
 
-    for (let i = 0; i < instrResult.transpiledPredicates.length; i++) {
-        const predicate = instrResult.transpiledPredicates[i];
-
-        const event = getAssertionFailedEvent(factory, contract);
+    const checkStmts: Statement[] = instrResult.transpiledPredicates.map((predicate, i) => {
         const dbgInfo = instrResult.debugEventsInfo[i];
         const emitStmt = dbgInfo !== undefined ? dbgInfo[1] : undefined;
-        const check = emitAssert(transCtx, predicate, annotations[i], event, emitStmt);
+        return emitAssert(transCtx, predicate, annotations[i], event, emitStmt);
+    });
 
-        recipe.push(new InsertStatement(factory, check, "end", body));
+    const marker = body.vStatements.length > 0 ? body.vStatements[0] : undefined;
+
+    // Since 0.8.0 arithmetic is checked by default. However the semantics of
+    // Scribble is unchecked arithmetic. So we need to wrap annotation
+    // computations and checks in unchecked blocks.
+    if (gte(instrCtx.compilerVersion, "0.8.0")) {
+        if (oldAssignmentStmts.length > 0) {
+            const oldAssignmenBlock = factory.makeUncheckedBlock(oldAssignmentStmts);
+            recipe.push(
+                new InsertStatement(
+                    factory,
+                    oldAssignmenBlock,
+                    marker !== undefined ? "before" : "end",
+                    body,
+                    marker
+                )
+            );
+        }
+
+        if (newAssignmentStmts.length > 0) {
+            const newAssignmenBlock = factory.makeUncheckedBlock(oldAssignmentStmts);
+            recipe.push(new InsertStatement(factory, newAssignmenBlock, "end", body));
+        }
+
+        const checksBlock = factory.makeUncheckedBlock(checkStmts);
+        recipe.push(new InsertStatement(factory, checksBlock, "end", body));
+    } else {
+        recipe.push(
+            ...oldAssignmentStmts.map(
+                (oldAssignment) =>
+                    new InsertStatement(
+                        factory,
+                        oldAssignment,
+                        marker !== undefined ? "before" : "end",
+                        body,
+                        marker
+                    )
+            )
+        );
+
+        recipe.push(
+            ...newAssignmentStmts.map(
+                (newAssignment) => new InsertStatement(factory, newAssignment, "end", body)
+            )
+        );
+
+        recipe.push(...checkStmts.map((check) => new InsertStatement(factory, check, "end", body)));
     }
-
     return recipe;
 }
 
