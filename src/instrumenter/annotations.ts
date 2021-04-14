@@ -298,11 +298,20 @@ class AnnotationExtractor {
     }
 
     private validateAnnotation(target: AnnotationTarget, annotation: AnnotationMetaData) {
+        /**
+         * Checks the validity of an annotation
+         * @param annotation: The annotation to be validated
+         * @param target: Target block(contract, function) of the annotation
+         */
+
         if (target instanceof ContractDefinition) {
-            if (
-                annotation.type !== AnnotationType.Invariant &&
-                annotation.type !== AnnotationType.Define
-            ) {
+            const contractApplicableTypes = [
+                AnnotationType.Invariant,
+                AnnotationType.Define,
+                AnnotationType.IfSucceeds
+            ];
+
+            if (!contractApplicableTypes.includes(annotation.type)) {
                 throw new UnsupportedByTargetError(
                     `The "${annotation.type}" annotation is not applicable to contracts`,
                     annotation.original,

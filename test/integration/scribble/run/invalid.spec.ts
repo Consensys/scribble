@@ -12,10 +12,6 @@ describe(`Command "scribble <filename>" is failing as expected`, () => {
             /^test\/samples\/annotation_syntax_error.invalid.sol:5:34 SyntaxError: Expected (.|\s)+ but (.|\s)+ found/m
         ],
         [
-            ["test/samples/if_succeeds_on_contract.invalid.sol"],
-            /^test\/samples\/if_succeeds_on_contract.invalid.sol:2:4 UnsupportedByTargetError: The "if_succeeds" annotation is not applicable to contracts/m
-        ],
-        [
             ["test/samples/invariant_on_function.invalid.sol"],
             /^test\/samples\/invariant_on_function.invalid.sol:2:8 UnsupportedByTargetError: The "invariant" annotation is not applicable to functions/m
         ],

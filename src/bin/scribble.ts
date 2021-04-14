@@ -221,6 +221,10 @@ function instrumentFiles(
                     stateVarsWithAnnot.push(stateVar);
                 }
             }
+            const allowedFuncProp = contractAnnot.filter(
+                (annot) =>
+                    annot instanceof PropertyMetaData && annot.parsedAnnot.type == "if_succeeds"
+            );
 
             for (const fun of contract.vFunctions) {
                 // Skip functions without a body
@@ -229,6 +233,7 @@ function instrumentFiles(
                 }
 
                 const annotations = gatherFunctionAnnotations(fun, annotMap);
+                annotations.concat(allowedFuncProp);
                 /**
                  * We interpose on functions if either of these is true
                  *  a) They have annotations
