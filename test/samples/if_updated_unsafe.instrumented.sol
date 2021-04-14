@@ -49,7 +49,9 @@ contract TestUnchecked {
     }
 
     function TestUnchecked_x_uint8_plus_assign(uint8 ARG1) internal returns (uint8 RET1) {
-        x += ARG1;
+        unchecked {
+            x += ARG1;
+        }
         RET1 = x;
         if (!(x > 0)) {
             emit AssertionFailed("0: A1");

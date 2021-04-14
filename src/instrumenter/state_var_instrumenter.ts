@@ -375,6 +375,7 @@ function makeWrapper(
     updateNode: Assignment | FunctionCall | UnaryOperation
 ): FunctionDefinition {
     const factory = ctx.factory;
+    const updateNodeIsUnchecked = updateNode.getClosestParentByType(UncheckedBlock) !== undefined;
     // Work on a copy of updateNode, as we will modify it destructively
     // and put it inside the body of the wrapper
     updateNode = factory.copy(updateNode);
@@ -466,7 +467,12 @@ function makeWrapper(
     }
 
     // Add the re-written update node in the body of the wrapper
-    const updateNodeStmt = factory.makeExpressionStatement(updateNode);
+    let updateNodeStmt: Statement = factory.makeExpressionStatement(updateNode);
+
+    if (updateNodeIsUnchecked) {
+        updateNodeStmt = factory.makeUncheckedBlock([updateNodeStmt]);
+    }
+
     body.appendChild(updateNodeStmt);
     ctx.addGeneralInstrumentation(updateNodeStmt);
 
@@ -782,7 +788,7 @@ export function interposeTupleAssignment(
     replaceLHS(updateNode.vLeftHandSide, updateNode.vRightHandSide, []);
 
     const containingStmt = updateNode.parent as ExpressionStatement;
-    const containingBlock = containingStmt.parent as Block;
+    const containingBlock = containingStmt.parent as Block | UncheckedBlock;
     // First store the key expressions in temporaries before the tuple assignment
     for (const [originalKey, temporary] of keyReplMap) {
         const lhs = factory.copy(temporary);
