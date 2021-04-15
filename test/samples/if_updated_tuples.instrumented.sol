@@ -1,4 +1,4 @@
-pragma solidity 0.8.0;
+pragma solidity 0.8.3;
 
 contract IfUpdatedPrimitive {
     event AssertionFailed(string message);
