@@ -297,13 +297,12 @@ class AnnotationExtractor {
         throw new Error(`NYI annotation ${parsedAnnot.pp()}`);
     }
 
+    /**
+     * Checks the validity of an annotation
+     * @param annotation The annotation to be validated
+     * @param target Target block(contract/function) of the annotation
+     */
     private validateAnnotation(target: AnnotationTarget, annotation: AnnotationMetaData) {
-        /**
-         * Checks the validity of an annotation
-         * @param annotation: The annotation to be validated
-         * @param target: Target block(contract, function) of the annotation
-         */
-
         if (target instanceof ContractDefinition) {
             const contractApplicableTypes = [
                 AnnotationType.Invariant,
