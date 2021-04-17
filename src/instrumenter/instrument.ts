@@ -24,7 +24,8 @@ import {
     VariableDeclaration,
     EmitStatement,
     Literal,
-    ASTNode
+    ASTNode,
+    UncheckedBlock
 } from "solc-typed-ast";
 import {
     AddBaseContract,
@@ -1056,7 +1057,16 @@ export class ContractInstrumenter {
 
             ctx.userFunctions.set(funDef, userFun);
 
-            const body = userFun.vBody as Block;
+            // Arithmetic in Solidity >= 0.8.0 is checked by default.
+            // In Scribble its unchecked.
+            let body: Block | UncheckedBlock;
+            if (gte(ctx.compilerVersion, "0.8.0")) {
+                body = factory.makeUncheckedBlock([]);
+                (userFun.vBody as Block).appendChild(body);
+            } else {
+                body = userFun.vBody as Block;
+            }
+
             const transCtx = ctx.getTranspilingCtx(userFun);
 
             for (let i = 0; i < funDef.parameters.length; i++) {
@@ -1065,9 +1075,9 @@ export class ContractInstrumenter {
                 userFun.vParameters.appendChild(generateFunVarDecl(instrName, paramType, factory));
             }
 
-            userFun.vReturnParameters.appendChild(
-                generateFunVarDecl("", funDef.returnType, factory)
-            );
+            const retDecl = generateFunVarDecl("", funDef.returnType, factory);
+            userFun.vReturnParameters.appendChild(retDecl);
+            ctx.addGeneralInstrumentation(retDecl);
 
             const [flatBody, bindings] = flattenExpr(funDef.body, transCtx);
 
@@ -1085,12 +1095,8 @@ export class ContractInstrumenter {
                 });
 
                 // Step 3: Populate the struct def with fields for each temporary variable
-                const memberDeclMap: Map<string, VariableDeclaration> = new Map();
-
                 for (const [name, sType] of bindingMap) {
-                    const astType = generateTypeAst(sType, factory);
-                    const decl = transCtx.addBinding(name, astType);
-                    memberDeclMap.set(name, decl);
+                    transCtx.addBinding(name, generateTypeAst(sType, factory));
                 }
 
                 // Step 4: Build temp assignments
@@ -1117,11 +1123,9 @@ export class ContractInstrumenter {
 
             // Step 5: Build the final result
             const result = generateExprAST(flatBody, transCtx, [contract, userFun]);
-            (userFun.vBody as Block).appendChild(
-                factory.makeReturn(userFun.vReturnParameters.id, result)
-            );
+            body.appendChild(factory.makeReturn(userFun.vReturnParameters.id, result));
 
-            ctx.addGeneralInstrumentation(...body.children);
+            ctx.addGeneralInstrumentation(body);
             userFuns.push(userFun);
             recipe.push(new InsertFunction(factory, contract, userFun));
         }

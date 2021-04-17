@@ -302,6 +302,10 @@ function getWrapperName(
         suffix += updateNode.prefix ? "_prefix" : "_postfix";
     }
 
+    if (updateNode.getClosestParentByType(UncheckedBlock) !== undefined) {
+        suffix += "_unchecked";
+    }
+
     let res = `${defContract.name}_${varDecl.name}_`;
 
     if (pathString !== "") {
@@ -375,14 +379,13 @@ function makeWrapper(
     updateNode: Assignment | FunctionCall | UnaryOperation
 ): FunctionDefinition {
     const factory = ctx.factory;
-    const updateNodeIsUnchecked = updateNode.getClosestParentByType(UncheckedBlock) !== undefined;
     // Work on a copy of updateNode, as we will modify it destructively
     // and put it inside the body of the wrapper
-    updateNode = factory.copy(updateNode);
+    const rewrittenNode = factory.copy(updateNode);
 
     // Decomposing is a 2 step process.
     // 1) Call decomposeStateVarUpdated to decompose the various update statements - assignments, function calls, unaries..
-    const [stateVarExp, additionalArgs] = decomposeStateVarUpdated(updateNode, factory);
+    const [stateVarExp, additionalArgs] = decomposeStateVarUpdated(rewrittenNode, factory);
     // 2) Call decomposeLHS to identify the actuall state variable, and the path of the part of it which is updated
     const [baseExp, path] = decomposeLHSWithTypes(stateVarExp, factory);
     assert(isStateVarRef(baseExp), ``);
@@ -399,7 +402,7 @@ function makeWrapper(
 
     // List of the types of parameters for the wrapper
     const formalParamTs: SType[] = [];
-    // Map from ids of expressions inside `updateNode` to the index of the parameter with which
+    // Map from ids of expressions inside `rewrittenNode` to the index of the parameter with which
     // we will replace them.
     const replMap = new Map<number, number>();
 
@@ -460,34 +463,35 @@ function makeWrapper(
         );
     }
 
-    // Replace expressions in the `updateNode` with their corresponding parameters according to `replMap`
+    // Replace expressions in the `rewrittenNode` with their corresponding parameters according to `replMap`
     for (const [nodeId, argIdx] of replMap.entries()) {
-        const node = updateNode.requiredContext.locate(nodeId);
+        const node = rewrittenNode.requiredContext.locate(nodeId);
         replaceNode(node, factory.makeIdentifierFor(wrapperFun.vParameters.vParameters[argIdx]));
     }
 
     // Add the re-written update node in the body of the wrapper
-    let updateNodeStmt: Statement = factory.makeExpressionStatement(updateNode);
+    let rewrittenNodeStmt: Statement = factory.makeExpressionStatement(rewrittenNode);
 
-    if (updateNodeIsUnchecked) {
-        updateNodeStmt = factory.makeUncheckedBlock([updateNodeStmt]);
+    // If the original node was in an unchecked block, wrap the re-written node in unchecked too.
+    if (updateNode.getClosestParentByType(UncheckedBlock) !== undefined) {
+        rewrittenNodeStmt = factory.makeUncheckedBlock([rewrittenNodeStmt]);
     }
 
-    body.appendChild(updateNodeStmt);
-    ctx.addGeneralInstrumentation(updateNodeStmt);
+    body.appendChild(rewrittenNodeStmt);
+    ctx.addGeneralInstrumentation(rewrittenNodeStmt);
 
-    // Compute what the wrapper must return depending on the type of `updateNode
+    // Compute what the wrapper must return depending on the type of `rewrittenNode
     const retParamTs: SType[] = [];
 
     // Add any return parameters if needed
-    if (updateNode instanceof UnaryOperation) {
-        if (["++", "--"].includes(updateNode.operator)) {
-            const retT = getExprSType(updateNode);
+    if (rewrittenNode instanceof UnaryOperation) {
+        if (["++", "--"].includes(rewrittenNode.operator)) {
+            const retT = getExprSType(rewrittenNode);
             assert(retT instanceof SIntType, ``);
             retParamTs.push(retT);
         }
-    } else if (updateNode instanceof Assignment) {
-        const retT = getExprSType(updateNode.vLeftHandSide);
+    } else if (rewrittenNode instanceof Assignment) {
+        const retT = getExprSType(rewrittenNode.vLeftHandSide);
         assert(
             !(retT instanceof STupleType),
             `makeWrapper should only be invoked on primitive assignments.`
@@ -522,10 +526,10 @@ function makeWrapper(
     // Add the actual return statements (assignments) if we have return parameters
     if (retParamTs.length > 0) {
         assert(
-            updateNode instanceof Assignment ||
-                (updateNode instanceof UnaryOperation &&
-                    ["++", "--"].includes(updateNode.operator)),
-            `Only assignments and ++/-- return values. Not: ${pp(updateNode)}`
+            rewrittenNode instanceof Assignment ||
+                (rewrittenNode instanceof UnaryOperation &&
+                    ["++", "--"].includes(rewrittenNode.operator)),
+            `Only assignments and ++/-- return values. Not: ${pp(rewrittenNode)}`
         );
 
         const value = factory.copy(stateVarExp);
@@ -540,8 +544,8 @@ function makeWrapper(
         ctx.addGeneralInstrumentation(retStmt);
 
         if (
-            updateNode instanceof Assignment ||
-            (updateNode instanceof UnaryOperation && updateNode.prefix)
+            rewrittenNode instanceof Assignment ||
+            (rewrittenNode instanceof UnaryOperation && rewrittenNode.prefix)
         ) {
             body.appendChild(retStmt);
         } else {
