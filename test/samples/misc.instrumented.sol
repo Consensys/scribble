@@ -231,6 +231,10 @@ contract ExternalCall {
         return _bytes.length > 0;
     }
 }
+
+/// define some stuff
+///  define some(other stuff
+contract IgnoreNonFunDefines {}
 /// Utility contract holding a stack counter
 contract __scribble_ReentrancyUtils {
     bool __scribble_out_of_contract = true;
