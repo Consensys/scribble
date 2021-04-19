@@ -24,7 +24,8 @@ import {
     VariableDeclaration,
     EmitStatement,
     Literal,
-    ASTNode
+    ASTNode,
+    UncheckedBlock
 } from "solc-typed-ast";
 import {
     AddBaseContract,
@@ -87,6 +88,8 @@ import { generateExprAST, generateFunVarDecl, generateTypeAst } from "./transpil
 import { dirname, relative } from "path";
 import { InstrumentationContext } from "./instrumentation_context";
 import { TranspilingContext } from "./transpiling_context";
+
+import { gte } from "semver";
 
 export type SBinding = [string | string[], SType, SNode, boolean];
 export type SBindings = SBinding[];
@@ -857,44 +860,71 @@ export function insertInvChecks(
 ): Recipe {
     const instrCtx = transCtx.instrCtx;
     const factory = instrCtx.factory;
-
     const recipe: Recipe = [];
 
-    const marker = body.vStatements.length > 0 ? body.vStatements[0] : undefined;
-    for (const oldAssignment of instrResult.oldAssignments) {
-        recipe.push(
-            new InsertStatement(
-                factory,
-                factory.makeExpressionStatement(oldAssignment),
-                marker !== undefined ? "before" : "end",
-                body,
-                marker
-            )
-        );
-    }
+    const oldAssignmentStmts: Statement[] = instrResult.oldAssignments.map((oldAssignment) =>
+        factory.makeExpressionStatement(oldAssignment)
+    );
 
-    for (const newAssignment of instrResult.newAssignments) {
-        recipe.push(
-            new InsertStatement(
-                factory,
-                factory.makeExpressionStatement(newAssignment),
-                "end",
-                body
-            )
-        );
-    }
+    const newAssignmentStmts: Statement[] = instrResult.newAssignments.map((newAssignment) =>
+        factory.makeExpressionStatement(newAssignment)
+    );
 
-    for (let i = 0; i < instrResult.transpiledPredicates.length; i++) {
-        const predicate = instrResult.transpiledPredicates[i];
-
+    const checkStmts: Statement[] = instrResult.transpiledPredicates.map((predicate, i) => {
         const event = getAssertionFailedEvent(factory, contract);
         const dbgInfo = instrResult.debugEventsInfo[i];
         const emitStmt = dbgInfo !== undefined ? dbgInfo[1] : undefined;
-        const check = emitAssert(transCtx, predicate, annotations[i], event, emitStmt);
+        return emitAssert(transCtx, predicate, annotations[i], event, emitStmt);
+    });
 
-        recipe.push(new InsertStatement(factory, check, "end", body));
+    const marker = body.vStatements.length > 0 ? body.vStatements[0] : undefined;
+
+    // Since 0.8.0 arithmetic is checked by default. However the semantics of
+    // Scribble is unchecked arithmetic. So we need to wrap annotation
+    // computations and checks in unchecked blocks.
+    if (gte(instrCtx.compilerVersion, "0.8.0")) {
+        if (oldAssignmentStmts.length > 0) {
+            const oldAssignmenBlock = factory.makeUncheckedBlock(oldAssignmentStmts);
+            recipe.push(
+                new InsertStatement(
+                    factory,
+                    oldAssignmenBlock,
+                    marker !== undefined ? "before" : "end",
+                    body,
+                    marker
+                )
+            );
+        }
+
+        if (newAssignmentStmts.length > 0) {
+            const newAssignmenBlock = factory.makeUncheckedBlock(oldAssignmentStmts);
+            recipe.push(new InsertStatement(factory, newAssignmenBlock, "end", body));
+        }
+
+        const checksBlock = factory.makeUncheckedBlock(checkStmts);
+        recipe.push(new InsertStatement(factory, checksBlock, "end", body));
+    } else {
+        recipe.push(
+            ...oldAssignmentStmts.map(
+                (oldAssignment) =>
+                    new InsertStatement(
+                        factory,
+                        oldAssignment,
+                        marker !== undefined ? "before" : "end",
+                        body,
+                        marker
+                    )
+            )
+        );
+
+        recipe.push(
+            ...newAssignmentStmts.map(
+                (newAssignment) => new InsertStatement(factory, newAssignment, "end", body)
+            )
+        );
+
+        recipe.push(...checkStmts.map((check) => new InsertStatement(factory, check, "end", body)));
     }
-
     return recipe;
 }
 
@@ -1027,7 +1057,16 @@ export class ContractInstrumenter {
 
             ctx.userFunctions.set(funDef, userFun);
 
-            const body = userFun.vBody as Block;
+            // Arithmetic in Solidity >= 0.8.0 is checked by default.
+            // In Scribble its unchecked.
+            let body: Block | UncheckedBlock;
+            if (gte(ctx.compilerVersion, "0.8.0")) {
+                body = factory.makeUncheckedBlock([]);
+                (userFun.vBody as Block).appendChild(body);
+            } else {
+                body = userFun.vBody as Block;
+            }
+
             const transCtx = ctx.getTranspilingCtx(userFun);
 
             for (let i = 0; i < funDef.parameters.length; i++) {
@@ -1036,9 +1075,9 @@ export class ContractInstrumenter {
                 userFun.vParameters.appendChild(generateFunVarDecl(instrName, paramType, factory));
             }
 
-            userFun.vReturnParameters.appendChild(
-                generateFunVarDecl("", funDef.returnType, factory)
-            );
+            const retDecl = generateFunVarDecl("", funDef.returnType, factory);
+            userFun.vReturnParameters.appendChild(retDecl);
+            ctx.addGeneralInstrumentation(retDecl);
 
             const [flatBody, bindings] = flattenExpr(funDef.body, transCtx);
 
@@ -1056,12 +1095,8 @@ export class ContractInstrumenter {
                 });
 
                 // Step 3: Populate the struct def with fields for each temporary variable
-                const memberDeclMap: Map<string, VariableDeclaration> = new Map();
-
                 for (const [name, sType] of bindingMap) {
-                    const astType = generateTypeAst(sType, factory);
-                    const decl = transCtx.addBinding(name, astType);
-                    memberDeclMap.set(name, decl);
+                    transCtx.addBinding(name, generateTypeAst(sType, factory));
                 }
 
                 // Step 4: Build temp assignments
@@ -1088,11 +1123,9 @@ export class ContractInstrumenter {
 
             // Step 5: Build the final result
             const result = generateExprAST(flatBody, transCtx, [contract, userFun]);
-            (userFun.vBody as Block).appendChild(
-                factory.makeReturn(userFun.vReturnParameters.id, result)
-            );
+            body.appendChild(factory.makeReturn(userFun.vReturnParameters.id, result));
 
-            ctx.addGeneralInstrumentation(...body.children);
+            ctx.addGeneralInstrumentation(body);
             userFuns.push(userFun);
             recipe.push(new InsertFunction(factory, contract, userFun));
         }
