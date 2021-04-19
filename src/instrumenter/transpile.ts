@@ -7,6 +7,8 @@ import {
     Expression,
     FunctionCallKind,
     FunctionDefinition,
+    FunctionVisibility,
+    Identifier,
     LiteralKind,
     Mutability,
     StateVariableVisibility,
@@ -358,16 +360,32 @@ export function generateExprAST(
         let callee: Expression;
 
         if (calleeT instanceof SBuiltinTypeNameType) {
+            // Builtin function
             callee = factory.makeElementaryTypeNameExpression(
                 "<missing>",
                 generateTypeAst(calleeT.type, factory) as ElementaryTypeName
             );
         } else if (calleeT instanceof SUserDefinedType) {
+            // Type Cast
             assert(calleeT.definition !== undefined, ``);
 
             callee = factory.makeIdentifierFor(calleeT.definition);
         } else {
+            // Normal function call
             callee = generateExprAST(expr.callee, transCtx, loc);
+
+            if (
+                callee instanceof Identifier &&
+                callee.vReferencedDeclaration instanceof FunctionDefinition &&
+                callee.vReferencedDeclaration.visibility === FunctionVisibility.External
+            ) {
+                callee = factory.makeMemberAccess(
+                    "<missing>",
+                    factory.makeIdentifier("<missing>", "this", (loc[1] as ContractDefinition).id),
+                    callee.name,
+                    callee.vReferencedDeclaration.id
+                );
+            }
         }
 
         const args = expr.args.map((arg) => generateExprAST(arg, transCtx, loc));

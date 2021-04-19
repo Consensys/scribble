@@ -98,3 +98,15 @@ contract UsingForRefType {
 }
 
 // ---------------------------------------------
+
+contract ExternalCall {
+
+    /// if_succeeds {:msg "wrong byte"} checkBytes(_bytes) == result;
+    function process(bytes calldata _bytes) external returns (bool result) {
+        return this.checkBytes(_bytes);
+    }
+
+    function checkBytes(bytes calldata _bytes) pure external returns (bool result) {
+        return _bytes.length > 0;
+    }
+}
