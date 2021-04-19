@@ -45,34 +45,42 @@ contract IfUpdatedAliasing {
     function IfUpdatedAliasing_a1_idx_uint256_uint256_assign(uint256 ARG0, uint256 ARG1) internal returns (uint256 RET0) {
         a1[ARG0] = ARG1;
         RET0 = a1[ARG0];
-        if (!(true)) {
-            emit AssertionFailed("0: ");
-            assert(false);
+        unchecked {
+            if (!(true)) {
+                emit AssertionFailed("0: ");
+                assert(false);
+            }
         }
     }
 
     function IfUpdatedAliasing_aa1_idx_uint256_ptr_arr_uint256_storage_assign(uint256 ARG2, uint256[] storage ARG3) internal returns (uint256[] storage RET1) {
         aa1[ARG2] = ARG3;
         RET1 = aa1[ARG2];
-        if (!(true)) {
-            emit AssertionFailed("1: ");
-            assert(false);
+        unchecked {
+            if (!(true)) {
+                emit AssertionFailed("1: ");
+                assert(false);
+            }
         }
     }
 
     function IfUpdatedAliasing_a1_uint256_push(uint256 ARG4) internal {
         a1.push(ARG4);
-        if (!(true)) {
-            emit AssertionFailed("0: ");
-            assert(false);
+        unchecked {
+            if (!(true)) {
+                emit AssertionFailed("0: ");
+                assert(false);
+            }
         }
     }
 
     function IfUpdatedAliasing_aa1_ptr_arr_uint256_storage_push(uint256[] storage ARG5) internal {
         aa1.push(ARG5);
-        if (!(true)) {
-            emit AssertionFailed("1: ");
-            assert(false);
+        unchecked {
+            if (!(true)) {
+                emit AssertionFailed("1: ");
+                assert(false);
+            }
         }
     }
 }

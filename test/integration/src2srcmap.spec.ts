@@ -426,15 +426,6 @@ describe("Src2src map test", () => {
                                 continue;
                             }
 
-                            // OR it must be part of the general instrumentation
-                            if (
-                                forAny(instrMD.otherInstrumentation, (range) =>
-                                    contains(range, strEntry)
-                                )
-                            ) {
-                                continue;
-                            }
-
                             // Check if this source map entry corresponds to
                             // some property check condition, and mark it
                             instrMD.propertyMap.forEach((prop, propIdx) => {
@@ -453,6 +444,15 @@ describe("Src2src map test", () => {
                                     forAny(prop.instrumentationRanges, (range) =>
                                         contains(range, strEntry)
                                     )
+                                )
+                            ) {
+                                continue;
+                            }
+
+                            // OR it must be part of the general instrumentation
+                            if (
+                                forAny(instrMD.otherInstrumentation, (range) =>
+                                    contains(range, strEntry)
                                 )
                             ) {
                                 continue;
