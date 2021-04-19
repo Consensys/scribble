@@ -471,6 +471,20 @@ export function gatherFunctionAnnotations(
 }
 
 /**
+ * Gather annotations from `contract` and all it's parent contracts
+ */
+export function gatherContractAnnotations(
+    contract: ContractDefinition,
+    annotationMap: AnnotationMap
+): AnnotationMetaData[] {
+    const result: AnnotationMetaData[] = [];
+    for (const base of contract.vLinearizedBaseContracts) {
+        result.unshift(...(annotationMap.get(base) as AnnotationMetaData[]));
+    }
+    return result;
+}
+
+/**
  * Find all annotations in the list of `SourceUnit`s `units` and combine them in a
  * map from ASTNode to its annotations. Return the resulting map.
  *

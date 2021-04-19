@@ -33,6 +33,25 @@ contract Foo is __scribble_ReentrancyUtils {
         return x + 1;
     }
 
+    function inc2(uint x) external returns (uint y) {
+        __scribble_out_of_contract = false;
+        y = _original_Foo_inc2(x);
+        __scribble_check_state_invariants();
+        __scribble_out_of_contract = true;
+    }
+
+    function _original_Foo_inc2(uint x) private view returns (uint y) {
+        return x + 1;
+    }
+
+    function inc3(uint x) private view returns (uint y) {
+        return x + 1;
+    }
+
+    function inc4(uint x) internal view returns (uint y) {
+        return x + 1;
+    }
+
     /// Check only the current contract's state invariants
     function __scribble_Foo_check_state_invariants_internal() internal {
         if (!(b == (a + 1))) {

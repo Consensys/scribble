@@ -1428,6 +1428,10 @@ export class FunctionInstrumenter {
         const factory = ctx.factory;
 
         const annotations = filterByType(allAnnotations, PropertyMetaData);
+        const filteredAnnotations = annotations.filter(
+            (annot) => annot.target instanceof FunctionDefinition
+        );
+
         assert(
             allAnnotations.length === annotations.length,
             `NYI: Non-property annotations on functions.`
@@ -1446,7 +1450,7 @@ export class FunctionInstrumenter {
 
         const transCtx = ctx.getTranspilingCtx(stub);
 
-        const instrResult = generateExpressions(annotations, transCtx);
+        const instrResult = generateExpressions(filteredAnnotations, transCtx);
 
         const recipe: Recipe = [];
 
@@ -1473,7 +1477,7 @@ export class FunctionInstrumenter {
             );
         }
 
-        recipe.push(...insertInvChecks(transCtx, instrResult, annotations, contract, body));
+        recipe.push(...insertInvChecks(transCtx, instrResult, filteredAnnotations, contract, body));
 
         if (checkStateInvs) {
             recipe.push(...this.insertExitMarker(factory, instrResult, contract, stub, transCtx));

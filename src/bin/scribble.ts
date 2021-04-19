@@ -38,6 +38,7 @@ import {
     UserFunctionDefinitionMetaData,
     buildAnnotationMap,
     AnnotationMap,
+    gatherContractAnnotations,
     gatherFunctionAnnotations,
     AnnotationFilterOptions
 } from "../instrumenter/annotations";
@@ -221,7 +222,8 @@ function instrumentFiles(
                     stateVarsWithAnnot.push(stateVar);
                 }
             }
-            const allowedFuncProp = contractAnnot.filter(
+            const allProperties = gatherContractAnnotations(contract, annotMap);
+            const allowedFuncProp = allProperties.filter(
                 (annot) =>
                     annot instanceof PropertyMetaData && annot.parsedAnnot.type == "if_succeeds"
             );
@@ -232,8 +234,11 @@ function instrumentFiles(
                     continue;
                 }
 
-                const annotations = gatherFunctionAnnotations(fun, annotMap);
-                annotations.concat(allowedFuncProp);
+                let annotations = gatherFunctionAnnotations(fun, annotMap);
+                if (fun.visibility == "external" || fun.visibility == "public") {
+                    annotations = annotations.concat(allowedFuncProp);
+                }
+
                 /**
                  * We interpose on functions if either of these is true
                  *  a) They have annotations

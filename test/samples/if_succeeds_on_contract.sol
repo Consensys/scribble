@@ -10,4 +10,17 @@ contract Foo  {
     function inc(uint x) public view returns (uint y) {
         return x+1;
     }
+    
+    function inc2(uint x) external view returns (uint y) {
+        return x+1;
+    }
+
+    function inc3(uint x) private view returns (uint y) {
+        return x+1;
+    }
+
+    function inc4(uint x) internal view returns (uint y) {
+        return x+1;
+    }
+
 }
