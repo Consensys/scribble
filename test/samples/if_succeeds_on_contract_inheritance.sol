@@ -5,16 +5,16 @@ contract Foo  {
     uint a;
     uint b;
 
-    function inc(uint x) public pure returns (uint y) {
+    function inc(uint x) public returns (uint y) {
         return x+1;
     }
-    function inc2(uint x) virtual public pure returns(uint y){
+    function inc2(uint x) virtual public returns(uint y){
 
     }
 }
 
 contract Bar is Foo  {
-    function inc2(uint x) public override pure returns (uint y) {
+    function inc2(uint x) public override returns (uint y) {
         return x+3;
     }
     function inc3(uint x) public  pure returns (uint y) {

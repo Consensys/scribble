@@ -98,6 +98,11 @@ export class InstrumentationContext {
     public readonly generalInstrumentationNodes: ASTNode[] = [];
 
     /**
+     * Map containing debug event associated with a given annotation.
+     */
+    public readonly debugEventsMap: Map<AnnotationMetaData, EventDefinition> = new Map();
+
+    /**
      * Bit of a hack - this is set by `generateUtilsContract`. We need an
      * InstrumentationContext already present for `generateUtilsContract` to be able
      * to use `ctx.nameGenerator`.
