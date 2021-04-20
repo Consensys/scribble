@@ -382,7 +382,7 @@ class AnnotationExtractor {
 
         const result: AnnotationMetaData[] = [];
 
-        const rx = /\s*(\*|\/\/\/)\s*(if_succeeds|if_updated|if_assigned|invariant|define\s*[a-zA-Z0-9_]*\([^)]*\))/g;
+        const rx = /\s*(\*|\/\/\/)\s*(if_succeeds|if_updated|if_assigned|invariant|define\s*[a-zA-Z0-9_]*\s*\([^)]*\))/g;
 
         let match = rx.exec(meta.text);
 
