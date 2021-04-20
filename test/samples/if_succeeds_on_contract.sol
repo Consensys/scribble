@@ -23,4 +23,7 @@ contract Foo  {
         return x+1;
     }
 
+    function inc5(uint x) public pure returns (uint y) {
+	return x+2;
+    }
 }
