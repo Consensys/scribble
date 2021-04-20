@@ -211,6 +211,26 @@ contract UsingForRefType {
 
     function _original_UsingForRefType_main(string memory mS) private {}
 }
+
+contract ExternalCall {
+    event AssertionFailed(string message);
+
+    function process(bytes calldata _bytes) external returns (bool result) {
+        result = _original_ExternalCall_process(_bytes);
+        if (!(this.checkBytes(_bytes) == result)) {
+            emit AssertionFailed("10: wrong byte");
+            assert(false);
+        }
+    }
+
+    function _original_ExternalCall_process(bytes calldata _bytes) private returns (bool result) {
+        return this.checkBytes(_bytes);
+    }
+
+    function checkBytes(bytes calldata _bytes) external pure returns (bool result) {
+        return _bytes.length > 0;
+    }
+}
 /// Utility contract holding a stack counter
 contract __scribble_ReentrancyUtils {
     bool __scribble_out_of_contract = true;
