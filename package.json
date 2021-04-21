@@ -30,6 +30,7 @@
         "transpile": "tsc",
         "build": "npm run clean && npm run build-parsers && npm run transpile",
         "test": "NODE_OPTIONS='--max-old-space-size=2048' nyc mocha",
+        "test:ci": "NODE_OPTIONS='--max-old-space-size=2048' nyc mocha --parallel --jobs 2",
         "coverage:upload": "nyc report --reporter=text-lcov > coverage.lcov && codecov -t $CODECOV_TOKEN",
         "lint": "eslint src/ test/ --ext=ts",
         "lint:fix": "eslint src/ test/ --ext=ts --fix",
