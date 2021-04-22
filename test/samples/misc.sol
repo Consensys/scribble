@@ -110,8 +110,26 @@ contract ExternalCall {
         return _bytes.length > 0;
     }
 }
+
+// ---------------------------------------------
+
 /// define some stuff
 /// define some(other stuff
 contract IgnoreNonFunDefines {
     
+}
+
+// ---------------------------------------------
+
+contract CallinInstrumentedFun {
+    uint x = 1;
+    /// if_succeeds res > 0;
+    function getX() public view returns (uint res) {
+        return x;
+    }
+
+    /// if_succeeds res == x + getX();
+    function inc(uint x) public returns (uint res) {
+        return x + getX();
+    }
 }
