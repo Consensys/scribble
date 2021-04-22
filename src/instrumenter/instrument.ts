@@ -903,7 +903,7 @@ export function insertInvChecks(
         }
 
         if (newAssignmentStmts.length > 0) {
-            const newAssignmenBlock = factory.makeUncheckedBlock(oldAssignmentStmts);
+            const newAssignmenBlock = factory.makeUncheckedBlock(newAssignmentStmts);
             recipe.push(new InsertStatement(factory, newAssignmenBlock, "end", body));
         }
 

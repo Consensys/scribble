@@ -15,5 +15,5 @@ steps:
           - npm install --unsafe-perm
           - npm link --unsafe-perm
           - npm run lint
-          - npm test
+          - npm run test:ci
           - npm run coverage:upload
