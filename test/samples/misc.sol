@@ -110,3 +110,8 @@ contract ExternalCall {
         return _bytes.length > 0;
     }
 }
+/// define some stuff
+/// define some(other stuff
+contract IgnoreNonFunDefines {
+    
+}
