@@ -18,6 +18,8 @@ import {
     ExternalReferenceType,
     FunctionDefinition,
     FunctionKind,
+    FunctionStateMutability,
+    FunctionVisibility,
     Identifier,
     ImportDirective,
     MemberAccess,
@@ -38,6 +40,7 @@ import {
     UserFunctionDefinitionMetaData,
     buildAnnotationMap,
     AnnotationMap,
+    gatherContractAnnotations,
     gatherFunctionAnnotations,
     AnnotationFilterOptions
 } from "../instrumenter/annotations";
@@ -52,7 +55,7 @@ import { instrumentStateVars } from "../instrumenter/state_var_instrumenter";
 import { InstrumentationContext } from "../instrumenter/instrumentation_context";
 import { merge } from "../rewriter/merge";
 import { isSane } from "../rewriter/sanity";
-import { Location, Range } from "../spec-lang/ast";
+import { AnnotationType, Location, Range } from "../spec-lang/ast";
 import { scUnits, SemError, SemMap, STypeError, tcUnits, TypeEnv } from "../spec-lang/tc";
 import {
     assert,
@@ -149,7 +152,10 @@ function computeContractsNeedingInstr(
         .filter(
             ([n, annots]) =>
                 n instanceof ContractDefinition &&
-                annots.filter((annot) => annot instanceof PropertyMetaData).length > 0
+                annots.filter(
+                    (annot) =>
+                        annot instanceof PropertyMetaData && annot.type === AnnotationType.Invariant
+                ).length > 0
         )
         .map(([contract]) => contract);
     const visited = new Set<ContractDefinition>();
@@ -221,6 +227,11 @@ function instrumentFiles(
                     stateVarsWithAnnot.push(stateVar);
                 }
             }
+            const allProperties = gatherContractAnnotations(contract, annotMap);
+            const allowedFuncProp = allProperties.filter(
+                (annot) =>
+                    annot instanceof PropertyMetaData && annot.parsedAnnot.type == "if_succeeds"
+            );
 
             for (const fun of contract.vFunctions) {
                 // Skip functions without a body
@@ -228,7 +239,15 @@ function instrumentFiles(
                     continue;
                 }
 
-                const annotations = gatherFunctionAnnotations(fun, annotMap);
+                let annotations = gatherFunctionAnnotations(fun, annotMap);
+                if (
+                    (fun.visibility == FunctionVisibility.External ||
+                        fun.visibility == FunctionVisibility.Public) &&
+                    fun.stateMutability !== FunctionStateMutability.Pure
+                ) {
+                    annotations = annotations.concat(allowedFuncProp);
+                }
+
                 /**
                  * We interpose on functions if either of these is true
                  *  a) They have annotations

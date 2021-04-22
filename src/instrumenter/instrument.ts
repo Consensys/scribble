@@ -63,7 +63,8 @@ import {
     SString,
     SAddressLiteral,
     SResult,
-    SUserFunctionDefinition
+    SUserFunctionDefinition,
+    AnnotationType
 } from "../spec-lang/ast";
 import { StateVarScope, SemMap, TypeEnv } from "../spec-lang/tc";
 import { parse as parseTypeString } from "../spec-lang/typeString_parser";
@@ -625,14 +626,19 @@ export function generateExpressions(
                     );
                 });
 
-                // Construct the event definition
-                const evtDef = factory.makeEventDefinition(
-                    true,
-                    `P${annot.id}Fail`,
-                    factory.makeParameterList(evtParams)
-                );
+                // Get or construct the event definition
+                let evtDef: EventDefinition;
+                if (!instrCtx.debugEventDefs.has(annot.id)) {
+                    evtDef = factory.makeEventDefinition(
+                        true,
+                        `P${annot.id}Fail`,
+                        factory.makeParameterList(evtParams)
+                    );
 
-                instrCtx.debugEventDefs.set(annot.id, evtDef);
+                    instrCtx.debugEventDefs.set(annot.id, evtDef);
+                } else {
+                    evtDef = instrCtx.debugEventDefs.get(annot.id) as EventDefinition;
+                }
 
                 const evtArgs = dbgVars.map((v) => generateExprAST(v, transCtx, [contract, fn]));
 
@@ -925,6 +931,13 @@ export function insertInvChecks(
 
         recipe.push(...checkStmts.map((check) => new InsertStatement(factory, check, "end", body)));
     }
+
+    for (const dbgInfo of instrResult.debugEventsInfo) {
+        if (dbgInfo !== undefined && dbgInfo[0].parent === undefined) {
+            recipe.push(new InsertEvent(factory, contract, dbgInfo[0]));
+        }
+    }
+
     return recipe;
 }
 
@@ -971,7 +984,10 @@ export class ContractInstrumenter {
 
         recipe.push(...userFuncsRecipe);
 
-        const propertyAnnotations = filterByType(annotations, PropertyMetaData);
+        const propertyAnnotations = filterByType(annotations, PropertyMetaData).filter(
+            (annot) => annot.type !== AnnotationType.IfSucceeds
+        );
+
         if (needsStateInvChecks) {
             const [internalInvChecker, internalCheckerRecipe] = this.makeInternalInvariantChecker(
                 ctx,
@@ -1174,12 +1190,6 @@ export class ContractInstrumenter {
         recipe.push(new InsertFunction(ctx.factory, contract, checker));
 
         assert(instrResult.oldAssignments.length === 0, ``);
-
-        for (const dbgInfo of instrResult.debugEventsInfo) {
-            if (dbgInfo !== undefined) {
-                recipe.push(new InsertEvent(factory, contract, dbgInfo[0]));
-            }
-        }
 
         recipe.push(...insertInvChecks(transCtx, instrResult, annotations, contract, body));
 
@@ -1493,12 +1503,6 @@ export class FunctionInstrumenter {
             isExternallyVisible(stub) &&
             isChangingState(stub) &&
             fn.kind !== FunctionKind.Fallback;
-
-        for (const dbgInfo of instrResult.debugEventsInfo) {
-            if (dbgInfo !== undefined) {
-                recipe.push(new InsertEvent(factory, contract, dbgInfo[0]));
-            }
-        }
 
         if (checkStateInvs) {
             recipe.push(

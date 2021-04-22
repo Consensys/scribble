@@ -297,12 +297,20 @@ class AnnotationExtractor {
         throw new Error(`NYI annotation ${parsedAnnot.pp()}`);
     }
 
+    /**
+     * Checks the validity of an annotation
+     * @param annotation The annotation to be validated
+     * @param target Target block(contract/function) of the annotation
+     */
     private validateAnnotation(target: AnnotationTarget, annotation: AnnotationMetaData) {
         if (target instanceof ContractDefinition) {
-            if (
-                annotation.type !== AnnotationType.Invariant &&
-                annotation.type !== AnnotationType.Define
-            ) {
+            const contractApplicableTypes = [
+                AnnotationType.Invariant,
+                AnnotationType.Define,
+                AnnotationType.IfSucceeds
+            ];
+
+            if (!contractApplicableTypes.includes(annotation.type)) {
                 throw new UnsupportedByTargetError(
                     `The "${annotation.type}" annotation is not applicable to contracts`,
                     annotation.original,
@@ -459,6 +467,20 @@ export function gatherFunctionAnnotations(
         scope = overridee.vScope as ContractDefinition;
     }
 
+    return result;
+}
+
+/**
+ * Gather annotations from `contract` and all it's parent contracts
+ */
+export function gatherContractAnnotations(
+    contract: ContractDefinition,
+    annotationMap: AnnotationMap
+): AnnotationMetaData[] {
+    const result: AnnotationMetaData[] = [];
+    for (const base of contract.vLinearizedBaseContracts) {
+        result.unshift(...(annotationMap.get(base) as AnnotationMetaData[]));
+    }
     return result;
 }
 
