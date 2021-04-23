@@ -239,12 +239,6 @@ export function generateIdAST(
         throw new Error(`Unknown `);
     }
 
-    if (!(referrencedDef.name === spec.name)) {
-        throw new Error(
-            `Internal error: variable id ${spec.pp()} has different name from underlying variable ${referrencedDef.print()}`
-        );
-    }
-
     return factory.makeIdentifierFor(referrencedDef);
 }
 
