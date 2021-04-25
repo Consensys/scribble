@@ -37,6 +37,25 @@ Invariant =
     return new SProperty(type as AnnotationType, expr, label !== null ? label : undefined, location());
   }
 
+StartBracket = 
+   "("   { return "(" }
+ / "["   { return "[" }
+
+EndBracket = 
+    ")"   { return ")" }
+  / "]"   { return "]" }
+
+Range = 
+    start_bracket: StartBracket __ start: Identifier __ "..."  __ end: Identifier __ end_bracket: EndBracket
+    {
+      return new SItrRange(start, end, start_bracket, end_bracket);
+    }
+
+For_All = 
+  type: FORALL __ "(" __ itr_type: IntType __ iterator: Identifier __ IN __ range: Range ")" __ expr: Expression __ ";"
+  {
+    return new SForAll(itr_type, iterator, range, expr);
+  }
 If_Succeeds =
   type: IF_SUCCEEDS __ label: AnnotationLabel? __ expr: Expression __ ";"
   {
@@ -130,6 +149,7 @@ IF_SUCCEEDS = "if_succeeds"
 IF_UPDATED = "if_updated"
 IF_ASSIGNED = "if_assigned"
 DEFINE = "define"
+FORALL = "forall"
 
 Keyword
     = TRUE

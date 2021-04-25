@@ -18,7 +18,9 @@ import {
     SProperty,
     AnnotationType,
     SIfUpdated,
-    SIfAssigned
+    SIfAssigned,
+    SForAll,
+    SItrRange
 } from "../../src/spec-lang/ast";
 import { eq } from "../../src/util/struct_equality";
 import bigInt from "big-integer";
@@ -590,6 +592,150 @@ describe("Expression Parser Unit Tests", () => {
         describe(`Sample ${sample}`, () => {
             it("Fails as expected", () => {
                 expect(parseExpr.bind(parseExpr, sample)).toThrow();
+            });
+        });
+    }
+});
+
+describe("Type Parser Unit Tests", () => {
+    const goodSamples: Array<[string, SNode]> = [
+        ["bool", new SBoolType()],
+        ["address", new SAddressType(false)],
+        ["address payable", new SAddressType(true)],
+        ["uint", new SIntType(256, false)],
+        ["int", new SIntType(256, true)],
+        ["int8", new SIntType(8, true)],
+        ["uint16", new SIntType(16, false)],
+        ["byte", new SFixedBytes(1)],
+        ["bytes32", new SFixedBytes(32)],
+        ["bytes21", new SFixedBytes(21)],
+        ["bytes", new SBytes()],
+        ["string", new SString()],
+        ["uint[]", new SArrayType(new SIntType(256, false))],
+        ["int8[7]", new SArrayType(new SIntType(8, true), 7)],
+        ["string[][]", new SArrayType(new SArrayType(new SString()))],
+        ["string[][3]", new SArrayType(new SArrayType(new SString()), 3)],
+        ["string[3][]", new SArrayType(new SArrayType(new SString(), 3))],
+        ["struct SomeType", new SUserDefinedType("SomeType")],
+        ["enum SomeContract.SomeType", new SUserDefinedType("SomeContract.SomeType")],
+        [
+            "mapping (uint => int8)",
+            new SMappingType(new SIntType(256, false), new SIntType(8, true))
+        ],
+        [
+            "mapping (string => contract SomeType)",
+            new SMappingType(new SString(), new SUserDefinedType("SomeType"))
+        ],
+        [
+            "mapping (string => mapping (bytes => bool))",
+            new SMappingType(new SString(), new SMappingType(new SBytes(), new SBoolType()))
+        ],
+        [
+            "uint[] storage",
+            new SPointer(new SArrayType(new SIntType(256, false)), DataLocation.Storage)
+        ],
+        [
+            "struct SomeT calldata",
+            new SPointer(new SUserDefinedType("SomeT"), DataLocation.CallData)
+        ],
+        [
+            "mapping (string => string) memory",
+            new SPointer(new SMappingType(new SString(), new SString()), DataLocation.Memory)
+        ],
+        [
+            "function ()",
+            new SFunctionType(
+                [],
+                [],
+                FunctionVisibility.Internal,
+                FunctionStateMutability.NonPayable
+            )
+        ],
+        [
+            "function (uint)",
+            new SFunctionType(
+                [new SIntType(256, false)],
+                [],
+                FunctionVisibility.Internal,
+                FunctionStateMutability.NonPayable
+            )
+        ],
+        [
+            "function (uint) returns (uint)",
+            new SFunctionType(
+                [new SIntType(256, false)],
+                [new SIntType(256, false)],
+                FunctionVisibility.Internal,
+                FunctionStateMutability.NonPayable
+            )
+        ],
+        [
+            "function (uint, string) returns (uint)",
+            new SFunctionType(
+                [new SIntType(256, false), new SString()],
+                [new SIntType(256, false)],
+                FunctionVisibility.Internal,
+                FunctionStateMutability.NonPayable
+            )
+        ],
+        [
+            "function (uint, string memory) returns (uint)",
+            new SFunctionType(
+                [new SIntType(256, false), new SPointer(new SString(), DataLocation.Memory)],
+                [new SIntType(256, false)],
+                FunctionVisibility.Internal,
+                FunctionStateMutability.NonPayable
+            )
+        ],
+        [
+            "function (uint, string memory) external view returns (uint)",
+            new SFunctionType(
+                [new SIntType(256, false), new SPointer(new SString(), DataLocation.Memory)],
+                [new SIntType(256, false)],
+                FunctionVisibility.External,
+                FunctionStateMutability.View
+            )
+        ],
+        [
+            "function (uint, string memory) internal pure returns (uint)",
+            new SFunctionType(
+                [new SIntType(256, false), new SPointer(new SString(), DataLocation.Memory)],
+                [new SIntType(256, false)],
+                FunctionVisibility.Internal,
+                FunctionStateMutability.Pure
+            )
+        ],
+        [
+            "forall (uint x in [1...10]) a[x]>10;",
+            new SForAll(
+                new SIntType(256, false),
+                new SId("x"),
+                new SItrRange(1, 10, "[", "]"),
+                new SBinaryOperation(
+                    new SIndexAccess(new SId("a"), new SId("x")),
+                    ">",
+                    new SNumber(bigInt(10), 1)
+                )
+            )
+        ]
+    ];
+
+    const badSamples: string[] = [];
+
+    for (const [sample, expectedAST] of goodSamples) {
+        describe(`Sample ${sample}`, () => {
+            it("Parses correctly", () => {
+                const parsed = parseTypeString(sample);
+                Logger.debug(`[${sample}]: Got: ${parsed.pp()} expected: ${expectedAST.pp()}`);
+                expect(eq(parsed, expectedAST)).toEqual(true);
+            });
+        });
+    }
+
+    for (const sample of badSamples) {
+        describe(`Sample ${sample}`, () => {
+            it("Fails as expected", () => {
+                expect(parseTypeString.bind(parseTypeString, sample)).toThrow();
             });
         });
     }
