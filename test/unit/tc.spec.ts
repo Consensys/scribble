@@ -595,7 +595,7 @@ describe("TypeChecker Expression Unit Tests", () => {
                 address sA;
                 bool b;
                 using Lib2 for *;
-
+            
                 mapping (uint32 => int64) sM;
 
                 function add(uint x, uint y) public returns(uint add) {
@@ -657,6 +657,7 @@ describe("TypeChecker Expression Unit Tests", () => {
                 ["msg.any", ["Foo", undefined]],
                 ["tx.any", ["Foo", undefined]],
                 ["$result", ["Foo", undefined]],
+                ["$result", ["Foo", "noReturn"]],
                 ["$result", ["Foo", "noReturn"]]
             ]
         ],
@@ -731,6 +732,9 @@ describe("TypeChecker Annotation Tests", () => {
             `pragma solidity 0.6.0;
              contract Base {
                  uint x;
+                 uint8 a;
+                 uint8 b;
+                 uint[] arr;
                  function plus(uint t) public returns (uint) {
                      x+=t;
                      return x;
@@ -878,7 +882,25 @@ describe("TypeChecker Annotation Tests", () => {
                     new BoolType(),
                     true
                 ],
-                ["if_updated old(z)>0;", ["Unrelated", "z"], new BoolType(), true]
+                ["if_updated old(z)>0;", ["Unrelated", "z"], new SBoolType(), true],
+                [
+                    "if_succeeds forall(uint i in arr) arr[i] > 0;",
+                    ["Base", "plus"],
+                    undefined,
+                    true
+                ],
+                [
+                    "if_succeeds forall(uint i in [1...10]) arr[i] > 0;",
+                    ["Base", "plus"],
+                    undefined,
+                    true
+                ],
+                [
+                    "if_succeeds forall(uint256 i in [a...b]) arr[i] > 0;",
+                    ["Base", "plus"],
+                    undefined,
+                    true
+                ]
             ]
         ]
     ];
@@ -891,6 +913,9 @@ describe("TypeChecker Annotation Tests", () => {
             `pragma solidity 0.6.0;
              contract Base {
                  uint x;
+                 uint256 a;
+                 uint128 b;
+                 uint arr;
                  function plus(uint t) public returns (uint) {
                      x+=t;
                      return x;
@@ -945,7 +970,9 @@ describe("TypeChecker Annotation Tests", () => {
                 [
                     "if_assigned[bts][addr] addr == address(0x0) && bts[0] == byte(0x01);",
                     ["Unrelated", "m2"]
-                ]
+                ],
+                ["if_succeeds forall(uint i in [1...10]) arr[i] > 0;", ["Base", "plus"]],
+                ["if_succeeds forall(uint8 i in [a...b]) arr[i] > 0;", ["Base", "plus"]]
             ]
         ]
     ];

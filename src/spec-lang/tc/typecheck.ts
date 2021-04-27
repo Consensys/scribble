@@ -49,6 +49,7 @@ import {
     SBinaryOperation,
     SBooleanLiteral,
     SConditional,
+    SForAll,
     SFunctionCall,
     SHexLiteral,
     SId,
@@ -81,7 +82,9 @@ export type SScope =
     | FunctionDefinition
     | SLet
     | SUserFunctionDefinition
-    | StateVarScope;
+    | StateVarScope
+    | SForAll;
+
 export type STypingCtx = SScope[];
 
 export function ppTypingCtx(ctx: STypingCtx): string {
@@ -293,6 +296,12 @@ export function lookupVarDef(name: string, ctx: STypingCtx): VarDefSite | undefi
                 if (element instanceof SId && element.name === name) {
                     return [scope, i];
                 }
+            }
+        } else if (scope instanceof SForAll) {
+            if (scope.itr.name == name) {
+                return scope;
+            } else {
+                continue;
             }
         } else {
             for (let bindingIdx = 0; bindingIdx < scope.lhs.length; bindingIdx++) {
@@ -633,6 +642,10 @@ export function tc(expr: SNode, ctx: STypingCtx, typeEnv: TypeEnv): TypeNode {
         return new TypeNameType(expr);
     }
 
+    if (expr instanceof SForAll) {
+        return cache(expr, tcForAll(expr, ctx, typeEnv));
+    }
+
     throw new Error(`NYI type-checking of ${expr.pp()}`);
 }
 
@@ -833,7 +846,6 @@ function locateKeyType(type: TypeName, idx: number, path: Array<SId | string>): 
 
 function tcIdVariable(expr: SId, ctx: STypingCtx, typeEnv: TypeEnv): TypeNode | undefined {
     const def = lookupVarDef(expr.name, ctx);
-
     if (def === undefined) {
         return undefined;
     }
@@ -846,6 +858,10 @@ function tcIdVariable(expr: SId, ctx: STypingCtx, typeEnv: TypeEnv): TypeNode | 
         }
 
         return astVarToTypeNode(def);
+    }
+
+    if (def instanceof SForAll) {
+        return def.itrType;
     }
 
     const [defNode, bindingIdx] = def;
@@ -1553,6 +1569,70 @@ function matchArguments(
     }
 
     return true;
+}
+
+/**
+ * We check the following in forall (uint t in [a ... b]) e(t):
+ *   - Type of t should be numeric
+ *   - a and b should be numeric and be castable to the type of t
+ *   - type of e is boolean
+ *   - return value of this expression is boolean
+ *   - t is defined in e(t).
+ */
+export function tcForAll(expr: SForAll, ctx: STypingCtx, typeEnv: TypeEnv): SType {
+    if (!(expr.itrType instanceof SIntType)) {
+        throw new SWrongType(
+            `The expected type for ${expr.itr.pp()} is numeric and not ${expr.itrType}.`,
+            expr.itr,
+            expr.itrType
+        );
+    }
+
+    if (expr.start && expr.end) {
+        const startT = tc(expr.start, ctx, typeEnv);
+        if (!(startT instanceof SIntType || startT instanceof SIntLiteralType)) {
+            throw new SWrongType(
+                `The expected type for ${expr.start.pp()} is numeric and not ${startT}.`,
+                expr.start,
+                startT
+            );
+        }
+
+        const endT = tc(expr.end, ctx, typeEnv);
+        if (!(startT instanceof SIntType || startT instanceof SIntLiteralType)) {
+            throw new SWrongType(
+                `The expected type for ${expr.end.pp()} is numeric and not ${endT}.`,
+                expr.end,
+                endT
+            );
+        }
+
+        if (!isImplicitlyCastable(expr, startT, expr.itrType)) {
+            throw new SWrongType(
+                `The type for ${expr.start.pp()} is not castable to ${expr.itrType}.`,
+                expr.start,
+                expr.itrType
+            );
+        }
+
+        if (!isImplicitlyCastable(expr, endT, expr.itrType)) {
+            throw new SWrongType(
+                `The type for ${expr.end.pp()} is not castable to ${expr.itrType}.`,
+                expr.end,
+                expr.itrType
+            );
+        }
+    }
+    const exprT = tc(expr.expression, ctx.concat(expr), typeEnv);
+    if (!(exprT instanceof SBoolType)) {
+        throw new SWrongType(
+            `The expected type for ${expr.expression.pp()} is boolean and not ${exprT}.`,
+            expr.expression,
+            exprT
+        );
+    }
+
+    return exprT;
 }
 
 export function tcFunctionCall(expr: SFunctionCall, ctx: STypingCtx, typeEnv: TypeEnv): TypeNode {

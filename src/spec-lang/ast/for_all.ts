@@ -1,53 +1,55 @@
-import { SNode, Range } from ".";
+import { SNode, Range, SId } from ".";
 import { SIntType } from "./types";
 
 /**
  */
 export class SForAll extends SNode {
-    public readonly itr_type;
+    public readonly itrType;
     public readonly itr;
     public readonly start;
     public readonly end;
-    public readonly start_bracket;
-    public readonly end_bracket;
+    public readonly startBracket;
+    public readonly endBracket;
     public readonly expression;
     public readonly array;
     public readonly label?: string;
+
     constructor(
-        itr_type: SIntType,
-        itr: SNode,
+        itrType: SIntType,
+        itr: SId,
         expression: SNode,
         start?: SNode,
         end?: SNode,
-        start_bracket?: string,
-        end_bracket?: string,
-        array?: SNode,
+        startBracket?: string,
+        endBracket?: string,
+        array?: SId,
         src?: Range
     ) {
         super(src);
-        this.itr_type = itr_type;
+        this.itrType = itrType;
         this.itr = itr;
         this.start = start;
         this.end = end;
-        this.start_bracket = start_bracket;
-        this.end_bracket = end_bracket;
+        this.startBracket = startBracket;
+        this.endBracket = endBracket;
         this.expression = expression;
         this.array = array;
     }
     includesStart(): boolean {
-        return this.start_bracket == "[";
+        return this.startBracket == "[";
     }
 
     includesEnd(): boolean {
-        return this.end_bracket == "]";
+        return this.endBracket == "]";
     }
+
     pp(): string {
         if (this.start) {
-            return `(forall(${this.itr_type} ${this.itr.pp()} in ${this.start_bracket} ${
+            return `(forall(${this.itrType} ${this.itr.pp()} in ${this.startBracket} ${
                 this.start
-            }...${this.end} ${this.end_bracket}) ${this.expression.pp()}`;
+            }...${this.end} ${this.endBracket}) ${this.expression.pp()}`;
         } else {
-            return `(forall(${this.itr_type} ${this.itr.pp()} in ${
+            return `(forall(${this.itrType} ${this.itr.pp()} in ${
                 this.array
             }) ${this.expression.pp()}`;
         }
@@ -55,13 +57,13 @@ export class SForAll extends SNode {
 
     getFields(): any[] {
         return [
-            this.itr_type,
+            this.itrType,
             this.itr,
             this.expression,
-            this.start_bracket,
+            this.startBracket,
             this.start,
             this.end,
-            this.end_bracket,
+            this.endBracket,
             this.array
         ];
     }
