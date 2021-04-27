@@ -15,7 +15,8 @@ Annotation
       }
 
 Expression =
-    LetExpression
+    For_All
+    / LetExpression
 
 // Non-top-level rules
 
@@ -46,15 +47,23 @@ EndBracket =
   / "]"   { return "]" }
 
 Range = 
-    start_bracket: StartBracket __ start: Identifier __ "..."  __ end: Identifier __ end_bracket: EndBracket
+    start_bracket: StartBracket __ start: Expression __ "..."  __ end: Expression __ end_bracket: EndBracket
     {
-      return new SItrRange(start, end, start_bracket, end_bracket);
+      return [start, end, start_bracket, end_bracket];
     }
+    / identifier: Identifier {return identifier;}
+    
 
 For_All = 
-  type: FORALL __ "(" __ itr_type: IntType __ iterator: Identifier __ IN __ range: Range ")" __ expr: Expression __ ";"
+  type: FORALL __ "(" __ itr_type: IntType __ iterator: Identifier __ IN __ range: Range ")" __ expr: Expression
   {
-    return new SForAll(itr_type, iterator, range, expr);
+    if(Array.isArray(range)) {
+      const [start, end, start_bracket, end_bracket] = range;
+      return new SForAll(itr_type, iterator, expr, start, end, start_bracket, end_bracket, undefined, location());
+    }
+    else {
+      return new SForAll(itr_type, iterator, expr, undefined, undefined, undefined, undefined, range, location());
+    }
   }
 If_Succeeds =
   type: IF_SUCCEEDS __ label: AnnotationLabel? __ expr: Expression __ ";"

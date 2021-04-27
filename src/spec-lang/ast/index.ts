@@ -14,5 +14,4 @@ export * from "./let";
 export * from "./address_literal";
 export * from "./result";
 export * from "./declarations";
-export * from "./range_node";
 export * from "./for_all";
