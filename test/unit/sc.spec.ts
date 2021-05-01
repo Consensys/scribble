@@ -30,6 +30,7 @@ describe("SemanticChecker Expression Unit Tests", () => {
                 uint sV;
                 int128 constant sV1 = -1;
                 int32[] sI32Arr;
+                uint[] arr;
 
                 function pId(int8 x) public pure returns (int8) {
                     return x;
@@ -44,6 +45,18 @@ describe("SemanticChecker Expression Unit Tests", () => {
                 }
             }`,
             [
+                [
+                    "forall (uint i in sI32Arr) i > 0",
+                    ["Foo", "pId"],
+                    new SBoolType(),
+                    { isOld: false, isConst: false, canFail: false }
+                ],
+                [
+                    "forall (uint i in [1...10]) true",
+                    ["Foo", "pId"],
+                    new SBoolType(),
+                    { isOld: false, isConst: true, canFail: false }
+                ],
                 [
                     "true",
                     ["Foo", undefined],
@@ -249,6 +262,7 @@ describe("SemanticChecker Expression Unit Tests", () => {
                 uint sV;
                 int128 constant sV1 = -1;
                 int32 sI32Arr;
+                uint[] arr;
 
                 function vId() public returns (uint) {
                     return sV;
@@ -259,6 +273,7 @@ describe("SemanticChecker Expression Unit Tests", () => {
                 }
             }`,
             [
+                ["forall(uint x in [1...10]) arr[x] > 10 + old(x*sV+100)", ["Foo", "add"]],
                 ["old(old(x))", ["Foo", "add"]],
                 ["let x := y in old(x)", ["Foo", "add"]],
                 ["let x := y in let z := old(1) in old(x+z)", ["Foo", "add"]],

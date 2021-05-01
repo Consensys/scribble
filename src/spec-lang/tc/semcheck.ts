@@ -12,6 +12,7 @@ import {
     SBinaryOperation,
     SBooleanLiteral,
     SConditional,
+    SForAll,
     SFunctionCall,
     SHexLiteral,
     SId,
@@ -195,6 +196,10 @@ export function sc(
 
     if (expr instanceof SFunctionCall) {
         return cache(expr, scFunctionCall(expr, ctx, typings, semMap));
+    }
+
+    if (expr instanceof SForAll) {
+        return cache(expr, scForAll(expr, ctx, typings, semMap));
     }
 
     throw new Error(`NYI semantic-checking of ${expr.pp()}`);
@@ -423,4 +428,32 @@ export function scFunctionCall(
     }
 
     throw new Error(`Internal error: NYI semcheck for ${expr.pp()}`);
+}
+
+/**
+ * For Any expression of form old(e1) in `forall(type t in range) e(t)`
+ * throw an error if the expression depends on t.
+ * @param expr
+ * @param ctx
+ * @param typeEnv
+ * @param semMap
+ */
+export function scForAll(expr: SForAll, ctx: SemCtx, typeEnv: TypeEnv, semMap: SemMap): SemInfo {
+    const exprSemInfo = sc(expr.expression, ctx, typeEnv, semMap);
+    const itrSemInfo = sc(expr.itr, ctx, typeEnv, semMap);
+
+    expr.expression.walk((node) => {
+        if (node instanceof SId && semMap.get(node)?.isOld && node.name == expr.itr.name) {
+            throw new SemError(
+                `Cannot evaluate ${expr.pp()} due to the usage of ${expr.itr.pp()} in old()`,
+                expr
+            );
+        }
+    });
+
+    return {
+        isOld: ctx.isOld,
+        isConst: exprSemInfo.isConst,
+        canFail: exprSemInfo.canFail || itrSemInfo.canFail
+    };
 }
