@@ -1,34 +1,27 @@
 import { parseAnnotation, parseExpression as parse } from "../../src/spec-lang/expr_parser";
 import expect from "expect";
 import { eq } from "../../src/util/struct_equality";
+import { SProperty, AnnotationType } from "../../src/spec-lang/ast";
 import {
-    SType,
-    SIntLiteralType,
-    SIntType,
-    SProperty,
-    AnnotationType
-} from "../../src/spec-lang/ast";
-import { ContractDefinition, FunctionDefinition, SourceUnit } from "solc-typed-ast";
+    BoolType,
+    ContractDefinition,
+    FunctionDefinition,
+    IntLiteralType,
+    IntType,
+    SourceUnit,
+    StringLiteralType,
+    TypeNode
+} from "solc-typed-ast";
 import { getTarget, toAst } from "../integration/utils";
-import {
-    tc,
-    STypingCtx,
-    SemInfo,
-    SemError,
-    TypeEnv,
-    tcAnnotation,
-    scAnnotation
-} from "../../src/spec-lang/tc";
+import { tc, SemInfo, SemError, TypeEnv, tcAnnotation, scAnnotation } from "../../src/spec-lang/tc";
 import { sc } from "../../src/spec-lang/tc";
-import { SBoolType } from "../../src/spec-lang/ast/types/bool";
 import { Logger } from "../../src/logger";
-import { getTypeCtx } from "../integration/utils";
-import { SStringLiteralType } from "../../src/spec-lang/ast/types/string_literal";
+import { getTypeCtxAndTarget } from "../integration/utils";
 
 export type LocationDesc = [string, string | undefined];
 
 describe("SemanticChecker Expression Unit Tests", () => {
-    const goodSamples: Array<[string, string, Array<[string, LocationDesc, SType, SemInfo]>]> = [
+    const goodSamples: Array<[string, string, Array<[string, LocationDesc, TypeNode, SemInfo]>]> = [
         [
             "foo.sol",
             `pragma solidity 0.6.0;
@@ -54,193 +47,193 @@ describe("SemanticChecker Expression Unit Tests", () => {
                 [
                     "true",
                     ["Foo", undefined],
-                    new SBoolType(),
+                    new BoolType(),
                     { isOld: false, isConst: true, canFail: false }
                 ],
                 [
                     "old(true)",
                     ["Foo", "add"],
-                    new SBoolType(),
+                    new BoolType(),
                     { isOld: true, isConst: true, canFail: false }
                 ],
                 [
                     "1",
                     ["Foo", undefined],
-                    new SIntLiteralType(),
+                    new IntLiteralType(),
                     { isOld: false, isConst: true, canFail: false }
                 ],
                 [
                     "hex'0011ff'",
                     ["Foo", undefined],
-                    new SStringLiteralType(),
+                    new StringLiteralType("0011ff", true),
                     { isOld: false, isConst: true, canFail: false }
                 ],
                 [
                     'hex""',
                     ["Foo", undefined],
-                    new SStringLiteralType(),
+                    new StringLiteralType("", true),
                     { isOld: false, isConst: true, canFail: false }
                 ],
                 [
                     '"abc \\" \\u0000 \\x01 Def "',
                     ["Foo", undefined],
-                    new SStringLiteralType(),
+                    new StringLiteralType('abc " \u0000 \x01 Def ', false),
                     { isOld: false, isConst: true, canFail: false }
                 ],
                 [
                     "''",
                     ["Foo", undefined],
-                    new SStringLiteralType(),
+                    new StringLiteralType("", false),
                     { isOld: false, isConst: true, canFail: false }
                 ],
                 [
                     "1e10",
                     ["Foo", undefined],
-                    new SIntLiteralType(),
+                    new IntLiteralType(),
                     { isOld: false, isConst: true, canFail: false }
                 ],
                 [
                     "10e+5",
                     ["Foo", undefined],
-                    new SIntLiteralType(),
+                    new IntLiteralType(),
                     { isOld: false, isConst: true, canFail: false }
                 ],
                 [
                     "1000e-2",
                     ["Foo", undefined],
-                    new SIntLiteralType(),
+                    new IntLiteralType(),
                     { isOld: false, isConst: true, canFail: false }
                 ],
                 [
                     "old(1)",
                     ["Foo", "add"],
-                    new SIntLiteralType(),
+                    new IntLiteralType(),
                     { isOld: true, isConst: true, canFail: false }
                 ],
                 [
                     "sV",
                     ["Foo", undefined],
-                    new SIntType(256, false),
+                    new IntType(256, false),
                     { isOld: false, isConst: false, canFail: false }
                 ],
                 [
                     "sV1",
                     ["Foo", undefined],
-                    new SIntType(128, true),
+                    new IntType(128, true),
                     { isOld: false, isConst: true, canFail: false }
                 ],
                 [
                     "old(sV1)",
                     ["Foo", "add"],
-                    new SIntType(128, true),
+                    new IntType(128, true),
                     { isOld: true, isConst: true, canFail: false }
                 ],
                 [
                     "x",
                     ["Foo", "add"],
-                    new SIntType(8, true),
+                    new IntType(8, true),
                     { isOld: false, isConst: false, canFail: false }
                 ],
                 [
                     "old(x)",
                     ["Foo", "add"],
-                    new SIntType(8, true),
+                    new IntType(8, true),
                     { isOld: true, isConst: false, canFail: false }
                 ],
                 [
                     "add",
                     ["Foo", "add"],
-                    new SIntType(64, false),
+                    new IntType(64, false),
                     { isOld: false, isConst: false, canFail: false }
                 ],
                 [
                     "x+x",
                     ["Foo", "add"],
-                    new SIntType(8, true),
+                    new IntType(8, true),
                     { isOld: false, isConst: false, canFail: false }
                 ],
                 [
                     "x/x",
                     ["Foo", "add"],
-                    new SIntType(8, true),
+                    new IntType(8, true),
                     { isOld: false, isConst: false, canFail: true }
                 ],
                 [
                     "old(x % x)",
                     ["Foo", "add"],
-                    new SIntType(8, true),
+                    new IntType(8, true),
                     { isOld: true, isConst: false, canFail: true }
                 ],
                 [
                     "sI32Arr[1]",
                     ["Foo", undefined],
-                    new SIntType(32, true),
+                    new IntType(32, true),
                     { isOld: false, isConst: false, canFail: true }
                 ],
                 [
                     "old(sI32Arr[1])",
                     ["Foo", "add"],
-                    new SIntType(32, true),
+                    new IntType(32, true),
                     { isOld: true, isConst: false, canFail: true }
                 ],
                 [
                     "let x := 1 in old(x)",
                     ["Foo", "add"],
-                    new SIntLiteralType(),
+                    new IntLiteralType(),
                     { isOld: true, isConst: true, canFail: false }
                 ],
                 [
                     "let x := y in x",
                     ["Foo", "add"],
-                    new SIntType(64, false),
+                    new IntType(64, false),
                     { isOld: false, isConst: false, canFail: false }
                 ],
                 [
                     "let x := old(y) in old(x)",
                     ["Foo", "add"],
-                    new SIntType(64, false),
+                    new IntType(64, false),
                     { isOld: true, isConst: false, canFail: false }
                 ],
                 [
                     "let x := old(y) in let z := 1 in old(x+z)",
                     ["Foo", "add"],
-                    new SIntType(64, false),
+                    new IntType(64, false),
                     { isOld: true, isConst: false, canFail: false }
                 ],
                 [
                     "let z := old(uint64(x)) in let x := old(y) in old(x+y)",
                     ["Foo", "add"],
-                    new SIntType(64, false),
+                    new IntType(64, false),
                     { isOld: true, isConst: false, canFail: false }
                 ],
                 [
                     "let z := old(uint64(x)) in old(let x := y in x+y)",
                     ["Foo", "add"],
-                    new SIntType(64, false),
+                    new IntType(64, false),
                     { isOld: true, isConst: false, canFail: false }
                 ],
                 [
                     "old(let x := y in x)",
                     ["Foo", "add"],
-                    new SIntType(64, false),
+                    new IntType(64, false),
                     { isOld: true, isConst: false, canFail: false }
                 ],
                 [
                     "pId(x)",
                     ["Foo", "add"],
-                    new SIntType(8, true),
+                    new IntType(8, true),
                     { isOld: false, isConst: false, canFail: true }
                 ],
                 [
                     "vId()",
                     ["Foo", "add"],
-                    new SIntType(256, false),
+                    new IntType(256, false),
                     { isOld: false, isConst: false, canFail: true }
                 ],
                 [
                     "$result",
                     ["Foo", "add"],
-                    new SIntType(64, false),
+                    new IntType(64, false),
                     { isOld: false, isConst: false, canFail: false }
                 ]
             ]
@@ -286,9 +279,8 @@ describe("SemanticChecker Expression Unit Tests", () => {
 
             for (const [specString, loc, expectedType, expectedInfo] of testCases) {
                 it(`SemCheck for ${specString} returns ${JSON.stringify(expectedInfo)}`, () => {
-                    const parsed = parse(specString);
-                    const ctx: STypingCtx = getTypeCtx(loc, sources);
-                    const target = getTarget(ctx);
+                    const [ctx, target] = getTypeCtxAndTarget(loc, sources);
+                    const parsed = parse(specString, target, "0.6.0");
                     const annotationType =
                         target instanceof ContractDefinition
                             ? AnnotationType.Invariant
@@ -318,9 +310,8 @@ describe("SemanticChecker Expression Unit Tests", () => {
 
             for (const [specString, loc] of testCases) {
                 it(`SemCheck for ${specString} throws SemError`, () => {
-                    const parsed = parse(specString);
-                    const ctx: STypingCtx = getTypeCtx(loc, sources);
-                    const target = getTarget(ctx);
+                    const [ctx, target] = getTypeCtxAndTarget(loc, sources);
+                    const parsed = parse(specString, target, "0.6.0");
                     const annotationType =
                         target instanceof ContractDefinition
                             ? AnnotationType.Invariant
@@ -411,9 +402,9 @@ describe("SemanticChecker Annotation Unit Tests", () => {
 
             for (const [specString, loc] of testCases) {
                 it(`SemCheck for ${specString} succeeds`, () => {
-                    const annotation = parseAnnotation(specString);
-                    const ctx: STypingCtx = getTypeCtx(loc, sources, annotation);
-                    const target = getTarget(ctx);
+                    const target = getTarget(loc, sources);
+                    const annotation = parseAnnotation(specString, target, "0.6.0");
+                    const [ctx] = getTypeCtxAndTarget(loc, sources, annotation);
                     const typeEnv = new TypeEnv();
                     tcAnnotation(annotation, ctx, target, typeEnv);
                     scAnnotation(annotation, typeEnv, new Map(), { isOld: false, annotation });
@@ -432,9 +423,9 @@ describe("SemanticChecker Annotation Unit Tests", () => {
 
             for (const [specString, loc] of testCases) {
                 it(`SemCheck for ${specString} throws as expected`, () => {
-                    const annotation = parseAnnotation(specString);
-                    const ctx: STypingCtx = getTypeCtx(loc, sources, annotation);
-                    const target = getTarget(ctx);
+                    const target = getTarget(loc, sources);
+                    const annotation = parseAnnotation(specString, target, "0.6.0");
+                    const [ctx] = getTypeCtxAndTarget(loc, sources, annotation);
                     const typeEnv = new TypeEnv();
                     tcAnnotation(annotation, ctx, target, typeEnv);
                     expect(

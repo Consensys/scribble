@@ -285,3 +285,7 @@ export function updateMap<T1, T2>(
         updatee.set(key, val);
     }
 }
+
+export function last<T>(arr: T[]): T {
+    return arr[arr.length - 1];
+}

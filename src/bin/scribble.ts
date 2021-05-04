@@ -786,8 +786,15 @@ if ("version" in options) {
         const callgraph = getCallGraph(mergedUnits);
         let annotMap: AnnotationMap;
 
+        const compilerVersionUsed = pickVersion(compilerVersionUsedMap);
+
         try {
-            annotMap = buildAnnotationMap(mergedUnits, contentsMap, filterOptions);
+            annotMap = buildAnnotationMap(
+                mergedUnits,
+                contentsMap,
+                filterOptions,
+                compilerVersionUsed
+            );
         } catch (e) {
             if (e instanceof SyntaxError || e instanceof UnsupportedByTargetError) {
                 const unit = getScopeUnit(e.target);
@@ -840,8 +847,6 @@ if ("version" in options) {
          *  2. The set of contracts that NEED contract instrumentation (because they, a parent of theirs, or a child of theirs has contract invariants)
          */
         const contractsNeedingInstr = computeContractsNeedingInstr(cha, annotMap);
-
-        const compilerVersionUsed = pickVersion(compilerVersionUsedMap);
 
         const factory = new ASTNodeFactory(mergedCtx);
 

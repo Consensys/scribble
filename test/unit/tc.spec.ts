@@ -1,40 +1,62 @@
 import {
+    AddressType,
+    ArrayType,
+    BoolType,
+    BytesType,
+    ContractDefinition,
     DataLocation,
+    EnumDefinition,
+    FixedBytesType,
     FunctionStateMutability,
+    FunctionType,
     FunctionVisibility,
-    SourceUnit
+    IntLiteralType,
+    IntType,
+    PointerType,
+    SourceUnit,
+    StringLiteralType,
+    StringType,
+    StructDefinition,
+    TupleType,
+    TypeNameType,
+    TypeNode,
+    UserDefinedType,
+    UserDefinition
 } from "solc-typed-ast";
 import expect from "expect";
 import { Logger } from "../../src/logger";
-import {
-    SAddressType,
-    SArrayType,
-    SBytes,
-    SFixedBytes,
-    SFunctionType,
-    SIntLiteralType,
-    SIntType,
-    SPointer,
-    SBuiltinTypeNameType,
-    SString,
-    STupleType,
-    SType,
-    SUserDefinedType,
-    SUserFunctionDefinition,
-    SId
-} from "../../src/spec-lang/ast";
-import { SBoolType } from "../../src/spec-lang/ast/types/bool";
+import { SUserFunctionDefinition, SId } from "../../src/spec-lang/ast";
 import { parseAnnotation, parseExpression as parse } from "../../src/spec-lang/expr_parser";
-import { STypingCtx, tc, tcAnnotation, TypeEnv } from "../../src/spec-lang/tc";
+import { tc, tcAnnotation, TypeEnv } from "../../src/spec-lang/tc";
 import { eq } from "../../src/util/struct_equality";
-import { getTarget, getTypeCtx, toAst } from "../integration/utils";
-import { SStringLiteralType } from "../../src/spec-lang/ast/types/string_literal";
+import { getTarget, getTypeCtxAndTarget, toAst } from "../integration/utils";
 import { assert, pp } from "../../src/util";
 
 export type LocationDesc = [string, string | undefined];
 
+function findTypeDef(name: string, units: SourceUnit[]): UserDefinition {
+    for (const unit of units) {
+        for (const child of unit.getChildrenBySelector(
+            (child) =>
+                (child instanceof ContractDefinition ||
+                    child instanceof StructDefinition ||
+                    child instanceof EnumDefinition) &&
+                child.name === name
+        )) {
+            return child as UserDefinition;
+        }
+    }
+    assert(false, ``);
+}
+
 describe("TypeChecker Expression Unit Tests", () => {
-    const goodSamples: Array<[string, string, Array<[string, LocationDesc, SType]>]> = [
+    const goodSamples: Array<
+        [
+            string,
+            string,
+            Array<[string, LocationDesc, TypeNode | ((arg: SourceUnit[]) => TypeNode)]>
+        ]
+    > = [
         [
             "foo.sol",
             `pragma solidity 0.6.0;
@@ -145,217 +167,250 @@ describe("TypeChecker Expression Unit Tests", () => {
                 }
             }`,
             [
-                ["uint", ["Foo", undefined], new SBuiltinTypeNameType(new SIntType(256, false))],
-                ["int24", ["Foo", undefined], new SBuiltinTypeNameType(new SIntType(24, true))],
-                ["byte", ["Foo", undefined], new SBuiltinTypeNameType(new SFixedBytes(1))],
-                ["bytes3", ["Foo", undefined], new SBuiltinTypeNameType(new SFixedBytes(3))],
-                ["string", ["Foo", undefined], new SBuiltinTypeNameType(new SString())],
+                ["uint", ["Foo", undefined], new TypeNameType(new IntType(256, false))],
+                ["int24", ["Foo", undefined], new TypeNameType(new IntType(24, true))],
+                ["byte", ["Foo", undefined], new TypeNameType(new FixedBytesType(1))],
+                ["bytes3", ["Foo", undefined], new TypeNameType(new FixedBytesType(3))],
+                ["string", ["Foo", undefined], new TypeNameType(new StringType())],
+                ["address payable", ["Foo", undefined], new TypeNameType(new AddressType(true))],
+                ["true", ["Foo", undefined], new BoolType()],
+                ["1", ["Foo", undefined], new IntLiteralType()],
+                ["hex'0011ff'", ["Foo", undefined], new StringLiteralType("0011ff", true)],
+                ['hex""', ["Foo", undefined], new StringLiteralType("", true)],
                 [
-                    "address payable",
+                    '"abc \\" \\u0000 \\x01 Def "',
                     ["Foo", undefined],
-                    new SBuiltinTypeNameType(new SAddressType(true))
+                    new StringLiteralType('abc " \u0000 \x01 Def ', false)
                 ],
-                ["true", ["Foo", undefined], new SBoolType()],
-                ["1", ["Foo", undefined], new SIntLiteralType()],
-                ["hex'0011ff'", ["Foo", undefined], new SStringLiteralType()],
-                ['hex""', ["Foo", undefined], new SStringLiteralType()],
-                ['"abc \\" \\u0000 \\x01 Def "', ["Foo", undefined], new SStringLiteralType()],
-                ["''", ["Foo", undefined], new SStringLiteralType()],
-                ["1e10", ["Foo", undefined], new SIntLiteralType()],
-                ["10e+5", ["Foo", undefined], new SIntLiteralType()],
-                ["1000e-2", ["Foo", undefined], new SIntLiteralType()],
+                ["''", ["Foo", undefined], new StringLiteralType("", false)],
+                ["1e10", ["Foo", undefined], new IntLiteralType()],
+                ["10e+5", ["Foo", undefined], new IntLiteralType()],
+                ["1000e-2", ["Foo", undefined], new IntLiteralType()],
                 [
                     "0xAaaaAaAAaaaAAaAAaAaaaaAAAAAaAaaaAaAaaAA0",
                     ["Foo", undefined],
-                    new SAddressType(true)
+                    new AddressType(true)
                 ],
                 [
                     "0xAaaaAaAAaaaAAaAAaAaaaaAAAAAaAaaaAaAaaAA0.balance",
                     ["Foo", undefined],
-                    new SIntType(256, false)
+                    new IntType(256, false)
                 ],
-                ["sV", ["Foo", undefined], new SIntType(256, false)],
-                ["sV1", ["Foo", undefined], new SIntType(128, true)],
-                ["sA", ["Foo", undefined], new SAddressType(false)],
-                ["sA1", ["Foo", "add"], new SAddressType(true)],
-                ["x", ["Foo", "add"], new SIntType(8, true)],
-                ["y", ["Foo", "add"], new SIntType(64, false)],
-                ["add", ["Foo", "add"], new SIntType(64, false)],
-                ["-x", ["Foo", "add"], new SIntType(8, true)],
-                ["-x", ["Foo", "add"], new SIntType(8, true)],
-                ["!sB", ["Foo", undefined], new SBoolType()],
-                ["x+x", ["Foo", "add"], new SIntType(8, true)],
-                ["x-16", ["Foo", "add"], new SIntType(8, true)],
-                ["24*x", ["Foo", "add"], new SIntType(8, true)],
-                ["x/sV1", ["Foo", "add"], new SIntType(128, true)],
-                ["y%123", ["Foo", "add"], new SIntType(64, false)],
-                ["33%5", ["Foo", "add"], new SIntLiteralType()],
-                ["3**2", ["Foo", undefined], new SIntLiteralType()],
-                ["y**2", ["Foo", "add"], new SIntType(64, false)],
-                ["2**y", ["Foo", "add"], new SIntType(64, false)],
-                ["y**sV", ["Foo", "add"], new SIntType(64, false)],
-                ["y>>x", ["Foo", "add"], new SIntType(64, false)],
-                ["y>>5", ["Foo", "add"], new SIntType(64, false)],
-                ["5<<5", ["Foo", "add"], new SIntLiteralType()],
-                ["sFB32<<5", ["Foo", "add"], new SFixedBytes(32)],
-                ["sFB32<<sV", ["Foo", "add"], new SFixedBytes(32)],
-                ["5>>y", ["Foo", "add"], new SIntType(64, false)],
-                ["5>y", ["Foo", "add"], new SBoolType()],
-                ["sV<y", ["Foo", "add"], new SBoolType()],
-                ["x<=sV1", ["Foo", "add"], new SBoolType()],
-                ["10>=x", ["Foo", "add"], new SBoolType()],
-                ["10==x", ["Foo", "add"], new SBoolType()],
-                ["sV1!=x", ["Foo", "add"], new SBoolType()],
-                ["sA==sA1", ["Foo", "add"], new SBoolType()],
-                ["5 | 1235", ["Foo", "add"], new SIntLiteralType()],
-                ["5 & x", ["Foo", "add"], new SIntType(8, true)],
-                ["y ^ sV", ["Foo", "add"], new SIntType(256, false)],
-                ["sB || sB", ["Foo", undefined], new SBoolType()],
-                ["true && false", ["Foo", undefined], new SBoolType()],
-                ["true ==> sB", ["Foo", undefined], new SBoolType()],
-                ["true ? 1 : 2", ["Foo", undefined], new SIntLiteralType()],
-                ["sB ? x : 2", ["Foo", "add"], new SIntType(8, true)],
-                ["sB ? x : sV1", ["Foo", "add"], new SIntType(128, true)],
-                ["sB ? sA1 : sA", ["Foo", undefined], new SAddressType(false)],
-                ["sS", ["Foo", undefined], new SPointer(new SString(), DataLocation.Storage)],
-                ["sBy", ["Foo", undefined], new SPointer(new SBytes(), DataLocation.Storage)],
+                ["sV", ["Foo", undefined], new IntType(256, false)],
+                ["sV1", ["Foo", undefined], new IntType(128, true)],
+                ["sA", ["Foo", undefined], new AddressType(false)],
+                ["sA1", ["Foo", "add"], new AddressType(true)],
+                ["x", ["Foo", "add"], new IntType(8, true)],
+                ["y", ["Foo", "add"], new IntType(64, false)],
+                ["add", ["Foo", "add"], new IntType(64, false)],
+                ["-x", ["Foo", "add"], new IntType(8, true)],
+                ["-x", ["Foo", "add"], new IntType(8, true)],
+                ["!sB", ["Foo", undefined], new BoolType()],
+                ["x+x", ["Foo", "add"], new IntType(8, true)],
+                ["x-16", ["Foo", "add"], new IntType(8, true)],
+                ["24*x", ["Foo", "add"], new IntType(8, true)],
+                ["x/sV1", ["Foo", "add"], new IntType(128, true)],
+                ["y%123", ["Foo", "add"], new IntType(64, false)],
+                ["33%5", ["Foo", "add"], new IntLiteralType()],
+                ["3**2", ["Foo", undefined], new IntLiteralType()],
+                ["y**2", ["Foo", "add"], new IntType(64, false)],
+                ["2**y", ["Foo", "add"], new IntType(64, false)],
+                ["y**sV", ["Foo", "add"], new IntType(64, false)],
+                ["y>>x", ["Foo", "add"], new IntType(64, false)],
+                ["y>>5", ["Foo", "add"], new IntType(64, false)],
+                ["5<<5", ["Foo", "add"], new IntLiteralType()],
+                ["sFB32<<5", ["Foo", "add"], new FixedBytesType(32)],
+                ["sFB32<<sV", ["Foo", "add"], new FixedBytesType(32)],
+                ["5>>y", ["Foo", "add"], new IntType(64, false)],
+                ["5>y", ["Foo", "add"], new BoolType()],
+                ["sV<y", ["Foo", "add"], new BoolType()],
+                ["x<=sV1", ["Foo", "add"], new BoolType()],
+                ["10>=x", ["Foo", "add"], new BoolType()],
+                ["10==x", ["Foo", "add"], new BoolType()],
+                ["sV1!=x", ["Foo", "add"], new BoolType()],
+                ["sA==sA1", ["Foo", "add"], new BoolType()],
+                ["5 | 1235", ["Foo", "add"], new IntLiteralType()],
+                ["5 & x", ["Foo", "add"], new IntType(8, true)],
+                ["y ^ sV", ["Foo", "add"], new IntType(256, false)],
+                ["sB || sB", ["Foo", undefined], new BoolType()],
+                ["true && false", ["Foo", undefined], new BoolType()],
+                ["true ==> sB", ["Foo", undefined], new BoolType()],
+                ["true ? 1 : 2", ["Foo", undefined], new IntLiteralType()],
+                ["sB ? x : 2", ["Foo", "add"], new IntType(8, true)],
+                ["sB ? x : sV1", ["Foo", "add"], new IntType(128, true)],
+                ["sB ? sA1 : sA", ["Foo", undefined], new AddressType(false)],
+                ["sS", ["Foo", undefined], new PointerType(new StringType(), DataLocation.Storage)],
+                ["sBy", ["Foo", undefined], new PointerType(new BytesType(), DataLocation.Storage)],
                 [
                     "sUArr",
                     ["Foo", undefined],
-                    new SPointer(new SArrayType(new SIntType(256, false)), DataLocation.Storage)
+                    new PointerType(new ArrayType(new IntType(256, false)), DataLocation.Storage)
                 ],
                 [
                     "sUFixedArr",
                     ["Foo", undefined],
-                    new SPointer(new SArrayType(new SIntType(256, false), 5), DataLocation.Storage)
+                    new PointerType(
+                        new ArrayType(new IntType(256, false), BigInt(5)),
+                        DataLocation.Storage
+                    )
                 ],
                 [
                     "sI64Arr",
                     ["Foo", undefined],
-                    new SPointer(new SArrayType(new SIntType(64, true)), DataLocation.Storage)
+                    new PointerType(new ArrayType(new IntType(64, true)), DataLocation.Storage)
                 ],
                 [
                     "sNestedArr",
                     ["Foo", undefined],
-                    new SPointer(
-                        new SArrayType(
-                            new SPointer(
-                                new SArrayType(new SIntType(8, false)),
+                    new PointerType(
+                        new ArrayType(
+                            new PointerType(
+                                new ArrayType(new IntType(8, false)),
                                 DataLocation.Storage
                             )
                         ),
                         DataLocation.Storage
                     )
                 ],
-                ["sFB32", ["Foo", undefined], new SFixedBytes(32)],
-                ["sFB16", ["Foo", undefined], new SFixedBytes(16)],
+                ["sFB32", ["Foo", undefined], new FixedBytesType(32)],
+                ["sFB16", ["Foo", undefined], new FixedBytesType(16)],
                 [
                     "mUArr",
                     ["Foo", "foo"],
-                    new SPointer(new SArrayType(new SIntType(256, false)), DataLocation.Memory)
+                    new PointerType(new ArrayType(new IntType(256, false)), DataLocation.Memory)
                 ],
-                ["mBy", ["Foo", "foo"], new SPointer(new SBytes(), DataLocation.Memory)],
-                ["mS", ["Foo", "foo"], new SPointer(new SString(), DataLocation.Memory)],
-                ["sBy[1]", ["Foo", undefined], new SFixedBytes(1)],
-                ["sBy[sV]", ["Foo", undefined], new SFixedBytes(1)],
-                ["sBy[sV1]", ["Foo", undefined], new SFixedBytes(1)],
-                ["sFB32[4]", ["Foo", undefined], new SIntType(8, false)],
-                ["sFB32[sV1]", ["Foo", undefined], new SIntType(8, false)],
-                ["sUArr[sV]", ["Foo", undefined], new SIntType(256, false)],
-                ["sUFixedArr[sV]", ["Foo", undefined], new SIntType(256, false)],
-                ["sI64Arr[sV]", ["Foo", undefined], new SIntType(64, true)],
+                ["mBy", ["Foo", "foo"], new PointerType(new BytesType(), DataLocation.Memory)],
+                ["mS", ["Foo", "foo"], new PointerType(new StringType(), DataLocation.Memory)],
+                ["sBy[1]", ["Foo", undefined], new FixedBytesType(1)],
+                ["sBy[sV]", ["Foo", undefined], new FixedBytesType(1)],
+                ["sBy[sV1]", ["Foo", undefined], new FixedBytesType(1)],
+                ["sFB32[4]", ["Foo", undefined], new IntType(8, false)],
+                ["sFB32[sV1]", ["Foo", undefined], new IntType(8, false)],
+                ["sUArr[sV]", ["Foo", undefined], new IntType(256, false)],
+                ["sUFixedArr[sV]", ["Foo", undefined], new IntType(256, false)],
+                ["sI64Arr[sV]", ["Foo", undefined], new IntType(64, true)],
                 [
                     "sNestedArr[sV]",
                     ["Foo", undefined],
-                    new SPointer(new SArrayType(new SIntType(8, false)), DataLocation.Storage)
+                    new PointerType(new ArrayType(new IntType(8, false)), DataLocation.Storage)
                 ],
-                ["sNestedArr[sV][0]", ["Foo", undefined], new SIntType(8, false)],
-                ["sM[0]", ["Foo", undefined], new SIntType(64, true)],
-                ["sM[u32a]", ["Foo", undefined], new SIntType(64, true)],
-                ["sM[sNestedArr[0][0]]", ["Foo", undefined], new SIntType(64, true)],
+                ["sNestedArr[sV][0]", ["Foo", undefined], new IntType(8, false)],
+                ["sM[0]", ["Foo", undefined], new IntType(64, true)],
+                ["sM[u32a]", ["Foo", undefined], new IntType(64, true)],
+                ["sM[sNestedArr[0][0]]", ["Foo", undefined], new IntType(64, true)],
                 [
                     "sFoo",
                     ["Foo", undefined],
-                    new SPointer(new SUserDefinedType("Foo.SFoo"), DataLocation.Storage)
+                    (units) =>
+                        new PointerType(
+                            new UserDefinedType("Foo.SFoo", findTypeDef("SFoo", units)),
+                            DataLocation.Storage
+                        )
                 ],
                 [
                     "sBoo",
                     ["Foo", undefined],
-                    new SPointer(new SUserDefinedType("Boo"), DataLocation.Storage)
+                    (units) => new UserDefinedType("Boo", findTypeDef("Boo", units))
                 ],
-                ["sFoo.x", ["Foo", undefined], new SIntType(256, false)],
-                ["sFoo.a", ["Foo", undefined], new SAddressType(false)],
-                ["sFoo.a.balance", ["Foo", undefined], new SIntType(256, false)],
-                ["sBoo.balance", ["Foo", undefined], new SIntType(256, false)],
-                ["sFoo.s", ["Foo", undefined], new SPointer(new SString(), DataLocation.Storage)],
+                ["sFoo.x", ["Foo", undefined], new IntType(256, false)],
+                ["sFoo.a", ["Foo", undefined], new AddressType(false)],
+                ["sFoo.a.balance", ["Foo", undefined], new IntType(256, false)],
+                ["sBoo.balance", ["Foo", undefined], new IntType(256, false)],
+                [
+                    "sFoo.s",
+                    ["Foo", undefined],
+                    new PointerType(new StringType(), DataLocation.Storage)
+                ],
                 [
                     "sMoo",
                     ["Foo", undefined],
-                    new SPointer(new SUserDefinedType("Foo.SMoo"), DataLocation.Storage)
+                    (units) =>
+                        new PointerType(
+                            new UserDefinedType("Foo.SMoo", findTypeDef("SMoo", units)),
+                            DataLocation.Storage
+                        )
                 ],
-                ["sMoo.foo.x", ["Foo", undefined], new SIntType(256, false)],
+                ["sMoo.foo.x", ["Foo", undefined], new IntType(256, false)],
                 [
                     "goos[0].f2",
                     ["Foo", undefined],
-                    new SPointer(new SBytes(), DataLocation.Storage)
+                    new PointerType(new BytesType(), DataLocation.Storage)
                 ],
-                ["add(5,5)", ["Foo", undefined], new SIntType(64, false)],
-                ["old(5)", ["Foo", "add"], new SIntLiteralType()],
-                ["old(sV1)", ["Foo", "add"], new SIntType(128, true)],
-                ["old(sA)", ["Foo", "add"], new SAddressType(false)],
-                ["this.add(5,5)", ["Foo", undefined], new SIntType(64, false)],
-                ["sBoo.foo(5)", ["Foo", undefined], new SIntType(256, false)],
+                ["add(5,5)", ["Foo", undefined], new IntType(64, false)],
+                ["old(5)", ["Foo", "add"], new IntLiteralType()],
+                ["old(sV1)", ["Foo", "add"], new IntType(128, true)],
+                ["old(sA)", ["Foo", "add"], new AddressType(false)],
+                ["this.add(5,5)", ["Foo", undefined], new IntType(64, false)],
+                ["sBoo.foo(5)", ["Foo", undefined], new IntType(256, false)],
                 [
                     "IFace(address(0x0))",
                     ["Foo", undefined],
-                    new SPointer(new SUserDefinedType("IFace"), DataLocation.Storage)
+                    (units) => new UserDefinedType("IFace", findTypeDef("IFace", units))
                 ],
                 [
                     "IFace(address(0x0)).imoo(5,10)",
                     ["Foo", undefined],
-                    new STupleType([
-                        new SAddressType(false),
-                        new SPointer(new SString(), DataLocation.Memory)
+                    new TupleType([
+                        new AddressType(false),
+                        new PointerType(new StringType(), DataLocation.Memory)
                     ])
                 ],
-                ["uint256(u32a)", ["Foo", undefined], new SIntType(256, false)],
-                ["int256(u32a)", ["Foo", undefined], new SIntType(256, true)],
-                ["bytes32(uint256(u32a))", ["Foo", undefined], new SFixedBytes(32)],
-                ["Lib.ladd(u32a, u32b)", ["Foo", undefined], new SIntType(32, false)],
-                ["u32a.ladd(u32b)", ["Foo", undefined], new SIntType(32, false)],
-                ["sS.len()", ["Foo", undefined], new SIntType(256, false)],
-                ["sV1.foo()", ["Foo", undefined], new SBoolType()],
-                ["FooEnum.D", ["Foo", undefined], new SUserDefinedType("Foo.FooEnum")],
-                ["GlobalEnum.A", ["Foo", undefined], new SUserDefinedType("GlobalEnum")],
-                ["Boo.BooEnum.G", ["Foo", undefined], new SUserDefinedType("Boo.BooEnum")],
-                ["sA.balance", ["Foo", undefined], new SIntType(256, false)],
+                ["uint256(u32a)", ["Foo", undefined], new IntType(256, false)],
+                ["int256(u32a)", ["Foo", undefined], new IntType(256, true)],
+                ["bytes32(uint256(u32a))", ["Foo", undefined], new FixedBytesType(32)],
+                ["Lib.ladd(u32a, u32b)", ["Foo", undefined], new IntType(32, false)],
+                ["u32a.ladd(u32b)", ["Foo", undefined], new IntType(32, false)],
+                ["sS.len()", ["Foo", undefined], new IntType(256, false)],
+                ["sV1.foo()", ["Foo", undefined], new BoolType()],
+                [
+                    "FooEnum.D",
+                    ["Foo", undefined],
+                    (units) => new UserDefinedType("Foo.FooEnum", findTypeDef("FooEnum", units))
+                ],
+                [
+                    "GlobalEnum.A",
+                    ["Foo", undefined],
+                    (units) => new UserDefinedType("GlobalEnum", findTypeDef("GlobalEnum", units))
+                ],
+                [
+                    "Boo.BooEnum.G",
+                    ["Foo", undefined],
+                    (units) => new UserDefinedType("Boo.BooEnum", findTypeDef("BooEnum", units))
+                ],
+                ["sA.balance", ["Foo", undefined], new IntType(256, false)],
                 [
                     "sA.staticcall",
                     ["Foo", undefined],
-                    new SFunctionType(
-                        [new SPointer(new SBytes(), DataLocation.Memory)],
-                        [new SBoolType(), new SPointer(new SBytes(), DataLocation.Memory)],
+                    new FunctionType(
+                        undefined,
+                        [new PointerType(new BytesType(), DataLocation.Memory)],
+                        [new BoolType(), new PointerType(new BytesType(), DataLocation.Memory)],
                         FunctionVisibility.Default,
                         FunctionStateMutability.View
                     )
                 ],
-                ["block.coinbase", ["Foo", undefined], new SAddressType(true)],
-                ["block.difficulty", ["Foo", undefined], new SIntType(256, false)],
-                ["block.gaslimit", ["Foo", undefined], new SIntType(256, false)],
-                ["block.number", ["Foo", undefined], new SIntType(256, false)],
-                ["block.timestamp", ["Foo", undefined], new SIntType(256, false)],
-                ["msg.data", ["Foo", undefined], new SPointer(new SBytes(), DataLocation.CallData)],
-                ["msg.sender", ["Foo", undefined], new SAddressType(true)],
-                ["msg.sig", ["Foo", undefined], new SFixedBytes(4)],
-                ["msg.value", ["Foo", undefined], new SIntType(256, false)],
-                ["tx.gasprice", ["Foo", undefined], new SIntType(256, false)],
-                ["tx.origin", ["Foo", undefined], new SAddressType(true)],
+                ["block.coinbase", ["Foo", undefined], new AddressType(true)],
+                ["block.difficulty", ["Foo", undefined], new IntType(256, false)],
+                ["block.gaslimit", ["Foo", undefined], new IntType(256, false)],
+                ["block.number", ["Foo", undefined], new IntType(256, false)],
+                ["block.timestamp", ["Foo", undefined], new IntType(256, false)],
+                [
+                    "msg.data",
+                    ["Foo", undefined],
+                    new PointerType(new BytesType(), DataLocation.CallData)
+                ],
+                ["msg.sender", ["Foo", undefined], new AddressType(true)],
+                ["msg.sig", ["Foo", undefined], new FixedBytesType(4)],
+                ["msg.value", ["Foo", undefined], new IntType(256, false)],
+                ["tx.gasprice", ["Foo", undefined], new IntType(256, false)],
+                ["tx.origin", ["Foo", undefined], new AddressType(true)],
                 [
                     "blockhash",
                     ["Foo", undefined],
-                    new SFunctionType(
-                        [new SIntType(256, false)],
-                        [new SFixedBytes(32)],
+                    new FunctionType(
+                        undefined,
+                        [new IntType(256, false)],
+                        [new FixedBytesType(32)],
                         FunctionVisibility.Default,
                         FunctionStateMutability.View
                     )
@@ -363,9 +418,10 @@ describe("TypeChecker Expression Unit Tests", () => {
                 [
                     "gasleft",
                     ["Foo", undefined],
-                    new SFunctionType(
+                    new FunctionType(
+                        undefined,
                         [],
-                        [new SIntType(256, false)],
+                        [new IntType(256, false)],
                         FunctionVisibility.Default,
                         FunctionStateMutability.View
                     )
@@ -373,9 +429,10 @@ describe("TypeChecker Expression Unit Tests", () => {
                 [
                     "now",
                     ["Foo", undefined],
-                    new SFunctionType(
+                    new FunctionType(
+                        undefined,
                         [],
-                        [new SIntType(256, false)],
+                        [new IntType(256, false)],
                         FunctionVisibility.Default,
                         FunctionStateMutability.View
                     )
@@ -383,13 +440,10 @@ describe("TypeChecker Expression Unit Tests", () => {
                 [
                     "addmod",
                     ["Foo", undefined],
-                    new SFunctionType(
-                        [
-                            new SIntType(256, false),
-                            new SIntType(256, false),
-                            new SIntType(256, false)
-                        ],
-                        [new SIntType(256, false)],
+                    new FunctionType(
+                        undefined,
+                        [new IntType(256, false), new IntType(256, false), new IntType(256, false)],
+                        [new IntType(256, false)],
                         FunctionVisibility.Default,
                         FunctionStateMutability.Pure
                     )
@@ -397,13 +451,10 @@ describe("TypeChecker Expression Unit Tests", () => {
                 [
                     "mulmod",
                     ["Foo", undefined],
-                    new SFunctionType(
-                        [
-                            new SIntType(256, false),
-                            new SIntType(256, false),
-                            new SIntType(256, false)
-                        ],
-                        [new SIntType(256, false)],
+                    new FunctionType(
+                        undefined,
+                        [new IntType(256, false), new IntType(256, false), new IntType(256, false)],
+                        [new IntType(256, false)],
                         FunctionVisibility.Default,
                         FunctionStateMutability.Pure
                     )
@@ -411,9 +462,10 @@ describe("TypeChecker Expression Unit Tests", () => {
                 [
                     "keccak256",
                     ["Foo", undefined],
-                    new SFunctionType(
-                        [new SPointer(new SBytes(), DataLocation.Memory)],
-                        [new SFixedBytes(32)],
+                    new FunctionType(
+                        undefined,
+                        [new PointerType(new BytesType(), DataLocation.Memory)],
+                        [new FixedBytesType(32)],
                         FunctionVisibility.Default,
                         FunctionStateMutability.Pure
                     )
@@ -421,9 +473,10 @@ describe("TypeChecker Expression Unit Tests", () => {
                 [
                     "sha256",
                     ["Foo", undefined],
-                    new SFunctionType(
-                        [new SPointer(new SBytes(), DataLocation.Memory)],
-                        [new SFixedBytes(32)],
+                    new FunctionType(
+                        undefined,
+                        [new PointerType(new BytesType(), DataLocation.Memory)],
+                        [new FixedBytesType(32)],
                         FunctionVisibility.Default,
                         FunctionStateMutability.Pure
                     )
@@ -431,9 +484,10 @@ describe("TypeChecker Expression Unit Tests", () => {
                 [
                     "ripemd160",
                     ["Foo", undefined],
-                    new SFunctionType(
-                        [new SPointer(new SBytes(), DataLocation.Memory)],
-                        [new SFixedBytes(20)],
+                    new FunctionType(
+                        undefined,
+                        [new PointerType(new BytesType(), DataLocation.Memory)],
+                        [new FixedBytesType(20)],
                         FunctionVisibility.Default,
                         FunctionStateMutability.Pure
                     )
@@ -441,23 +495,24 @@ describe("TypeChecker Expression Unit Tests", () => {
                 [
                     "ecrecover",
                     ["Foo", undefined],
-                    new SFunctionType(
+                    new FunctionType(
+                        undefined,
                         [
-                            new SFixedBytes(32),
-                            new SIntType(8, false),
-                            new SFixedBytes(32),
-                            new SFixedBytes(32)
+                            new FixedBytesType(32),
+                            new IntType(8, false),
+                            new FixedBytesType(32),
+                            new FixedBytesType(32)
                         ],
-                        [new SAddressType(false)],
+                        [new AddressType(false)],
                         FunctionVisibility.Default,
                         FunctionStateMutability.Pure
                     )
                 ],
-                ["$result", ["Foo", "add"], new SIntType(64, false)],
+                ["$result", ["Foo", "add"], new IntType(64, false)],
                 [
                     "$result",
                     ["Foo", "idPair"],
-                    new STupleType([new SIntType(256, false), new SIntType(256, false)])
+                    new TupleType([new IntType(256, false), new IntType(256, false)])
                 ]
             ]
         ]
@@ -579,10 +634,13 @@ describe("TypeChecker Expression Unit Tests", () => {
                 [sources] = toAst(fileName, content);
             });
 
-            for (const [specString, loc, expectedType] of testCases) {
-                it(`Typecheck for ${specString} returns ${expectedType.pp()}`, () => {
-                    const parsed = parse(specString);
-                    const type = tc(parsed, getTypeCtx(loc, sources));
+            for (const [specString, loc, expected] of testCases) {
+                it(`Typecheck for ${specString}`, () => {
+                    const expectedType =
+                        expected instanceof TypeNode ? expected : expected(sources);
+                    const [typeCtx, target] = getTypeCtxAndTarget(loc, sources);
+                    const parsed = parse(specString, target, "0.6.0");
+                    const type = tc(parsed, typeCtx);
                     Logger.debug(
                         `[${specString}]: Got: ${type.pp()} expected: ${expectedType.pp()}`
                     );
@@ -602,8 +660,9 @@ describe("TypeChecker Expression Unit Tests", () => {
 
             for (const [specString, loc] of testCases) {
                 it(`Typecheck for ${specString} throws`, () => {
-                    const parsed = parse(specString);
-                    expect(tc.bind(tc, parsed, getTypeCtx(loc, sources))).toThrow();
+                    const [typeCtx, target] = getTypeCtxAndTarget(loc, sources);
+                    const parsed = parse(specString, target, "0.6.0");
+                    expect(tc.bind(tc, parsed, typeCtx)).toThrow();
                 });
             }
         });
@@ -612,7 +671,7 @@ describe("TypeChecker Expression Unit Tests", () => {
 
 describe("TypeChecker Annotation Tests", () => {
     const goodSamples: Array<
-        [string, string, Array<[string, LocationDesc, SType | undefined, boolean]>]
+        [string, string, Array<[string, LocationDesc, TypeNode | undefined, boolean]>]
     > = [
         [
             "foo.sol",
@@ -662,9 +721,10 @@ describe("TypeChecker Annotation Tests", () => {
                 [
                     "define foo() uint = 1;",
                     ["Base", undefined],
-                    new SFunctionType(
+                    new FunctionType(
+                        undefined,
                         [],
-                        [new SIntType(256, false)],
+                        [new IntType(256, false)],
                         FunctionVisibility.Internal,
                         FunctionStateMutability.View
                     ),
@@ -673,9 +733,10 @@ describe("TypeChecker Annotation Tests", () => {
                 [
                     "define foo() uint = x;",
                     ["Base", undefined],
-                    new SFunctionType(
+                    new FunctionType(
+                        undefined,
                         [],
-                        [new SIntType(256, false)],
+                        [new IntType(256, false)],
                         FunctionVisibility.Internal,
                         FunctionStateMutability.View
                     ),
@@ -684,9 +745,10 @@ describe("TypeChecker Annotation Tests", () => {
                 [
                     "define foo(uint a) uint = x + a;",
                     ["Base", undefined],
-                    new SFunctionType(
-                        [new SIntType(256, false)],
-                        [new SIntType(256, false)],
+                    new FunctionType(
+                        undefined,
+                        [new IntType(256, false)],
+                        [new IntType(256, false)],
                         FunctionVisibility.Internal,
                         FunctionStateMutability.View
                     ),
@@ -695,9 +757,10 @@ describe("TypeChecker Annotation Tests", () => {
                 [
                     "define boo(uint a) uint = plus(foo(a));",
                     ["Base", undefined],
-                    new SFunctionType(
-                        [new SIntType(256, false)],
-                        [new SIntType(256, false)],
+                    new FunctionType(
+                        undefined,
+                        [new IntType(256, false)],
+                        [new IntType(256, false)],
                         FunctionVisibility.Internal,
                         FunctionStateMutability.View
                     ),
@@ -706,9 +769,10 @@ describe("TypeChecker Annotation Tests", () => {
                 [
                     "if_succeeds old(foo(t)) == x;",
                     ["Base", "plus"],
-                    new SFunctionType(
-                        [new SIntType(256, false)],
-                        [new SIntType(256, false)],
+                    new FunctionType(
+                        undefined,
+                        [new IntType(256, false)],
+                        [new IntType(256, false)],
                         FunctionVisibility.Internal,
                         FunctionStateMutability.View
                     ),
@@ -717,50 +781,51 @@ describe("TypeChecker Annotation Tests", () => {
                 [
                     "define moo(uint a) uint = foo(a) + boo(a);",
                     ["Child", undefined],
-                    new SFunctionType(
-                        [new SIntType(256, false)],
-                        [new SIntType(256, false)],
+                    new FunctionType(
+                        undefined,
+                        [new IntType(256, false)],
+                        [new IntType(256, false)],
                         FunctionVisibility.Internal,
                         FunctionStateMutability.View
                     ),
                     false
                 ],
-                ["if_updated z>0;", ["Unrelated", "z"], new SBoolType(), true],
-                ["if_updated z>w;", ["Unrelated", "z"], new SBoolType(), true],
-                ["if_updated true;", ["Unrelated", "arr"], new SBoolType(), true],
-                ["if_updated arr.length > 0;", ["Unrelated", "arr"], new SBoolType(), true],
-                ["if_assigned[i] arr[i+1] == 1;", ["Unrelated", "arr"], new SBoolType(), true],
+                ["if_updated z>0;", ["Unrelated", "z"], new BoolType(), true],
+                ["if_updated z>w;", ["Unrelated", "z"], new BoolType(), true],
+                ["if_updated true;", ["Unrelated", "arr"], new BoolType(), true],
+                ["if_updated arr.length > 0;", ["Unrelated", "arr"], new BoolType(), true],
+                ["if_assigned[i] arr[i+1] == 1;", ["Unrelated", "arr"], new BoolType(), true],
                 [
                     "if_assigned[bts] bts[0] == byte(0x01);",
                     ["Unrelated", "m1"],
-                    new SBoolType(),
+                    new BoolType(),
                     true
                 ],
                 [
                     "if_assigned[addr] addr == address(0x0);",
                     ["Unrelated", "m2"],
-                    new SBoolType(),
+                    new BoolType(),
                     true
                 ],
                 [
                     "if_assigned[addr][bts] addr == address(0x0) && bts[0] == byte(0x01);",
                     ["Unrelated", "m2"],
-                    new SBoolType(),
+                    new BoolType(),
                     true
                 ],
                 [
                     "if_assigned[addr].sArr.arr[x] addr == address(0x0) && x <= 10;",
                     ["Unrelated", "m3"],
-                    new SBoolType(),
+                    new BoolType(),
                     true
                 ],
                 [
                     "if_assigned[str] bytes(str)[0] == byte(0x00);",
                     ["Unrelated", "m4"],
-                    new SBoolType(),
+                    new BoolType(),
                     true
                 ],
-                ["if_updated old(z)>0;", ["Unrelated", "z"], new SBoolType(), true]
+                ["if_updated old(z)>0;", ["Unrelated", "z"], new BoolType(), true]
             ]
         ]
     ];
@@ -840,9 +905,9 @@ describe("TypeChecker Annotation Tests", () => {
 
             for (const [specString, loc, expectedType, clearFunsBefore] of testCases) {
                 it(`Typecheck for ${specString} succeeds.`, () => {
-                    const parsed = parseAnnotation(specString);
-                    const ctx: STypingCtx = getTypeCtx(loc, sources, parsed);
-                    const target = getTarget(ctx);
+                    const target = getTarget(loc, sources);
+                    const parsed = parseAnnotation(specString, target, "0.6.0");
+                    const [ctx] = getTypeCtxAndTarget(loc, sources, parsed);
 
                     if (clearFunsBefore) {
                         typeEnv = new TypeEnv();
@@ -853,7 +918,7 @@ describe("TypeChecker Annotation Tests", () => {
                         assert(expectedType !== undefined, ``);
                         const received = tc(new SId(parsed.name.name), ctx, typeEnv);
                         Logger.debug(
-                            `[${specString}]: Expected type ${expectedType.pp()} received: ${(received as SType).pp()}`
+                            `[${specString}]: Expected type ${expectedType.pp()} received: ${(received as TypeNode).pp()}`
                         );
                         expect(eq(received, expectedType)).toEqual(true);
                     }
@@ -871,18 +936,17 @@ describe("TypeChecker Annotation Tests", () => {
                 [sources] = toAst(fileName, content);
                 // Setup any definitions
                 for (const [specString, loc] of setupSteps) {
-                    const ctx: STypingCtx = getTypeCtx(loc, sources);
-                    const target = getTarget(ctx);
-                    const parsed = parseAnnotation(specString);
+                    const [ctx, target] = getTypeCtxAndTarget(loc, sources);
+                    const parsed = parseAnnotation(specString, target, "0.6.0");
                     tcAnnotation(parsed, ctx, target);
                 }
             });
 
             for (const [specString, loc] of testCases) {
                 it(`Typecheck for ${specString} throws`, () => {
-                    const parsed = parseAnnotation(specString);
-                    const ctx: STypingCtx = getTypeCtx(loc, sources, parsed);
-                    const target = getTarget(ctx);
+                    const target = getTarget(loc, sources);
+                    const parsed = parseAnnotation(specString, target, "0.6.0");
+                    const [ctx] = getTypeCtxAndTarget(loc, sources, parsed);
                     Logger.debug(
                         `[${specString}]: Expect typechecking of ${parsed.pp()} in ctx ${pp(
                             ctx

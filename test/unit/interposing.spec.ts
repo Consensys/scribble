@@ -24,7 +24,7 @@ import {
 } from "../../src/instrumenter";
 import { cook } from "../../src/rewriter";
 import { single } from "../../src/util";
-import { getTarget, getTypeCtx, toAst } from "../integration/utils";
+import { getTypeCtxAndTarget, toAst } from "../integration/utils";
 import { getCallGraph } from "../../src/instrumenter/callgraph";
 import { getCHA } from "../../src/instrumenter/cha";
 import { InstrumentationContext } from "../../src/instrumenter/instrumentation_context";
@@ -319,8 +319,8 @@ contract Foo {
     ] of goodSamples) {
         it(`Interpose on ${contractName}.${funName} in #${fileName}`, () => {
             const [sources, reader, files, compilerVersion] = toAst(fileName, content);
-            const typeCtx = getTypeCtx([contractName, funName], sources);
-            const fun: FunctionDefinition = getTarget(typeCtx) as FunctionDefinition;
+            const [, target] = getTypeCtxAndTarget([contractName, funName], sources);
+            const fun: FunctionDefinition = target as FunctionDefinition;
             const factory = new ASTNodeFactory(reader.context);
 
             const ctx = makeInstrumentationCtx(
@@ -441,8 +441,8 @@ contract Foo is __scribble_ReentrancyUtils {
         it(`Instrument ${contractName} in #${fileName}`, () => {
             const [sources, reader, files, compilerVersion] = toAst(fileName, content);
 
-            const typeCtx = getTypeCtx([contractName, undefined], sources);
-            const contract: ContractDefinition = getTarget(typeCtx) as ContractDefinition;
+            const [, target] = getTypeCtxAndTarget([contractName, undefined], sources);
+            const contract: ContractDefinition = target as ContractDefinition;
             const factory = new ASTNodeFactory(reader.context);
             const contractInstrumenter = new ContractInstrumenter();
 
@@ -651,13 +651,13 @@ contract Foo {
     ] of goodSamples) {
         it(`Instrument ${contractName} in #${fileName}`, () => {
             const [sources, reader, files, compilerVersion] = toAst(fileName, content);
-            const typeCtx = getTypeCtx([contractName, funName], sources);
+            const [typeCtx, target] = getTypeCtxAndTarget([contractName, funName], sources);
             const contract: ContractDefinition = typeCtx[1] as ContractDefinition;
-            const fun: FunctionDefinition = getTarget(typeCtx) as FunctionDefinition;
+            const fun: FunctionDefinition = target as FunctionDefinition;
             const factory = new ASTNodeFactory(reader.context);
 
             const callSite: FunctionCall = single(
-                findExternalCalls(fun),
+                findExternalCalls(fun, "0.6.0"),
                 `Expect single external callsite per tested function`
             );
 

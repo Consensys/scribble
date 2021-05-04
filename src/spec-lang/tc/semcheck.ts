@@ -1,4 +1,10 @@
-import { FunctionStateMutability, SourceUnit, VariableDeclaration } from "solc-typed-ast";
+import {
+    FunctionStateMutability,
+    FunctionType,
+    SourceUnit,
+    TypeNameType,
+    VariableDeclaration
+} from "solc-typed-ast";
 import { AnnotationMap, AnnotationMetaData } from "../..";
 import { single } from "../../util";
 import {
@@ -7,8 +13,6 @@ import {
     SBooleanLiteral,
     SConditional,
     SFunctionCall,
-    SFunctionSetType,
-    SFunctionType,
     SHexLiteral,
     SId,
     SIndexAccess,
@@ -17,9 +21,6 @@ import {
     SNode,
     SNumber,
     SStringLiteral,
-    SBuiltinTypeNameType,
-    SType,
-    SUserDefinedTypeNameType,
     SUnaryOperation,
     SAddressLiteral,
     SResult,
@@ -28,6 +29,7 @@ import {
     SUserFunctionDefinition,
     AnnotationType
 } from "../ast";
+import { FunctionSetType } from "./typecheck";
 import { TypeEnv } from "./typeenv";
 
 export interface SemInfo {
@@ -379,19 +381,14 @@ export function scFunctionCall(
         .reduce((a, b) => a && b, true);
 
     // Primitive cast
-    if (callee instanceof SType || calleeT instanceof SBuiltinTypeNameType) {
-        return { isOld: ctx.isOld, isConst: allArgsConst, canFail: true };
-    }
-
-    // User-defined Type cast
-    if (calleeT instanceof SUserDefinedTypeNameType) {
+    if (calleeT instanceof TypeNameType) {
         return { isOld: ctx.isOld, isConst: allArgsConst, canFail: true };
     }
 
     // sc the callee even if we don't use the result, to store its info in semMap
     sc(expr.callee, ctx, typeEnv, semMap);
 
-    if (calleeT instanceof SFunctionSetType) {
+    if (calleeT instanceof FunctionSetType) {
         const rawFun = single(calleeT.definitions);
 
         let isSideEffectFree: boolean;
@@ -420,7 +417,7 @@ export function scFunctionCall(
         return { isOld: ctx.isOld, isConst, canFail: true };
     }
 
-    if (calleeT instanceof SFunctionType) {
+    if (calleeT instanceof FunctionType) {
         const isConst = calleeT.mutability === FunctionStateMutability.Pure && allArgsConst;
         return { isOld: ctx.isOld, isConst: isConst, canFail: true };
     }
