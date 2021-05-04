@@ -797,15 +797,17 @@ function locateKeyType(type: TypeName, idx: number, path: Array<SId | string>): 
 
     if (idxCompT.to instanceof ArrayType) {
         return new IntType(256, false);
-    } else if (idxCompT.to instanceof MappingType) {
-        return idxCompT.to.keyType;
-    } else {
-        throw new Error(
-            `Can't compute key type for field ${idx} in path ${pp(
-                path
-            )}: arrive at non-indexable type ${idxCompT.pp()}`
-        );
     }
+
+    if (idxCompT.to instanceof MappingType) {
+        return idxCompT.to.keyType;
+    }
+
+    throw new Error(
+        `Can't compute key type for field ${idx} in path ${pp(
+            path
+        )}: arrive at non-indexable type ${idxCompT.pp()}`
+    );
 }
 
 function tcIdVariable(expr: SId, ctx: STypingCtx, typeEnv: TypeEnv): TypeNode | undefined {

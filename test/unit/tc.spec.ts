@@ -389,6 +389,11 @@ describe("TypeChecker Expression Unit Tests", () => {
                         FunctionStateMutability.View
                     )
                 ],
+                [
+                    "sA.code",
+                    ["Foo", undefined],
+                    new PointerType(new BytesType(), DataLocation.Memory)
+                ],
                 ["block.coinbase", ["Foo", undefined], new AddressType(true)],
                 ["block.difficulty", ["Foo", undefined], new IntType(256, false)],
                 ["block.gaslimit", ["Foo", undefined], new IntType(256, false)],

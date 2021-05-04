@@ -176,5 +176,6 @@ export const BuiltinAddressMembers = new Map<string, TypeNode>([
             FunctionVisibility.Default,
             FunctionStateMutability.View
         )
-    ]
+    ],
+    ["code", new PointerType(new BytesType(), DataLocation.Memory)]
 ]);
