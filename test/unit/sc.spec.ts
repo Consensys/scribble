@@ -48,13 +48,13 @@ describe("SemanticChecker Expression Unit Tests", () => {
                 [
                     "forall (uint i in sI32Arr) i > 0",
                     ["Foo", "pId"],
-                    new SBoolType(),
+                    new BoolType(),
                     { isOld: false, isConst: false, canFail: false }
                 ],
                 [
                     "forall (uint i in [1...10]) true",
                     ["Foo", "pId"],
-                    new SBoolType(),
+                    new BoolType(),
                     { isOld: false, isConst: true, canFail: false }
                 ],
                 [
