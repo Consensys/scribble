@@ -1360,28 +1360,14 @@ export function tcMemberAccess(expr: SMemberAccess, ctx: STypingCtx, typeEnv: Ty
         if (type) {
             return type;
         }
-
-        throw new SNoField(
-            `Contract ${baseT.name} doesn't have a function, public state variable or address builtin member ${expr.member}`,
-            expr,
-            expr.member
-        );
     }
 
     if (baseT instanceof AddressType) {
         const type = BuiltinAddressMembers.get(expr.member);
 
-        if (type === undefined) {
-            throw new SNoField(
-                `Address type expression ${expr.base.pp()} doesn't have a builtin member ${
-                    expr.member
-                }`,
-                expr,
-                expr.member
-            );
+        if (type !== undefined) {
+            return type;
         }
-
-        return type;
     }
 
     if (
