@@ -38,9 +38,11 @@ Invariant =
     return new SProperty(type as AnnotationType, expr, label !== null ? label : undefined, location());
   }
 
-StartBracket = "(" / "["
+StartBracket = "(" 
+              / "["
 
-EndBracket = ")" / "]"
+EndBracket = ")" 
+            / "]"
 
 Range = 
     start_bracket: StartBracket __ start: Expression __ "..."  __ end: Expression __ end_bracket: EndBracket

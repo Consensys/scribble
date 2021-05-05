@@ -1587,7 +1587,10 @@ export function tcForAll(expr: SForAll, ctx: STypingCtx, typeEnv: TypeEnv): STyp
             expr.itrType
         );
     }
-    assert(typeof expr.start == typeof expr.end, `The types of ${expr.start} and ${expr.end} are unequal, One of them is likely undefined`);
+    assert(
+        typeof expr.start == typeof expr.end,
+        `The types of ${expr.start} and ${expr.end} are unequal, One of them is likely undefined`
+    );
     if (expr.start && expr.end) {
         const startT = tc(expr.start, ctx, typeEnv);
         if (!(startT instanceof SIntType || startT instanceof SIntLiteralType)) {
