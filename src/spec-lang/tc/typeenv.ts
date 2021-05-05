@@ -1,8 +1,8 @@
-import { ContractDefinition } from "solc-typed-ast";
+import { ContractDefinition, TypeNameType, TypeNode } from "solc-typed-ast";
 import { assert } from "../../util";
-import { SNode, SType, SUserFunctionDefinition } from "../ast";
+import { SNode, SUserFunctionDefinition } from "../ast";
 
-export type TypeMap = Map<SNode, SType>;
+export type TypeMap = Map<SNode, TypeNode>;
 
 /**
  * `TypeEnv` holds any typing environment information computed during the
@@ -22,14 +22,18 @@ export class TypeEnv {
         return this.typeMap.has(node);
     }
 
-    typeOf(node: SNode): SType {
+    typeOf(node: SNode | TypeNode): TypeNode {
+        if (node instanceof TypeNode) {
+            return new TypeNameType(node);
+        }
+
         const res = this.typeMap.get(node);
         assert(res !== undefined, `Missing type for ${node.pp()}`);
 
         return res;
     }
 
-    define(node: SNode, typ: SType): void {
+    define(node: SNode, typ: TypeNode): void {
         this.typeMap.set(node, typ);
     }
 

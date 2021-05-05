@@ -1,6 +1,5 @@
 import { SNode } from "./ast/node";
 import {
-    SType,
     SBinaryOperation,
     SBooleanLiteral,
     SConditional,
@@ -12,6 +11,7 @@ import {
     SNumber,
     SUnaryOperation
 } from "./ast";
+import { TypeNode } from "solc-typed-ast";
 
 export class ReducerNotFound<T> extends Error {
     constructor(public readonly node: SNode, public readonly reducer: Reducer<T>) {
@@ -32,7 +32,7 @@ export class ReducerNotFound<T> extends Error {
  */
 export interface Reducer<T> {
     // Any Types
-    type: (node: SType) => T;
+    type: (node: TypeNode) => T;
     // Specific Expressions
     binaryOperation: (node: SBinaryOperation, left: T, right: T) => T;
     booleanLiteral: (node: SBooleanLiteral) => T;
@@ -47,7 +47,7 @@ export interface Reducer<T> {
 }
 
 export function reduce<T>(n: SNode, reducer: Reducer<T>): T {
-    if (n instanceof SType) {
+    if (n instanceof TypeNode) {
         return reducer.type(n);
     }
 
@@ -120,7 +120,7 @@ export interface Walker {
     // Any node
     default?: (node: SNode) => void;
     // Any voidypes
-    type?: (node: SType) => void;
+    type?: (node: TypeNode) => void;
     // Any expressions
     expression?: (node: SNode) => void;
     // Specific Expressions
@@ -137,7 +137,7 @@ export interface Walker {
 }
 
 export function walk(n: SNode, walker: Walker): void {
-    if (n instanceof SType) {
+    if (n instanceof TypeNode) {
         if (walker.type) walker.type(n);
     } else if (n instanceof SBinaryOperation) {
         walk(n.left, walker);

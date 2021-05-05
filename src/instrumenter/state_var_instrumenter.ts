@@ -1,15 +1,20 @@
 import {
+    AddressType,
+    ArrayType,
     ArrayTypeName,
     Assignment,
     ASTNode,
     ASTNodeFactory,
     Block,
+    BoolType,
+    BytesType,
     ContractDefinition,
     DataLocation,
     DoWhileStatement,
     Expression,
     ExpressionStatement,
     ExternalReferenceType,
+    FixedBytesType,
     ForStatement,
     FunctionCall,
     FunctionCallKind,
@@ -17,18 +22,29 @@ import {
     FunctionKind,
     FunctionStateMutability,
     FunctionVisibility,
+    getNodeTypeInCtx,
     Identifier,
     IfStatement,
+    IntLiteralType,
+    IntType,
     Mapping,
+    MappingType,
     MemberAccess,
     Mutability,
+    PointerType,
     Statement,
     StateVariableVisibility,
+    StringLiteralType,
+    StringType,
     StructDefinition,
     TupleExpression,
+    TupleType,
     TypeName,
+    typeNameToTypeNode,
+    TypeNode,
     UnaryOperation,
     UncheckedBlock,
+    UserDefinedType,
     UserDefinedTypeName,
     VariableDeclaration,
     WhileStatement
@@ -45,6 +61,7 @@ import {
     insertInvChecks,
     isStateVarRef,
     isTypeAliasable,
+    last,
     pp,
     PropertyMetaData,
     single,
@@ -55,28 +72,8 @@ import {
 } from "..";
 import { assert } from "../util";
 import { InstrumentationContext } from "./instrumentation_context";
-import { parse as parseTypeString } from "../spec-lang/typeString_parser";
 import { TranspilingContext } from "./transpiling_context";
-import {
-    SAddressType,
-    SArrayType,
-    SBoolType,
-    SBytes,
-    SFixedBytes,
-    SId,
-    SIfUpdated,
-    SIntLiteralType,
-    SIntType,
-    SMappingType,
-    SPointer,
-    SStateVarProp,
-    SString,
-    STupleType,
-    SType,
-    SUserDefinedType
-} from "../spec-lang/ast";
-import { SStringLiteralType } from "../spec-lang/ast/types/string_literal";
-import { astTypeNameToSType } from "../spec-lang/tc";
+import { SId, SIfUpdated, SStateVarProp } from "../spec-lang/ast";
 import { makeTypeString } from "./type_string";
 import { cook } from "../rewriter";
 import { getOrAddConstructor } from "./instrument";
@@ -86,39 +83,40 @@ import { lt } from "semver";
  * Given a Solidity `Expression` `e` and the `expectedType` where its being used,
  * compute the actual `SType` of `e`. This may be different from `expectedType` due to implicit
  * casts.
- *
- * Note: We only need `expectedType` here due to limitation in typeString parsing in the case
- * of int literals. This function should be removed after we add "get type of arbitrary expression" to
- * solc-typed-ast.
  */
-function getExprSType(e: Expression, expectedType?: SType): SType {
+function getMaterialExprType(
+    e: Expression,
+    version: string,
+    ctx: ASTNode,
+    expectedType?: TypeNode
+): TypeNode {
     /**
      * Sanitize the parsed `actualType` by replacing any int_const types with the
      * concrete integer type expected at that location, and any string literal types with
      * `string memory`. Note this code makes the assumption that int literals and string literal
      * types CANNOT show up inside array/mapping types (which I think is true?).
      */
-    const sanitizeType = (actualType: SType, expectedType: SType): SType => {
-        if (actualType instanceof SIntLiteralType) {
+    const sanitizeType = (actualType: TypeNode, expectedType: TypeNode): TypeNode => {
+        if (actualType instanceof IntLiteralType) {
             assert(
-                expectedType instanceof SIntType,
+                expectedType instanceof IntType,
                 `Expected ${expectedType.pp()} got ${actualType.pp()}`
             );
             return expectedType;
         }
 
-        if (actualType instanceof SStringLiteralType) {
-            return new SPointer(new SString(), DataLocation.Memory);
+        if (actualType instanceof StringLiteralType) {
+            return new PointerType(new StringType(), DataLocation.Memory);
         }
 
-        if (actualType instanceof STupleType) {
+        if (actualType instanceof TupleType) {
             assert(
-                expectedType instanceof STupleType &&
+                expectedType instanceof TupleType &&
                     expectedType.elements.length === actualType.elements.length,
                 `Expected ${expectedType.pp()} got ${actualType.pp()}`
             );
 
-            return new STupleType(
+            return new TupleType(
                 actualType.elements.map((el, i) => sanitizeType(el, expectedType.elements[i]))
             );
         }
@@ -126,7 +124,7 @@ function getExprSType(e: Expression, expectedType?: SType): SType {
         return actualType;
     };
 
-    const parsedType: SType = parseTypeString(e.typeString);
+    const parsedType: TypeNode = getNodeTypeInCtx(e, version, ctx);
 
     return expectedType !== undefined ? sanitizeType(parsedType, expectedType) : parsedType;
 }
@@ -205,45 +203,45 @@ const assignSuffixMap: { [key: string]: string } = {
 /**
  * Get a string descriptor for a type to be used in naming conventions
  */
-function getTypeDescriptor(typ: SType): string {
-    if (typ instanceof SAddressType) {
+function getTypeDescriptor(typ: TypeNode): string {
+    if (typ instanceof AddressType) {
         return `address${typ.payable ? "_payable" : ""}`;
     }
 
-    if (typ instanceof SArrayType) {
+    if (typ instanceof ArrayType) {
         const baseStr = getTypeDescriptor(typ.elementT);
         return `arr_${baseStr}${typ.size ? "_" + typ.size : ""}`;
     }
 
-    if (typ instanceof SBoolType) {
+    if (typ instanceof BoolType) {
         return `bool`;
     }
 
-    if (typ instanceof SBytes) {
+    if (typ instanceof BytesType) {
         return `bytes`;
     }
 
-    if (typ instanceof SFixedBytes) {
+    if (typ instanceof FixedBytesType) {
         return `bytes_${typ.size}`;
     }
 
-    if (typ instanceof SIntType) {
+    if (typ instanceof IntType) {
         return (typ.signed ? "" : "u") + `int${typ.nBits}`;
     }
 
-    if (typ instanceof SMappingType) {
+    if (typ instanceof MappingType) {
         return `mapping_${getTypeDescriptor(typ.keyType)}_${getTypeDescriptor(typ.valueType)}`;
     }
 
-    if (typ instanceof SPointer) {
+    if (typ instanceof PointerType) {
         return `ptr_${getTypeDescriptor(typ.to)}_${typ.location}`;
     }
 
-    if (typ instanceof SString) {
+    if (typ instanceof StringType) {
         return `string`;
     }
 
-    if (typ instanceof SUserDefinedType) {
+    if (typ instanceof UserDefinedType) {
         return `ud_${typ.name.replace(".", "_")}`;
     }
 
@@ -266,7 +264,8 @@ function getWrapperName(
     updateNode: Assignment | FunctionCall | UnaryOperation | VariableDeclaration,
     varDecl: VariableDeclaration,
     path: Array<string | [TypeName, Expression]>,
-    additionalArgs: Array<[Expression, TypeName]>
+    additionalArgs: Array<[Expression, TypeName]>,
+    version: string
 ): string {
     const defContract = varDecl.vScope as ContractDefinition;
     const pathString = path
@@ -276,12 +275,22 @@ function getWrapperName(
             }
             const [expectedTyp, expr] = el;
 
-            const exprT = getExprSType(expr, astTypeNameToSType(expectedTyp));
+            const exprT = getMaterialExprType(
+                expr,
+                version,
+                updateNode,
+                typeNameToTypeNode(expectedTyp)
+            );
             return `idx_${getTypeDescriptor(exprT)}`;
         })
         .join("_");
+
     const additionalArgsString = additionalArgs
-        .map(([expr, typ]) => getTypeDescriptor(getExprSType(expr, astTypeNameToSType(typ))))
+        .map(([expr, typ]) =>
+            getTypeDescriptor(
+                getMaterialExprType(expr, version, updateNode, typeNameToTypeNode(typ))
+            )
+        )
         .join("_");
 
     let suffix: string;
@@ -392,7 +401,7 @@ function makeWrapper(
 
     const varDecl = baseExp.vReferencedDeclaration as VariableDeclaration;
     const definingContract = varDecl.vScope as ContractDefinition;
-    const funName = getWrapperName(updateNode, varDecl, path, additionalArgs);
+    const funName = getWrapperName(updateNode, varDecl, path, additionalArgs, ctx.compilerVersion);
 
     // Check if we have already built a wrapper for this variable/path/update type. Otherwise build one now.
     const cached = ctx.getWrapper(definingContract, funName);
@@ -401,7 +410,7 @@ function makeWrapper(
     }
 
     // List of the types of parameters for the wrapper
-    const formalParamTs: SType[] = [];
+    const formalParamTs: TypeNode[] = [];
     // Map from ids of expressions inside `rewrittenNode` to the index of the parameter with which
     // we will replace them.
     const replMap = new Map<number, number>();
@@ -413,13 +422,23 @@ function makeWrapper(
 
         const [keyT, keyExp] = pathEl;
         replMap.set(keyExp.id, formalParamTs.length);
-        const exprT = getExprSType(keyExp, astTypeNameToSType(keyT));
+        const exprT = getMaterialExprType(
+            keyExp,
+            ctx.compilerVersion,
+            updateNode,
+            typeNameToTypeNode(keyT)
+        );
         formalParamTs.push(exprT);
     }
 
     for (const [actual, formalT] of additionalArgs) {
         replMap.set(actual.id, formalParamTs.length);
-        const exprT = getExprSType(actual, astTypeNameToSType(formalT));
+        const exprT = getMaterialExprType(
+            actual,
+            ctx.compilerVersion,
+            updateNode,
+            typeNameToTypeNode(formalT)
+        );
         formalParamTs.push(exprT);
     }
 
@@ -481,19 +500,23 @@ function makeWrapper(
     ctx.addGeneralInstrumentation(rewrittenNodeStmt);
 
     // Compute what the wrapper must return depending on the type of `rewrittenNode
-    const retParamTs: SType[] = [];
+    const retParamTs: TypeNode[] = [];
 
     // Add any return parameters if needed
     if (rewrittenNode instanceof UnaryOperation) {
         if (["++", "--"].includes(rewrittenNode.operator)) {
-            const retT = getExprSType(rewrittenNode);
-            assert(retT instanceof SIntType, ``);
+            const retT = getMaterialExprType(rewrittenNode, ctx.compilerVersion, updateNode);
+            assert(retT instanceof IntType, ``);
             retParamTs.push(retT);
         }
     } else if (rewrittenNode instanceof Assignment) {
-        const retT = getExprSType(rewrittenNode.vLeftHandSide);
+        const retT = getMaterialExprType(
+            rewrittenNode.vLeftHandSide,
+            ctx.compilerVersion,
+            updateNode
+        );
         assert(
-            !(retT instanceof STupleType),
+            !(retT instanceof TupleType),
             `makeWrapper should only be invoked on primitive assignments.`
         );
         retParamTs.push(retT);
@@ -502,7 +525,7 @@ function makeWrapper(
     // Add the returns to the wrapper FunctionDefinition
     for (let i = 0; i < retParamTs.length; i++) {
         const formalT = retParamTs[i];
-        const loc = formalT instanceof SPointer ? formalT.location : DataLocation.Default;
+        const loc = formalT instanceof PointerType ? formalT.location : DataLocation.Default;
         const solFromalT = generateTypeAst(formalT, factory);
 
         const decl = factory.makeVariableDeclaration(
@@ -690,7 +713,7 @@ export function interposeTupleAssignment(
 
     // Helper function to replace just ONE part of a tuple with a temporary.
     // The part of the tuple to replace is specified by `tuplePath`
-    const replaceLHSComp = (lhsComp: Expression, rhsT: SType, tuplePath: number[]): void => {
+    const replaceLHSComp = (lhsComp: Expression, rhsT: TypeNode, tuplePath: number[]): void => {
         const tempSolT = generateTypeAst(rhsT, factory);
         const loc = getTypeLocation(rhsT);
 
@@ -749,11 +772,11 @@ export function interposeTupleAssignment(
                 }
             } else {
                 assert(rhs instanceof FunctionCall, ``);
-                const lhsT = getExprSType(lhs);
-                const rhsT = getExprSType(rhs, lhsT);
+                const lhsT = getMaterialExprType(lhs, ctx.compilerVersion, updateNode);
+                const rhsT = getMaterialExprType(rhs, ctx.compilerVersion, updateNode, lhsT);
 
                 assert(
-                    rhsT instanceof STupleType &&
+                    rhsT instanceof TupleType &&
                         rhsT.elements.length === lhs.vOriginalComponents.length,
                     `Type mismatch between lhs tuple ${pp(lhs)} with ${
                         lhs.vOriginalComponents.length
@@ -777,11 +800,11 @@ export function interposeTupleAssignment(
                 }
             }
         } else {
-            const lhsT = getExprSType(lhs);
-            const rhsT = getExprSType(rhs, lhsT);
+            const lhsT = getMaterialExprType(lhs, ctx.compilerVersion, updateNode);
+            const rhsT = getMaterialExprType(rhs, ctx.compilerVersion, updateNode, lhsT);
 
             assert(
-                !(rhsT instanceof STupleType),
+                !(rhsT instanceof TupleType),
                 `Unexpected rhs type ${rhsT.pp()}(${rhs.typeString}) in assignment.`
             );
             replaceLHSComp(lhs, rhsT, tuplePath);
@@ -854,7 +877,7 @@ export function interposeInlineInitializer(
     const containingContract = updateNode.vScope;
     assert(containingContract instanceof ContractDefinition, ``);
 
-    const wrapperName = getWrapperName(updateNode, updateNode, [], []);
+    const wrapperName = getWrapperName(updateNode, updateNode, [], [], ctx.compilerVersion);
 
     assert(
         ctx.getWrapper(containingContract, wrapperName) === undefined,
@@ -1083,7 +1106,7 @@ export function instrumentStateVars(
 
         const node = loc instanceof Array ? loc[0] : loc;
 
-        if (path.length > 0 && path[path.length - 1] === "length") {
+        if (path.length > 0 && last(path) === "length") {
             throw new UnsupportedConstruct(
                 `Cannot instrument state var ${(varDecl.vScope as ContractDefinition).name}.${
                     varDecl.name

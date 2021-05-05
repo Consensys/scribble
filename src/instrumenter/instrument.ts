@@ -25,7 +25,18 @@ import {
     EmitStatement,
     Literal,
     ASTNode,
-    UncheckedBlock
+    UncheckedBlock,
+    TypeNode,
+    TupleType,
+    FunctionType,
+    getNodeType,
+    FixedBytesType,
+    PointerType,
+    StringType,
+    BytesType,
+    IntType,
+    BoolType,
+    AddressType
 } from "solc-typed-ast";
 import {
     AddBaseContract,
@@ -42,7 +53,6 @@ import {
     SBooleanLiteral,
     SConditional,
     SFunctionCall,
-    SFunctionType,
     SHexLiteral,
     SId,
     SIndexAccess,
@@ -51,23 +61,13 @@ import {
     SNode,
     SNumber,
     SStringLiteral,
-    STupleType,
-    SType,
     SUnaryOperation,
-    SAddressType,
-    SBoolType,
-    SBytes,
-    SFixedBytes,
-    SIntType,
-    SPointer,
-    SString,
     SAddressLiteral,
     SResult,
     SUserFunctionDefinition,
     AnnotationType
 } from "../spec-lang/ast";
 import { StateVarScope, SemMap, TypeEnv } from "../spec-lang/tc";
-import { parse as parseTypeString } from "../spec-lang/typeString_parser";
 import {
     assert,
     isChangingState,
@@ -92,7 +92,7 @@ import { TranspilingContext } from "./transpiling_context";
 
 import { gte } from "semver";
 
-export type SBinding = [string | string[], SType, SNode, boolean];
+export type SBinding = [string | string[], TypeNode, SNode, boolean];
 export type SBindings = SBinding[];
 
 export class InstrumentationError extends PPAbleError {}
@@ -148,7 +148,10 @@ export function changesMutability(ctx: InstrumentationContext): boolean {
     return ctx.assertionMode === "log";
 }
 
-export function findExternalCalls(node: ContractDefinition | FunctionDefinition): FunctionCall[] {
+export function findExternalCalls(
+    node: ContractDefinition | FunctionDefinition,
+    version: string
+): FunctionCall[] {
     const res: FunctionCall[] = [];
 
     for (const call of node.getChildrenByType(FunctionCall)) {
@@ -164,10 +167,10 @@ export function findExternalCalls(node: ContractDefinition | FunctionDefinition)
             }
         } else {
             // For normal contract calls check if the type of the callee is an external function
-            const calleeType = parseTypeString(call.vExpression.typeString);
+            const calleeType = getNodeType(call.vExpression, version);
 
             assert(
-                calleeType instanceof SFunctionType,
+                calleeType instanceof FunctionType,
                 `Expected function type not ${calleeType.pp()} for calee in ${call.print()}`
             );
 
@@ -199,6 +202,7 @@ export function generateUtilsContract(
         ContractKind.Contract,
         false,
         true,
+        [],
         [],
         `Utility contract holding a stack counter`
     );
@@ -263,12 +267,12 @@ function gatherDebugIds(n: SNode, typeEnv: TypeEnv): Set<SId> {
         // Only want primitive types and bytes/string
         if (
             !(
-                type instanceof SAddressType ||
-                type instanceof SBoolType ||
-                type instanceof SFixedBytes ||
-                type instanceof SIntType ||
-                (type instanceof SPointer &&
-                    (type.to instanceof SString || type.to instanceof SBytes))
+                type instanceof AddressType ||
+                type instanceof BoolType ||
+                type instanceof FixedBytesType ||
+                type instanceof IntType ||
+                (type instanceof PointerType &&
+                    (type.to instanceof StringType || type.to instanceof BytesType))
             )
         ) {
             return;
@@ -440,7 +444,7 @@ export function flattenExpr(expr: SNode, ctx: TranspilingContext): [SNode, SBind
         let rhsBindings: SBindings;
 
         if (
-            rhsT instanceof STupleType &&
+            rhsT instanceof TupleType &&
             expr.rhs instanceof SUnaryOperation &&
             expr.rhs.op === "old"
         ) {
@@ -453,7 +457,7 @@ export function flattenExpr(expr: SNode, ctx: TranspilingContext): [SNode, SBind
         const rhsSemInfo = ctx.semInfo.get(expr.rhs);
         assert(rhsSemInfo !== undefined, `Missing sem info for let rhs-expr in ${expr.pp()}`);
 
-        if (rhsT instanceof STupleType) {
+        if (rhsT instanceof TupleType) {
             if (flatRHS instanceof SResult) {
                 assert(
                     ctx.container instanceof FunctionDefinition,
@@ -504,7 +508,7 @@ export function flattenExpr(expr: SNode, ctx: TranspilingContext): [SNode, SBind
         return [getTmpVar(tmpName, expr, expr.src), letBindings];
     }
 
-    if (expr instanceof SType) {
+    if (expr instanceof TypeNode) {
         return [expr, []];
     }
 
@@ -609,7 +613,7 @@ export function generateExpressions(
                     const vType = transCtx.typeEnv.typeOf(v);
                     const type = generateTypeAst(vType, factory);
                     const name = v instanceof SId ? v.name : v.member;
-                    const typeString = vType instanceof SPointer ? vType.to.pp() : vType.pp();
+                    const typeString = vType instanceof PointerType ? vType.to.pp() : vType.pp();
 
                     return factory.makeVariableDeclaration(
                         false,
@@ -657,14 +661,14 @@ export function generateExpressions(
             }
         }
     }
-    const bindingMap: Map<string, SType> = new Map();
+    const bindingMap: Map<string, TypeNode> = new Map();
 
     bindings.forEach(([names, type]) => {
         if (typeof names === "string") {
             bindingMap.set(names, type);
         } else {
             for (let i = 0; i < names.length; i++) {
-                bindingMap.set(names[i], (type as STupleType).elements[i]);
+                bindingMap.set(names[i], (type as TupleType).elements[i]);
             }
         }
     });
@@ -1098,14 +1102,14 @@ export class ContractInstrumenter {
             const [flatBody, bindings] = flattenExpr(funDef.body, transCtx);
 
             if (bindings.length > 0) {
-                const bindingMap: Map<string, SType> = new Map();
+                const bindingMap: Map<string, TypeNode> = new Map();
 
                 bindings.forEach(([names, type]) => {
                     if (typeof names === "string") {
                         bindingMap.set(names, type);
                     } else {
                         for (let i = 0; i < names.length; i++) {
-                            bindingMap.set(names[i], (type as STupleType).elements[i]);
+                            bindingMap.set(names[i], (type as TupleType).elements[i]);
                         }
                     }
                 });
@@ -1376,7 +1380,7 @@ export class ContractInstrumenter {
         const factory = ctx.factory;
         const recipe: Recipe = [];
 
-        for (const callSite of findExternalCalls(contract)) {
+        for (const callSite of findExternalCalls(contract, ctx.compilerVersion)) {
             const containingFun = callSite.getClosestParentByType(FunctionDefinition);
 
             if (
@@ -1387,9 +1391,9 @@ export class ContractInstrumenter {
                 continue;
             }
 
-            const calleeType = parseTypeString(callSite.vExpression.typeString);
+            const calleeType = getNodeType(callSite.vExpression, ctx.compilerVersion);
             assert(
-                calleeType instanceof SFunctionType,
+                calleeType instanceof FunctionType,
                 `Expected function type not ${calleeType.pp()} for calee in ${callSite.print()}`
             );
 

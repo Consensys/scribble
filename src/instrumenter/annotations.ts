@@ -242,6 +242,11 @@ type RawMetaData = {
 };
 
 class AnnotationExtractor {
+    private version: string;
+    constructor(version: string) {
+        this.version = version;
+    }
+
     private makeAnnotationFromMatch(
         match: RegExpExecArray,
         meta: RawMetaData,
@@ -251,7 +256,7 @@ class AnnotationExtractor {
         let parsedAnnot: SAnnotation;
 
         try {
-            parsedAnnot = parseAnnotation(slice);
+            parsedAnnot = parseAnnotation(slice, meta.node, this.version);
         } catch (e) {
             if (e instanceof ExprPEGSSyntaxError) {
                 // Compute the syntax error offset relative to the start of the file
@@ -495,10 +500,11 @@ export function gatherContractAnnotations(
 export function buildAnnotationMap(
     units: SourceUnit[],
     sources: Map<string, string>,
-    filters: AnnotationFilterOptions
+    filters: AnnotationFilterOptions,
+    version: string
 ): AnnotationMap {
     const res: AnnotationMap = new Map();
-    const extractor = new AnnotationExtractor();
+    const extractor = new AnnotationExtractor(version);
 
     for (const unit of units) {
         // Check no annotations on free functions

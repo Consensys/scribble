@@ -1,29 +1,44 @@
 import {
+    AddressType,
+    ArrayType,
     ArrayTypeName,
     ASTNodeConstructor,
+    BoolType,
+    BytesType,
     ContractDefinition,
     DataLocation,
-    ElementaryTypeName,
     EnumDefinition,
+    FixedBytesType,
     FunctionDefinition,
     FunctionStateMutability,
-    FunctionTypeName,
+    FunctionType,
     FunctionVisibility,
-    Literal,
-    LiteralKind,
+    generalizeType,
+    IntLiteralType,
+    IntType,
     Mapping,
+    MappingType,
+    PointerType,
     resolveByName,
     SourceUnit,
+    specializeType,
     StateVariableVisibility,
+    StringLiteralType,
+    StringType,
     StructDefinition,
+    TupleType,
     TypeName,
+    typeNameToTypeNode,
+    TypeNameType,
+    TypeNode,
+    UserDefinedType,
     UserDefinedTypeName,
     VariableDeclaration,
     VariableDeclarationStatement
 } from "solc-typed-ast";
 import { AnnotationMap, AnnotationMetaData, AnnotationTarget } from "../../instrumenter";
 import { Logger } from "../../logger";
-import { assert, pp, single, topoSort } from "../../util";
+import { assert, last, pp, single, topoSort } from "../../util";
 import { eq } from "../../util/struct_equality";
 import {
     DatastructurePath,
@@ -49,29 +64,8 @@ import {
     SUserFunctionDefinition,
     VarDefSite
 } from "../ast";
-import {
-    SAddressType,
-    SArrayType,
-    SBuiltinStructType,
-    SBuiltinTypeNameType,
-    SBytes,
-    SFunctionSetType,
-    SIntType,
-    SMappingType,
-    SPackedArrayType,
-    SPointer,
-    SString,
-    SType,
-    SUserDefinedType,
-    SUserDefinedTypeNameType
-} from "../ast/types";
-import { SBoolType } from "../ast/types/bool";
-import { SFixedBytes } from "../ast/types/fixed_bytes";
-import { SFunctionType } from "../ast/types/function_type";
-import { SIntLiteralType } from "../ast/types/int_literal";
-import { SStringLiteralType } from "../ast/types/string_literal";
-import { STupleType } from "../ast/types/tuple_type";
 import { BuiltinAddressMembers, BuiltinSymbols } from "./builtins";
+import { BuiltinStructType, FunctionSetType } from "./internal_types";
 import { TypeEnv } from "./typeenv";
 
 export class StateVarScope {
@@ -157,9 +151,9 @@ export class SNoField extends SGenericTypeError<SNode> {
 }
 
 export class SWrongType extends SGenericTypeError<SNode> {
-    public readonly actualT: SType;
+    public readonly actualT: TypeNode;
 
-    constructor(msg: string, expr: SNode, actualT: SType) {
+    constructor(msg: string, expr: SNode, actualT: TypeNode) {
         super(msg, expr);
 
         this.actualT = actualT;
@@ -204,12 +198,19 @@ export class SDuplicateError extends SGenericTypeError<SNode> {
 
 export class IncompatibleTypes extends STypeError {
     public readonly exprA: SNode;
-    public readonly typeA: SType;
+    public readonly typeA: TypeNode;
     public readonly exprB: SNode;
-    public readonly typeB: SType;
+    public readonly typeB: TypeNode;
     readonly src: Range;
 
-    constructor(msg: string, exprA: SNode, typeA: SType, exprB: SNode, typeB: SType, src: Range) {
+    constructor(
+        msg: string,
+        exprA: SNode,
+        typeA: TypeNode,
+        exprB: SNode,
+        typeB: TypeNode,
+        src: Range
+    ) {
         super(msg);
 
         this.exprA = exprA;
@@ -350,118 +351,12 @@ function resolveTypeDef(
     return undefined;
 }
 
-function getUserDefinedTypeFQName(
+function mkUserDefinedType(
     def: ContractDefinition | StructDefinition | EnumDefinition
-): string {
-    return def.vScope instanceof ContractDefinition
-        ? `${def.vScope.name}.${def.name}`
-        : `${def.name}`;
-}
-
-/**
- * Convert a Solidity TypeName into an SType. Note that for reference types (arrays, structs, maps, bytes, strings) the generated
- * SType will not contain Pointers. This is due to the fact that a TypeName could be used in different storage locations.
- *
- * @param astT Solidity TypeName
- */
-export function astTypeNameToSType(astT: TypeName): SType {
-    if (astT instanceof ElementaryTypeName) {
-        const name = astT.name.trim();
-
-        if (name === "bool") {
-            return new SBoolType();
-        }
-
-        const addressRE = /^address *(payable)?$/;
-
-        let m = name.match(addressRE);
-
-        if (m !== null) {
-            return new SAddressType(astT.stateMutability === "payable");
-        }
-
-        const intLiteralRE = /^int_const *([0-9]*)$/;
-
-        m = name.match(intLiteralRE);
-
-        if (m !== null) {
-            return new SIntLiteralType();
-        }
-
-        const intTypeRE = /^(u?)int([0-9]*)$/;
-
-        m = name.match(intTypeRE);
-
-        if (m !== null) {
-            const signed = m[1] !== "u";
-            const nBits = m[2] === "" ? 256 : parseInt(m[2]);
-
-            return new SIntType(nBits, signed);
-        }
-
-        const bytesRE = /^bytes([0-9]+)$/;
-
-        m = name.match(bytesRE);
-
-        if (name == "byte" || m !== null) {
-            const size = m !== null ? parseInt(m[1]) : 1;
-
-            return new SFixedBytes(size);
-        }
-
-        if (name === "bytes" || name === "string") {
-            return name === "bytes" ? new SBytes() : new SString();
-        }
-
-        throw new Error(`NYI converting elementary AST Type ${name}`);
-    }
-
-    if (astT instanceof ArrayTypeName) {
-        const elT = astTypeNameToSType(astT.vBaseType);
-
-        let size: number | undefined;
-
-        if (astT.vLength !== undefined) {
-            if (!(astT.vLength instanceof Literal && astT.vLength.kind == LiteralKind.Number)) {
-                throw new Error(`NYI non-literal array type sizes`);
-            }
-
-            size = parseInt(astT.vLength.value);
-        }
-
-        return new SArrayType(elT, size);
-    }
-
-    if (astT instanceof UserDefinedTypeName) {
-        const def = astT.vReferencedDeclaration;
-
-        if (
-            def instanceof StructDefinition ||
-            def instanceof EnumDefinition ||
-            def instanceof ContractDefinition
-        ) {
-            return new SUserDefinedType(getUserDefinedTypeFQName(def), def);
-        }
-
-        throw new Error(`NYI typecheckin of user-defined type ${def.print()}`);
-    }
-
-    if (astT instanceof FunctionTypeName) {
-        // param.vType is always defined here. Even in 0.4.x can't have function declarations with `var` args
-        const parameters = astT.vParameterTypes.vParameters.map((param) => astVarToSType(param));
-        const returns = astT.vReturnParameterTypes.vParameters.map((param) => astVarToSType(param));
-
-        return new SFunctionType(parameters, returns, astT.visibility, astT.stateMutability);
-    }
-
-    if (astT instanceof Mapping) {
-        const keyT = astTypeNameToSType(astT.vKeyType);
-        const valueT = astTypeNameToSType(astT.vValueType);
-
-        return new SMappingType(keyT, valueT);
-    }
-
-    throw new Error(`NYI converting AST Type ${astT.print()} to SType`);
+): UserDefinedType {
+    const name =
+        def.vScope instanceof ContractDefinition ? `${def.vScope.name}.${def.name}` : `${def.name}`;
+    return new UserDefinedType(name, def);
 }
 
 function getVarLocation(astV: VariableDeclaration, baseLoc?: DataLocation): DataLocation {
@@ -493,98 +388,18 @@ function getVarLocation(astV: VariableDeclaration, baseLoc?: DataLocation): Data
     throw new Error(`NYI variables with scope ${astV.vScope.print()}`);
 }
 
-/**
- * Given an SType `type` that doesn't contain Poitners (as returned by astTypeNameToSType) and a storage
- * location `toLocation`, specialize `type` to a concrete type that lives in `toLocation`.
- *
- * You can think of `type` as a type template, from which we return a concrete type specialized to a given location.
- *
- * @param type - type without pointers
- * @param toLocation - location where `type` should be concretized.
- */
-function specializeType(type: SType, toLocation: DataLocation): SType {
-    assert(!(type instanceof SPointer), `Unexpected pointer type ${type.pp()} in concretization.`);
-    assert(!(type instanceof STupleType), `Unexpected tuple type ${type.pp()} in concretization.`);
-
-    // bytes and string
-    if (type instanceof SPackedArrayType) {
-        return new SPointer(type, toLocation);
-    }
-
-    if (type instanceof SArrayType) {
-        const concreteElT = specializeType(type.elementT, toLocation);
-        return new SPointer(new SArrayType(concreteElT, type.size), toLocation);
-    }
-
-    if (type instanceof SUserDefinedType) {
-        const def = type.definition;
-        assert(
-            def !== undefined,
-            `Can't concretize user defined type ${type.pp()} with no corresponding definition.`
-        );
-
-        if (def instanceof ContractDefinition) {
-            // Contracts are always concretized as storage poitners
-            return new SPointer(type, DataLocation.Storage);
-        }
-
-        if (def instanceof StructDefinition) {
-            // Contracts are always concretized as storage poitners
-            return new SPointer(type, toLocation);
-        }
-
-        // Enums are a value type
-        return type;
-    }
-
-    if (type instanceof SMappingType) {
-        // Always treat map keys as in-memory copies
-        const concreteKeyT = specializeType(type.keyType, DataLocation.Memory);
-        // The result of map indexing is always a pointer to a value that lives in storage
-        const concreteValueT = specializeType(type.valueType, DataLocation.Storage);
-        // Maps always live in storage
-        return new SPointer(new SMappingType(concreteKeyT, concreteValueT), DataLocation.Storage);
-    }
-
-    // TODO: What to do about string literals?
-    // All other types are "value" types.
-    return type;
-}
-
-/**
- * Given a type `type` specialized to a specific storage location, return the
- * original type template from which `type` can be generated.
- */
-export function despecializeType(type: SType): SType {
-    if (type instanceof SPointer) {
-        return type.to;
-    }
-
-    if (type instanceof SArrayType) {
-        return new SArrayType(despecializeType(type.elementT), type.size);
-    }
-
-    if (type instanceof SMappingType) {
-        const genearlKeyT = despecializeType(type.keyType);
-        const generalValueT = despecializeType(type.valueType);
-        return new SMappingType(genearlKeyT, generalValueT);
-    }
-
-    return type;
-}
-
-export function astVarToSType(astV: VariableDeclaration, baseLoc?: DataLocation): SType {
+export function astVarToTypeNode(astV: VariableDeclaration, baseLoc?: DataLocation): TypeNode {
     assert(
         astV.vType !== undefined,
         "Unsupported variable declaration without a type: " + astV.print()
     );
 
-    const type = astTypeNameToSType(astV.vType);
+    const type = typeNameToTypeNode(astV.vType);
     return specializeType(type, getVarLocation(astV, baseLoc));
 }
 
-function isInty(type: SType): boolean {
-    return type instanceof SIntType || type instanceof SIntLiteralType;
+function isInty(type: TypeNode): boolean {
+    return type instanceof IntType || type instanceof IntLiteralType;
 }
 
 /**
@@ -694,7 +509,7 @@ export function tcAnnotation(
 
         const exprType = tc(annot.expression, predCtx, typeEnv);
 
-        if (!(exprType instanceof SBoolType)) {
+        if (!(exprType instanceof BoolType)) {
             throw new SWrongType(
                 `${annot.type} expects an expression of type bool not ${exprType.pp()}`,
                 annot.expression,
@@ -702,7 +517,7 @@ export function tcAnnotation(
             );
         }
     } else if (annot instanceof SUserFunctionDefinition) {
-        const funScope = ctx[ctx.length - 1];
+        const funScope = last(ctx);
         if (!(funScope instanceof ContractDefinition)) {
             throw new SGenericTypeError(
                 `User functions can only be defined on contract annotations at the moment.`,
@@ -737,8 +552,8 @@ export function tcAnnotation(
     }
 }
 
-export function tc(expr: SNode, ctx: STypingCtx, typeEnv: TypeEnv = new TypeEnv()): SType {
-    const cache = (expr: SNode, type: SType): SType => {
+export function tc(expr: SNode, ctx: STypingCtx, typeEnv: TypeEnv = new TypeEnv()): TypeNode {
+    const cache = (expr: SNode, type: TypeNode): TypeNode => {
         Logger.debug(`tc: ${expr.pp()} :: ${type.pp()}`);
 
         typeEnv.define(expr, type);
@@ -751,23 +566,23 @@ export function tc(expr: SNode, ctx: STypingCtx, typeEnv: TypeEnv = new TypeEnv(
     }
 
     if (expr instanceof SNumber) {
-        return cache(expr, new SIntLiteralType());
+        return cache(expr, new IntLiteralType());
     }
 
     if (expr instanceof SBooleanLiteral) {
-        return cache(expr, new SBoolType());
+        return cache(expr, new BoolType());
     }
 
     if (expr instanceof SStringLiteral) {
-        return cache(expr, new SStringLiteralType());
+        return cache(expr, new StringLiteralType(expr.val, false));
     }
 
     if (expr instanceof SHexLiteral) {
-        return cache(expr, new SStringLiteralType());
+        return cache(expr, new StringLiteralType(expr.val, true));
     }
 
     if (expr instanceof SAddressLiteral) {
-        return cache(expr, new SAddressType(true));
+        return cache(expr, new AddressType(true));
     }
 
     if (expr instanceof SId) {
@@ -775,7 +590,7 @@ export function tc(expr: SNode, ctx: STypingCtx, typeEnv: TypeEnv = new TypeEnv(
     }
 
     if (expr instanceof SResult) {
-        return cache(expr, tcResult(expr, ctx, typeEnv));
+        return cache(expr, tcResult(expr, ctx));
     }
 
     if (expr instanceof SUnaryOperation) {
@@ -806,14 +621,8 @@ export function tc(expr: SNode, ctx: STypingCtx, typeEnv: TypeEnv = new TypeEnv(
         return cache(expr, tcFunctionCall(expr, ctx, typeEnv));
     }
 
-    if (expr instanceof SUserDefinedType) {
-        assert(expr.definition !== undefined, `Type expression ${expr.pp()} is missing def`);
-
-        return cache(expr, new SUserDefinedTypeNameType(expr.definition));
-    }
-
-    if (expr instanceof SType) {
-        return cache(expr, new SBuiltinTypeNameType(expr));
+    if (expr instanceof TypeNode) {
+        return new TypeNameType(expr);
     }
 
     throw new Error(`NYI type-checking of ${expr.pp()}`);
@@ -821,14 +630,14 @@ export function tc(expr: SNode, ctx: STypingCtx, typeEnv: TypeEnv = new TypeEnv(
 
 export class BuiltinTypeDetector {
     readonly matcher: RegExp;
-    readonly processor: (matches: RegExpMatchArray) => SType | undefined;
+    readonly processor: (matches: RegExpMatchArray) => TypeNode | undefined;
 
-    constructor(rx: RegExp, handler: (matches: RegExpMatchArray) => SType | undefined) {
+    constructor(rx: RegExp, handler: (matches: RegExpMatchArray) => TypeNode | undefined) {
         this.matcher = rx;
         this.processor = handler;
     }
 
-    detect(name: string): SType | undefined {
+    detect(name: string): TypeNode | undefined {
         const matches = name.match(this.matcher);
 
         return matches === null ? undefined : this.processor(matches);
@@ -836,15 +645,15 @@ export class BuiltinTypeDetector {
 }
 
 export const BuiltinTypeDetectors: BuiltinTypeDetector[] = [
-    new BuiltinTypeDetector(/^bool$/, () => new SBoolType()),
-    new BuiltinTypeDetector(/^string$/, () => new SString()),
+    new BuiltinTypeDetector(/^bool$/, () => new BoolType()),
+    new BuiltinTypeDetector(/^string$/, () => new StringType()),
     new BuiltinTypeDetector(
         /^address( )*(payable)?$/,
-        (matches) => new SAddressType(matches[2] !== "")
+        (matches) => new AddressType(matches[2] !== "")
     ),
     new BuiltinTypeDetector(/^bytes([0-9]?[0-9]?)$/, (matches) => {
         if (matches[1] === "") {
-            return new SBytes();
+            return new BytesType();
         }
 
         const width = parseInt(matches[1]);
@@ -853,14 +662,14 @@ export const BuiltinTypeDetectors: BuiltinTypeDetector[] = [
             return undefined;
         }
 
-        return new SFixedBytes(width);
+        return new FixedBytesType(width);
     }),
-    new BuiltinTypeDetector(/^byte$/, () => new SFixedBytes(1)),
+    new BuiltinTypeDetector(/^byte$/, () => new FixedBytesType(1)),
     new BuiltinTypeDetector(/^(u)?int([0-9]?[0-9]?[0-9]?)$/, (matches) => {
         const isSigned = matches[1] !== "u";
 
         if (matches[2] === "") {
-            return new SIntType(256, isSigned);
+            return new IntType(256, isSigned);
         }
 
         const width = parseInt(matches[2]);
@@ -869,23 +678,23 @@ export const BuiltinTypeDetectors: BuiltinTypeDetector[] = [
             return undefined;
         }
 
-        return new SIntType(width, isSigned);
+        return new IntType(width, isSigned);
     })
 ];
 
-function tcIdBuiltinType(expr: SId): SBuiltinTypeNameType | undefined {
+function tcIdBuiltinType(expr: SId): TypeNameType | undefined {
     for (const detector of BuiltinTypeDetectors) {
         const type = detector.detect(expr.name);
 
         if (type) {
-            return new SBuiltinTypeNameType(type);
+            return new TypeNameType(type);
         }
     }
 
     return undefined;
 }
 
-function tcIdBuiltin(expr: SId): SType | undefined {
+function tcIdBuiltin(expr: SId): TypeNode | undefined {
     return BuiltinSymbols.get(expr.name);
 }
 
@@ -893,7 +702,7 @@ function tcIdBuiltin(expr: SId): SType | undefined {
  * Given the type of some state variable `type`, a 'data-structure path' `path` find the path of the
  * element of the data structre pointed to by the data-structure path.
  */
-function locateElementType(type: TypeName, path: DatastructurePath): SType {
+function locateElementType(type: TypeName, path: DatastructurePath): TypeNode {
     for (let i = 0; i < path.length; i++) {
         const element = path[i];
 
@@ -938,19 +747,19 @@ function locateElementType(type: TypeName, path: DatastructurePath): SType {
         }
     }
 
-    return specializeType(astTypeNameToSType(type), DataLocation.Storage);
+    return specializeType(typeNameToTypeNode(type), DataLocation.Storage);
 }
 
 /**
  * Given the type of some state variable `type`, a 'data-structure path' `path`, and an index `idx` in that path that
  * corresponds to some index variable, find the type of that index variable.
  */
-function locateKeyType(type: TypeName, idx: number, path: Array<SId | string>): SType {
+function locateKeyType(type: TypeName, idx: number, path: Array<SId | string>): TypeNode {
     assert(idx < path.length, ``);
 
     const idxCompT = locateElementType(type, path.slice(0, idx));
 
-    if (!(idxCompT instanceof SPointer)) {
+    if (!(idxCompT instanceof PointerType)) {
         throw new Error(
             `Can't compute key type for field ${idx} in path ${pp(
                 path
@@ -958,20 +767,22 @@ function locateKeyType(type: TypeName, idx: number, path: Array<SId | string>): 
         );
     }
 
-    if (idxCompT.to instanceof SArrayType) {
-        return new SIntType(256, false);
-    } else if (idxCompT.to instanceof SMappingType) {
-        return idxCompT.to.keyType;
-    } else {
-        throw new Error(
-            `Can't compute key type for field ${idx} in path ${pp(
-                path
-            )}: arrive at non-indexable type ${idxCompT.pp()}`
-        );
+    if (idxCompT.to instanceof ArrayType) {
+        return new IntType(256, false);
     }
+
+    if (idxCompT.to instanceof MappingType) {
+        return idxCompT.to.keyType;
+    }
+
+    throw new Error(
+        `Can't compute key type for field ${idx} in path ${pp(
+            path
+        )}: arrive at non-indexable type ${idxCompT.pp()}`
+    );
 }
 
-function tcIdVariable(expr: SId, ctx: STypingCtx, typeEnv: TypeEnv): SType | undefined {
+function tcIdVariable(expr: SId, ctx: STypingCtx, typeEnv: TypeEnv): TypeNode | undefined {
     const def = lookupVarDef(expr.name, ctx);
 
     if (def === undefined) {
@@ -985,7 +796,7 @@ function tcIdVariable(expr: SId, ctx: STypingCtx, typeEnv: TypeEnv): SType | und
             throw new SMissingSolidityType(expr);
         }
 
-        return astVarToSType(def);
+        return astVarToTypeNode(def);
     }
 
     const [defNode, bindingIdx] = def;
@@ -994,7 +805,7 @@ function tcIdVariable(expr: SId, ctx: STypingCtx, typeEnv: TypeEnv): SType | und
         const rhsT = tc(defNode.rhs, ctx, typeEnv);
 
         if (defNode.lhs.length > 1) {
-            if (!(rhsT instanceof STupleType && rhsT.elements.length === defNode.lhs.length)) {
+            if (!(rhsT instanceof TupleType && rhsT.elements.length === defNode.lhs.length)) {
                 throw new SExprCountMismatch(
                     `Wrong number of values for let bindings in ${defNode.pp()}. Expected ${
                         defNode.lhs.length
@@ -1026,20 +837,17 @@ function tcIdVariable(expr: SId, ctx: STypingCtx, typeEnv: TypeEnv): SType | und
     return defNode.parameters[bindingIdx][1];
 }
 
-export function tcId(expr: SId, ctx: STypingCtx, typeEnv: TypeEnv): SType {
+export function tcId(expr: SId, ctx: STypingCtx, typeEnv: TypeEnv): TypeNode {
     if (expr.name === "this") {
         const contract = ctx[1] as ContractDefinition;
 
         expr.defSite = "this";
 
-        return new SPointer(
-            new SUserDefinedType(getUserDefinedTypeFQName(contract), contract),
-            DataLocation.Storage
-        );
+        return mkUserDefinedType(contract);
     }
 
     // First try to TC the id as a builtin type
-    let retT: SType | undefined = tcIdBuiltinType(expr);
+    let retT: TypeNode | undefined = tcIdBuiltinType(expr);
 
     if (retT !== undefined) {
         return retT;
@@ -1064,7 +872,7 @@ export function tcId(expr: SId, ctx: STypingCtx, typeEnv: TypeEnv): SType {
     if (funDefs.length > 0) {
         expr.defSite = "function_name";
 
-        return new SFunctionSetType(funDefs);
+        return new FunctionSetType(funDefs);
     }
 
     // Finally lets try to TC it as a type name
@@ -1073,7 +881,7 @@ export function tcId(expr: SId, ctx: STypingCtx, typeEnv: TypeEnv): SType {
     if (userDef !== undefined) {
         expr.defSite = "type_name";
 
-        return new SUserDefinedTypeNameType(userDef);
+        return new TypeNameType(mkUserDefinedType(userDef));
     }
 
     retT = tcIdBuiltin(expr);
@@ -1089,7 +897,8 @@ export function tcId(expr: SId, ctx: STypingCtx, typeEnv: TypeEnv): SType {
 
         if (userFun !== undefined) {
             expr.defSite = userFun;
-            return new SFunctionType(
+            return new FunctionType(
+                undefined,
                 userFun.parameters.map(([, type]) => type),
                 [userFun.returnType],
                 FunctionVisibility.Internal,
@@ -1103,7 +912,7 @@ export function tcId(expr: SId, ctx: STypingCtx, typeEnv: TypeEnv): SType {
 }
 
 // eslint-disable-next-line @typescript-eslint/no-unused-vars
-export function tcResult(expr: SResult, ctx: STypingCtx, typeEnv: TypeEnv): SType {
+export function tcResult(expr: SResult, ctx: STypingCtx): TypeNode {
     const scope = getScopeOfType(FunctionDefinition, ctx);
 
     if (!scope) {
@@ -1118,27 +927,19 @@ export function tcResult(expr: SResult, ctx: STypingCtx, typeEnv: TypeEnv): STyp
     }
 
     if (scope.vReturnParameters.vParameters.length === 1) {
-        const retT = scope.vReturnParameters.vParameters[0].vType;
-        assert(retT !== undefined, `Internal error: return vars should always have a type.`);
-        return astTypeNameToSType(retT);
+        const retT = scope.vReturnParameters.vParameters[0];
+        return astVarToTypeNode(retT);
     }
 
-    return new STupleType(
-        scope.vReturnParameters.vParameters.map((param) => {
-            assert(
-                param.vType !== undefined,
-                `Internal error: return vars should always have a type.`
-            );
-            return astTypeNameToSType(param.vType);
-        })
+    return new TupleType(
+        scope.vReturnParameters.vParameters.map((param) => astVarToTypeNode(param))
     );
 }
 
-export function tcUnary(expr: SUnaryOperation, ctx: STypingCtx, typeEnv: TypeEnv): SType {
+export function tcUnary(expr: SUnaryOperation, ctx: STypingCtx, typeEnv: TypeEnv): TypeNode {
     if (expr.op === "!") {
-        const bool = new SBoolType();
         const innerT = tc(expr.subexp, ctx, typeEnv);
-        if (!(innerT instanceof SBoolType)) {
+        if (!(innerT instanceof BoolType)) {
             throw new SWrongType(
                 `Operation '!' expectes bool not ${innerT.pp()} in ${expr.pp()}`,
                 expr.subexp,
@@ -1146,52 +947,66 @@ export function tcUnary(expr: SUnaryOperation, ctx: STypingCtx, typeEnv: TypeEnv
             );
         }
 
-        return bool;
+        return innerT;
     }
 
     if (expr.op === "-") {
         const innerT = tc(expr.subexp, ctx, typeEnv);
-        if (innerT instanceof SIntLiteralType || innerT instanceof SIntType) {
-            return innerT;
+        if (!(innerT instanceof IntLiteralType || innerT instanceof IntType)) {
+            throw new SWrongType(
+                `Operation '-' expectes int or int literal, not ${innerT.pp()} in ${expr.pp()}`,
+                expr.subexp,
+                innerT
+            );
         }
 
-        throw new SWrongType(
-            `Operation '-' expectes int or int literal, not ${innerT.pp()} in ${expr.pp()}`,
-            expr.subexp,
-            innerT
-        );
+        return innerT;
     }
 
+    assert(expr.op === "old", `Internal error: NYI unary op ${expr.op}`);
     return tc(expr.subexp, ctx, typeEnv);
 }
 
-export function isImplicitlyCastable(expr: SNode, type: SType, to: SType): boolean {
+/**
+ * Return true IFF the expression `expr` of type `type` can be implicitly casted to the type `to`.
+ *
+ * Note: While `expr` is not used right now, we are leaving it here, because we eventually want to check
+ * that when expr is a constant int expression, it can fit in the target int type. This requires a constant
+ * expression evaluator to be added to `solc-typed-ast`.
+ */
+export function isImplicitlyCastable(expr: SNode, type: TypeNode, to: TypeNode): boolean {
+    // The two types are equal - no cast neccessary
     if (eq(type, to)) {
         return true;
     }
 
-    if (type instanceof SIntLiteralType && to instanceof SIntType) {
+    // int literal types can be casted to int types.
+    // @todo once we get a constant expression evaluator check that `expr` fits in `to`
+    if (type instanceof IntLiteralType && to instanceof IntType) {
         return true;
     }
 
-    if (type instanceof SStringLiteralType && to instanceof SPointer && to.to instanceof SBytes) {
+    // string literals can be implicitly cast to bytes/strings
+    if (
+        type instanceof StringLiteralType &&
+        to instanceof PointerType &&
+        (to.to instanceof BytesType || to.to instanceof StringType)
+    ) {
         return true;
     }
 
-    if (type instanceof SStringLiteralType && to instanceof SPointer && to.to instanceof SString) {
-        return true;
-    }
-
-    if (type instanceof SIntType && to instanceof SIntType) {
+    // ints can be implicitly cast to wider ints with the same sign
+    if (type instanceof IntType && to instanceof IntType) {
         return type.signed === to.signed && type.nBits <= to.nBits;
     }
 
-    if (type instanceof SAddressType && to instanceof SAddressType) {
+    // address (including payable) can be cast to non-payable address
+    if (type instanceof AddressType && to instanceof AddressType) {
         return !to.payable;
     }
 
-    // Allow implicit casts between calldata, storage and memory
-    if (type instanceof SPointer && to instanceof SPointer && eq(type.to, to.to)) {
+    // Allow implicit casts of the same type between calldata, storage and memory
+    if (type instanceof PointerType && to instanceof PointerType && eq(type.to, to.to)) {
         return true;
     }
 
@@ -1209,11 +1024,11 @@ export function isImplicitlyCastable(expr: SNode, type: SType, to: SType): boole
  */
 function unifyTypes(
     exprA: SNode,
-    typeA: SType,
+    typeA: TypeNode,
     exprB: SNode,
-    typeB: SType,
+    typeB: TypeNode,
     commonParent: SNode
-): SType {
+): TypeNode {
     if (isImplicitlyCastable(exprA, typeA, typeB)) {
         return typeB;
     }
@@ -1239,15 +1054,15 @@ function unifyTypes(
  * @param ctx - typing context
  * @param typeEnv - type map (for caching)
  */
-export function tcBinary(expr: SBinaryOperation, ctx: STypingCtx, typeEnv: TypeEnv): SType {
+export function tcBinary(expr: SBinaryOperation, ctx: STypingCtx, typeEnv: TypeEnv): TypeNode {
     const lhsT = tc(expr.left, ctx, typeEnv);
     const rhsT = tc(expr.right, ctx, typeEnv);
 
     // Arithmetic binary expressions require the two types to be integer and implicitly castable to each other.
     if (expr.op === "**") {
         if (
-            !(rhsT instanceof SIntType || rhsT instanceof SIntLiteralType) ||
-            (rhsT instanceof SIntType && rhsT.signed) ||
+            !(rhsT instanceof IntType || rhsT instanceof IntLiteralType) ||
+            (rhsT instanceof IntType && rhsT.signed) ||
             (expr.right instanceof SNumber && expr.right.num.lt(0))
         ) {
             throw new SWrongType(
@@ -1257,7 +1072,7 @@ export function tcBinary(expr: SBinaryOperation, ctx: STypingCtx, typeEnv: TypeE
             );
         }
 
-        if (!(lhsT instanceof SIntType || lhsT instanceof SIntLiteralType)) {
+        if (!(lhsT instanceof IntType || lhsT instanceof IntLiteralType)) {
             throw new SWrongType(
                 `Type of ${expr.left.pp()} (${lhsT.pp()}) incompatible with ${expr.op} operator.`,
                 expr.left,
@@ -1265,11 +1080,11 @@ export function tcBinary(expr: SBinaryOperation, ctx: STypingCtx, typeEnv: TypeE
             );
         }
 
-        return lhsT instanceof SIntLiteralType ? rhsT : lhsT;
+        return lhsT instanceof IntLiteralType ? rhsT : lhsT;
     }
 
     if (["*", "%", "/", "+", "-"].includes(expr.op)) {
-        if (!(lhsT instanceof SIntType || lhsT instanceof SIntLiteralType)) {
+        if (!(lhsT instanceof IntType || lhsT instanceof IntLiteralType)) {
             throw new SWrongType(
                 `Type of ${expr.left.pp()} (${lhsT.pp()}) incompatible with ${expr.op} operator.`,
                 expr.left,
@@ -1277,7 +1092,7 @@ export function tcBinary(expr: SBinaryOperation, ctx: STypingCtx, typeEnv: TypeE
             );
         }
 
-        if (!(rhsT instanceof SIntType || rhsT instanceof SIntLiteralType)) {
+        if (!(rhsT instanceof IntType || rhsT instanceof IntLiteralType)) {
             throw new SWrongType(
                 `Type of ${expr.right.pp()} (${rhsT.pp()}) incompatible with ${expr.op} operator.`,
                 expr.right,
@@ -1292,9 +1107,9 @@ export function tcBinary(expr: SBinaryOperation, ctx: STypingCtx, typeEnv: TypeE
     if (["<<", ">>"].includes(expr.op)) {
         if (
             !(
-                lhsT instanceof SIntType ||
-                lhsT instanceof SIntLiteralType ||
-                lhsT instanceof SFixedBytes
+                lhsT instanceof IntType ||
+                lhsT instanceof IntLiteralType ||
+                lhsT instanceof FixedBytesType
             )
         ) {
             throw new SWrongType(
@@ -1304,7 +1119,7 @@ export function tcBinary(expr: SBinaryOperation, ctx: STypingCtx, typeEnv: TypeE
             );
         }
 
-        if (!(rhsT instanceof SIntType || rhsT instanceof SIntLiteralType)) {
+        if (!(rhsT instanceof IntType || rhsT instanceof IntLiteralType)) {
             throw new SWrongType(
                 `Type of ${expr.right.pp()} (${rhsT.pp()}) incompatible with ${expr.op} operator.`,
                 expr.right,
@@ -1312,16 +1127,16 @@ export function tcBinary(expr: SBinaryOperation, ctx: STypingCtx, typeEnv: TypeE
             );
         }
 
-        return lhsT instanceof SIntLiteralType ? rhsT : lhsT;
+        return lhsT instanceof IntLiteralType ? rhsT : lhsT;
     }
 
     // We restrict comparison operators to just ints/int literals
     if (["<", ">", "<=", ">="].includes(expr.op)) {
         if (
             !(
-                lhsT instanceof SIntType ||
-                lhsT instanceof SIntLiteralType ||
-                lhsT instanceof SFixedBytes
+                lhsT instanceof IntType ||
+                lhsT instanceof IntLiteralType ||
+                lhsT instanceof FixedBytesType
             )
         ) {
             throw new SWrongType(
@@ -1333,9 +1148,9 @@ export function tcBinary(expr: SBinaryOperation, ctx: STypingCtx, typeEnv: TypeE
 
         if (
             !(
-                rhsT instanceof SIntType ||
-                rhsT instanceof SIntLiteralType ||
-                rhsT instanceof SFixedBytes
+                rhsT instanceof IntType ||
+                rhsT instanceof IntLiteralType ||
+                rhsT instanceof FixedBytesType
             )
         ) {
             throw new SWrongType(
@@ -1347,24 +1162,24 @@ export function tcBinary(expr: SBinaryOperation, ctx: STypingCtx, typeEnv: TypeE
 
         // Make sure the two types unify
         unifyTypes(expr.left, lhsT, expr.right, rhsT, expr);
-        return new SBoolType();
+        return new BoolType();
     }
 
     if (["==", "!="].includes(expr.op)) {
         // Equality operators allow for the same or implicitly castable types.
         unifyTypes(expr.left, lhsT, expr.right, rhsT, expr);
-        return new SBoolType();
+        return new BoolType();
     }
 
     if (["|", "&", "^"].includes(expr.op)) {
         // Bitwise binary ops allow ints that can be implicitly converted to each other
         if (
-            (lhsT instanceof SIntType ||
-                lhsT instanceof SIntLiteralType ||
-                lhsT instanceof SFixedBytes) &&
-            (rhsT instanceof SIntType ||
-                rhsT instanceof SIntLiteralType ||
-                rhsT instanceof SFixedBytes)
+            (lhsT instanceof IntType ||
+                lhsT instanceof IntLiteralType ||
+                lhsT instanceof FixedBytesType) &&
+            (rhsT instanceof IntType ||
+                rhsT instanceof IntLiteralType ||
+                rhsT instanceof FixedBytesType)
         ) {
             return unifyTypes(expr.left, lhsT, expr.right, rhsT, expr);
         }
@@ -1382,7 +1197,7 @@ export function tcBinary(expr: SBinaryOperation, ctx: STypingCtx, typeEnv: TypeE
     }
 
     if (["||", "&&", "==>"].includes(expr.op)) {
-        if (!(lhsT instanceof SBoolType && rhsT instanceof SBoolType)) {
+        if (!(lhsT instanceof BoolType && rhsT instanceof BoolType)) {
             throw new IncompatibleTypes(
                 `Types ${lhsT.pp()} and ${rhsT.pp()} not compatible with binary operator ${
                     expr.op
@@ -1395,7 +1210,7 @@ export function tcBinary(expr: SBinaryOperation, ctx: STypingCtx, typeEnv: TypeE
             );
         }
 
-        return new SBoolType();
+        return new BoolType();
     }
 
     throw new Error(`NYI typecheck for binary operator ${expr.op}`);
@@ -1408,12 +1223,12 @@ export function tcBinary(expr: SBinaryOperation, ctx: STypingCtx, typeEnv: TypeE
  * @param ctx - typing context
  * @param typeEnv - type map (for caching)
  */
-export function tcConditional(expr: SConditional, ctx: STypingCtx, typeEnv: TypeEnv): SType {
+export function tcConditional(expr: SConditional, ctx: STypingCtx, typeEnv: TypeEnv): TypeNode {
     const condT = tc(expr.condition, ctx, typeEnv);
     const trueT = tc(expr.trueExp, ctx, typeEnv);
     const falseT = tc(expr.falseExp, ctx, typeEnv);
 
-    if (!(condT instanceof SBoolType)) {
+    if (!(condT instanceof BoolType)) {
         throw new SWrongType(
             `Conditional expects boolean for ${expr.condition.pp()} not ${condT.pp()}`,
             expr.condition,
@@ -1424,11 +1239,11 @@ export function tcConditional(expr: SConditional, ctx: STypingCtx, typeEnv: Type
     return unifyTypes(expr.trueExp, trueT, expr.falseExp, falseT, expr);
 }
 
-export function tcIndexAccess(expr: SIndexAccess, ctx: STypingCtx, typeEnv: TypeEnv): SType {
+export function tcIndexAccess(expr: SIndexAccess, ctx: STypingCtx, typeEnv: TypeEnv): TypeNode {
     const baseT = tc(expr.base, ctx, typeEnv);
     const indexT = tc(expr.index, ctx, typeEnv);
 
-    if (baseT instanceof SFixedBytes) {
+    if (baseT instanceof FixedBytesType) {
         if (!isInty(indexT)) {
             throw new SWrongType(
                 `Cannot index into ${expr.base.pp()} with ${expr.index.pp()} of type ${indexT.pp()}`,
@@ -1436,13 +1251,13 @@ export function tcIndexAccess(expr: SIndexAccess, ctx: STypingCtx, typeEnv: Type
                 indexT
             );
         }
-        return new SIntType(8, false);
+        return new IntType(8, false);
     }
 
-    if (baseT instanceof SPointer) {
+    if (baseT instanceof PointerType) {
         const toT = baseT.to;
 
-        if (toT instanceof SBytes) {
+        if (toT instanceof BytesType) {
             if (!isInty(indexT)) {
                 throw new SWrongType(
                     `Cannot index into ${expr.base.pp()} with ${expr.index.pp()} of type ${indexT.pp()}`,
@@ -1450,10 +1265,10 @@ export function tcIndexAccess(expr: SIndexAccess, ctx: STypingCtx, typeEnv: Type
                     indexT
                 );
             }
-            return new SFixedBytes(1);
+            return new FixedBytesType(1);
         }
 
-        if (toT instanceof SArrayType) {
+        if (toT instanceof ArrayType) {
             if (!isInty(indexT)) {
                 throw new SWrongType(
                     `Cannot index into ${expr.base.pp()} with ${expr.index.pp()} of type ${indexT.pp()}`,
@@ -1464,7 +1279,7 @@ export function tcIndexAccess(expr: SIndexAccess, ctx: STypingCtx, typeEnv: Type
             return toT.elementT;
         }
 
-        if (toT instanceof SMappingType) {
+        if (toT instanceof MappingType) {
             if (!isImplicitlyCastable(expr.index, indexT, toT.keyType)) {
                 throw new SWrongType(
                     `Cannot index into ${expr.base.pp()} with ${expr.index.pp()} of type ${indexT.pp()}`,
@@ -1478,10 +1293,10 @@ export function tcIndexAccess(expr: SIndexAccess, ctx: STypingCtx, typeEnv: Type
     throw new SWrongType(`Cannot index into the type ${baseT.pp()}`, expr, baseT);
 }
 
-export function tcMemberAccess(expr: SMemberAccess, ctx: STypingCtx, typeEnv: TypeEnv): SType {
+export function tcMemberAccess(expr: SMemberAccess, ctx: STypingCtx, typeEnv: TypeEnv): TypeNode {
     const baseT = tc(expr.base, ctx, typeEnv);
 
-    if (baseT instanceof SBuiltinStructType) {
+    if (baseT instanceof BuiltinStructType) {
         const type = baseT.members.get(expr.member);
 
         if (type === undefined) {
@@ -1495,22 +1310,22 @@ export function tcMemberAccess(expr: SMemberAccess, ctx: STypingCtx, typeEnv: Ty
         return type;
     }
 
-    if (baseT instanceof SPointer) {
+    if (baseT instanceof PointerType) {
         const baseLoc = baseT.location;
         const baseToT = baseT.to;
 
-        if (baseToT instanceof SArrayType && expr.member === "length") {
-            return new SIntType(256, false);
+        if (baseToT instanceof ArrayType && expr.member === "length") {
+            return new IntType(256, false);
         }
 
-        if (baseToT instanceof SUserDefinedType) {
+        if (baseToT instanceof UserDefinedType) {
             const rawDef = baseToT.definition;
 
             if (rawDef instanceof StructDefinition) {
                 for (const rawDecl of rawDef.vMembers) {
                     if (expr.member === rawDecl.name) {
                         // rawDecl.vType is defined, as you can't put a `var x;` in a struct definition.
-                        return astVarToSType(rawDecl, baseLoc);
+                        return astVarToTypeNode(rawDecl, baseLoc);
                     }
                 }
 
@@ -1520,39 +1335,40 @@ export function tcMemberAccess(expr: SMemberAccess, ctx: STypingCtx, typeEnv: Ty
                     expr.member
                 );
             }
-
-            if (rawDef instanceof ContractDefinition) {
-                const funDefs = resolveByName(rawDef, FunctionDefinition, expr.member, false);
-
-                if (funDefs.length > 0) {
-                    return new SFunctionSetType(funDefs);
-                }
-
-                for (const varDecl of rawDef.vStateVariables) {
-                    if (
-                        expr.member === varDecl.name &&
-                        varDecl.visibility === StateVariableVisibility.Public
-                    ) {
-                        return new SFunctionSetType([varDecl]);
-                    }
-                }
-
-                const type = BuiltinAddressMembers.get(expr.member);
-
-                if (type) {
-                    return type;
-                }
-
-                throw new SNoField(
-                    `Contract ${baseToT.name} doesn't have a function, public state variable or address builtin member ${expr.member}`,
-                    expr,
-                    expr.member
-                );
-            }
         }
     }
 
-    if (baseT instanceof SAddressType) {
+    if (baseT instanceof UserDefinedType && baseT.definition instanceof ContractDefinition) {
+        const rawDef = baseT.definition;
+        const funDefs = resolveByName(rawDef, FunctionDefinition, expr.member, false);
+
+        if (funDefs.length > 0) {
+            return new FunctionSetType(funDefs);
+        }
+
+        for (const varDecl of rawDef.vStateVariables) {
+            if (
+                expr.member === varDecl.name &&
+                varDecl.visibility === StateVariableVisibility.Public
+            ) {
+                return new FunctionSetType([varDecl]);
+            }
+        }
+
+        const type = BuiltinAddressMembers.get(expr.member);
+
+        if (type) {
+            return type;
+        }
+
+        throw new SNoField(
+            `Contract ${baseT.name} doesn't have a function, public state variable or address builtin member ${expr.member}`,
+            expr,
+            expr.member
+        );
+    }
+
+    if (baseT instanceof AddressType) {
         const type = BuiltinAddressMembers.get(expr.member);
 
         if (type === undefined) {
@@ -1569,50 +1385,62 @@ export function tcMemberAccess(expr: SMemberAccess, ctx: STypingCtx, typeEnv: Ty
     }
 
     if (
-        baseT instanceof SUserDefinedTypeNameType &&
-        baseT.definition instanceof ContractDefinition
+        baseT instanceof TypeNameType &&
+        baseT.type instanceof UserDefinedType &&
+        baseT.type.definition instanceof ContractDefinition
     ) {
         // First check if this is a type name
-        const type = resolveTypeDef([ctx[0], baseT.definition], expr.member);
+        const type = resolveTypeDef([ctx[0], baseT.type.definition], expr.member);
+
         if (type !== undefined) {
-            return new SUserDefinedTypeNameType(type);
+            return new TypeNameType(mkUserDefinedType(type));
         }
 
         // Next check if this is a Library.FunName
-        const funDefs = resolveByName(baseT.definition, FunctionDefinition, expr.member, false);
+        const funDefs = resolveByName(
+            baseT.type.definition,
+            FunctionDefinition,
+            expr.member,
+            false
+        );
+
         if (funDefs.length > 0) {
-            return new SFunctionSetType(funDefs);
+            return new FunctionSetType(funDefs);
         }
     }
 
-    if (baseT instanceof SUserDefinedTypeNameType && baseT.definition instanceof EnumDefinition) {
-        const rawDef = baseT.definition;
+    if (
+        baseT instanceof TypeNameType &&
+        baseT.type instanceof UserDefinedType &&
+        baseT.type.definition instanceof EnumDefinition
+    ) {
+        const rawDef = baseT.type.definition;
 
         for (const enumVal of rawDef.vMembers) {
             if (enumVal.name === expr.member) {
-                return new SUserDefinedType(getUserDefinedTypeFQName(rawDef), rawDef);
+                return baseT.type;
             }
         }
     }
 
     if (
-        baseT instanceof SFunctionSetType &&
+        baseT instanceof FunctionSetType &&
         expr.member === "selector" &&
         baseT.definitions.length === 1
     ) {
-        return new SFixedBytes(4);
+        return new FixedBytesType(4);
     }
 
     // Finally check if there is a `using for` declaration that binds a library to this type.
     const funs: Set<FunctionDefinition> = new Set();
-    const generalBaseT = despecializeType(baseT);
+    const [generalBaseT] = generalizeType(baseT);
 
     for (const base of (ctx[1] as ContractDefinition).vLinearizedBaseContracts) {
         for (const usingFor of base.vUsingForDirectives) {
             const libraryApplies =
                 usingFor.vTypeName === undefined
                     ? true
-                    : eq(astTypeNameToSType(usingFor.vTypeName), generalBaseT);
+                    : eq(typeNameToTypeNode(usingFor.vTypeName), generalBaseT);
 
             if (libraryApplies) {
                 const library = usingFor.vLibraryName.vReferencedDeclaration as ContractDefinition;
@@ -1624,7 +1452,7 @@ export function tcMemberAccess(expr: SMemberAccess, ctx: STypingCtx, typeEnv: Ty
     }
 
     if (funs.size > 0) {
-        return new SFunctionSetType([...funs], expr.base);
+        return new FunctionSetType([...funs], expr.base);
     }
 
     throw new SNoField(
@@ -1634,10 +1462,10 @@ export function tcMemberAccess(expr: SMemberAccess, ctx: STypingCtx, typeEnv: Ty
     );
 }
 
-export function tcLet(expr: SLet, ctx: STypingCtx, typeEnv: TypeEnv): SType {
+export function tcLet(expr: SLet, ctx: STypingCtx, typeEnv: TypeEnv): TypeNode {
     // Make sure rhs tc's
     const rhsT = tc(expr.rhs, ctx, typeEnv);
-    if (rhsT instanceof STupleType) {
+    if (rhsT instanceof TupleType) {
         if (expr.lhs.length !== rhsT.elements.length) {
             throw new SExprCountMismatch(
                 `Wrong number of let bindings: expected ${rhsT.elements.length} got ${expr.lhs.length}`,
@@ -1654,10 +1482,11 @@ export function tcLet(expr: SLet, ctx: STypingCtx, typeEnv: TypeEnv): SType {
     return tc(expr.in, ctx.concat(expr), typeEnv);
 }
 
-function getFunDefType(fun: FunctionDefinition): SFunctionType {
-    return new SFunctionType(
-        fun.vParameters.vParameters.map((param) => astVarToSType(param)),
-        fun.vReturnParameters.vParameters.map((param) => astVarToSType(param)),
+function getFunDefType(fun: FunctionDefinition): FunctionType {
+    return new FunctionType(
+        undefined,
+        fun.vParameters.vParameters.map((param) => astVarToTypeNode(param)),
+        fun.vReturnParameters.vParameters.map((param) => astVarToTypeNode(param)),
         fun.visibility,
         fun.stateMutability
     );
@@ -1665,8 +1494,8 @@ function getFunDefType(fun: FunctionDefinition): SFunctionType {
 
 function matchArguments(
     arg: SNode[],
-    argTs: SType[],
-    callable: FunctionDefinition | SFunctionType
+    argTs: TypeNode[],
+    callable: FunctionDefinition | FunctionType
 ) {
     const funT = callable instanceof FunctionDefinition ? getFunDefType(callable) : callable;
 
@@ -1685,7 +1514,7 @@ function matchArguments(
     return true;
 }
 
-export function tcFunctionCall(expr: SFunctionCall, ctx: STypingCtx, typeEnv: TypeEnv): SType {
+export function tcFunctionCall(expr: SFunctionCall, ctx: STypingCtx, typeEnv: TypeEnv): TypeNode {
     const callee = expr.callee;
 
     /**
@@ -1698,7 +1527,7 @@ export function tcFunctionCall(expr: SFunctionCall, ctx: STypingCtx, typeEnv: Ty
     const calleeT = tc(callee, ctx, typeEnv);
 
     // Type-cast to a built-in type
-    if (calleeT instanceof SBuiltinTypeNameType) {
+    if (calleeT instanceof TypeNameType) {
         expr.args.map((arg) => tc(arg, ctx, typeEnv));
 
         if (expr.args.length !== 1) {
@@ -1711,16 +1540,20 @@ export function tcFunctionCall(expr: SFunctionCall, ctx: STypingCtx, typeEnv: Ty
         return specializeType(calleeT.type, DataLocation.Memory);
     }
 
-    // Type-cast to a user-defined type
-    if (calleeT instanceof SUserDefinedTypeNameType) {
+    // Type-cast to a user-defined type or a struct constructor
+    if (calleeT instanceof UserDefinedType) {
         const argTs = expr.args.map((arg) => tc(arg, ctx, typeEnv));
-        let loc: DataLocation;
 
         if (calleeT.definition instanceof StructDefinition) {
-            // Struct constructor case
-            loc = DataLocation.Memory;
-        } else {
-            // Type-casting case
+            // Struct constructor case - always lives in memory
+            return new PointerType(mkUserDefinedType(calleeT.definition), DataLocation.Memory);
+        }
+
+        if (
+            calleeT.definition instanceof ContractDefinition ||
+            calleeT.definition instanceof EnumDefinition
+        ) {
+            // Type-casting case - note that contract references and enums are not pointers
             if (argTs.length !== 1) {
                 throw new SExprCountMismatch(
                     `Type casts expect exactly 1 argument, not ${expr.pp()}.`,
@@ -1728,23 +1561,14 @@ export function tcFunctionCall(expr: SFunctionCall, ctx: STypingCtx, typeEnv: Ty
                 );
             }
 
-            loc =
-                calleeT.definition instanceof ContractDefinition
-                    ? DataLocation.Storage
-                    : (argTs[0] as SPointer).location;
+            return calleeT;
         }
 
-        // If we are castng to contract, then the location is always storage.
-        // Otherwise casting shouldn't change location.
-
-        return new SPointer(
-            new SUserDefinedType(getUserDefinedTypeFQName(calleeT.definition), calleeT.definition),
-            loc
-        );
+        throw new Error(`Unknown cast to user defined type ${expr.pp()}`);
     }
 
     // Function or public getter
-    if (calleeT instanceof SFunctionSetType) {
+    if (calleeT instanceof FunctionSetType) {
         const args = [...expr.args];
 
         if (calleeT.defaultArg !== undefined) {
@@ -1788,14 +1612,14 @@ export function tcFunctionCall(expr: SFunctionCall, ctx: STypingCtx, typeEnv: Ty
 
         if (def instanceof FunctionDefinition) {
             // param.vType is defined, as you can't put a `var x,` in a function definition.
-            const retTs = def.vReturnParameters.vParameters.map((param) => astVarToSType(param));
+            const retTs = def.vReturnParameters.vParameters.map((param) => astVarToTypeNode(param));
 
             if (retTs.length === 1) {
                 return retTs[0];
             }
 
             if (retTs.length > 1) {
-                return new STupleType(retTs);
+                return new TupleType(retTs);
             }
 
             throw new SFunNoReturn(`Function ${def.name} doesn't return a type`, expr);
@@ -1805,12 +1629,12 @@ export function tcFunctionCall(expr: SFunctionCall, ctx: STypingCtx, typeEnv: Ty
             }
 
             // def.vType is defined, as you can't put a `var x,` in a contract state var definition.
-            return astVarToSType(def);
+            return astVarToTypeNode(def);
         }
     }
 
     // Builtin function
-    if (calleeT instanceof SFunctionType) {
+    if (calleeT instanceof FunctionType) {
         const argTs = expr.args.map((arg) => tc(arg, ctx, typeEnv));
         if (!matchArguments(expr.args, argTs, calleeT)) {
             throw new SArgumentMismatch(
@@ -1826,7 +1650,7 @@ export function tcFunctionCall(expr: SFunctionCall, ctx: STypingCtx, typeEnv: Ty
         }
 
         if (retTs.length > 1) {
-            return new STupleType(retTs);
+            return new TupleType(retTs);
         }
 
         throw new SFunNoReturn(`Function type "${calleeT.pp()}" doesn't return a type`, expr);
