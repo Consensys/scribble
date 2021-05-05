@@ -1,10 +1,10 @@
 import { SNode, Range, SId } from ".";
-import { SIntType } from "./types";
+import { IntType } from "solc-typed-ast";
 
 /**
  */
 export class SForAll extends SNode {
-    public readonly itrType: SIntType;
+    public readonly itrType: IntType;
     public readonly itr: SId;
     public readonly start?: SNode;
     public readonly end?: SNode;
@@ -15,7 +15,7 @@ export class SForAll extends SNode {
     public readonly label?: string;
 
     constructor(
-        itrType: SIntType,
+        itrType: IntType,
         itr: SId,
         expression: SNode,
         start?: SNode,

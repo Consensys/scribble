@@ -1579,8 +1579,8 @@ function matchArguments(
  *   - return value of this expression is boolean
  *   - t is defined in e(t).
  */
-export function tcForAll(expr: SForAll, ctx: STypingCtx, typeEnv: TypeEnv): SType {
-    if (!(expr.itrType instanceof SIntType)) {
+export function tcForAll(expr: SForAll, ctx: STypingCtx, typeEnv: TypeEnv): TypeNode {
+    if (!(expr.itrType instanceof IntType)) {
         throw new SWrongType(
             `The expected type for ${expr.itr.pp()} is numeric and not ${expr.itrType}.`,
             expr.itr,
@@ -1593,7 +1593,7 @@ export function tcForAll(expr: SForAll, ctx: STypingCtx, typeEnv: TypeEnv): STyp
     );
     if (expr.start && expr.end) {
         const startT = tc(expr.start, ctx, typeEnv);
-        if (!(startT instanceof SIntType || startT instanceof SIntLiteralType)) {
+        if (!(startT instanceof IntType || startT instanceof IntLiteralType)) {
             throw new SWrongType(
                 `The expected type for ${expr.start.pp()} is numeric and not ${startT}.`,
                 expr.start,
@@ -1602,7 +1602,7 @@ export function tcForAll(expr: SForAll, ctx: STypingCtx, typeEnv: TypeEnv): STyp
         }
 
         const endT = tc(expr.end, ctx, typeEnv);
-        if (!(startT instanceof SIntType || startT instanceof SIntLiteralType)) {
+        if (!(startT instanceof IntType || startT instanceof IntLiteralType)) {
             throw new SWrongType(
                 `The expected type for ${expr.end.pp()} is numeric and not ${endT}.`,
                 expr.end,
@@ -1627,7 +1627,7 @@ export function tcForAll(expr: SForAll, ctx: STypingCtx, typeEnv: TypeEnv): STyp
         }
     }
     const exprT = tc(expr.expression, ctx.concat(expr), typeEnv);
-    if (!(exprT instanceof SBoolType)) {
+    if (!(exprT instanceof BoolType)) {
         throw new SWrongType(
             `The expected type for ${expr.expression.pp()} is boolean and not ${exprT}.`,
             expr.expression,

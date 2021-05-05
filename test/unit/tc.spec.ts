@@ -907,7 +907,6 @@ describe("TypeChecker Annotation Tests", () => {
                     undefined,
                     true
                 ]
-
             ]
         ]
     ];
