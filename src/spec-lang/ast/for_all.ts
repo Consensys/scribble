@@ -4,14 +4,14 @@ import { SIntType } from "./types";
 /**
  */
 export class SForAll extends SNode {
-    public readonly itrType;
-    public readonly itr;
-    public readonly start;
-    public readonly end;
-    public readonly startBracket;
-    public readonly endBracket;
-    public readonly expression;
-    public readonly array;
+    public readonly itrType: SIntType;
+    public readonly itr: SId;
+    public readonly start?: SNode;
+    public readonly end?: SNode;
+    public readonly startBracket?: string;
+    public readonly endBracket?: string;
+    public readonly expression: SNode;
+    public readonly array?: SId;
     public readonly label?: string;
 
     constructor(
@@ -42,7 +42,6 @@ export class SForAll extends SNode {
     includesEnd(): boolean {
         return this.endBracket == "]";
     }
-
     pp(): string {
         if (this.start) {
             return `(forall(${this.itrType} ${this.itr.pp()} in ${this.startBracket} ${

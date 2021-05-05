@@ -441,7 +441,10 @@ export function scFunctionCall(
 export function scForAll(expr: SForAll, ctx: SemCtx, typeEnv: TypeEnv, semMap: SemMap): SemInfo {
     const exprSemInfo = sc(expr.expression, ctx, typeEnv, semMap);
     const itrSemInfo = sc(expr.itr, ctx, typeEnv, semMap);
-
+    if(expr.start && expr.end) {
+        sc(expr.start, ctx, typeEnv, semMap);
+        sc(expr.end, ctx, typeEnv, semMap);
+    }
     expr.expression.walk((node) => {
         if (node instanceof SId && semMap.get(node)?.isOld && node.name == expr.itr.name) {
             throw new SemError(
