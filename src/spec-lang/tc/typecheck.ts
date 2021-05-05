@@ -38,7 +38,7 @@ import {
 } from "solc-typed-ast";
 import { AnnotationMap, AnnotationMetaData, AnnotationTarget } from "../../instrumenter";
 import { Logger } from "../../logger";
-import { assert, pp, single, topoSort } from "../../util";
+import { assert, last, pp, single, topoSort } from "../../util";
 import { eq } from "../../util/struct_equality";
 import {
     DatastructurePath,
@@ -64,7 +64,8 @@ import {
     SUserFunctionDefinition,
     VarDefSite
 } from "../ast";
-import { BuiltinAddressMembers, BuiltinStructType, BuiltinSymbols } from "./builtins";
+import { BuiltinAddressMembers, BuiltinSymbols } from "./builtins";
+import { BuiltinStructType, FunctionSetType } from "./internal_types";
 import { TypeEnv } from "./typeenv";
 
 export class StateVarScope {
@@ -121,35 +122,6 @@ function getScopeOfType<T extends ContractDefinition | FunctionDefinition>(
     }
 
     return undefined;
-}
-
-/**
- * Internal class used during type-checking to carry information for the possible overloaded targets
- * of a callee, back to the callsite which can resolve based on the actual arguments.
- */
-export class FunctionSetType extends TypeNode {
-    public definitions: Array<FunctionDefinition | VariableDeclaration>;
-    public readonly defaultArg: SNode | undefined;
-
-    constructor(
-        definitions: Array<FunctionDefinition | VariableDeclaration>,
-        defaultArg: SNode | undefined = undefined,
-        src?: Range
-    ) {
-        super(src);
-        this.definitions = definitions;
-        this.defaultArg = defaultArg;
-    }
-
-    pp(): string {
-        return `<${this.definitions
-            .map((def) => `${(def.vScope as ContractDefinition).name}.${def.name}`)
-            .join(",")}>`;
-    }
-
-    getFields(): any[] {
-        return [this.definitions.map((def) => def.id)];
-    }
 }
 
 export abstract class STypeError extends Error {
@@ -545,7 +517,7 @@ export function tcAnnotation(
             );
         }
     } else if (annot instanceof SUserFunctionDefinition) {
-        const funScope = ctx[ctx.length - 1];
+        const funScope = last(ctx);
         if (!(funScope instanceof ContractDefinition)) {
             throw new SGenericTypeError(
                 `User functions can only be defined on contract annotations at the moment.`,
@@ -995,40 +967,45 @@ export function tcUnary(expr: SUnaryOperation, ctx: STypingCtx, typeEnv: TypeEnv
     return tc(expr.subexp, ctx, typeEnv);
 }
 
+/**
+ * Return true IFF the expression `expr` of type `type` can be implicitly casted to the type `to`.
+ *
+ * Note: While `expr` is not used right now, we are leaving it here, because we eventually want to check
+ * that when expr is a constant int expression, it can fit in the target int type. This requires a constant
+ * expression evaluator to be added to `solc-typed-ast`.
+ */
 export function isImplicitlyCastable(expr: SNode, type: TypeNode, to: TypeNode): boolean {
+    // The two types are equal - no cast neccessary
     if (eq(type, to)) {
         return true;
     }
 
+    // int literal types can be casted to int types.
+    // @todo once we get a constant expression evaluator check that `expr` fits in `to`
     if (type instanceof IntLiteralType && to instanceof IntType) {
         return true;
     }
 
+    // string literals can be implicitly cast to bytes/strings
     if (
         type instanceof StringLiteralType &&
         to instanceof PointerType &&
-        to.to instanceof BytesType
+        (to.to instanceof BytesType || to.to instanceof StringType)
     ) {
         return true;
     }
 
-    if (
-        type instanceof StringLiteralType &&
-        to instanceof PointerType &&
-        to.to instanceof StringType
-    ) {
-        return true;
-    }
-
+    // ints can be implicitly cast to wider ints with the same sign
     if (type instanceof IntType && to instanceof IntType) {
         return type.signed === to.signed && type.nBits <= to.nBits;
     }
 
+    // address (including payable) can be cast to non-payable address
     if (type instanceof AddressType && to instanceof AddressType) {
         return !to.payable;
     }
 
-    // Allow implicit casts between calldata, storage and memory
+    // Allow implicit casts of the same type between calldata, storage and memory
     if (type instanceof PointerType && to instanceof PointerType && eq(type.to, to.to)) {
         return true;
     }
@@ -1570,7 +1547,12 @@ export function tcFunctionCall(expr: SFunctionCall, ctx: STypingCtx, typeEnv: Ty
         if (calleeT.definition instanceof StructDefinition) {
             // Struct constructor case - always lives in memory
             return new PointerType(mkUserDefinedType(calleeT.definition), DataLocation.Memory);
-        } else if (calleeT instanceof ContractDefinition || calleeT instanceof EnumDefinition) {
+        }
+
+        if (
+            calleeT.definition instanceof ContractDefinition ||
+            calleeT.definition instanceof EnumDefinition
+        ) {
             // Type-casting case - note that contract references and enums are not pointers
             if (argTs.length !== 1) {
                 throw new SExprCountMismatch(

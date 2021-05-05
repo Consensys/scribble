@@ -57,7 +57,7 @@ function buildBinaryExpression(head: SNode, tail: Array<[string, SNode]>, src?: 
 }
 
 export function parseAnnotation(str: string, ctx: ASTNode, version: string): SAnnotation {
-    return parse(str, { startRule: "Annotation"});
+    return parse(str, { startRule: "Annotation", ctx, version});
 }
 
 export function parseExpression(str: string, ctx: ASTNode, version: string): SNode {

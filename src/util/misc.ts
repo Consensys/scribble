@@ -287,5 +287,6 @@ export function updateMap<T1, T2>(
 }
 
 export function last<T>(arr: T[]): T {
+    assert(arr.length > 0, `Internal Error: Unexpected empty array`);
     return arr[arr.length - 1];
 }

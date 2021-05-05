@@ -29,7 +29,7 @@ import {
     SUserFunctionDefinition,
     AnnotationType
 } from "../ast";
-import { FunctionSetType } from "./typecheck";
+import { FunctionSetType } from "./internal_types";
 import { TypeEnv } from "./typeenv";
 
 export interface SemInfo {

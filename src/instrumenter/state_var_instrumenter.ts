@@ -61,6 +61,7 @@ import {
     insertInvChecks,
     isStateVarRef,
     isTypeAliasable,
+    last,
     pp,
     PropertyMetaData,
     single,
@@ -1105,7 +1106,7 @@ export function instrumentStateVars(
 
         const node = loc instanceof Array ? loc[0] : loc;
 
-        if (path.length > 0 && path[path.length - 1] === "length") {
+        if (path.length > 0 && last(path) === "length") {
             throw new UnsupportedConstruct(
                 `Cannot instrument state var ${(varDecl.vScope as ContractDefinition).name}.${
                     varDecl.name

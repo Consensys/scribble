@@ -47,8 +47,9 @@ import {
     SResult,
     SUserFunctionDefinition
 } from "../spec-lang/ast";
-import { BuiltinSymbols, FunctionSetType, StateVarScope, STypingCtx } from "../spec-lang/tc";
-import { assert, single } from "../util";
+import { BuiltinSymbols, StateVarScope, STypingCtx } from "../spec-lang/tc";
+import { FunctionSetType } from "../spec-lang/tc/internal_types";
+import { assert, last, single } from "../util";
 import { TranspilingContext } from "./transpiling_context";
 
 export function generateTypeAst(type: TypeNode, factory: ASTNodeFactory): TypeName {
@@ -76,9 +77,7 @@ export function generateTypeAst(type: TypeNode, factory: ASTNodeFactory): TypeNa
     }
 
     if (type instanceof UserDefinedType) {
-        // @todo remove this hack when we fix the types obtained from the typeString parser in getExprSType()
-        const id = type.definition !== undefined ? type.definition.id : -1;
-        return factory.makeUserDefinedTypeName("<missing>", type.name, id);
+        return factory.makeUserDefinedTypeName("<missing>", type.name, type.definition.id);
     }
 
     if (type instanceof ArrayType) {
@@ -277,7 +276,7 @@ export function generateExprAST(
     }
 
     if (expr instanceof SResult) {
-        const scope = loc[loc.length - 1];
+        const scope = last(loc);
         assert(
             scope instanceof FunctionDefinition,
             `Internal Error: $result should appear only inside of function annotations.`
@@ -304,7 +303,7 @@ export function generateExprAST(
         let referencedDeclaration = -1;
 
         if (type instanceof FunctionSetType) {
-            referencedDeclaration = type.definitions[0].id;
+            referencedDeclaration = single(type.definitions).id;
         } else if (type instanceof UserDefinedType && type.definition) {
             referencedDeclaration = type.definition.id;
         }

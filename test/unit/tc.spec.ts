@@ -358,6 +358,16 @@ describe("TypeChecker Expression Unit Tests", () => {
                 ["uint256(u32a)", ["Foo", undefined], new IntType(256, false)],
                 ["int256(u32a)", ["Foo", undefined], new IntType(256, true)],
                 ["bytes32(uint256(u32a))", ["Foo", undefined], new FixedBytesType(32)],
+                [
+                    "FooEnum(0)",
+                    ["Foo", undefined],
+                    (units) => new UserDefinedType("Foo.FooEnum", findTypeDef("FooEnum", units))
+                ],
+                [
+                    "Foo(address(0x0))",
+                    ["Foo", undefined],
+                    (units) => new UserDefinedType("Foo", findTypeDef("Foo", units))
+                ],
                 ["Lib.ladd(u32a, u32b)", ["Foo", undefined], new IntType(32, false)],
                 ["u32a.ladd(u32b)", ["Foo", undefined], new IntType(32, false)],
                 ["sS.len()", ["Foo", undefined], new IntType(256, false)],

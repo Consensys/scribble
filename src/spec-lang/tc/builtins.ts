@@ -9,27 +9,9 @@ import {
     FunctionType,
     IntType,
     PointerType,
-    TypeNode,
-    Range,
-    BuiltinType
+    TypeNode
 } from "solc-typed-ast";
-
-export class BuiltinStructType extends BuiltinType {
-    public readonly members: Map<string, TypeNode>;
-
-    constructor(name: string, members: Map<string, TypeNode>, src?: Range) {
-        super(name, src);
-        this.members = members;
-    }
-
-    pp(): string {
-        return `builtin_struct ${this.name}`;
-    }
-
-    getFields(): any[] {
-        return [this.name];
-    }
-}
+import { BuiltinStructType } from "./internal_types";
 
 export const BuiltinSymbols = new Map<string, TypeNode>([
     ["abi", new BuiltinStructType("abi", new Map())],
