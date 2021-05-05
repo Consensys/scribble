@@ -77,6 +77,14 @@ describe("TypeChecker Expression Unit Tests", () => {
                 function foo(int128 x) public returns (bool) {
                     return true;
                 }
+
+                function balanceOf(address x) internal pure returns (uint) {
+                    return 123;
+                }
+
+                function balanceOf2(Foo x) internal pure returns (uint) {
+                    return 123;
+                }
             }
 
             library Lib3 {
@@ -336,6 +344,8 @@ describe("TypeChecker Expression Unit Tests", () => {
                     ["Foo", undefined],
                     new PointerType(new BytesType(), DataLocation.Storage)
                 ],
+                ["address(0x0).balanceOf()", ["Foo", undefined], new IntType(256, false)],
+                ["this.balanceOf2()", ["Foo", undefined], new IntType(256, false)],
                 ["add(5,5)", ["Foo", undefined], new IntType(64, false)],
                 ["old(5)", ["Foo", "add"], new IntLiteralType()],
                 ["old(sV1)", ["Foo", "add"], new IntType(128, true)],
