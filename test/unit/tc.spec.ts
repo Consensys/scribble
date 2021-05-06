@@ -904,8 +904,11 @@ describe("TypeChecker Annotation Tests", () => {
                 ["define foo() uint = true;", ["Base", undefined]],
                 ["define foo() uint = x;", ["Unrelated", undefined]],
                 ["define foo() uint = 1;", ["Base", "plus"]],
-                ["define foo() uint = $result;", ["Base", undefined]],
-                ["define foo(uint t) uint = user_plusOne(t);", ["Unrelated", undefined]],
+                ["define foo() uint256 = $result;", ["Base", undefined]],
+                [
+                    "define foo(uint t, uint[253] arr) uint = user_plusOne(t);",
+                    ["Unrelated", undefined]
+                ],
                 ["if_assigned.foo true;", ["Unrelated", "z"]],
                 ["if_assigned[x] true;", ["Unrelated", "z"]],
                 ["if_assigned.foo true;", ["Unrelated", "arr"]],
