@@ -426,7 +426,7 @@ BoolType = BOOL { return new BoolType(location()) }
 AddressType = ADDRESS __ payable:(PAYABLE?) { return new AddressType(payable !== null, location())}
 IntType = unsigned:("u"?) "int" width:(Number?) { 
   const signed = unsigned === null;
-  const bitWidth = width === null ? 256 : width.toJSNumber;
+  const bitWidth = width === null ? 256 : width.num.toJSNumber();
   return new IntType(bitWidth, signed, location());
 }
 FixedSizeBytesType
@@ -444,7 +444,7 @@ ArrayType
   = head: SimpleType tail: ( __ "[" __ size: Number? __ "]")* {
     return tail.reduce((acc, cur) => {
       const size = cur[3];
-      return new ArrayType(acc, size !== null ? BigInt(size.toJSNumber) : undefined, location());
+      return new ArrayType(acc, size !== null ? BigInt(size.num.toJSNumber()) : undefined, location());
     }, head)
   }
 
