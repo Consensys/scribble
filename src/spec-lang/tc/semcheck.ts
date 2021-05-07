@@ -430,6 +430,16 @@ export function scFunctionCall(
     throw new Error(`Internal error: NYI semcheck for ${expr.pp()}`);
 }
 
+export function sameVariable(variable1: SId, variable2: SId): boolean {
+    if (!(variable1.defSite instanceof SForAll)) {
+        return false;
+    }
+    return (
+        variable1.defSite instanceof SForAll &&
+        variable1.defSite.iteratorVariable.id == variable2.id
+    );
+}
+
 /**
  * For Any expression of form old(e1) in `forall(type t in range) e(t)`
  * throw an error if the expression depends on t.
@@ -441,22 +451,36 @@ export function scFunctionCall(
 export function scForAll(expr: SForAll, ctx: SemCtx, typeEnv: TypeEnv, semMap: SemMap): SemInfo {
     const exprSemInfo = sc(expr.expression, ctx, typeEnv, semMap);
     const itrSemInfo = sc(expr.iteratorVariable, ctx, typeEnv, semMap);
+    const startSemInfo = sc(expr.Start(), ctx, typeEnv, semMap);
+    const endSemInfo = sc(expr.End(), ctx, typeEnv, semMap);
+    let canFail =
+        exprSemInfo.canFail || itrSemInfo.canFail || startSemInfo.canFail || endSemInfo.canFail;
     if (expr.start && expr.end) {
         sc(expr.start, ctx, typeEnv, semMap);
         sc(expr.end, ctx, typeEnv, semMap);
     }
-    expr.expression.walk((node) => {
-        if (node instanceof SId && semMap.get(node)?.isOld && node.name == expr.iteratorVariable.name) {
-            throw new SemError(
-                `Cannot evaluate ${expr.pp()} due to the usage of ${expr.iteratorVariable.pp()} in old()`,
-                expr
-            );
-        }
-    });
+    if (expr.array) {
+        const arraySemInfo = sc(expr.array, ctx, typeEnv, semMap);
+        canFail ||= arraySemInfo.canFail;
+    }
+    if (!ctx.isOld) {
+        expr.expression.walk((node) => {
+            if (
+                node instanceof SId &&
+                semMap.get(node)?.isOld &&
+                sameVariable(node, expr.iteratorVariable)
+            ) {
+                throw new SemError(
+                    `Cannot evaluate ${expr.pp()} due to the usage of ${expr.iteratorVariable.pp()} in old()`,
+                    expr
+                );
+            }
+        });
+    }
 
     return {
         isOld: ctx.isOld,
         isConst: exprSemInfo.isConst,
-        canFail: exprSemInfo.canFail || itrSemInfo.canFail
+        canFail: canFail
     };
 }

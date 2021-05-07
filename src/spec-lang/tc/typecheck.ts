@@ -1582,7 +1582,9 @@ function matchArguments(
 export function tcForAll(expr: SForAll, ctx: STypingCtx, typeEnv: TypeEnv): TypeNode {
     if (!(expr.iteratorType instanceof IntType)) {
         throw new SWrongType(
-            `The expected type for ${expr.iteratorVariable.pp()} is numeric and not ${expr.iteratorType}.`,
+            `The expected type for ${expr.iteratorVariable.pp()} is numeric and not ${
+                expr.iteratorType
+            }.`,
             expr.iteratorVariable,
             expr.iteratorType
         );
@@ -1610,7 +1612,7 @@ export function tcForAll(expr: SForAll, ctx: STypingCtx, typeEnv: TypeEnv): Type
                 endT
             );
         }
-        console.error(expr.iteratorType, startT);
+
         if (!isImplicitlyCastable(expr, startT, expr.iteratorType)) {
             throw new SWrongType(
                 `The type for ${expr.start.pp()} is not castable to ${expr.iteratorType}.`,
@@ -1624,6 +1626,16 @@ export function tcForAll(expr: SForAll, ctx: STypingCtx, typeEnv: TypeEnv): Type
                 `The type for ${expr.end.pp()} is not castable to ${expr.iteratorType}.`,
                 expr.end,
                 expr.iteratorType
+            );
+        }
+    }
+    if (expr.array) {
+        const arrayT = tc(expr.array, ctx, typeEnv);
+        if (!(arrayT instanceof PointerType && arrayT.to instanceof ArrayType)) {
+            throw new SWrongType(
+                `The type for ${expr.array.pp()} is ${arrayT} and not an array.`,
+                expr.array,
+                arrayT
             );
         }
     }
