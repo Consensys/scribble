@@ -12,14 +12,14 @@ import {
     SFunctionCall,
     SConditional,
     SLet,
+    SForAll,
     SResult,
     SAnnotation,
     SUserFunctionDefinition,
     SProperty,
     AnnotationType,
     SIfUpdated,
-    SIfAssigned,
-    SForAll
+    SIfAssigned
 } from "../../src/spec-lang/ast";
 import { eq } from "../../src/util/struct_equality";
 import bigInt from "big-integer";
@@ -562,27 +562,10 @@ describe("Expression Parser Unit Tests", () => {
                 new SBinaryOperation(new SId("a"), "+", new SId("b"))
             )
         ],
-        ["$result", new SResult()],
-        [
-            "forall (uint x in [1...10)) a[x]>10",
-            new SForAll(
-                new SIntType(256, false),
-                new SId("x"),
-                new SBinaryOperation(
-                    new SIndexAccess(new SId("a"), new SId("x")),
-                    ">",
-                    new SNumber(bigInt(10), 10)
-                ),
-                new SNumber(bigInt(1), 10),
-                new SNumber(bigInt(10), 10),
-                "[",
-                ")"
-            )
-        ],
         [
             "forall (uint x in a) a[x]>10",
             new SForAll(
-                new SIntType(256, false),
+                new IntType(256, false),
                 new SId("x"),
                 new SBinaryOperation(
                     new SIndexAccess(new SId("a"), new SId("x")),
@@ -595,7 +578,24 @@ describe("Expression Parser Unit Tests", () => {
                 undefined,
                 new SId("a")
             )
-        ]
+        ],
+        [
+            "forall (uint x in [1...10)) a[x]>10",
+            new SForAll(
+                new IntType(256, false),
+                new SId("x"),
+                new SBinaryOperation(
+                    new SIndexAccess(new SId("a"), new SId("x")),
+                    ">",
+                    new SNumber(bigInt(10), 10)
+                ),
+                new SNumber(bigInt(1), 10),
+                new SNumber(bigInt(10), 10),
+                "[",
+                ")"
+            )
+        ],
+        ["$result", new SResult()]
     ];
 
     const badSamples: string[] = [
@@ -611,7 +611,8 @@ describe("Expression Parser Unit Tests", () => {
         "old[1]",
         "old(1,2)",
         "forall (uint x in let) f(sheep)",
-        "forall (uint x in [0, 100)] a[x] > 10"
+        "forall (uint x in [0, 100)] a[x] > 10",
+        "forall (string x in [0, 100]) x > 0"
     ];
 
     for (const [sample, expectedAST] of goodSamples) {
