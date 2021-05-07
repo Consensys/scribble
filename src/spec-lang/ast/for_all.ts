@@ -1,33 +1,56 @@
-import { SNode, Range, SId } from ".";
+import { SNode, Range, SId, SNumber, SMemberAccess } from ".";
 import { IntType } from "solc-typed-ast";
+import bigInt from "big-integer";
+import {assert} from "../../util";
 
 /**
+The Node that stores the information for ForAll.
+examples-:
+ forall(type iteratorName in array) expression(iteratorName)
+ forall(type iteratorName in [start, end)) expression(iteratorName)
  */
 export class SForAll extends SNode {
-    public readonly itrType: IntType;
-    public readonly itr: SId;
+    
+    /* Type of the iteration variable */
+    public readonly iteratorType: IntType;
+    
+    /* Name of the iteration variable */
+    public readonly iteratorVariable: SId;
+    
+    /* start range */
     public readonly start?: SNode;
+    
+    /*  End range */
     public readonly end?: SNode;
+
+    /* Start bracket type, belongs to {'[', '('} */
     public readonly startBracket?: string;
+
+    /* End bracket type, belongs to {']', ')'} */
     public readonly endBracket?: string;
+
+    /* condition on  which forall is applied */
     public readonly expression: SNode;
+
+    /* Array on which iterator iterates */
     public readonly array?: SId;
+
     public readonly label?: string;
 
     constructor(
-        itrType: IntType,
-        itr: SId,
+        iteratorType: IntType,
+        iteratorVariable: SId,
         expression: SNode,
         start?: SNode,
         end?: SNode,
-        startBracket?: string,
-        endBracket?: string,
+        startBracket?: "[" | "(",
+        endBracket?: "]" | ")",
         array?: SId,
         src?: Range
     ) {
         super(src);
-        this.itrType = itrType;
-        this.itr = itr;
+        this.iteratorType = iteratorType;
+        this.iteratorVariable = iteratorVariable;
         this.start = start;
         this.end = end;
         this.startBracket = startBracket;
@@ -35,20 +58,30 @@ export class SForAll extends SNode {
         this.expression = expression;
         this.array = array;
     }
-    includesStart(): boolean {
-        return this.startBracket == "[";
+    Start(): SNode {
+        if(this.start) {
+            return this.start;
+        }
+        return new SNumber(bigInt(0), 256);
     }
 
-    includesEnd(): boolean {
-        return this.endBracket == "]";
+    End(): SNode | undefined {
+        if(this.end) {
+            return this.end;
+        }
+        if(this.array) {
+            return new SMemberAccess(this.array, "length");
+        }
+        assert(false, "this.end and this.array are simultaneously undefined");
+        return undefined;
     }
     pp(): string {
         if (this.start) {
-            return `(forall(${this.itrType} ${this.itr.pp()} in ${this.startBracket} ${
+            return `(forall(${this.iteratorType} ${this.iteratorVariable.pp()} in ${this.startBracket} ${
                 this.start
             }...${this.end} ${this.endBracket}) ${this.expression.pp()}`;
         } else {
-            return `(forall(${this.itrType} ${this.itr.pp()} in ${
+            return `(forall(${this.iteratorType} ${this.iteratorVariable.pp()} in ${
                 this.array
             }) ${this.expression.pp()}`;
         }
@@ -56,8 +89,8 @@ export class SForAll extends SNode {
 
     getFields(): any[] {
         return [
-            this.itrType,
-            this.itr,
+            this.iteratorType,
+            this.iteratorVariable,
             this.expression,
             this.startBracket,
             this.start,

@@ -298,7 +298,7 @@ export function lookupVarDef(name: string, ctx: STypingCtx): VarDefSite | undefi
                 }
             }
         } else if (scope instanceof SForAll) {
-            if (scope.itr.name == name) {
+            if (scope.iteratorVariable.name == name) {
                 return scope;
             } else {
                 continue;
@@ -861,7 +861,7 @@ function tcIdVariable(expr: SId, ctx: STypingCtx, typeEnv: TypeEnv): TypeNode | 
     }
 
     if (def instanceof SForAll) {
-        return def.itrType;
+        return def.iteratorType;
     }
 
     const [defNode, bindingIdx] = def;
@@ -1580,11 +1580,11 @@ function matchArguments(
  *   - t is defined in e(t).
  */
 export function tcForAll(expr: SForAll, ctx: STypingCtx, typeEnv: TypeEnv): TypeNode {
-    if (!(expr.itrType instanceof IntType)) {
+    if (!(expr.iteratorType instanceof IntType)) {
         throw new SWrongType(
-            `The expected type for ${expr.itr.pp()} is numeric and not ${expr.itrType}.`,
-            expr.itr,
-            expr.itrType
+            `The expected type for ${expr.iteratorVariable.pp()} is numeric and not ${expr.iteratorType}.`,
+            expr.iteratorVariable,
+            expr.iteratorType
         );
     }
     assert(
@@ -1593,6 +1593,7 @@ export function tcForAll(expr: SForAll, ctx: STypingCtx, typeEnv: TypeEnv): Type
     );
     if (expr.start && expr.end) {
         const startT = tc(expr.start, ctx, typeEnv);
+
         if (!(startT instanceof IntType || startT instanceof IntLiteralType)) {
             throw new SWrongType(
                 `The expected type for ${expr.start.pp()} is numeric and not ${startT}.`,
@@ -1609,20 +1610,20 @@ export function tcForAll(expr: SForAll, ctx: STypingCtx, typeEnv: TypeEnv): Type
                 endT
             );
         }
-
-        if (!isImplicitlyCastable(expr, startT, expr.itrType)) {
+        console.error(expr.iteratorType, startT);
+        if (!isImplicitlyCastable(expr, startT, expr.iteratorType)) {
             throw new SWrongType(
-                `The type for ${expr.start.pp()} is not castable to ${expr.itrType}.`,
+                `The type for ${expr.start.pp()} is not castable to ${expr.iteratorType}.`,
                 expr.start,
-                expr.itrType
+                expr.iteratorType
             );
         }
 
-        if (!isImplicitlyCastable(expr, endT, expr.itrType)) {
+        if (!isImplicitlyCastable(expr, endT, expr.iteratorType)) {
             throw new SWrongType(
-                `The type for ${expr.end.pp()} is not castable to ${expr.itrType}.`,
+                `The type for ${expr.end.pp()} is not castable to ${expr.iteratorType}.`,
                 expr.end,
-                expr.itrType
+                expr.iteratorType
             );
         }
     }

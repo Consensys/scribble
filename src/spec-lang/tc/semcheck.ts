@@ -440,15 +440,15 @@ export function scFunctionCall(
  */
 export function scForAll(expr: SForAll, ctx: SemCtx, typeEnv: TypeEnv, semMap: SemMap): SemInfo {
     const exprSemInfo = sc(expr.expression, ctx, typeEnv, semMap);
-    const itrSemInfo = sc(expr.itr, ctx, typeEnv, semMap);
+    const itrSemInfo = sc(expr.iteratorVariable, ctx, typeEnv, semMap);
     if (expr.start && expr.end) {
         sc(expr.start, ctx, typeEnv, semMap);
         sc(expr.end, ctx, typeEnv, semMap);
     }
     expr.expression.walk((node) => {
-        if (node instanceof SId && semMap.get(node)?.isOld && node.name == expr.itr.name) {
+        if (node instanceof SId && semMap.get(node)?.isOld && node.name == expr.iteratorVariable.name) {
             throw new SemError(
-                `Cannot evaluate ${expr.pp()} due to the usage of ${expr.itr.pp()} in old()`,
+                `Cannot evaluate ${expr.pp()} due to the usage of ${expr.iteratorVariable.pp()} in old()`,
                 expr
             );
         }
