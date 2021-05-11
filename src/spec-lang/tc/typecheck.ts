@@ -1578,13 +1578,6 @@ function matchArguments(
  *   - t is defined in e(t).
  */
 export function tcForAll(expr: SForAll, ctx: STypingCtx, typeEnv: TypeEnv): TypeNode {
-    if (!(expr.iteratorType instanceof IntType)) {
-        throw new SWrongType(
-            `The expected type for ${expr.iteratorVariable.pp()} is numeric and not null.`,
-            expr.iteratorVariable,
-            expr.iteratorType
-        );
-    }
     assert(
         typeof expr.start == typeof expr.end,
         `The types of ${expr.start} and ${expr.end} are unequal, One of them is likely undefined`
