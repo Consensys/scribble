@@ -300,8 +300,6 @@ export function lookupVarDef(name: string, ctx: STypingCtx): VarDefSite | undefi
         } else if (scope instanceof SForAll) {
             if (scope.iteratorVariable.name == name) {
                 return scope;
-            } else {
-                continue;
             }
         } else {
             for (let bindingIdx = 0; bindingIdx < scope.lhs.length; bindingIdx++) {
@@ -1582,9 +1580,7 @@ function matchArguments(
 export function tcForAll(expr: SForAll, ctx: STypingCtx, typeEnv: TypeEnv): TypeNode {
     if (!(expr.iteratorType instanceof IntType)) {
         throw new SWrongType(
-            `The expected type for ${expr.iteratorVariable.pp()} is numeric and not ${
-                expr.iteratorType
-            }.`,
+            `The expected type for ${expr.iteratorVariable.pp()} is numeric and not null.`,
             expr.iteratorVariable,
             expr.iteratorType
         );
@@ -1593,52 +1589,41 @@ export function tcForAll(expr: SForAll, ctx: STypingCtx, typeEnv: TypeEnv): Type
         typeof expr.start == typeof expr.end,
         `The types of ${expr.start} and ${expr.end} are unequal, One of them is likely undefined`
     );
-    if (expr.start && expr.end) {
-        const startT = tc(expr.start, ctx, typeEnv);
+    const startT = tc(expr.start(), ctx, typeEnv);
 
-        if (!(startT instanceof IntType || startT instanceof IntLiteralType)) {
-            throw new SWrongType(
-                `The expected type for ${expr.start.pp()} is numeric and not ${startT}.`,
-                expr.start,
-                startT
-            );
-        }
-
-        const endT = tc(expr.end, ctx, typeEnv);
-        if (!(startT instanceof IntType || startT instanceof IntLiteralType)) {
-            throw new SWrongType(
-                `The expected type for ${expr.end.pp()} is numeric and not ${endT}.`,
-                expr.end,
-                endT
-            );
-        }
-
-        if (!isImplicitlyCastable(expr, startT, expr.iteratorType)) {
-            throw new SWrongType(
-                `The type for ${expr.start.pp()} is not castable to ${expr.iteratorType}.`,
-                expr.start,
-                expr.iteratorType
-            );
-        }
-
-        if (!isImplicitlyCastable(expr, endT, expr.iteratorType)) {
-            throw new SWrongType(
-                `The type for ${expr.end.pp()} is not castable to ${expr.iteratorType}.`,
-                expr.end,
-                expr.iteratorType
-            );
-        }
+    if (!(startT instanceof IntType || startT instanceof IntLiteralType)) {
+        throw new SWrongType(
+            `The expected type for ${expr.start().pp()} is numeric and not ${startT}.`,
+            expr.start(),
+            startT
+        );
     }
-    if (expr.array) {
-        const arrayT = tc(expr.array, ctx, typeEnv);
-        if (!(arrayT instanceof PointerType && arrayT.to instanceof ArrayType)) {
-            throw new SWrongType(
-                `The type for ${expr.array.pp()} is ${arrayT} and not an array.`,
-                expr.array,
-                arrayT
-            );
-        }
+
+    const endT = tc(expr.end(), ctx, typeEnv);
+    if (!(startT instanceof IntType || startT instanceof IntLiteralType)) {
+        throw new SWrongType(
+            `The expected type for ${expr.end().pp()} is numeric and not ${endT}.`,
+            expr.end(),
+            endT
+        );
     }
+
+    if (!isImplicitlyCastable(expr, startT, expr.iteratorType)) {
+        throw new SWrongType(
+            `The type for ${expr.start().pp()} is not castable to ${expr.iteratorType}.`,
+            expr.start(),
+            expr.iteratorType
+        );
+    }
+
+    if (!isImplicitlyCastable(expr, endT, expr.iteratorType)) {
+        throw new SWrongType(
+            `The type for ${expr.end().pp()} is not castable to ${expr.iteratorType}.`,
+            expr.end(),
+            expr.iteratorType
+        );
+    }
+
     const exprT = tc(expr.expression, ctx.concat(expr), typeEnv);
     if (!(exprT instanceof BoolType)) {
         throw new SWrongType(

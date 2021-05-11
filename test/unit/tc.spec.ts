@@ -657,7 +657,6 @@ describe("TypeChecker Expression Unit Tests", () => {
                 ["msg.any", ["Foo", undefined]],
                 ["tx.any", ["Foo", undefined]],
                 ["$result", ["Foo", undefined]],
-                ["$result", ["Foo", "noReturn"]],
                 ["$result", ["Foo", "noReturn"]]
             ]
         ],

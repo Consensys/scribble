@@ -612,7 +612,8 @@ describe("Expression Parser Unit Tests", () => {
         "old(1,2)",
         "forall (uint x in let) f(sheep)",
         "forall (uint x in [0, 100)] a[x] > 10",
-        "forall (string x in [0, 100]) x > 0"
+        "forall (string x in [0, 100]) x > 0",
+        "forall (x in [0, 100]) x > 0"
     ];
 
     for (const [sample, expectedAST] of goodSamples) {
