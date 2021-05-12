@@ -1,6 +1,6 @@
 // Top-level rules
 Annotation
-    = StartingWhiteSpace annotation: (Invariant
+    = StartingWhiteSpace ('#' __)? annotation: (Invariant
     / If_Succeeds
     / If_Updated
     / If_Assigned
