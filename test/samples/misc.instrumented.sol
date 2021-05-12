@@ -211,6 +211,60 @@ contract UsingForRefType {
 
     function _original_UsingForRefType_main(string memory mS) private {}
 }
+
+contract ExternalCall {
+    event AssertionFailed(string message);
+
+    function process(bytes calldata _bytes) external returns (bool result) {
+        result = _original_ExternalCall_process(_bytes);
+        if (!(this.checkBytes(_bytes) == result)) {
+            emit AssertionFailed("10: wrong byte");
+            assert(false);
+        }
+    }
+
+    function _original_ExternalCall_process(bytes calldata _bytes) private returns (bool result) {
+        return this.checkBytes(_bytes);
+    }
+
+    function checkBytes(bytes calldata _bytes) external pure returns (bool result) {
+        return _bytes.length > 0;
+    }
+}
+
+/// define some stuff
+///  define some(other stuff
+contract IgnoreNonFunDefines {}
+
+contract CallinInstrumentedFun {
+    event AssertionFailed(string message);
+
+    uint internal x = 1;
+
+    function getX() public returns (uint res) {
+        res = _original_CallinInstrumentedFun_getX();
+        if (!(res > 0)) {
+            emit AssertionFailed("11: ");
+            assert(false);
+        }
+    }
+
+    function _original_CallinInstrumentedFun_getX() private view returns (uint res) {
+        return x;
+    }
+
+    function inc(uint x) public returns (uint res) {
+        res = _original_CallinInstrumentedFun_inc(x);
+        if (!(res == (x + _original_CallinInstrumentedFun_getX()))) {
+            emit AssertionFailed("12: ");
+            assert(false);
+        }
+    }
+
+    function _original_CallinInstrumentedFun_inc(uint x) private returns (uint res) {
+        return x + getX();
+    }
+}
 /// Utility contract holding a stack counter
 contract __scribble_ReentrancyUtils {
     bool __scribble_out_of_contract = true;

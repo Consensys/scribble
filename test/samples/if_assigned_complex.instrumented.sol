@@ -1,4 +1,4 @@
-pragma solidity 0.8.3;
+pragma solidity 0.8.4;
 
 contract Base {
     event AssertionFailed(string message);
@@ -60,83 +60,101 @@ contract Base {
 
     function Base_x_inline_initializer() internal {
         vars1 memory _v;
-        _v.old_0 = x;
-        if (!(x >= _v.old_0)) {
-            emit AssertionFailed("0: ");
-            assert(false);
+        unchecked {
+            _v.old_0 = x;
+        }
+        unchecked {
+            if (!(x >= _v.old_0)) {
+                emit AssertionFailed("0: ");
+                assert(false);
+            }
         }
     }
 
     function Base_arr_idx_uint256_uint256_assign(uint256 ARG0, uint256 ARG1) internal returns (uint256 RET0) {
         arr[ARG0] = ARG1;
         RET0 = arr[ARG0];
-        if (!(arr.length > 0)) {
-            emit AssertionFailed("1: ");
-            assert(false);
-        }
-        if (!((0 <= ARG0) && (ARG0 <= arr.length))) {
-            emit AssertionFailed("2: ");
-            assert(false);
+        unchecked {
+            if (!(arr.length > 0)) {
+                emit AssertionFailed("1: ");
+                assert(false);
+            }
+            if (!((0 <= ARG0) && (ARG0 <= arr.length))) {
+                emit AssertionFailed("2: ");
+                assert(false);
+            }
         }
     }
 
     function Base_arr2_idx_uint256_idx_uint256_uint256_assign(uint256 ARG2, uint256 ARG3, uint256 ARG4) internal returns (uint256 RET1) {
         arr2[ARG2][ARG3] = ARG4;
         RET1 = arr2[ARG2][ARG3];
-        if (!(arr2.length > 0)) {
-            emit AssertionFailed("3: ");
-            assert(false);
-        }
-        if (!((0 <= ARG3) && (ARG3 <= arr2[ARG2].length))) {
-            emit AssertionFailed("5: ");
-            assert(false);
+        unchecked {
+            if (!(arr2.length > 0)) {
+                emit AssertionFailed("3: ");
+                assert(false);
+            }
+            if (!((0 <= ARG3) && (ARG3 <= arr2[ARG2].length))) {
+                emit AssertionFailed("5: ");
+                assert(false);
+            }
         }
     }
 
     function Base_arr2_idx_uint256_ptr_arr_uint256_storage_assign(uint256 ARG5, uint256[] storage ARG6) internal returns (uint256[] storage RET2) {
         arr2[ARG5] = ARG6;
         RET2 = arr2[ARG5];
-        if (!(arr2.length > 0)) {
-            emit AssertionFailed("3: ");
-            assert(false);
-        }
-        if (!((0 <= ARG5) && (ARG5 <= arr2.length))) {
-            emit AssertionFailed("4: ");
-            assert(false);
+        unchecked {
+            if (!(arr2.length > 0)) {
+                emit AssertionFailed("3: ");
+                assert(false);
+            }
+            if (!((0 <= ARG5) && (ARG5 <= arr2.length))) {
+                emit AssertionFailed("4: ");
+                assert(false);
+            }
         }
     }
 
     function Base_s_arr_idx_uint256_uint256_assign(uint256 ARG7, uint256 ARG8) internal returns (uint256 RET3) {
         s.arr[ARG7] = ARG8;
         RET3 = s.arr[ARG7];
-        if (!((0 <= ARG7) && (ARG7 <= s.arr.length))) {
-            emit AssertionFailed("6: ");
-            assert(false);
+        unchecked {
+            if (!((0 <= ARG7) && (ARG7 <= s.arr.length))) {
+                emit AssertionFailed("6: ");
+                assert(false);
+            }
         }
     }
 
     function Base_s_arr2_idx_uint256_idx_uint256_uint256_assign(uint256 ARG9, uint256 ARG10, uint256 ARG11) internal returns (uint256 RET4) {
         s.arr2[ARG9][ARG10] = ARG11;
         RET4 = s.arr2[ARG9][ARG10];
-        if (!((0 <= ARG10) && (ARG10 <= s.arr2[ARG9].length))) {
-            emit AssertionFailed("7: ");
-            assert(false);
+        unchecked {
+            if (!((0 <= ARG10) && (ARG10 <= s.arr2[ARG9].length))) {
+                emit AssertionFailed("7: ");
+                assert(false);
+            }
         }
     }
 
     function Base_arr_uint256_push(uint256 ARG12) internal {
         arr.push(ARG12);
-        if (!(arr.length > 0)) {
-            emit AssertionFailed("1: ");
-            assert(false);
+        unchecked {
+            if (!(arr.length > 0)) {
+                emit AssertionFailed("1: ");
+                assert(false);
+            }
         }
     }
 
     function Base_arr2_ptr_arr_uint256_storage_push(uint256[] storage ARG13) internal {
         arr2.push(ARG13);
-        if (!(arr2.length > 0)) {
-            emit AssertionFailed("3: ");
-            assert(false);
+        unchecked {
+            if (!(arr2.length > 0)) {
+                emit AssertionFailed("3: ");
+                assert(false);
+            }
         }
     }
 }

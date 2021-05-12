@@ -285,3 +285,11 @@ export function updateMap<T1, T2>(
         updatee.set(key, val);
     }
 }
+
+export function last<T>(arr: T[]): T;
+export function last<T>(arr: T[], throwOnEmpty: true): T;
+export function last<T>(arr: T[], throwOnEmpty: false): T | undefined;
+export function last<T>(arr: T[], throwOnEmpty = true): T | undefined {
+    assert(!throwOnEmpty || arr.length > 0, `Internal Error: Unexpected empty array`);
+    return arr[arr.length - 1];
+}

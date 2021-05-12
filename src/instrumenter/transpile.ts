@@ -1,88 +1,86 @@
 import {
+    AddressType,
+    ArrayType,
     ASTNodeFactory,
+    BoolType,
+    BytesType,
     ContractDefinition,
     DataLocation,
     ElementaryTypeName,
     EnumDefinition,
     Expression,
+    FixedBytesType,
     FunctionCallKind,
     FunctionDefinition,
+    FunctionVisibility,
+    Identifier,
+    IntLiteralType,
+    IntType,
     LiteralKind,
     Mutability,
+    PointerType,
     StateVariableVisibility,
+    StringType,
     StructDefinition,
+    TupleType,
     TypeName,
+    TypeNameType,
+    TypeNode,
+    UserDefinedType,
     VariableDeclaration
 } from "solc-typed-ast";
 import {
-    SAddressType,
-    SArrayType,
     SBinaryOperation,
     SBooleanLiteral,
-    SBoolType,
-    SBytes,
     SConditional,
-    SFixedBytes,
     SFunctionCall,
-    SFunctionSetType,
     SHexLiteral,
     SId,
     SIndexAccess,
-    SIntLiteralType,
-    SIntType,
     SLet,
     SMemberAccess,
     SNode,
     SNumber,
-    SPointer,
-    SBuiltinTypeNameType,
-    SString,
     SStringLiteral,
-    STupleType,
-    SType,
-    SUserDefinedTypeNameType,
     SUnaryOperation,
-    SUserDefinedType,
     SAddressLiteral,
     SResult,
     SUserFunctionDefinition
 } from "../spec-lang/ast";
 import { BuiltinSymbols, StateVarScope, STypingCtx } from "../spec-lang/tc";
-import { assert, single } from "../util";
+import { FunctionSetType } from "../spec-lang/tc/internal_types";
+import { assert, last, single } from "../util";
 import { TranspilingContext } from "./transpiling_context";
 
-export function generateTypeAst(type: SType, factory: ASTNodeFactory): TypeName {
+export function generateTypeAst(type: TypeNode, factory: ASTNodeFactory): TypeName {
     if (
-        type instanceof STupleType ||
-        type instanceof SUserDefinedTypeNameType ||
-        type instanceof SIntLiteralType ||
-        type instanceof SFunctionSetType
+        type instanceof TupleType ||
+        type instanceof IntLiteralType ||
+        type instanceof FunctionSetType
     ) {
         throw new Error(`Unsupported spec type ${type.pp()}`);
     }
 
     if (
-        type instanceof SAddressType ||
-        type instanceof SBoolType ||
-        type instanceof SBytes ||
-        type instanceof SFixedBytes ||
-        type instanceof SIntType ||
-        type instanceof SString
+        type instanceof AddressType ||
+        type instanceof BoolType ||
+        type instanceof BytesType ||
+        type instanceof FixedBytesType ||
+        type instanceof IntType ||
+        type instanceof StringType
     ) {
         return factory.makeElementaryTypeName(`<missing>`, type.pp());
     }
 
-    if (type instanceof SPointer) {
+    if (type instanceof PointerType) {
         return generateTypeAst(type.to, factory);
     }
 
-    if (type instanceof SUserDefinedType) {
-        // @todo remove this hack when we fix the types obtained from the typeString parser in getExprSType()
-        const id = type.definition !== undefined ? type.definition.id : -1;
-        return factory.makeUserDefinedTypeName("<missing>", type.pp(), id);
+    if (type instanceof UserDefinedType) {
+        return factory.makeUserDefinedTypeName("<missing>", type.name, type.definition.id);
     }
 
-    if (type instanceof SArrayType) {
+    if (type instanceof ArrayType) {
         return factory.makeArrayTypeName(
             "<missing>",
             generateTypeAst(type.elementT, factory),
@@ -95,8 +93,8 @@ export function generateTypeAst(type: SType, factory: ASTNodeFactory): TypeName 
     throw new Error(`NYI emitting spec type ${type.pp()}`);
 }
 
-export function getTypeLocation(type: SType): DataLocation {
-    if (type instanceof SPointer) {
+export function getTypeLocation(type: TypeNode): DataLocation {
+    if (type instanceof PointerType) {
         return type.location;
     }
 
@@ -115,7 +113,7 @@ export function getTypeLocation(type: SType): DataLocation {
  */
 export function generateFunVarDecl(
     name: string,
-    type: SType,
+    type: TypeNode,
     factory: ASTNodeFactory
 ): VariableDeclaration {
     const astType = generateTypeAst(type, factory);
@@ -221,9 +219,9 @@ export function generateIdAST(
 
     const specT = typeEnv.typeOf(spec);
 
-    if (specT instanceof SFunctionSetType) {
+    if (specT instanceof FunctionSetType) {
         referrencedDef = single(specT.definitions);
-    } else if (specT instanceof SUserDefinedType) {
+    } else if (specT instanceof UserDefinedType) {
         if (specT.definition === undefined) {
             throw new Error(
                 `Id ${spec.pp()} of user defined type ${specT.pp()} is missing a definition.`
@@ -231,16 +229,8 @@ export function generateIdAST(
         }
 
         referrencedDef = specT.definition;
-    } else if (specT instanceof SUserDefinedTypeNameType) {
-        referrencedDef = specT.definition;
     } else {
         throw new Error(`Unknown `);
-    }
-
-    if (!(referrencedDef.name === spec.name)) {
-        throw new Error(
-            `Internal error: variable id ${spec.pp()} has different name from underlying variable ${referrencedDef.print()}`
-        );
     }
 
     return factory.makeIdentifierFor(referrencedDef);
@@ -286,7 +276,7 @@ export function generateExprAST(
     }
 
     if (expr instanceof SResult) {
-        const scope = loc[loc.length - 1];
+        const scope = last(loc);
         assert(
             scope instanceof FunctionDefinition,
             `Internal Error: $result should appear only inside of function annotations.`
@@ -312,9 +302,9 @@ export function generateExprAST(
 
         let referencedDeclaration = -1;
 
-        if (type instanceof SFunctionSetType) {
-            referencedDeclaration = type.definitions[0].id;
-        } else if (type instanceof SUserDefinedType && type.definition) {
+        if (type instanceof FunctionSetType) {
+            referencedDeclaration = single(type.definitions).id;
+        } else if (type instanceof UserDefinedType && type.definition) {
             referencedDeclaration = type.definition.id;
         }
 
@@ -356,30 +346,53 @@ export function generateExprAST(
         const calleeT = typeEnv.typeOf(expr.callee);
 
         let callee: Expression;
+        const kind =
+            calleeT instanceof TypeNameType
+                ? FunctionCallKind.TypeConversion
+                : FunctionCallKind.FunctionCall;
 
-        if (calleeT instanceof SBuiltinTypeNameType) {
-            callee = factory.makeElementaryTypeNameExpression(
-                "<missing>",
-                generateTypeAst(calleeT.type, factory) as ElementaryTypeName
-            );
-        } else if (calleeT instanceof SUserDefinedType) {
-            assert(calleeT.definition !== undefined, ``);
+        if (calleeT instanceof TypeNameType) {
+            // Type Cast
+            if (calleeT.type instanceof UserDefinedType) {
+                // User-defined type
+                assert(calleeT.type.definition !== undefined, ``);
 
-            callee = factory.makeIdentifierFor(calleeT.definition);
+                callee = factory.makeIdentifierFor(calleeT.type.definition);
+            } else {
+                // Elementary type
+                callee = factory.makeElementaryTypeNameExpression(
+                    "<missing>",
+                    generateTypeAst(calleeT.type, factory) as ElementaryTypeName
+                );
+            }
         } else {
+            // Normal function call
             callee = generateExprAST(expr.callee, transCtx, loc);
+
+            if (
+                callee instanceof Identifier &&
+                callee.vReferencedDeclaration instanceof FunctionDefinition &&
+                callee.vReferencedDeclaration.visibility === FunctionVisibility.External
+            ) {
+                callee = factory.makeMemberAccess(
+                    "<missing>",
+                    factory.makeIdentifier("<missing>", "this", (loc[1] as ContractDefinition).id),
+                    callee.name,
+                    callee.vReferencedDeclaration.id
+                );
+            }
         }
 
         const args = expr.args.map((arg) => generateExprAST(arg, transCtx, loc));
 
-        return factory.makeFunctionCall("<mising>", FunctionCallKind.FunctionCall, callee, args);
+        return factory.makeFunctionCall("<mising>", kind, callee, args);
     }
 
     if (expr instanceof SLet) {
         throw new Error(`let's should have been removed by flattening: ${expr.pp()}`);
     }
 
-    if (expr instanceof SType) {
+    if (expr instanceof TypeNode) {
         return generateTypeAst(expr, factory);
     }
 

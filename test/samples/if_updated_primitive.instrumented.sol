@@ -1,4 +1,4 @@
-pragma solidity 0.8.3;
+pragma solidity 0.8.4;
 
 contract Base {
     event AssertionFailed(string message);
@@ -50,91 +50,117 @@ contract Base {
     }
 
     function Base_x_inline_initializer() internal {
-        if (!(x >= 1)) {
-            emit AssertionFailed("0: ");
-            assert(false);
+        unchecked {
+            if (!(x >= 1)) {
+                emit AssertionFailed("0: ");
+                assert(false);
+            }
         }
     }
 
     function Base_y_inline_initializer() internal {
         vars1 memory _v;
-        _v.old_0 = y;
-        if (!(y >= _v.old_0)) {
-            emit AssertionFailed("1: ");
-            assert(false);
+        unchecked {
+            _v.old_0 = y;
+        }
+        unchecked {
+            if (!(y >= _v.old_0)) {
+                emit AssertionFailed("1: ");
+                assert(false);
+            }
         }
     }
 
     function Base_a_inline_initializer() internal {
-        if (!(uint160(a) >= 1)) {
-            emit AssertionFailed("3: ");
-            assert(false);
+        unchecked {
+            if (!(uint160(a) >= 1)) {
+                emit AssertionFailed("3: ");
+                assert(false);
+            }
         }
     }
 
     function Base_x_uint256_assign(uint256 ARG0) internal returns (uint256 RET0) {
         x = ARG0;
         RET0 = x;
-        if (!(x >= 1)) {
-            emit AssertionFailed("0: ");
-            assert(false);
+        unchecked {
+            if (!(x >= 1)) {
+                emit AssertionFailed("0: ");
+                assert(false);
+            }
         }
     }
 
     function Base_a_address_assign(address ARG1) internal returns (address RET1) {
         a = ARG1;
         RET1 = a;
-        if (!(uint160(a) >= 1)) {
-            emit AssertionFailed("3: ");
-            assert(false);
+        unchecked {
+            if (!(uint160(a) >= 1)) {
+                emit AssertionFailed("3: ");
+                assert(false);
+            }
         }
     }
 
     function Base_y_uint256_assign(uint256 ARG2) internal returns (uint256 RET2) {
         vars5 memory _v;
-        _v.old_1 = y;
+        unchecked {
+            _v.old_1 = y;
+        }
         y = ARG2;
         RET2 = y;
-        if (!(y >= _v.old_1)) {
-            emit AssertionFailed("1: ");
-            assert(false);
+        unchecked {
+            if (!(y >= _v.old_1)) {
+                emit AssertionFailed("1: ");
+                assert(false);
+            }
         }
     }
 
     function Base_x_inc_postfix() internal returns (uint256 RET3) {
         RET3 = x;
         x++;
-        if (!(x >= 1)) {
-            emit AssertionFailed("0: ");
-            assert(false);
+        unchecked {
+            if (!(x >= 1)) {
+                emit AssertionFailed("0: ");
+                assert(false);
+            }
         }
     }
 
     function Base_y_inc_postfix() internal returns (uint256 RET4) {
         vars7 memory _v;
-        _v.old_2 = y;
+        unchecked {
+            _v.old_2 = y;
+        }
         RET4 = y;
         y++;
-        if (!(y >= _v.old_2)) {
-            emit AssertionFailed("1: ");
-            assert(false);
+        unchecked {
+            if (!(y >= _v.old_2)) {
+                emit AssertionFailed("1: ");
+                assert(false);
+            }
         }
     }
 
     function Base_t_delete() internal {
         delete t;
-        if (!(t == 0)) {
-            emit AssertionFailed("2: ");
-            assert(false);
+        unchecked {
+            if (!(t == 0)) {
+                emit AssertionFailed("2: ");
+                assert(false);
+            }
         }
     }
 
     function Base_x_inc_prefix() internal returns (uint256 RET5) {
         ++x;
         RET5 = x;
-        if (!(x >= 1)) {
-            emit AssertionFailed("0: ");
-            assert(false);
+        unchecked {
+            if (!(x >= 1)) {
+                emit AssertionFailed("0: ");
+                assert(false);
+            }
         }
     }
 }

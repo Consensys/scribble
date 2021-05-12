@@ -98,3 +98,38 @@ contract UsingForRefType {
 }
 
 // ---------------------------------------------
+
+contract ExternalCall {
+
+    /// if_succeeds {:msg "wrong byte"} checkBytes(_bytes) == result;
+    function process(bytes calldata _bytes) external returns (bool result) {
+        return this.checkBytes(_bytes);
+    }
+
+    function checkBytes(bytes calldata _bytes) pure external returns (bool result) {
+        return _bytes.length > 0;
+    }
+}
+
+// ---------------------------------------------
+
+/// define some stuff
+/// define some(other stuff
+contract IgnoreNonFunDefines {
+    
+}
+
+// ---------------------------------------------
+
+contract CallinInstrumentedFun {
+    uint x = 1;
+    /// if_succeeds res > 0;
+    function getX() public view returns (uint res) {
+        return x;
+    }
+
+    /// if_succeeds res == x + getX();
+    function inc(uint x) public returns (uint res) {
+        return x + getX();
+    }
+}

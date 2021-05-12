@@ -242,6 +242,11 @@ type RawMetaData = {
 };
 
 class AnnotationExtractor {
+    private version: string;
+    constructor(version: string) {
+        this.version = version;
+    }
+
     private makeAnnotationFromMatch(
         match: RegExpExecArray,
         meta: RawMetaData,
@@ -251,7 +256,7 @@ class AnnotationExtractor {
         let parsedAnnot: SAnnotation;
 
         try {
-            parsedAnnot = parseAnnotation(slice);
+            parsedAnnot = parseAnnotation(slice, meta.node, this.version);
         } catch (e) {
             if (e instanceof ExprPEGSSyntaxError) {
                 // Compute the syntax error offset relative to the start of the file
@@ -297,12 +302,20 @@ class AnnotationExtractor {
         throw new Error(`NYI annotation ${parsedAnnot.pp()}`);
     }
 
+    /**
+     * Checks the validity of an annotation
+     * @param annotation The annotation to be validated
+     * @param target Target block(contract/function) of the annotation
+     */
     private validateAnnotation(target: AnnotationTarget, annotation: AnnotationMetaData) {
         if (target instanceof ContractDefinition) {
-            if (
-                annotation.type !== AnnotationType.Invariant &&
-                annotation.type !== AnnotationType.Define
-            ) {
+            const contractApplicableTypes = [
+                AnnotationType.Invariant,
+                AnnotationType.Define,
+                AnnotationType.IfSucceeds
+            ];
+
+            if (!contractApplicableTypes.includes(annotation.type)) {
                 throw new UnsupportedByTargetError(
                     `The "${annotation.type}" annotation is not applicable to contracts`,
                     annotation.original,
@@ -382,7 +395,7 @@ class AnnotationExtractor {
 
         const result: AnnotationMetaData[] = [];
 
-        const rx = /\s*(\*|\/\/\/)(\s*#)?\s*(if_succeeds|if_updated|if_assigned|invariant|define)/g;
+        const rx = /\s*(\*|\/\/\/)(\s*#)?\s*(if_succeeds|if_updated|if_assigned|invariant|define\s*[a-zA-Z0-9_]*\s*\([^)]*\))/g;
 
         let match = rx.exec(meta.text);
 
@@ -463,6 +476,20 @@ export function gatherFunctionAnnotations(
 }
 
 /**
+ * Gather annotations from `contract` and all it's parent contracts
+ */
+export function gatherContractAnnotations(
+    contract: ContractDefinition,
+    annotationMap: AnnotationMap
+): AnnotationMetaData[] {
+    const result: AnnotationMetaData[] = [];
+    for (const base of contract.vLinearizedBaseContracts) {
+        result.unshift(...(annotationMap.get(base) as AnnotationMetaData[]));
+    }
+    return result;
+}
+
+/**
  * Find all annotations in the list of `SourceUnit`s `units` and combine them in a
  * map from ASTNode to its annotations. Return the resulting map.
  *
@@ -473,10 +500,11 @@ export function gatherFunctionAnnotations(
 export function buildAnnotationMap(
     units: SourceUnit[],
     sources: Map<string, string>,
-    filters: AnnotationFilterOptions
+    filters: AnnotationFilterOptions,
+    version: string
 ): AnnotationMap {
     const res: AnnotationMap = new Map();
-    const extractor = new AnnotationExtractor();
+    const extractor = new AnnotationExtractor(version);
 
     for (const unit of units) {
         // Check no annotations on free functions

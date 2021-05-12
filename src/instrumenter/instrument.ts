@@ -24,7 +24,19 @@ import {
     VariableDeclaration,
     EmitStatement,
     Literal,
-    ASTNode
+    ASTNode,
+    UncheckedBlock,
+    TypeNode,
+    TupleType,
+    FunctionType,
+    getNodeType,
+    FixedBytesType,
+    PointerType,
+    StringType,
+    BytesType,
+    IntType,
+    BoolType,
+    AddressType
 } from "solc-typed-ast";
 import {
     AddBaseContract,
@@ -41,7 +53,6 @@ import {
     SBooleanLiteral,
     SConditional,
     SFunctionCall,
-    SFunctionType,
     SHexLiteral,
     SId,
     SIndexAccess,
@@ -50,22 +61,13 @@ import {
     SNode,
     SNumber,
     SStringLiteral,
-    STupleType,
-    SType,
     SUnaryOperation,
-    SAddressType,
-    SBoolType,
-    SBytes,
-    SFixedBytes,
-    SIntType,
-    SPointer,
-    SString,
     SAddressLiteral,
     SResult,
-    SUserFunctionDefinition
+    SUserFunctionDefinition,
+    AnnotationType
 } from "../spec-lang/ast";
 import { StateVarScope, SemMap, TypeEnv } from "../spec-lang/tc";
-import { parse as parseTypeString } from "../spec-lang/typeString_parser";
 import {
     assert,
     isChangingState,
@@ -88,7 +90,9 @@ import { dirname, relative } from "path";
 import { InstrumentationContext } from "./instrumentation_context";
 import { TranspilingContext } from "./transpiling_context";
 
-export type SBinding = [string | string[], SType, SNode, boolean];
+import { gte } from "semver";
+
+export type SBinding = [string | string[], TypeNode, SNode, boolean];
 export type SBindings = SBinding[];
 
 export class InstrumentationError extends PPAbleError {}
@@ -144,7 +148,10 @@ export function changesMutability(ctx: InstrumentationContext): boolean {
     return ctx.assertionMode === "log";
 }
 
-export function findExternalCalls(node: ContractDefinition | FunctionDefinition): FunctionCall[] {
+export function findExternalCalls(
+    node: ContractDefinition | FunctionDefinition,
+    version: string
+): FunctionCall[] {
     const res: FunctionCall[] = [];
 
     for (const call of node.getChildrenByType(FunctionCall)) {
@@ -160,10 +167,10 @@ export function findExternalCalls(node: ContractDefinition | FunctionDefinition)
             }
         } else {
             // For normal contract calls check if the type of the callee is an external function
-            const calleeType = parseTypeString(call.vExpression.typeString);
+            const calleeType = getNodeType(call.vExpression, version);
 
             assert(
-                calleeType instanceof SFunctionType,
+                calleeType instanceof FunctionType,
                 `Expected function type not ${calleeType.pp()} for calee in ${call.print()}`
             );
 
@@ -195,6 +202,7 @@ export function generateUtilsContract(
         ContractKind.Contract,
         false,
         true,
+        [],
         [],
         `Utility contract holding a stack counter`
     );
@@ -259,12 +267,12 @@ function gatherDebugIds(n: SNode, typeEnv: TypeEnv): Set<SId> {
         // Only want primitive types and bytes/string
         if (
             !(
-                type instanceof SAddressType ||
-                type instanceof SBoolType ||
-                type instanceof SFixedBytes ||
-                type instanceof SIntType ||
-                (type instanceof SPointer &&
-                    (type.to instanceof SString || type.to instanceof SBytes))
+                type instanceof AddressType ||
+                type instanceof BoolType ||
+                type instanceof FixedBytesType ||
+                type instanceof IntType ||
+                (type instanceof PointerType &&
+                    (type.to instanceof StringType || type.to instanceof BytesType))
             )
         ) {
             return;
@@ -436,7 +444,7 @@ export function flattenExpr(expr: SNode, ctx: TranspilingContext): [SNode, SBind
         let rhsBindings: SBindings;
 
         if (
-            rhsT instanceof STupleType &&
+            rhsT instanceof TupleType &&
             expr.rhs instanceof SUnaryOperation &&
             expr.rhs.op === "old"
         ) {
@@ -449,7 +457,7 @@ export function flattenExpr(expr: SNode, ctx: TranspilingContext): [SNode, SBind
         const rhsSemInfo = ctx.semInfo.get(expr.rhs);
         assert(rhsSemInfo !== undefined, `Missing sem info for let rhs-expr in ${expr.pp()}`);
 
-        if (rhsT instanceof STupleType) {
+        if (rhsT instanceof TupleType) {
             if (flatRHS instanceof SResult) {
                 assert(
                     ctx.container instanceof FunctionDefinition,
@@ -500,7 +508,7 @@ export function flattenExpr(expr: SNode, ctx: TranspilingContext): [SNode, SBind
         return [getTmpVar(tmpName, expr, expr.src), letBindings];
     }
 
-    if (expr instanceof SType) {
+    if (expr instanceof TypeNode) {
         return [expr, []];
     }
 
@@ -605,7 +613,7 @@ export function generateExpressions(
                     const vType = transCtx.typeEnv.typeOf(v);
                     const type = generateTypeAst(vType, factory);
                     const name = v instanceof SId ? v.name : v.member;
-                    const typeString = vType instanceof SPointer ? vType.to.pp() : vType.pp();
+                    const typeString = vType instanceof PointerType ? vType.to.pp() : vType.pp();
 
                     return factory.makeVariableDeclaration(
                         false,
@@ -622,14 +630,19 @@ export function generateExpressions(
                     );
                 });
 
-                // Construct the event definition
-                const evtDef = factory.makeEventDefinition(
-                    true,
-                    `P${annot.id}Fail`,
-                    factory.makeParameterList(evtParams)
-                );
+                // Get or construct the event definition
+                let evtDef: EventDefinition;
+                if (!instrCtx.debugEventDefs.has(annot.id)) {
+                    evtDef = factory.makeEventDefinition(
+                        true,
+                        `P${annot.id}Fail`,
+                        factory.makeParameterList(evtParams)
+                    );
 
-                instrCtx.debugEventDefs.set(annot.id, evtDef);
+                    instrCtx.debugEventDefs.set(annot.id, evtDef);
+                } else {
+                    evtDef = instrCtx.debugEventDefs.get(annot.id) as EventDefinition;
+                }
 
                 const evtArgs = dbgVars.map((v) => generateExprAST(v, transCtx, [contract, fn]));
 
@@ -648,14 +661,14 @@ export function generateExpressions(
             }
         }
     }
-    const bindingMap: Map<string, SType> = new Map();
+    const bindingMap: Map<string, TypeNode> = new Map();
 
     bindings.forEach(([names, type]) => {
         if (typeof names === "string") {
             bindingMap.set(names, type);
         } else {
             for (let i = 0; i < names.length; i++) {
-                bindingMap.set(names[i], (type as STupleType).elements[i]);
+                bindingMap.set(names[i], (type as TupleType).elements[i]);
             }
         }
     });
@@ -857,42 +870,76 @@ export function insertInvChecks(
 ): Recipe {
     const instrCtx = transCtx.instrCtx;
     const factory = instrCtx.factory;
-
     const recipe: Recipe = [];
 
-    const marker = body.vStatements.length > 0 ? body.vStatements[0] : undefined;
-    for (const oldAssignment of instrResult.oldAssignments) {
-        recipe.push(
-            new InsertStatement(
-                factory,
-                factory.makeExpressionStatement(oldAssignment),
-                marker !== undefined ? "before" : "end",
-                body,
-                marker
-            )
-        );
-    }
+    const oldAssignmentStmts: Statement[] = instrResult.oldAssignments.map((oldAssignment) =>
+        factory.makeExpressionStatement(oldAssignment)
+    );
 
-    for (const newAssignment of instrResult.newAssignments) {
-        recipe.push(
-            new InsertStatement(
-                factory,
-                factory.makeExpressionStatement(newAssignment),
-                "end",
-                body
-            )
-        );
-    }
+    const newAssignmentStmts: Statement[] = instrResult.newAssignments.map((newAssignment) =>
+        factory.makeExpressionStatement(newAssignment)
+    );
 
-    for (let i = 0; i < instrResult.transpiledPredicates.length; i++) {
-        const predicate = instrResult.transpiledPredicates[i];
-
+    const checkStmts: Statement[] = instrResult.transpiledPredicates.map((predicate, i) => {
         const event = getAssertionFailedEvent(factory, contract);
         const dbgInfo = instrResult.debugEventsInfo[i];
         const emitStmt = dbgInfo !== undefined ? dbgInfo[1] : undefined;
-        const check = emitAssert(transCtx, predicate, annotations[i], event, emitStmt);
+        return emitAssert(transCtx, predicate, annotations[i], event, emitStmt);
+    });
 
-        recipe.push(new InsertStatement(factory, check, "end", body));
+    const marker = body.vStatements.length > 0 ? body.vStatements[0] : undefined;
+
+    // Since 0.8.0 arithmetic is checked by default. However the semantics of
+    // Scribble is unchecked arithmetic. So we need to wrap annotation
+    // computations and checks in unchecked blocks.
+    if (gte(instrCtx.compilerVersion, "0.8.0")) {
+        if (oldAssignmentStmts.length > 0) {
+            const oldAssignmenBlock = factory.makeUncheckedBlock(oldAssignmentStmts);
+            recipe.push(
+                new InsertStatement(
+                    factory,
+                    oldAssignmenBlock,
+                    marker !== undefined ? "before" : "end",
+                    body,
+                    marker
+                )
+            );
+        }
+
+        if (newAssignmentStmts.length > 0) {
+            const newAssignmenBlock = factory.makeUncheckedBlock(newAssignmentStmts);
+            recipe.push(new InsertStatement(factory, newAssignmenBlock, "end", body));
+        }
+
+        const checksBlock = factory.makeUncheckedBlock(checkStmts);
+        recipe.push(new InsertStatement(factory, checksBlock, "end", body));
+    } else {
+        recipe.push(
+            ...oldAssignmentStmts.map(
+                (oldAssignment) =>
+                    new InsertStatement(
+                        factory,
+                        oldAssignment,
+                        marker !== undefined ? "before" : "end",
+                        body,
+                        marker
+                    )
+            )
+        );
+
+        recipe.push(
+            ...newAssignmentStmts.map(
+                (newAssignment) => new InsertStatement(factory, newAssignment, "end", body)
+            )
+        );
+
+        recipe.push(...checkStmts.map((check) => new InsertStatement(factory, check, "end", body)));
+    }
+
+    for (const dbgInfo of instrResult.debugEventsInfo) {
+        if (dbgInfo !== undefined && dbgInfo[0].parent === undefined) {
+            recipe.push(new InsertEvent(factory, contract, dbgInfo[0]));
+        }
     }
 
     return recipe;
@@ -941,7 +988,10 @@ export class ContractInstrumenter {
 
         recipe.push(...userFuncsRecipe);
 
-        const propertyAnnotations = filterByType(annotations, PropertyMetaData);
+        const propertyAnnotations = filterByType(annotations, PropertyMetaData).filter(
+            (annot) => annot.type !== AnnotationType.IfSucceeds
+        );
+
         if (needsStateInvChecks) {
             const [internalInvChecker, internalCheckerRecipe] = this.makeInternalInvariantChecker(
                 ctx,
@@ -1027,7 +1077,16 @@ export class ContractInstrumenter {
 
             ctx.userFunctions.set(funDef, userFun);
 
-            const body = userFun.vBody as Block;
+            // Arithmetic in Solidity >= 0.8.0 is checked by default.
+            // In Scribble its unchecked.
+            let body: Block | UncheckedBlock;
+            if (gte(ctx.compilerVersion, "0.8.0")) {
+                body = factory.makeUncheckedBlock([]);
+                (userFun.vBody as Block).appendChild(body);
+            } else {
+                body = userFun.vBody as Block;
+            }
+
             const transCtx = ctx.getTranspilingCtx(userFun);
 
             for (let i = 0; i < funDef.parameters.length; i++) {
@@ -1036,32 +1095,28 @@ export class ContractInstrumenter {
                 userFun.vParameters.appendChild(generateFunVarDecl(instrName, paramType, factory));
             }
 
-            userFun.vReturnParameters.appendChild(
-                generateFunVarDecl("", funDef.returnType, factory)
-            );
+            const retDecl = generateFunVarDecl("", funDef.returnType, factory);
+            userFun.vReturnParameters.appendChild(retDecl);
+            ctx.addGeneralInstrumentation(retDecl);
 
             const [flatBody, bindings] = flattenExpr(funDef.body, transCtx);
 
             if (bindings.length > 0) {
-                const bindingMap: Map<string, SType> = new Map();
+                const bindingMap: Map<string, TypeNode> = new Map();
 
                 bindings.forEach(([names, type]) => {
                     if (typeof names === "string") {
                         bindingMap.set(names, type);
                     } else {
                         for (let i = 0; i < names.length; i++) {
-                            bindingMap.set(names[i], (type as STupleType).elements[i]);
+                            bindingMap.set(names[i], (type as TupleType).elements[i]);
                         }
                     }
                 });
 
                 // Step 3: Populate the struct def with fields for each temporary variable
-                const memberDeclMap: Map<string, VariableDeclaration> = new Map();
-
                 for (const [name, sType] of bindingMap) {
-                    const astType = generateTypeAst(sType, factory);
-                    const decl = transCtx.addBinding(name, astType);
-                    memberDeclMap.set(name, decl);
+                    transCtx.addBinding(name, generateTypeAst(sType, factory));
                 }
 
                 // Step 4: Build temp assignments
@@ -1088,11 +1143,9 @@ export class ContractInstrumenter {
 
             // Step 5: Build the final result
             const result = generateExprAST(flatBody, transCtx, [contract, userFun]);
-            (userFun.vBody as Block).appendChild(
-                factory.makeReturn(userFun.vReturnParameters.id, result)
-            );
+            body.appendChild(factory.makeReturn(userFun.vReturnParameters.id, result));
 
-            ctx.addGeneralInstrumentation(...body.children);
+            ctx.addGeneralInstrumentation(body);
             userFuns.push(userFun);
             recipe.push(new InsertFunction(factory, contract, userFun));
         }
@@ -1141,12 +1194,6 @@ export class ContractInstrumenter {
         recipe.push(new InsertFunction(ctx.factory, contract, checker));
 
         assert(instrResult.oldAssignments.length === 0, ``);
-
-        for (const dbgInfo of instrResult.debugEventsInfo) {
-            if (dbgInfo !== undefined) {
-                recipe.push(new InsertEvent(factory, contract, dbgInfo[0]));
-            }
-        }
 
         recipe.push(...insertInvChecks(transCtx, instrResult, annotations, contract, body));
 
@@ -1333,7 +1380,7 @@ export class ContractInstrumenter {
         const factory = ctx.factory;
         const recipe: Recipe = [];
 
-        for (const callSite of findExternalCalls(contract)) {
+        for (const callSite of findExternalCalls(contract, ctx.compilerVersion)) {
             const containingFun = callSite.getClosestParentByType(FunctionDefinition);
 
             if (
@@ -1344,9 +1391,9 @@ export class ContractInstrumenter {
                 continue;
             }
 
-            const calleeType = parseTypeString(callSite.vExpression.typeString);
+            const calleeType = getNodeType(callSite.vExpression, ctx.compilerVersion);
             assert(
-                calleeType instanceof SFunctionType,
+                calleeType instanceof FunctionType,
                 `Expected function type not ${calleeType.pp()} for calee in ${callSite.print()}`
             );
 
@@ -1460,12 +1507,6 @@ export class FunctionInstrumenter {
             isExternallyVisible(stub) &&
             isChangingState(stub) &&
             fn.kind !== FunctionKind.Fallback;
-
-        for (const dbgInfo of instrResult.debugEventsInfo) {
-            if (dbgInfo !== undefined) {
-                recipe.push(new InsertEvent(factory, contract, dbgInfo[0]));
-            }
-        }
 
         if (checkStateInvs) {
             recipe.push(

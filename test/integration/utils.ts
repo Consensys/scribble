@@ -10,12 +10,10 @@ import {
     detectCompileErrors,
     ASTReader,
     ASTNode,
-    FunctionDefinition,
-    ContractDefinition,
     ASTKind
 } from "solc-typed-ast";
 import { spawnSync } from "child_process";
-import { AnnotationTarget, assert, pp } from "../../src";
+import { AnnotationTarget, assert } from "../../src";
 import { StateVarScope, STypingCtx } from "../../src/spec-lang/tc";
 import { SAnnotation, SStateVarProp } from "../../src/spec-lang/ast";
 
@@ -103,24 +101,10 @@ export function scribble(fileName: string | string[], ...args: string[]): string
     return result.stdout;
 }
 
-export function getTarget(typeCtx: STypingCtx): AnnotationTarget {
-    const topCtx = typeCtx[typeCtx.length - 1] as AnnotationTarget;
-    if (topCtx instanceof FunctionDefinition || topCtx instanceof ContractDefinition) {
-        return topCtx;
-    }
-
-    if (topCtx instanceof StateVarScope) {
-        return topCtx.target;
-    }
-
-    assert(false, `NYI getTarget(${pp(typeCtx)})`);
-}
-
-export function getTypeCtx(
+export function getTarget(
     raw: [string, string | undefined],
-    sources: SourceUnit[],
-    annotation?: SAnnotation
-): STypingCtx {
+    sources: SourceUnit[]
+): AnnotationTarget {
     const res: STypingCtx = [sources];
 
     for (const unit of sources) {
@@ -131,13 +115,53 @@ export function getTypeCtx(
                 const subTarget = raw[1];
 
                 if (subTarget === undefined) {
-                    return res;
+                    return contract;
                 }
 
                 for (const fun of contract.vFunctions) {
                     if (fun.name == subTarget) {
                         res.push(fun);
-                        return res;
+                        return fun;
+                    }
+                }
+
+                for (const stateVar of contract.vStateVariables) {
+                    if (stateVar.name == subTarget) {
+                        return stateVar;
+                    }
+                }
+
+                throw new Error(
+                    `Couldn't find annotation target ${subTarget} in contract ${raw[0]}`
+                );
+            }
+        }
+    }
+    throw new Error(`Couldn't find contract ${raw[0]}`);
+}
+
+export function getTypeCtxAndTarget(
+    raw: [string, string | undefined],
+    sources: SourceUnit[],
+    annotation?: SAnnotation
+): [STypingCtx, AnnotationTarget] {
+    const res: STypingCtx = [sources];
+
+    for (const unit of sources) {
+        for (const contract of unit.vContracts) {
+            if (contract.name === raw[0]) {
+                res.push(contract);
+
+                const subTarget = raw[1];
+
+                if (subTarget === undefined) {
+                    return [res, contract];
+                }
+
+                for (const fun of contract.vFunctions) {
+                    if (fun.name == subTarget) {
+                        res.push(fun);
+                        return [res, fun];
                     }
                 }
 
@@ -145,7 +169,7 @@ export function getTypeCtx(
                     if (stateVar.name == subTarget) {
                         assert(annotation instanceof SStateVarProp, ``);
                         res.push(new StateVarScope(stateVar, annotation));
-                        return res;
+                        return [res, stateVar];
                     }
                 }
 

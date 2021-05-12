@@ -1,8 +1,17 @@
-import { SType } from "./type";
-import { FunctionDefinition, VariableDeclaration, ContractDefinition } from "solc-typed-ast";
-import { SNode, Range } from "../node";
+import {
+    TypeNode,
+    FunctionDefinition,
+    VariableDeclaration,
+    Range,
+    ContractDefinition
+} from "solc-typed-ast";
+import { SNode } from "../../ast";
 
-export class SFunctionSetType extends SType {
+/**
+ * Internal class used during type-checking to carry information for the possible overloaded targets
+ * of a callee, back to the callsite which can resolve based on the actual arguments.
+ */
+export class FunctionSetType extends TypeNode {
     public definitions: Array<FunctionDefinition | VariableDeclaration>;
     public readonly defaultArg: SNode | undefined;
 

@@ -1,4 +1,5 @@
 import {
+    AddressType,
     ASTNode,
     ASTNodeFactory,
     Block,
@@ -13,12 +14,16 @@ import {
     FunctionDefinition,
     FunctionKind,
     FunctionStateMutability,
+    FunctionType,
     FunctionTypeName,
     FunctionVisibility,
+    getNodeType,
     MemberAccess,
     Mutability,
+    PointerType,
     StateVariableVisibility,
     TypeName,
+    TypeNode,
     VariableDeclaration
 } from "solc-typed-ast";
 import {
@@ -39,8 +44,6 @@ import {
     RenameReturn,
     ReplaceCallee
 } from "../rewriter";
-import { SAddressType, SFunctionType, SPointer, SType } from "../spec-lang/ast";
-import { parse as parseTypeString } from "../spec-lang/typeString_parser";
 import { assert, getScopeFun, isChangingState, single } from "../util";
 import { FunSet } from "./callgraph";
 import { changesMutability } from "./instrument";
@@ -365,11 +368,11 @@ export function interposeCall(
     const factory = ctx.factory;
     const callsite = decodeCallsite(call);
     const callee = callsite.callee;
-    const calleeT = parseTypeString(callee.typeString);
+    const calleeT = getNodeType(callee, ctx.compilerVersion);
 
     assert(call.kind === FunctionCallKind.FunctionCall, "");
     assert(
-        calleeT instanceof SFunctionType,
+        calleeT instanceof FunctionType,
         `Expected function type, not ${calleeT.pp()} for callee in ${call.print()}`
     );
 
@@ -480,9 +483,9 @@ export function interposeCall(
     } else {
         assert(callee instanceof MemberAccess, ``);
 
-        const baseT = parseTypeString(callee.vExpression.typeString);
+        const baseT = getNodeType(callee.vExpression, ctx.compilerVersion);
 
-        assert(baseT instanceof SAddressType, ``);
+        assert(baseT instanceof AddressType, ``);
         assert(["call", "delegatecall", "staticcall"].includes(callee.memberName), ``);
 
         params.push(
@@ -501,8 +504,8 @@ export function interposeCall(
             )
         );
 
-        const getTypeAndLoc = (t: SType): [TypeName, DataLocation] => {
-            return t instanceof SPointer
+        const getTypeAndLoc = (t: TypeNode): [TypeName, DataLocation] => {
+            return t instanceof PointerType
                 ? [generateTypeAst(t.to, factory), t.location]
                 : [generateTypeAst(t, factory), DataLocation.Default];
         };

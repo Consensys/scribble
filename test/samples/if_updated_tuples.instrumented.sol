@@ -1,4 +1,4 @@
-pragma solidity 0.8.3;
+pragma solidity 0.8.4;
 
 contract IfUpdatedPrimitive {
     event AssertionFailed(string message);
@@ -57,34 +57,42 @@ contract IfUpdatedPrimitive {
     }
 
     function IfUpdatedPrimitive_x_inline_initializer() internal {
-        if (!(x >= 1)) {
-            emit AssertionFailed("0: ");
-            assert(false);
+        unchecked {
+            if (!(x >= 1)) {
+                emit AssertionFailed("0: ");
+                assert(false);
+            }
         }
     }
 
     function IfUpdatedPrimitive_a_inline_initializer() internal {
-        if (!(uint160(a) >= 1)) {
-            emit AssertionFailed("1: ");
-            assert(false);
+        unchecked {
+            if (!(uint160(a) >= 1)) {
+                emit AssertionFailed("1: ");
+                assert(false);
+            }
         }
     }
 
     function IfUpdatedPrimitive_x_uint256_assign(uint256 ARG0) internal returns (uint256 RET0) {
         x = ARG0;
         RET0 = x;
-        if (!(x >= 1)) {
-            emit AssertionFailed("0: ");
-            assert(false);
+        unchecked {
+            if (!(x >= 1)) {
+                emit AssertionFailed("0: ");
+                assert(false);
+            }
         }
     }
 
     function IfUpdatedPrimitive_a_address_assign(address ARG1) internal returns (address RET1) {
         a = ARG1;
         RET1 = a;
-        if (!(uint160(a) >= 1)) {
-            emit AssertionFailed("1: ");
-            assert(false);
+        unchecked {
+            if (!(uint160(a) >= 1)) {
+                emit AssertionFailed("1: ");
+                assert(false);
+            }
         }
     }
 }

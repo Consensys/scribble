@@ -422,39 +422,39 @@ SimpleType
   / StringType
   / UserDefinedType
 
-BoolType = BOOL { return new SBoolType(location()) }
-AddressType = ADDRESS __ payable:(PAYABLE?) { return new SAddressType(payable !== null, location())}
+BoolType = BOOL { return new BoolType(location()) }
+AddressType = ADDRESS __ payable:(PAYABLE?) { return new AddressType(payable !== null, location())}
 IntType = unsigned:("u"?) "int" width:(Number?) { 
   const signed = unsigned === null;
-  const bitWidth = width === null ? 256 : width.num.toString(10);
-  return new SIntType(bitWidth, signed, location());
+  const bitWidth = width === null ? 256 : width.num.toJSNumber();
+  return new IntType(bitWidth, signed, location());
 }
 FixedSizeBytesType
-  = BYTES width:Number { return new SFixedBytes(width, location()); }
-  / BYTE { return new SFixedBytes(1, location()); }
+  = BYTES width:Number { return new FixedBytesType(width, location()); }
+  / BYTE { return new FixedBytesType(1, location()); }
 
-BytesType = BYTES !Number { return new SBytes(location()); }
-StringType = STRING { return new SString(location()); }
+BytesType = BYTES !Number { return new BytesType(location()); }
+StringType = STRING { return new StringType(location()); }
 
 UserDefinedType
-  = base: Identifier "." field: Identifier { return new SUserDefinedType(`${base.name}.${field.name}`, location()); }
-  / name: Identifier  { return new SUserDefinedType(name.name, location()); }
+  = base: Identifier "." field: Identifier { return makeUserDefinedType(name, options, location()); }
+  / name: Identifier  { return makeUserDefinedType(name, options, location()); }
 
 ArrayType
   = head: SimpleType tail: ( __ "[" __ size: Number? __ "]")* {
     return tail.reduce((acc, cur) => {
       const size = cur[3];
-      return new SArrayType(acc, size !== null ? size : undefined, location());
+      return new ArrayType(acc, size !== null ? BigInt(size.num.toJSNumber()) : undefined, location());
     }, head)
   }
 
 MappingType
-  = MAPPING __ "(" __ keyType: SimpleType __ "=>" __ valueType: MappingType __ ")" { return new SMappingType(keyType, valueType, location()); }
+  = MAPPING __ "(" __ keyType: SimpleType __ "=>" __ valueType: MappingType __ ")" { return new MappingType(keyType, valueType, location()); }
   / ArrayType
 
 DataLocation = MEMORY / STORAGE / CALLDATA
 PointerType = toType: MappingType __ location: (DataLocation?) {
-  return location === null ? toType : new SPointer(toType, location as DataLocation, location());
+  return location === null ? toType : new PointerType(toType, location as DataLocation, undefined, location());
 }
 
 TypeList
@@ -475,6 +475,6 @@ FunctionType
     decorators = decorators === null ? [] : decorators;
 
     const [visibility, mutability] = getFunctionAttrbiutes(decorators);
-    return new SFunctionType(argTs, retTs, visibility, mutability, location());
+    return new FunctionType(undefined, argTs, retTs, visibility, mutability, location());
   }
   / PointerType

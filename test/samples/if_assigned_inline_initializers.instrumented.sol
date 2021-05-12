@@ -1,4 +1,4 @@
-pragma solidity 0.8.3;
+pragma solidity 0.8.4;
 
 contract Base {
     event AssertionFailed(string message);
@@ -23,10 +23,14 @@ contract Base {
 
     function Base_x_inline_initializer() internal {
         vars0 memory _v;
-        _v.old_0 = x;
-        if (!(x >= _v.old_0)) {
-            emit AssertionFailed("0: ");
-            assert(false);
+        unchecked {
+            _v.old_0 = x;
+        }
+        unchecked {
+            if (!(x >= _v.old_0)) {
+                emit AssertionFailed("0: ");
+                assert(false);
+            }
         }
     }
 
@@ -38,52 +42,66 @@ contract Base {
     }
 
     function Base_arr_inline_initializer() internal {
-        if (!(arr.length > 0)) {
-            emit AssertionFailed("1: ");
-            assert(false);
+        unchecked {
+            if (!(arr.length > 0)) {
+                emit AssertionFailed("1: ");
+                assert(false);
+            }
         }
     }
 
     function Base_arr2_inline_initializer() internal {
-        if (!(arr2.length > 0)) {
-            emit AssertionFailed("3: ");
-            assert(false);
+        unchecked {
+            if (!(arr2.length > 0)) {
+                emit AssertionFailed("3: ");
+                assert(false);
+            }
         }
     }
 
     function Base_s_inline_initializer() internal {
-        if (!(s.arr.length > 0)) {
-            emit AssertionFailed("6: ");
-            assert(false);
+        unchecked {
+            if (!(s.arr.length > 0)) {
+                emit AssertionFailed("6: ");
+                assert(false);
+            }
         }
     }
 
     function Base_x_uint256_assign(uint256 ARG0) internal returns (uint256 RET0) {
         vars4 memory _v;
-        _v.old_1 = x;
+        unchecked {
+            _v.old_1 = x;
+        }
         x = ARG0;
         RET0 = x;
-        if (!(x >= _v.old_1)) {
-            emit AssertionFailed("0: ");
-            assert(false);
+        unchecked {
+            if (!(x >= _v.old_1)) {
+                emit AssertionFailed("0: ");
+                assert(false);
+            }
         }
     }
 
     function Base_arr_ptr_arr_uint8_1_memory_assign(uint8[1] memory ARG1) internal returns (uint256[] storage RET1) {
         arr = ARG1;
         RET1 = arr;
-        if (!(arr.length > 0)) {
-            emit AssertionFailed("1: ");
-            assert(false);
+        unchecked {
+            if (!(arr.length > 0)) {
+                emit AssertionFailed("1: ");
+                assert(false);
+            }
         }
     }
 
     function Base_arr2_ptr_arr_ptr_arr_uint8_1_memory_2_memory_assign(uint8[1][2] memory ARG2) internal returns (uint256[][] storage RET2) {
         arr2 = ARG2;
         RET2 = arr2;
-        if (!(arr2.length > 0)) {
-            emit AssertionFailed("3: ");
-            assert(false);
+        unchecked {
+            if (!(arr2.length > 0)) {
+                emit AssertionFailed("3: ");
+                assert(false);
+            }
         }
     }
 }

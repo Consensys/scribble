@@ -11,7 +11,6 @@ export * from "./index_access";
 export * from "./function_call";
 export * from "./conditional";
 export * from "./let";
-export * from "./types";
 export * from "./address_literal";
 export * from "./result";
 export * from "./declarations";
