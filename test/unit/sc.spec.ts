@@ -279,8 +279,9 @@ describe("SemanticChecker Expression Unit Tests", () => {
 
             for (const [specString, loc, expectedType, expectedInfo] of testCases) {
                 it(`SemCheck for ${specString} returns ${JSON.stringify(expectedInfo)}`, () => {
+                    const compilerVersion = "0.6.0";
                     const [ctx, target] = getTypeCtxAndTarget(loc, sources);
-                    const parsed = parse(specString, target, "0.6.0");
+                    const parsed = parse(specString, target, compilerVersion);
                     const annotationType =
                         target instanceof ContractDefinition
                             ? AnnotationType.Invariant
@@ -289,7 +290,7 @@ describe("SemanticChecker Expression Unit Tests", () => {
                             : AnnotationType.IfUpdated;
 
                     const annotation = new SProperty(annotationType, parsed);
-                    const typeEnv = new TypeEnv();
+                    const typeEnv = new TypeEnv(compilerVersion);
                     const type = tc(parsed, ctx, typeEnv);
                     expect(eq(type, expectedType)).toEqual(true);
                     const semInfo = sc(parsed, { isOld: false, annotation }, typeEnv);
@@ -310,8 +311,9 @@ describe("SemanticChecker Expression Unit Tests", () => {
 
             for (const [specString, loc] of testCases) {
                 it(`SemCheck for ${specString} throws SemError`, () => {
+                    const compilerVersion = "0.6.0";
                     const [ctx, target] = getTypeCtxAndTarget(loc, sources);
-                    const parsed = parse(specString, target, "0.6.0");
+                    const parsed = parse(specString, target, compilerVersion);
                     const annotationType =
                         target instanceof ContractDefinition
                             ? AnnotationType.Invariant
@@ -320,7 +322,7 @@ describe("SemanticChecker Expression Unit Tests", () => {
                             : AnnotationType.IfUpdated;
                     const annotation = new SProperty(annotationType, parsed);
                     // Type-checking should succeed
-                    const typeEnv = new TypeEnv();
+                    const typeEnv = new TypeEnv(compilerVersion);
                     tc(parsed, ctx, typeEnv);
                     expect(sc.bind(sc, parsed, { isOld: false, annotation }, typeEnv)).toThrowError(
                         SemError as any
@@ -402,10 +404,11 @@ describe("SemanticChecker Annotation Unit Tests", () => {
 
             for (const [specString, loc] of testCases) {
                 it(`SemCheck for ${specString} succeeds`, () => {
+                    const compilerVersion = "0.6.0";
                     const target = getTarget(loc, sources);
-                    const annotation = parseAnnotation(specString, target, "0.6.0");
+                    const annotation = parseAnnotation(specString, target, compilerVersion);
                     const [ctx] = getTypeCtxAndTarget(loc, sources, annotation);
-                    const typeEnv = new TypeEnv();
+                    const typeEnv = new TypeEnv(compilerVersion);
                     tcAnnotation(annotation, ctx, target, typeEnv);
                     scAnnotation(annotation, typeEnv, new Map(), { isOld: false, annotation });
                 });
@@ -423,10 +426,11 @@ describe("SemanticChecker Annotation Unit Tests", () => {
 
             for (const [specString, loc] of testCases) {
                 it(`SemCheck for ${specString} throws as expected`, () => {
+                    const compilerVersion = "0.6.0";
                     const target = getTarget(loc, sources);
-                    const annotation = parseAnnotation(specString, target, "0.6.0");
+                    const annotation = parseAnnotation(specString, target, compilerVersion);
                     const [ctx] = getTypeCtxAndTarget(loc, sources, annotation);
-                    const typeEnv = new TypeEnv();
+                    const typeEnv = new TypeEnv(compilerVersion);
                     tcAnnotation(annotation, ctx, target, typeEnv);
                     expect(
                         scAnnotation.bind(scAnnotation, annotation, typeEnv, new Map(), {

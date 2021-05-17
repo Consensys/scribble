@@ -1,3 +1,4 @@
+import { satisfies } from "semver";
 import {
     AddressType,
     ArrayType,
@@ -136,6 +137,7 @@ export class SGenericTypeError<T extends SNode> extends STypeError {
         super(msg);
         this.node = node;
     }
+
     loc(): Range {
         return this.node.requiredSrc;
     }
@@ -163,6 +165,16 @@ export class SWrongType extends SGenericTypeError<SNode> {
 export class SUnknownId extends SGenericTypeError<SId> {
     constructor(id: SId) {
         super(`Unknown identifier ${id.name}`, id);
+    }
+}
+
+export class SInaccessibleForVersion extends SGenericTypeError<SNode> {
+    public readonly compilerVersion: string;
+
+    constructor(node: SNode, name: string, compilerVersion: string) {
+        super(`${name} is not accessible in solidity version ${compilerVersion}`, node);
+
+        this.compilerVersion = compilerVersion;
     }
 }
 
@@ -418,11 +430,7 @@ function sortContracts(contracts: ContractDefinition[]): ContractDefinition[] {
     return topoSort(contracts, order);
 }
 
-export function tcUnits(
-    units: SourceUnit[],
-    annotMap: AnnotationMap,
-    typeEnv: TypeEnv = new TypeEnv()
-): void {
+export function tcUnits(units: SourceUnit[], annotMap: AnnotationMap, typeEnv: TypeEnv): void {
     let contracts: ContractDefinition[] = [];
     const ctx: STypingCtx = [units];
 
@@ -487,7 +495,7 @@ export function tcAnnotation(
     annot: SAnnotation,
     ctx: STypingCtx,
     target: AnnotationTarget,
-    typeEnv: TypeEnv = new TypeEnv()
+    typeEnv: TypeEnv
 ): void {
     if (annot instanceof SProperty) {
         let predCtx;
@@ -552,7 +560,7 @@ export function tcAnnotation(
     }
 }
 
-export function tc(expr: SNode, ctx: STypingCtx, typeEnv: TypeEnv = new TypeEnv()): TypeNode {
+export function tc(expr: SNode, ctx: STypingCtx, typeEnv: TypeEnv): TypeNode {
     const cache = (expr: SNode, type: TypeNode): TypeNode => {
         Logger.debug(`tc: ${expr.pp()} :: ${type.pp()}`);
 
@@ -694,8 +702,25 @@ function tcIdBuiltinType(expr: SId): TypeNameType | undefined {
     return undefined;
 }
 
-function tcIdBuiltin(expr: SId): TypeNode | undefined {
-    return BuiltinSymbols.get(expr.name);
+function tcIdBuiltinSymbol(
+    expr: SNode,
+    name: string,
+    typeEnv: TypeEnv,
+    isAddressMember = false
+): TypeNode | undefined {
+    const result = isAddressMember ? BuiltinAddressMembers.get(name) : BuiltinSymbols.get(name);
+
+    if (result instanceof Array) {
+        const [type, version] = result;
+
+        if (satisfies(typeEnv.compilerVersion, version)) {
+            return type;
+        }
+
+        throw new SInaccessibleForVersion(expr, name, typeEnv.compilerVersion);
+    }
+
+    return result;
 }
 
 /**
@@ -884,7 +909,7 @@ export function tcId(expr: SId, ctx: STypingCtx, typeEnv: TypeEnv): TypeNode {
         return new TypeNameType(mkUserDefinedType(userDef));
     }
 
-    retT = tcIdBuiltin(expr);
+    retT = tcIdBuiltinSymbol(expr, expr.name, typeEnv);
 
     if (retT !== undefined) {
         return retT;
@@ -1297,9 +1322,9 @@ export function tcMemberAccess(expr: SMemberAccess, ctx: STypingCtx, typeEnv: Ty
     const baseT = tc(expr.base, ctx, typeEnv);
 
     if (baseT instanceof BuiltinStructType) {
-        const type = baseT.members.get(expr.member);
+        const result = baseT.members.get(expr.member);
 
-        if (type === undefined) {
+        if (result === undefined) {
             throw new SNoField(
                 `Builtin struct "${expr.base.pp()}" does not have a member "${expr.member}"`,
                 expr,
@@ -1307,7 +1332,17 @@ export function tcMemberAccess(expr: SMemberAccess, ctx: STypingCtx, typeEnv: Ty
             );
         }
 
-        return type;
+        if (result instanceof Array) {
+            const [type, version] = result;
+
+            if (satisfies(typeEnv.compilerVersion, version)) {
+                return type;
+            }
+
+            throw new SInaccessibleForVersion(expr, expr.member, typeEnv.compilerVersion);
+        }
+
+        return result;
     }
 
     if (baseT instanceof PointerType) {
@@ -1355,7 +1390,8 @@ export function tcMemberAccess(expr: SMemberAccess, ctx: STypingCtx, typeEnv: Ty
             }
         }
 
-        const type = BuiltinAddressMembers.get(expr.member);
+        // const type = BuiltinAddressMembers.get(expr.member);
+        const type = tcIdBuiltinSymbol(expr, expr.member, typeEnv, true);
 
         if (type) {
             return type;
@@ -1363,9 +1399,9 @@ export function tcMemberAccess(expr: SMemberAccess, ctx: STypingCtx, typeEnv: Ty
     }
 
     if (baseT instanceof AddressType) {
-        const type = BuiltinAddressMembers.get(expr.member);
+        const type = tcIdBuiltinSymbol(expr, expr.member, typeEnv, true);
 
-        if (type !== undefined) {
+        if (type) {
             return type;
         }
     }

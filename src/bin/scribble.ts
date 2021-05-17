@@ -805,7 +805,7 @@ if ("version" in options) {
             throw e;
         }
 
-        const typeEnv = new TypeEnv();
+        const typeEnv = new TypeEnv(compilerVersionUsed);
         const semMap: SemMap = new Map();
 
         try {

@@ -1,10 +1,11 @@
 import { BuiltinType, TypeNode, Range } from "solc-typed-ast";
 
 export class BuiltinStructType extends BuiltinType {
-    public readonly members: Map<string, TypeNode>;
+    public readonly members: Map<string, TypeNode | [TypeNode, string]>;
 
-    constructor(name: string, members: Map<string, TypeNode>, src?: Range) {
+    constructor(name: string, members: Map<string, TypeNode | [TypeNode, string]>, src?: Range) {
         super(name, src);
+
         this.members = members;
     }
 
