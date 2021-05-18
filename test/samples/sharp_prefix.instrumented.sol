@@ -4,9 +4,7 @@ pragma solidity 0.6.10;
 contract __scribble_ReentrancyUtils {
     bool __scribble_out_of_contract = true;
 }
-///  # 
-///       define some(uint a) uint = 1 + a
-///  ;
+///  #define some(uint a) uint = 1 + a;
 ///  #invariant
 ///       some(1) != 2;
 contract Foo is __scribble_ReentrancyUtils {
