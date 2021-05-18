@@ -1,11 +1,29 @@
+import { spawnSync } from "child_process";
+import expect from "expect";
+
+describe(`Command "scribble <filename>" emits deprecation warning`, () => {
+    const cases: Array<[string, string, string]> = [
+        [
+            "test/samples/unprefixed.sol",
+            `
+---------------------------------------------
+[notice] Annotations without "#" prefix are deprecated:
+
+test/samples/unprefixed.sol:3:3 define should be #define
+test/samples/unprefixed.sol:5:3 invariant should be #invariant
+test/samples/unprefixed.sol:9:8 if_succeeds should be #if_succeeds
+test/samples/unprefixed.sol:14:8 if_succeeds should be #if_succeeds
+---------------------------------------------      
+        `,
+            `
 pragma solidity 0.6.10;
 
 /// Utility contract holding a stack counter
 contract __scribble_ReentrancyUtils {
     bool __scribble_out_of_contract = true;
 }
-///  #define some(uint a) uint = 1 + a;
-///  #invariant
+///  define some(uint a) uint = 1 + a;
+///  invariant
 ///       some(1) != 2;
 contract Foo is __scribble_ReentrancyUtils {
     event AssertionFailed(string message);
@@ -59,3 +77,29 @@ contract Foo is __scribble_ReentrancyUtils {
         __scribble_out_of_contract = true;
     }
 }
+        `
+        ]
+    ];
+
+    for (const [fileName, notice, instrumentation] of cases) {
+        describe(`scribble ${fileName}`, () => {
+            let outData: string;
+            let errData: string;
+
+            before(() => {
+                const result = spawnSync("scribble", [fileName], { encoding: "utf8" });
+
+                outData = result.stdout;
+                errData = result.stderr;
+            });
+
+            it("STDERR is correct", () => {
+                expect(errData).toContain(notice.trim());
+            });
+
+            it("STDOUT is correct", () => {
+                expect(outData).toContain(instrumentation.trim());
+            });
+        });
+    }
+});

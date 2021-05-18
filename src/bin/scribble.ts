@@ -116,9 +116,11 @@ function printDeprecationNotices(annotMap: AnnotationMap): void {
 
     if (unprefixed.length > 0) {
         const delimiter = "-".repeat(45);
-
-        console.warn(delimiter);
-        console.warn('[notice] Annotations without "#" prefix are deprecated:\n');
+        const notice: string[] = [
+            delimiter,
+            '[notice] Annotations without "#" prefix are deprecated:',
+            ""
+        ];
 
         for (const annotMeta of unprefixed) {
             const unit = annotMeta.target.root as SourceUnit;
@@ -126,10 +128,12 @@ function printDeprecationNotices(annotMap: AnnotationMap): void {
             const coords = `${location.start.line}:${location.start.column}`;
             const type = annotMeta.type;
 
-            console.warn(`${unit.absolutePath}:${coords} ${type} should be #${type}`);
+            notice.push(`${unit.absolutePath}:${coords} ${type} should be #${type}`);
         }
 
-        console.warn(delimiter);
+        notice.push(delimiter);
+
+        console.warn(notice.join("\n"));
     }
 }
 
