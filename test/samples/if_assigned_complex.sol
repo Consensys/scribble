@@ -1,15 +1,15 @@
 pragma solidity ^0.8.0;
 
 contract Base {
-	//// if_assigned x >= old(x);
+	//// #if_assigned x >= old(x);
 	uint x = 1;
-	//// if_updated arr.length > 0;
-	//// if_assigned[x] 0 <= x && x <= arr.length;
+	//// #if_updated arr.length > 0;
+	//// #if_assigned[x] 0 <= x && x <= arr.length;
 	uint[] arr;
 
-	//// if_updated arr2.length > 0;
-	//// if_assigned[x] 0 <= x && x <= arr2.length;
-	//// if_assigned[x][y] 0 <= y && y <= arr2[x].length;
+	//// #if_updated arr2.length > 0;
+	//// #if_assigned[x] 0 <= x && x <= arr2.length;
+	//// #if_assigned[x][y] 0 <= y && y <= arr2[x].length;
 	uint[][] arr2;
 
 	struct S {
@@ -17,8 +17,8 @@ contract Base {
 		uint[][] arr2;
 	}
 
-	//// if_assigned.arr[x] 0 <= x && x <= s.arr.length;
-	//// if_assigned.arr2[x][y] 0 <= y && y <= s.arr2[x].length;
+	//// #if_assigned.arr[x] 0 <= x && x <= s.arr.length;
+	//// #if_assigned.arr2[x][y] 0 <= y && y <= s.arr2[x].length;
 	S s;
 
 	constructor() {

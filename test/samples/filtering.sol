@@ -10,7 +10,7 @@ contract Foo {
         x = _x;
     }
 
-    /// if_succeeds {:msg "Critical.P4"} b == a + 1;
+    /// #if_succeeds {:msg "Critical.P4"} b == a + 1;
     function foo(uint256 a) public returns (uint256 b) {
         return a + 1;
     }

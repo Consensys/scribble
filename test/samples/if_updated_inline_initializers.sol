@@ -1,12 +1,12 @@
 pragma solidity ^0.8.0;
 
 contract Base {
-	//// if_updated x >= old(x);
+	//// #if_updated x >= old(x);
 	uint x = 1;
-	//// if_updated arr.length > 0;
+	//// #if_updated arr.length > 0;
 	uint[] arr = [1];
 
-	//// if_updated arr2.length > 0;
+	//// #if_updated arr2.length > 0;
 	uint[][] arr2 = [[1,2], [3,4]];
 
 	struct S {
@@ -14,7 +14,7 @@ contract Base {
 		uint[][] arr2;
 	}
 
-	//// if_updated s.arr.length > 0;
+	//// #if_updated s.arr.length > 0;
 	S s = S({arr:arr, arr2: arr2});
 }
 
