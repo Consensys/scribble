@@ -2,7 +2,7 @@ pragma solidity 0.6.10;
 contract Test {
     /// Leading string
     ///
-    /// if_succeeds {:msg "P0"} y
+    /// #if_succeeds {:msg "P0"} y
     ///      \o/ x;
     ///
     /// Trailing string

@@ -1,10 +1,18 @@
 // Top-level rules
 Annotation
-    = StartingWhiteSpace annotation: (Invariant
-    / If_Succeeds
-    / If_Updated
-    / If_Assigned
-    / UserFunctionDefinition) .* { return annotation; }
+    = StartingWhiteSpace
+      prefix: '#'?
+      annotation: (
+        Invariant
+        / If_Succeeds
+        / If_Updated
+        / If_Assigned
+        / UserFunctionDefinition
+      ) .* {
+        annotation.prefix = prefix === null ? undefined : prefix;
+
+        return annotation;
+      }
 
 Expression =
     LetExpression

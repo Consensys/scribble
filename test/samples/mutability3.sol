@@ -8,7 +8,7 @@ contract Base {
 contract Foo is Base{
     uint x = 1;
     
-    /// if_succeeds {:msg ""} x > 0;
+    /// #if_succeeds {:msg ""} x > 0;
     function getX() virtual view override public returns (uint) {
         return x;
     }

@@ -9,15 +9,15 @@ describe(`Command "scribble <filename>" is failing as expected`, () => {
         ],
         [
             ["test/samples/invalid/annotation_syntax_error.invalid.sol"],
-            /^test\/samples\/invalid\/annotation_syntax_error.invalid.sol:5:34 SyntaxError: Expected (.|\s)+ but (.|\s)+ found/m
+            /^test\/samples\/invalid\/annotation_syntax_error.invalid.sol:5:35 SyntaxError: Expected (.|\s)+ but (.|\s)+ found/m
         ],
         [
             ["test/samples/invalid/invariant_on_function.invalid.sol"],
-            /^test\/samples\/invalid\/invariant_on_function.invalid.sol:2:8 UnsupportedByTargetError: The "invariant" annotation is not applicable to functions/m
+            /^test\/samples\/invalid\/invariant_on_function.invalid.sol:2:9 UnsupportedByTargetError: The "invariant" annotation is not applicable to functions/m
         ],
         [
             ["test/samples/invalid/if_succeeds_on_free_function.invalid.sol"],
-            /^test\/samples\/invalid\/if_succeeds_on_free_function.invalid.sol:3:4 UnsupportedByTargetError: Instrumenting free functions is not supported/m
+            /^test\/samples\/invalid\/if_succeeds_on_free_function.invalid.sol:3:5 UnsupportedByTargetError: Instrumenting free functions is not supported/m
         ],
         [
             ["test/samples/invalid/if_updated_length.invalid.sol"],

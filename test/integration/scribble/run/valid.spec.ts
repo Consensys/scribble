@@ -26,6 +26,7 @@ describe(`Command "scribble <filename>" is working properly`, () => {
 
             before(() => {
                 const args = argMap.get(basename(inFileName)) || [];
+
                 outData = scribble(inFileName, ...args);
             });
 

@@ -1,14 +1,14 @@
 pragma solidity ^0.8.0;
 
 contract Base {
-	//// if_assigned x >=1;
+	//// #if_assigned x >=1;
 	uint x = 1;
-	//// if_assigned y >= old(y);
+	//// #if_assigned y >= old(y);
 	uint y = 2;
 
 	uint z;
 
-	//// if_assigned uint160(a) >= 1;
+	//// #if_assigned uint160(a) >= 1;
 	address a = address(0x1);
 
 	uint[] arr;
