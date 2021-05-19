@@ -55,7 +55,7 @@ function makeInstrumentationCtx(
         false,
         new Map(),
         "flat",
-        new TypeEnv(),
+        new TypeEnv(compilerVersion),
         new Map()
     );
 

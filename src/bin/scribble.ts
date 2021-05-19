@@ -841,7 +841,7 @@ if ("version" in options) {
 
         printDeprecationNotices(annotMap);
 
-        const typeEnv = new TypeEnv();
+        const typeEnv = new TypeEnv(compilerVersionUsed);
         const semMap: SemMap = new Map();
 
         try {

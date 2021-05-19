@@ -1,19 +1,19 @@
 import {
-    DataLocation,
-    FunctionStateMutability,
-    FunctionVisibility,
     AddressType,
     BoolType,
     BytesType,
+    DataLocation,
     FixedBytesType,
+    FunctionStateMutability,
     FunctionType,
+    FunctionVisibility,
     IntType,
     PointerType,
     TypeNode
 } from "solc-typed-ast";
 import { BuiltinStructType } from "./internal_types";
 
-export const BuiltinSymbols = new Map<string, TypeNode>([
+export const BuiltinSymbols = new Map<string, TypeNode | [TypeNode, string]>([
     ["abi", new BuiltinStructType("abi", new Map())],
     [
         "block",
@@ -147,7 +147,7 @@ export const BuiltinSymbols = new Map<string, TypeNode>([
     ]
 ]);
 
-export const BuiltinAddressMembers = new Map<string, TypeNode>([
+export const BuiltinAddressMembers = new Map<string, TypeNode | [TypeNode, string]>([
     ["balance", new IntType(256, false)],
     [
         "staticcall",
@@ -159,5 +159,5 @@ export const BuiltinAddressMembers = new Map<string, TypeNode>([
             FunctionStateMutability.View
         )
     ],
-    ["code", new PointerType(new BytesType(), DataLocation.Memory)]
+    ["code", [new PointerType(new BytesType(), DataLocation.Memory), ">=0.8.0"]]
 ]);

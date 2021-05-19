@@ -54,6 +54,7 @@ export function toAst(
 
         if (errors.length === 0) {
             const reader = new ASTReader();
+
             return [reader.read(data, ASTKind.Any, files), reader, files, compilerVersion];
         }
 
