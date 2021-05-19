@@ -9,7 +9,7 @@ function addSome(uint v) pure returns (uint) {
 contract Test {
     uint num;
 
-    /// if_succeeds {:msg "P1"} num == 25;
+    /// #if_succeeds {:msg "P1"} num == 25;
     function operate() public {
         num = addSome(15);
     }

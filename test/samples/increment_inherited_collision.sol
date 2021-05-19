@@ -26,7 +26,7 @@ abstract contract __scribble_ReentrancyUtils {
         assert(false);
     }
 
-    /// if_succeeds {:msg "P0"} let foo := y in
+    /// #if_succeeds {:msg "P0"} let foo := y in
     ///         let  __mstore_scratch__ := foo in
     ///             let __scribble_check_invs_at_end := __mstore_scratch__ in
     ///                 __scribble_check_invs_at_end == _v+1;
@@ -37,7 +37,7 @@ abstract contract __scribble_ReentrancyUtils {
     }
 }
 
-/// invariant {:msg ""} t >= 1;
+/// #invariant {:msg ""} t >= 1;
 contract Foo is __scribble_ReentrancyUtils {
     uint t = 1;
     function foo(uint256 _v) override public returns (uint256 y) {

@@ -1,6 +1,6 @@
 pragma solidity 0.8.4;
 
-/// define id(uint x) uint = x + 1 - 1;
+/// #define id(uint x) uint = x + 1 - 1;
 contract TestUnchecked {
     event AssertionFailed(string message);
 

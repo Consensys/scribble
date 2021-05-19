@@ -3,7 +3,7 @@ contract Test {
     /**
      * Leading string
      * 
-     * if_succeeds {:msg "P0"} y
+     * #if_succeeds {:msg "P0"} y
      *     \o/ x;
      *
      * Trailing string

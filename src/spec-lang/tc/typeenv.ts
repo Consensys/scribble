@@ -13,9 +13,13 @@ export class TypeEnv {
     private typeMap: TypeMap;
     private userFunctions: Map<ContractDefinition, Map<string, SUserFunctionDefinition>>;
 
-    constructor() {
+    public readonly compilerVersion: string;
+
+    constructor(compilerVersion: string) {
         this.typeMap = new Map();
         this.userFunctions = new Map();
+
+        this.compilerVersion = compilerVersion;
     }
 
     hasType(node: SNode): boolean {
@@ -28,6 +32,7 @@ export class TypeEnv {
         }
 
         const res = this.typeMap.get(node);
+
         assert(res !== undefined, `Missing type for ${node.pp()}`);
 
         return res;
@@ -63,6 +68,7 @@ export class TypeEnv {
         }
 
         funM.set(fun.name.name, fun);
+
         this.userFunctions.set(scope, funM);
     }
 }

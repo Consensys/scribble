@@ -9,9 +9,9 @@ const cases: Array<[string, string, string, string]> = [
         `
 pragma solidity 0.6.10;
 
-/// invariant {:msg "Low.P0"} x > 0;
-///  invariant {:msg "Medium.P1"} x == 0;
-///  invariant {:msg "Critical.P2"} x < 0;
+/// #invariant {:msg "Low.P0"} x > 0;
+///  #invariant {:msg "Medium.P1"} x == 0;
+///  #invariant {:msg "Critical.P2"} x < 0;
 contract Foo {
     event AssertionFailed(string message);
 

@@ -51,7 +51,7 @@ abstract contract __scribble_ReentrancyUtils is __scribble_ReentrancyUtils1 {
         assert(false);
     }
 
-    /// if_succeeds {:msg "P0"} let foo := y in
+    /// #if_succeeds {:msg "P0"} let foo := y in
     ///          let  __mstore_scratch__ := foo in
     ///              let __scribble_check_invs_at_end := __mstore_scratch__ in
     ///                  __scribble_check_invs_at_end == _v+1;
@@ -76,7 +76,7 @@ abstract contract __scribble_ReentrancyUtils is __scribble_ReentrancyUtils1 {
     }
 }
 
-/// invariant {:msg ""} t >= 1;
+/// #invariant {:msg ""} t >= 1;
 contract Foo is __scribble_ReentrancyUtils1, __scribble_ReentrancyUtils {
     event AssertionFailed(string message);
 
