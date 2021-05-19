@@ -702,25 +702,49 @@ function tcIdBuiltinType(expr: SId): TypeNameType | undefined {
     return undefined;
 }
 
+function getTypeForCompilerVersion(
+    typing: TypeNode | [TypeNode, string],
+    compilerVersion: string
+): TypeNode | undefined {
+    if (typing instanceof TypeNode) {
+        return typing;
+    }
+
+    const [type, version] = typing;
+
+    return satisfies(compilerVersion, version) ? type : undefined;
+}
+
 function tcIdBuiltinSymbol(
     expr: SNode,
     name: string,
     typeEnv: TypeEnv,
     isAddressMember = false
 ): TypeNode | undefined {
-    const result = isAddressMember ? BuiltinAddressMembers.get(name) : BuiltinSymbols.get(name);
+    const mapping = isAddressMember ? BuiltinAddressMembers : BuiltinSymbols;
+    const typing = mapping.get(name);
 
-    if (result instanceof Array) {
-        const [type, version] = result;
+    /**
+     * There is no typing for the builtin name.
+     *
+     * Leave handling to callers by returning `undefined`.
+     */
+    if (typing === undefined) {
+        return undefined;
+    }
 
-        if (satisfies(typeEnv.compilerVersion, version)) {
-            return type;
-        }
+    const type = getTypeForCompilerVersion(typing, typeEnv.compilerVersion);
 
+    /**
+     * There is a typing, but it is not covered by the target compiler version.
+     *
+     * Throw an error to inform user.
+     */
+    if (type === undefined) {
         throw new SInaccessibleForVersion(expr, name, typeEnv.compilerVersion);
     }
 
-    return result;
+    return type;
 }
 
 /**
@@ -1322,9 +1346,9 @@ export function tcMemberAccess(expr: SMemberAccess, ctx: STypingCtx, typeEnv: Ty
     const baseT = tc(expr.base, ctx, typeEnv);
 
     if (baseT instanceof BuiltinStructType) {
-        const result = baseT.members.get(expr.member);
+        const typing = baseT.members.get(expr.member);
 
-        if (result === undefined) {
+        if (typing === undefined) {
             throw new SNoField(
                 `Builtin struct "${expr.base.pp()}" does not have a member "${expr.member}"`,
                 expr,
@@ -1332,17 +1356,13 @@ export function tcMemberAccess(expr: SMemberAccess, ctx: STypingCtx, typeEnv: Ty
             );
         }
 
-        if (result instanceof Array) {
-            const [type, version] = result;
+        const type = getTypeForCompilerVersion(typing, typeEnv.compilerVersion);
 
-            if (satisfies(typeEnv.compilerVersion, version)) {
-                return type;
-            }
-
+        if (type === undefined) {
             throw new SInaccessibleForVersion(expr, expr.member, typeEnv.compilerVersion);
         }
 
-        return result;
+        return type;
     }
 
     if (baseT instanceof PointerType) {
@@ -1390,7 +1410,6 @@ export function tcMemberAccess(expr: SMemberAccess, ctx: STypingCtx, typeEnv: Ty
             }
         }
 
-        // const type = BuiltinAddressMembers.get(expr.member);
         const type = tcIdBuiltinSymbol(expr, expr.member, typeEnv, true);
 
         if (type) {
@@ -1414,7 +1433,7 @@ export function tcMemberAccess(expr: SMemberAccess, ctx: STypingCtx, typeEnv: Ty
         // First check if this is a type name
         const type = resolveTypeDef([ctx[0], baseT.type.definition], expr.member);
 
-        if (type !== undefined) {
+        if (type) {
             return new TypeNameType(mkUserDefinedType(type));
         }
 
