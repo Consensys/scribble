@@ -1,9 +1,9 @@
 contract IfUpdatedAliasing {
-        //// if_updated true;
+        //// #if_updated true;
         uint[] a1;
         uint[] a2;
 
-		//// if_updated true;
+		//// #if_updated true;
         uint[][] aa1;
         uint[][] aa2;
 

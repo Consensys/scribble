@@ -10,6 +10,9 @@ export enum AnnotationType {
 export abstract class SAnnotation extends SNode {
     public readonly type: AnnotationType;
     public readonly label?: string;
+
+    prefix: string | undefined;
+
     constructor(type: AnnotationType, label?: string, src?: Range) {
         super(src);
         this.type = type;

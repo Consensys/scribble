@@ -1,7 +1,7 @@
 pragma solidity 0.6.10;
 
 abstract contract Base {
-    /// if_succeeds {:msg "P0"} y == x+1;
+    /// #if_succeeds {:msg "P0"} y == x+1;
     function foo(uint256 x) public virtual returns (uint256 y);
 }
 

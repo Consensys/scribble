@@ -1,5 +1,5 @@
 pragma solidity 0.5.10;
-/// invariant {:msg ""} x>0;
+/// #invariant {:msg ""} x>0;
 contract Foo {
     int x = 1;
     function inc() public payable {

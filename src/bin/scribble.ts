@@ -103,6 +103,40 @@ function prettyError(
     error(descriptionLines.join("\n\n"));
 }
 
+function printDeprecationNotices(annotMap: AnnotationMap): void {
+    const unprefixed: AnnotationMetaData[] = [];
+
+    for (const annotMetas of annotMap.values()) {
+        for (const annotMeta of annotMetas) {
+            if (annotMeta.parsedAnnot.prefix === undefined) {
+                unprefixed.push(annotMeta);
+            }
+        }
+    }
+
+    if (unprefixed.length > 0) {
+        const delimiter = "-".repeat(45);
+        const notice: string[] = [
+            delimiter,
+            '[notice] Annotations without "#" prefix are deprecated:',
+            ""
+        ];
+
+        for (const annotMeta of unprefixed) {
+            const unit = annotMeta.target.root as SourceUnit;
+            const location = annotMeta.annotationFileRange;
+            const coords = `${location.start.line}:${location.start.column}`;
+            const type = annotMeta.type;
+
+            notice.push(`${unit.absolutePath}:${coords} ${type} should be #${type}`);
+        }
+
+        notice.push(delimiter);
+
+        console.warn(notice.join("\n"));
+    }
+}
+
 function compile(
     fileName: string,
     type: "source" | "json",
@@ -804,6 +838,8 @@ if ("version" in options) {
 
             throw e;
         }
+
+        printDeprecationNotices(annotMap);
 
         const typeEnv = new TypeEnv();
         const semMap: SemMap = new Map();

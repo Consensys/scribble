@@ -22,7 +22,7 @@ contract FooToken {
     return _allowances[_owner][_spender];
   }
 
-  /// if_succeeds {:msg "P0"} old(_balances[msg.sender] + _balances[_to]) == _balances[msg.sender] + _balances[_to];
+  /// #if_succeeds {:msg "P0"} old(_balances[msg.sender] + _balances[_to]) == _balances[msg.sender] + _balances[_to];
   function transfer(address _to, uint256 _value) external returns (bool) {
     address from = msg.sender;
     require(_value <= _balances[from]);

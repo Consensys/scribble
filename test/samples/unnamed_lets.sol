@@ -4,7 +4,7 @@ contract Foo {
         return (1,v);
     }
 
-    /// if_succeeds {:msg "P0"} let _,x := snd(v) in x == 2;
+    /// #if_succeeds {:msg "P0"} let _,x := snd(v) in x == 2;
     function foo(uint v) public {
     }
 }

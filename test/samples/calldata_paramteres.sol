@@ -1,5 +1,5 @@
 pragma solidity 0.6.10;
-/// invariant {:msg "P1"} true;
+/// #invariant {:msg "P1"} true;
 contract Test {
     function foo(bytes calldata x) external returns (bytes calldata y) {
         y = x;

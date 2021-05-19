@@ -14,14 +14,14 @@ contract TokenSale {
         return address(this).balance < 1 ether;
     }
 
-    /// if_succeeds {:msg "P0"} address(this).balance >= 1;
+    /// #if_succeeds {:msg "P0"} address(this).balance >= 1;
     function buy(uint256 numTokens) public payable {
         require(msg.value == numTokens * PRICE_PER_TOKEN);
 
         balanceOf[msg.sender] += numTokens;
     }
 
-    /// if_succeeds {:msg "P1"} address(this).balance >= 1;
+    /// #if_succeeds {:msg "P1"} address(this).balance >= 1;
     function sell(uint256 numTokens) public {
         require(balanceOf[msg.sender] >= numTokens);
 

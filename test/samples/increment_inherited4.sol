@@ -7,7 +7,7 @@ contract Base {
 }
 
 contract Foo is Base {
-    /// if_succeeds {:msg "P0"} x>10;
+    /// #if_succeeds {:msg "P0"} x>10;
     function foo(uint256 x) public returns (uint256 y) {
         return x + 1;
     }

@@ -1,11 +1,11 @@
 pragma solidity ^0.8.0;
 
 contract IfUpdatedPrimitive {
-	//// if_updated x >=1;
+	//// #if_updated x >=1;
 	uint x = 1;
 	uint y = 2;
 
-	//// if_updated uint160(a) >= 1;
+	//// #if_updated uint160(a) >= 1;
 	address a = address(0x1);
 
 	constructor() {

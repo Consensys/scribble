@@ -57,7 +57,7 @@ contract B is __scribble_ReentrancyUtils {
         __scribble_out_of_contract = true;
     }
 }
-/// invariant {:msg "P1"} true;
+/// #invariant {:msg "P1"} true;
 contract C is __scribble_ReentrancyUtils, B, A {
     struct vars4 {
         bool __scribble_check_invs_at_end;

@@ -14,7 +14,7 @@ library SillyMath {
     }
 }
 
-/// invariant {:msg ""} x>0;
+/// #invariant {:msg ""} x>0;
 contract Foo is __scribble_ReentrancyUtils, IFoo {
     using SillyMath for int;
 
