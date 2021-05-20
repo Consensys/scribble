@@ -881,13 +881,7 @@ describe("TypeChecker Annotation Tests", () => {
                     new BoolType(),
                     true
                 ],
-                ["if_updated old(z)>0;", ["Unrelated", "z"], new SBoolType(), true],
-                [
-                    "if_succeeds forall(uint i in arr) arr[i] > 0;",
-                    ["Base", "plus"],
-                    undefined,
-                    true
-                ],
+                ["if_updated old(z)>0;", ["Unrelated", "z"], new BoolType(), true],
                 [
                     "if_succeeds forall(uint i in [1...10]) arr[i] > 0;",
                     ["Base", "plus"],

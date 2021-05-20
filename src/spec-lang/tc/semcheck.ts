@@ -446,17 +446,9 @@ export function scForAll(expr: SForAll, ctx: SemCtx, typeEnv: TypeEnv, semMap: S
     const canFail =
         exprSemInfo.canFail || itrSemInfo.canFail || startSemInfo.canFail || endSemInfo.canFail;
 
-    sc(expr.start(), ctx, typeEnv, semMap);
-    sc(expr.end(), ctx, typeEnv, semMap);
-
     if (!ctx.isOld) {
         expr.expression.walk((node) => {
-            if (
-                node instanceof SId &&
-                semMap.get(node)?.isOld &&
-                node.defSite instanceof SForAll &&
-                node.defSite.iteratorVariable.id == expr.iteratorVariable.id
-            ) {
+            if (node instanceof SId && semMap.get(node)?.isOld && node.defSite === expr) {
                 throw new SemError(
                     `Cannot evaluate ${expr.pp()} due to the usage of ${expr.iteratorVariable.pp()} in old()`,
                     expr

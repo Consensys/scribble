@@ -59,7 +59,7 @@ export class SForAll extends SNode {
         if (this._start) {
             return this._start;
         }
-        return new SNumber(bigInt(0), 256);
+        return new SNumber(bigInt(0), 10);
     }
 
     end(): SNode {
@@ -89,8 +89,8 @@ export class SForAll extends SNode {
             this.iteratorVariable,
             this.expression,
             this.startBracket,
-            this.start(),
-            this.end(),
+            this._start,
+            this._end,
             this.endBracket,
             this.array
         ];

@@ -53,7 +53,7 @@ Range =
     
 
 For_All = 
-  type: FORALL __ "(" __ itr_type: IntType __ iterator: Identifier __ IN __ range: Range ")" __ expr: Expression
+  type: FORALL __ "(" __ itr_type: IntType __ iterator: Identifier __ IN __ range: Range __ ")" __ expr: Expression
   {
     if(Array.isArray(range)) {
       const [start, end, start_bracket, end_bracket] = range;

@@ -1578,10 +1578,6 @@ function matchArguments(
  *   - t is defined in e(t).
  */
 export function tcForAll(expr: SForAll, ctx: STypingCtx, typeEnv: TypeEnv): TypeNode {
-    assert(
-        typeof expr.start == typeof expr.end,
-        `The types of ${expr.start} and ${expr.end} are unequal, One of them is likely undefined`
-    );
     const startT = tc(expr.start(), ctx, typeEnv);
 
     if (!(startT instanceof IntType || startT instanceof IntLiteralType)) {
@@ -1605,7 +1601,7 @@ export function tcForAll(expr: SForAll, ctx: STypingCtx, typeEnv: TypeEnv): Type
         throw new SWrongType(
             `The type for ${expr.start().pp()} is not castable to ${expr.iteratorType}.`,
             expr.start(),
-            expr.iteratorType
+            startT
         );
     }
 
@@ -1613,7 +1609,7 @@ export function tcForAll(expr: SForAll, ctx: STypingCtx, typeEnv: TypeEnv): Type
         throw new SWrongType(
             `The type for ${expr.end().pp()} is not castable to ${expr.iteratorType}.`,
             expr.end(),
-            expr.iteratorType
+            endT
         );
     }
 
