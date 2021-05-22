@@ -22,6 +22,7 @@ import {
     FunctionVisibility,
     Identifier,
     ImportDirective,
+    isSane,
     MemberAccess,
     ParameterList,
     SourceUnit,
@@ -54,7 +55,6 @@ import {
 import { instrumentStateVars } from "../instrumenter/state_var_instrumenter";
 import { InstrumentationContext } from "../instrumenter/instrumentation_context";
 import { merge } from "../rewriter/merge";
-import { isSane } from "../rewriter/sanity";
 import { AnnotationType, Location, Range } from "../spec-lang/ast";
 import { scUnits, SemError, SemMap, STypeError, tcUnits, TypeEnv } from "../spec-lang/tc";
 import {
@@ -902,7 +902,6 @@ if ("version" in options) {
             addAssert,
             callgraph,
             cha,
-            new Set<FunctionDefinition>(),
             filterOptions,
             dedup(flatten(annotMap.values())),
             new Map(),

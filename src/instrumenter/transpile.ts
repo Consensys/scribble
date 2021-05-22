@@ -1,6 +1,7 @@
 import {
     AddressType,
     ArrayType,
+    assert,
     ASTNodeFactory,
     BoolType,
     BytesType,
@@ -12,6 +13,7 @@ import {
     FixedBytesType,
     FunctionCallKind,
     FunctionDefinition,
+    FunctionType,
     FunctionVisibility,
     Identifier,
     IntLiteralType,
@@ -29,7 +31,9 @@ import {
     UserDefinedType,
     VariableDeclaration
 } from "solc-typed-ast";
+import { AnnotationMetaData, PropertyMetaData, single, UserFunctionDefinitionMetaData } from "..";
 import {
+    SAddressLiteral,
     SBinaryOperation,
     SBooleanLiteral,
     SConditional,
@@ -41,18 +45,16 @@ import {
     SMemberAccess,
     SNode,
     SNumber,
+    SResult,
     SStringLiteral,
     SUnaryOperation,
-    SAddressLiteral,
-    SResult,
     SUserFunctionDefinition
 } from "../spec-lang/ast";
-import { BuiltinSymbols, StateVarScope, STypingCtx } from "../spec-lang/tc";
+import { BuiltinSymbols, SemInfo, StateVarScope } from "../spec-lang/tc";
 import { FunctionSetType } from "../spec-lang/tc/internal_types";
-import { assert, last, single } from "../util";
 import { TranspilingContext } from "./transpiling_context";
 
-export function generateTypeAst(type: TypeNode, factory: ASTNodeFactory): TypeName {
+export function transpileType(type: TypeNode, factory: ASTNodeFactory): TypeName {
     if (
         type instanceof TupleType ||
         type instanceof IntLiteralType ||
@@ -73,7 +75,7 @@ export function generateTypeAst(type: TypeNode, factory: ASTNodeFactory): TypeNa
     }
 
     if (type instanceof PointerType) {
-        return generateTypeAst(type.to, factory);
+        return transpileType(type.to, factory);
     }
 
     if (type instanceof UserDefinedType) {
@@ -83,7 +85,7 @@ export function generateTypeAst(type: TypeNode, factory: ASTNodeFactory): TypeNa
     if (type instanceof ArrayType) {
         return factory.makeArrayTypeName(
             "<missing>",
-            generateTypeAst(type.elementT, factory),
+            transpileType(type.elementT, factory),
             type.size !== undefined
                 ? factory.makeLiteral("<missing>", LiteralKind.Number, "", "" + type.size)
                 : undefined
@@ -93,61 +95,54 @@ export function generateTypeAst(type: TypeNode, factory: ASTNodeFactory): TypeNa
     throw new Error(`NYI emitting spec type ${type.pp()}`);
 }
 
-export function getTypeLocation(type: TypeNode): DataLocation {
-    if (type instanceof PointerType) {
-        return type.location;
+function transpileId(expr: SId, ctx: TranspilingContext): Expression {
+    const typeEnv = ctx.typeEnv;
+    const factory = ctx.factory;
+
+    if (BuiltinSymbols.has(expr.name)) {
+        return factory.makeIdentifier("<missing>", expr.name, -1);
     }
 
-    return DataLocation.Default;
-}
+    // Builtin symbols are the only identifiers with undefined `defSite`.
+    if (expr.defSite === undefined) {
+        throw new Error(
+            `Cannot generate AST for id ${expr.pp()} with no corrseponding definition.`
+        );
+    }
 
-/**
- * Generate an ASTVariableDeclaration for:
- *  - function params
- *  - function returns
- *  - function local vars
- *
- * @param name - name of the new var
- * @param type - Scribble type of the var
- * @param factory - ASTNodeFactory
- */
-export function generateFunVarDecl(
-    name: string,
-    type: TypeNode,
-    factory: ASTNodeFactory
-): VariableDeclaration {
-    const astType = generateTypeAst(type, factory);
+    // Normal solidity variable - function argument, return, state variable or global constant.
+    if (expr.defSite instanceof VariableDeclaration) {
+        if (expr.name !== expr.defSite.name) {
+            throw new Error(
+                `Internal error: variable id ${expr.pp()} has different name from underlying variabl ${expr.defSite.print()}`
+            );
+        }
 
-    return factory.makeVariableDeclaration(
-        false,
-        false,
-        name,
-        -1,
-        false,
-        getTypeLocation(type),
-        StateVariableVisibility.Default,
-        Mutability.Mutable,
-        "<missing>",
-        undefined,
-        astType
-    );
-}
+        return factory.makeIdentifierFor(expr.defSite);
+    }
 
-export function generateIdAST(
-    spec: SId,
-    transCtx: TranspilingContext,
-    loc: STypingCtx
-): Expression {
-    const typeEnv = transCtx.typeEnv;
-    const factory = transCtx.factory;
+    // Let-variable used inside the body
+    if (expr.defSite instanceof Array && expr.defSite[0] instanceof SLet) {
+        return ctx.refBinding(ctx.getLetBinding(expr));
+    }
 
-    if (BuiltinSymbols.has(spec.name)) {
-        return factory.makeIdentifier("<missing>", spec.name, -1);
+    // User function argument
+    if (expr.defSite instanceof Array && expr.defSite[0] instanceof SUserFunctionDefinition) {
+        const instrCtx = ctx.instrCtx;
+        const transpiledUserFun = instrCtx.userFunctions.get(expr.defSite[0]);
+        assert(
+            transpiledUserFun !== undefined,
+            `Missing transpiled version of user function ${expr.defSite[0].pp()}`
+        );
+
+        return factory.makeIdentifierFor(
+            transpiledUserFun.vParameters.vParameters[expr.defSite[1]]
+        );
     }
 
     // State Var Property index identifier
-    if (spec.defSite instanceof Array && spec.defSite[0] instanceof StateVarScope) {
-        const [scope, idx] = spec.defSite;
+    if (expr.defSite instanceof Array && expr.defSite[0] instanceof StateVarScope) {
+        const [scope, idx] = expr.defSite;
         const prop = scope.annotation;
         // Count the indices (omitting member accesses) before `idx`
         let argIdx = 0;
@@ -157,56 +152,28 @@ export function generateIdAST(
                 argIdx++;
             }
         }
-        return factory.makeIdentifierFor(transCtx.container.vParameters.vParameters[argIdx]);
-    }
-
-    // User function argument
-    if (spec.defSite instanceof Array && spec.defSite[0] instanceof SUserFunctionDefinition) {
-        const instrCtx = transCtx.instrCtx;
-        const transpiledUserFun = instrCtx.userFunctions.get(spec.defSite[0]);
-        assert(
-            transpiledUserFun !== undefined,
-            `Missing transpiled version of user function ${spec.defSite[0].pp()}`
-        );
-
-        return factory.makeIdentifierFor(
-            transpiledUserFun.vParameters.vParameters[spec.defSite[1]]
-        );
+        return factory.makeIdentifierFor(ctx.container.vParameters.vParameters[argIdx]);
     }
 
     // User function itself
-    if (spec.defSite instanceof SUserFunctionDefinition) {
-        const instrCtx = transCtx.instrCtx;
-        const transpiledUserFun = instrCtx.userFunctions.get(spec.defSite);
+    if (expr.defSite instanceof SUserFunctionDefinition) {
+        const instrCtx = ctx.instrCtx;
+        const transpiledUserFun = instrCtx.userFunctions.get(expr.defSite);
         assert(
             transpiledUserFun !== undefined,
-            `Missing transpiled version of user function ${spec.defSite.pp()}`
+            `Missing transpiled version of user function ${expr.defSite.pp()}`
         );
 
         return factory.makeIdentifierFor(transpiledUserFun);
     }
 
-    // These should be removed by flattening
-    if (spec.defSite === undefined || spec.defSite instanceof Array) {
-        throw new Error(
-            `Cannot generate AST for id ${spec.pp()} with no corrseponding definition.`
-        );
-    }
-
     // This identifier
-    if (spec.defSite === "this") {
-        return factory.makeIdentifier("<missing>", "this", (loc[1] as ContractDefinition).id);
-    }
-
-    // Normal solidity variable
-    if (spec.defSite instanceof VariableDeclaration) {
-        if (spec.name !== spec.defSite.name) {
-            throw new Error(
-                `Internal error: variable id ${spec.pp()} has different name from underlying variabl ${spec.defSite.print()}`
-            );
-        }
-
-        return factory.makeIdentifierFor(spec.defSite);
+    if (expr.defSite === "this") {
+        return factory.makeIdentifier(
+            "<missing>",
+            "this",
+            (ctx.container.vScope as ContractDefinition).id
+        );
     }
 
     // Function, Public Getter, Contract or Type name
@@ -217,18 +184,18 @@ export function generateIdAST(
         | ContractDefinition
         | VariableDeclaration;
 
-    const specT = typeEnv.typeOf(spec);
+    const exprT = typeEnv.typeOf(expr);
 
-    if (specT instanceof FunctionSetType) {
-        referrencedDef = single(specT.definitions);
-    } else if (specT instanceof UserDefinedType) {
-        if (specT.definition === undefined) {
+    if (exprT instanceof FunctionSetType) {
+        referrencedDef = single(exprT.definitions);
+    } else if (exprT instanceof UserDefinedType) {
+        if (exprT.definition === undefined) {
             throw new Error(
-                `Id ${spec.pp()} of user defined type ${specT.pp()} is missing a definition.`
+                `Id ${expr.pp()} of user defined type ${exprT.pp()} is missing a definition.`
             );
         }
 
-        referrencedDef = specT.definition;
+        referrencedDef = exprT.definition;
     } else {
         throw new Error(`Unknown `);
     }
@@ -236,13 +203,240 @@ export function generateIdAST(
     return factory.makeIdentifierFor(referrencedDef);
 }
 
-export function generateExprAST(
-    expr: SNode,
-    transCtx: TranspilingContext,
-    loc: STypingCtx
+function transpileResult(expr: SResult, ctx: TranspilingContext): Expression {
+    const factory = ctx.factory;
+    const retParams = ctx.container.vReturnParameters.vParameters;
+
+    if (retParams.length === 1) {
+        return factory.makeIdentifierFor(retParams[0]);
+    }
+
+    if (retParams.length > 1) {
+        return factory.makeTupleExpression(
+            "<missing>",
+            false,
+            retParams.map((param) => factory.makeIdentifierFor(param))
+        );
+    }
+
+    throw new Error(`InternalError: attempt to transpile $result in function without returns.`);
+}
+
+function transpileIndexAccess(expr: SIndexAccess, ctx: TranspilingContext): Expression {
+    const factory = ctx.factory;
+    const base = transpile(expr.base, ctx);
+    const index = transpile(expr.index, ctx);
+
+    assert(
+        base instanceof Expression,
+        `InternalError: Base of ${expr.pp()} transpiled to non-expression node ${
+            base.constructor.name
+        }`
+    );
+
+    assert(
+        index instanceof Expression,
+        `InternalError: Index of ${expr.pp()} transpiled to non-expression node ${
+            index.constructor.name
+        }`
+    );
+
+    return factory.makeIndexAccess("<missing>", base, index);
+}
+
+function transpileMemberAccess(expr: SMemberAccess, ctx: TranspilingContext): Expression {
+    const factory = ctx.factory;
+    const base = transpile(expr.base, ctx);
+    const type = ctx.typeEnv.typeOf(expr);
+
+    let referencedDeclaration = -1;
+
+    if (type instanceof FunctionSetType) {
+        referencedDeclaration = single(type.definitions).id;
+    } else if (type instanceof UserDefinedType && type.definition) {
+        referencedDeclaration = type.definition.id;
+    }
+    return factory.makeMemberAccess("<missing>", base, expr.member, referencedDeclaration);
+}
+
+function transpileUnaryOperation(expr: SUnaryOperation, ctx: TranspilingContext): Expression {
+    const factory = ctx.factory;
+    const subExp = transpile(expr.subexp, ctx);
+
+    if (expr.op === "old") {
+        const bindingName = ctx.getOldVar(expr);
+        const type = ctx.typeEnv.typeOf(expr.subexp);
+        ctx.addBinding(bindingName, transpileType(type, ctx.factory));
+        const binding = ctx.refBinding(bindingName);
+        const stmt = ctx.insertAssignment(binding, subExp, true);
+        ctx.instrCtx.addAnnotationInstrumentation(ctx.curAnnotation, stmt);
+        return ctx.refBinding(bindingName);
+    }
+
+    return factory.makeUnaryOperation("<missing>", true, expr.op, subExp);
+}
+
+function transpileBinaryOperation(expr: SBinaryOperation, ctx: TranspilingContext): Expression {
+    const factory = ctx.factory;
+    const left = transpile(expr.left, ctx);
+    const right = transpile(expr.right, ctx);
+
+    if (expr.op === "==>") {
+        const notPrecedent = factory.makeUnaryOperation("missing", true, "!", left);
+
+        return factory.makeBinaryOperation("<missing>", "||", notPrecedent, right);
+    }
+
+    return factory.makeBinaryOperation("<missing>", expr.op, left, right);
+}
+
+function transpileConditional(expr: SConditional, ctx: TranspilingContext): Expression {
+    const factory = ctx.factory;
+    const condition = transpile(expr.condition, ctx);
+    const trueExp = transpile(expr.trueExp, ctx);
+    const falseExp = transpile(expr.falseExp, ctx);
+
+    return factory.makeConditional("<missing>", condition, trueExp, falseExp);
+}
+
+function transpileFunctionCall(expr: SFunctionCall, ctx: TranspilingContext): Expression {
+    const factory = ctx.factory;
+    const calleeT = ctx.typeEnv.typeOf(expr.callee);
+
+    let callee: Expression;
+    const kind =
+        calleeT instanceof TypeNameType
+            ? FunctionCallKind.TypeConversion
+            : FunctionCallKind.FunctionCall;
+
+    if (calleeT instanceof TypeNameType) {
+        // Type Cast
+        if (calleeT.type instanceof UserDefinedType) {
+            // User-defined type
+            assert(calleeT.type.definition !== undefined, ``);
+
+            callee = factory.makeIdentifierFor(calleeT.type.definition);
+        } else {
+            // Elementary type
+            callee = factory.makeElementaryTypeNameExpression(
+                "<missing>",
+                transpileType(calleeT.type, ctx.factory) as ElementaryTypeName
+            );
+        }
+    } else {
+        // Normal function call
+        callee = transpile(expr.callee, ctx);
+
+        if (
+            callee instanceof Identifier &&
+            callee.vReferencedDeclaration instanceof FunctionDefinition &&
+            callee.vReferencedDeclaration.visibility === FunctionVisibility.External
+        ) {
+            callee = factory.makeMemberAccess(
+                "<missing>",
+                factory.makeIdentifier(
+                    "<missing>",
+                    "this",
+                    (ctx.container.vScope as ContractDefinition).id
+                ),
+                callee.name,
+                callee.vReferencedDeclaration.id
+            );
+        }
+    }
+
+    const args = expr.args.map((arg) => transpile(arg, ctx));
+
+    return factory.makeFunctionCall("<mising>", kind, callee, args);
+}
+
+function transpileLet(expr: SLet, ctx: TranspilingContext): Expression {
+    const factory = ctx.factory;
+    const isLetOld = (ctx.semInfo.get(expr) as SemInfo).isOld;
+    const isLetBindingOld = (ctx.semInfo.get(expr.rhs) as SemInfo).isOld;
+
+    let rhs: Expression;
+
+    if (expr.rhs instanceof SUnaryOperation && expr.rhs.op === "old") {
+        rhs = transpile(expr.rhs.subexp, ctx);
+    } else {
+        rhs = transpile(expr.rhs, ctx);
+    }
+
+    const rhsT = ctx.typeEnv.typeOf(expr.rhs);
+    const lhss: Expression[] = [];
+
+    if (expr.lhs.length == 1) {
+        const name = ctx.getLetBinding([expr, 0]);
+        const type = transpileType(rhsT, ctx.factory);
+        ctx.addBinding(name, type);
+        lhss.push(ctx.refBinding(name));
+    } else {
+        const getLhsT = (i: number): TypeNode =>
+            rhsT instanceof TupleType ? rhsT.elements[i] : (rhsT as FunctionType).returns[i];
+
+        for (let i = 0; i < expr.lhs.length; i++) {
+            const name = ctx.getLetBinding([expr, i]);
+            const type = transpileType(getLhsT(i), ctx.factory);
+            ctx.addBinding(name, type);
+            lhss.push(ctx.refBinding(name));
+        }
+    }
+
+    let lhs: Expression;
+
+    if (lhss.length === 1) {
+        lhs = lhss[0];
+    } else {
+        lhs = factory.makeTupleExpression("<missing>", false, lhss);
+    }
+
+    let stmt = ctx.insertAssignment(lhs, rhs, isLetBindingOld);
+    ctx.instrCtx.addAnnotationInstrumentation(ctx.curAnnotation, stmt);
+
+    const body = transpile(expr.in, ctx);
+    const letVarName = ctx.getLetVar(expr);
+    ctx.addBinding(letVarName, transpileType(ctx.typeEnv.typeOf(expr), ctx.factory));
+    const letVar = ctx.refBinding(letVarName);
+
+    stmt = ctx.insertAssignment(letVar, body, isLetOld);
+    ctx.instrCtx.addAnnotationInstrumentation(ctx.curAnnotation, stmt);
+
+    return ctx.refBinding(letVarName);
+}
+
+export function transpileAnnotation(
+    annotMD: AnnotationMetaData,
+    ctx: TranspilingContext
 ): Expression {
-    const typeEnv = transCtx.typeEnv;
-    const factory = transCtx.factory;
+    /**
+     * Bit of a hack to keep track of the currrent annotation being transpiled.
+     * Useful for adding metadata to the InstrumentationContext
+     */
+    ctx.curAnnotation = annotMD;
+
+    if (annotMD instanceof PropertyMetaData) {
+        return transpile(annotMD.parsedAnnot.expression, ctx);
+    }
+
+    if (annotMD instanceof UserFunctionDefinitionMetaData) {
+        return transpile(annotMD.parsedAnnot.body, ctx);
+    }
+
+    throw new Error(`NYI Annotation metadata type ${annotMD.constructor.name}`);
+}
+
+/**
+ * Given a Scribble expression `expr` and a `TranspilingContext` `ctx` generate and insert
+ * all of the neccessary `ASTNode`s to compute `expr`.
+ *
+ * Note: This may involve inserting assignment statements to compute the values of `old()`, `let` and `forall` expressions.
+ * In the case of `old()` expressions the newly inserted assignments would be in the appropriate location before the wrapped statement.
+ * @param node
+ * @param ctx
+ */
+export function transpile(expr: SNode, ctx: TranspilingContext): Expression {
+    const factory = ctx.factory;
 
     if (expr instanceof SNumber) {
         const numStr = expr.num.toString(expr.radix);
@@ -272,129 +466,84 @@ export function generateExprAST(
     }
 
     if (expr instanceof SId) {
-        return generateIdAST(expr, transCtx, loc);
+        return transpileId(expr, ctx);
     }
 
     if (expr instanceof SResult) {
-        const scope = last(loc);
-        assert(
-            scope instanceof FunctionDefinition,
-            `Internal Error: $result should appear only inside of function annotations.`
-        );
-        assert(
-            scope.vReturnParameters.vParameters.length === 1,
-            `Multiple return values should only occur in lets, and be removed by flattenExpr`
-        );
-
-        return factory.makeIdentifierFor(scope.vReturnParameters.vParameters[0]);
+        return transpileResult(expr, ctx);
     }
 
     if (expr instanceof SIndexAccess) {
-        const base = generateExprAST(expr.base, transCtx, loc);
-        const index = generateExprAST(expr.index, transCtx, loc);
-
-        return factory.makeIndexAccess("<missing>", base, index);
+        return transpileIndexAccess(expr, ctx);
     }
 
     if (expr instanceof SMemberAccess) {
-        const base = generateExprAST(expr.base, transCtx, loc);
-        const type = typeEnv.typeOf(expr);
-
-        let referencedDeclaration = -1;
-
-        if (type instanceof FunctionSetType) {
-            referencedDeclaration = single(type.definitions).id;
-        } else if (type instanceof UserDefinedType && type.definition) {
-            referencedDeclaration = type.definition.id;
-        }
-
-        return factory.makeMemberAccess("<missing>", base, expr.member, referencedDeclaration);
+        return transpileMemberAccess(expr, ctx);
     }
 
     if (expr instanceof SUnaryOperation) {
-        if (expr.op === "old") {
-            throw Error(`old operators should have been removed by flattening: ${expr.pp()}`);
-        }
-
-        const subExp = generateExprAST(expr.subexp, transCtx, loc);
-
-        return factory.makeUnaryOperation("<missing>", true, expr.op, subExp);
+        return transpileUnaryOperation(expr, ctx);
     }
 
     if (expr instanceof SBinaryOperation) {
-        const left = generateExprAST(expr.left, transCtx, loc);
-        const right = generateExprAST(expr.right, transCtx, loc);
-
-        if (expr.op === "==>") {
-            const notPrecedent = factory.makeUnaryOperation("missing", true, "!", left);
-
-            return factory.makeBinaryOperation("<missing>", "||", notPrecedent, right);
-        }
-
-        return factory.makeBinaryOperation("<missing>", expr.op, left, right);
+        return transpileBinaryOperation(expr, ctx);
     }
 
     if (expr instanceof SConditional) {
-        const condition = generateExprAST(expr.condition, transCtx, loc);
-        const trueExp = generateExprAST(expr.trueExp, transCtx, loc);
-        const falseExp = generateExprAST(expr.falseExp, transCtx, loc);
-
-        return factory.makeConditional("<missing>", condition, trueExp, falseExp);
+        return transpileConditional(expr, ctx);
     }
 
     if (expr instanceof SFunctionCall) {
-        const calleeT = typeEnv.typeOf(expr.callee);
-
-        let callee: Expression;
-        const kind =
-            calleeT instanceof TypeNameType
-                ? FunctionCallKind.TypeConversion
-                : FunctionCallKind.FunctionCall;
-
-        if (calleeT instanceof TypeNameType) {
-            // Type Cast
-            if (calleeT.type instanceof UserDefinedType) {
-                // User-defined type
-                assert(calleeT.type.definition !== undefined, ``);
-
-                callee = factory.makeIdentifierFor(calleeT.type.definition);
-            } else {
-                // Elementary type
-                callee = factory.makeElementaryTypeNameExpression(
-                    "<missing>",
-                    generateTypeAst(calleeT.type, factory) as ElementaryTypeName
-                );
-            }
-        } else {
-            // Normal function call
-            callee = generateExprAST(expr.callee, transCtx, loc);
-
-            if (
-                callee instanceof Identifier &&
-                callee.vReferencedDeclaration instanceof FunctionDefinition &&
-                callee.vReferencedDeclaration.visibility === FunctionVisibility.External
-            ) {
-                callee = factory.makeMemberAccess(
-                    "<missing>",
-                    factory.makeIdentifier("<missing>", "this", (loc[1] as ContractDefinition).id),
-                    callee.name,
-                    callee.vReferencedDeclaration.id
-                );
-            }
-        }
-
-        const args = expr.args.map((arg) => generateExprAST(arg, transCtx, loc));
-
-        return factory.makeFunctionCall("<mising>", kind, callee, args);
+        return transpileFunctionCall(expr, ctx);
     }
 
     if (expr instanceof SLet) {
-        throw new Error(`let's should have been removed by flattening: ${expr.pp()}`);
+        return transpileLet(expr, ctx);
     }
 
     if (expr instanceof TypeNode) {
-        return generateTypeAst(expr, factory);
+        return transpileType(expr, ctx.factory);
     }
 
     throw new Error(`NYI transpiling node ${expr.pp()}`);
+}
+
+export function getTypeLocation(type: TypeNode): DataLocation {
+    if (type instanceof PointerType) {
+        return type.location;
+    }
+
+    return DataLocation.Default;
+}
+
+/**
+ * Generate an ASTVariableDeclaration for:
+ *  - function params
+ *  - function returns
+ *  - function local vars
+ *
+ * @param name - name of the new var
+ * @param type - Scribble type of the var
+ * @param factory - ASTNodeFactory
+ */
+export function transpileFunVarDecl(
+    name: string,
+    type: TypeNode,
+    ctx: TranspilingContext
+): VariableDeclaration {
+    const astType = transpileType(type, ctx.factory);
+
+    return ctx.factory.makeVariableDeclaration(
+        false,
+        false,
+        name,
+        -1,
+        false,
+        getTypeLocation(type),
+        StateVariableVisibility.Default,
+        Mutability.Mutable,
+        "<missing>",
+        undefined,
+        astType
+    );
 }

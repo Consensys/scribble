@@ -7,5 +7,4 @@
  * Generally, this file should only re-export a top-level package API.
  */
 export * from "./instrumenter";
-export * from "./rewriter";
 export * from "./util";

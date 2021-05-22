@@ -18,9 +18,9 @@ import { SUserFunctionDefinition } from "../spec-lang/ast";
 import { SemMap, TypeEnv } from "../spec-lang/tc";
 import { NameGenerator } from "../util/name_generator";
 import { AnnotationMetaData, AnnotationFilterOptions } from "./annotations";
-import { CallGraph, FunSet } from "./callgraph";
+import { CallGraph } from "./callgraph";
 import { CHA } from "./cha";
-import { TranspilingContext } from "./transpiling_context";
+import { InstrumentationSiteType, TranspilingContext } from "./transpiling_context";
 
 /**
  * Gather all named nodes in the provided source units.
@@ -130,7 +130,6 @@ export class InstrumentationContext {
         public readonly addAssert: boolean,
         public readonly callgraph: CallGraph,
         public readonly cha: CHA<ContractDefinition>,
-        public readonly funsToChangeMutability: FunSet,
         public readonly filterOptions: AnnotationFilterOptions,
         public readonly annotations: AnnotationMetaData[],
         public readonly wrapperMap: Map<FunctionDefinition, FunctionDefinition>,
@@ -178,11 +177,14 @@ export class InstrumentationContext {
         m.set(name, wrapper);
     }
 
-    getTranspilingCtx(container: FunctionDefinition): TranspilingContext {
+    getTranspilingCtx(
+        container: FunctionDefinition,
+        type: InstrumentationSiteType
+    ): TranspilingContext {
         if (!this.transCtxMap.has(container)) {
             this.transCtxMap.set(
                 container,
-                new TranspilingContext(this.typeEnv, this.semMap, container, this)
+                new TranspilingContext(this.typeEnv, this.semMap, container, this, type)
             );
         }
 

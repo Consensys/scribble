@@ -22,13 +22,13 @@ import {
     interposeSimpleStateVarUpdate,
     interposeTupleAssignment
 } from "../../src/instrumenter";
-import { cook } from "../../src/rewriter";
 import { single } from "../../src/util";
 import { getTarget, getTypeCtxAndTarget, toAst } from "../integration/utils";
 import { getCallGraph } from "../../src/instrumenter/callgraph";
 import { getCHA } from "../../src/instrumenter/cha";
 import { InstrumentationContext } from "../../src/instrumenter/instrumentation_context";
 import { TypeEnv } from "../../src/spec-lang/tc";
+import { InstrumentationSiteType } from "../../src/instrumenter/transpiling_context";
 
 export type LocationDesc = [string, string];
 
@@ -46,7 +46,6 @@ function makeInstrumentationCtx(
         true,
         getCallGraph(sources),
         getCHA(sources),
-        new Set(),
         {},
         [],
         new Map(),
@@ -330,9 +329,7 @@ contract Foo {
                 assertionMode,
                 compilerVersion
             );
-            const [recipe] = interpose(fun, ctx);
-            cook(recipe);
-
+            interpose(fun, ctx);
             ctx.finalize();
 
             const instrumented = print(sources, [content], "0.6.0").get(sources[0]);
@@ -668,9 +665,7 @@ contract Foo {
                 assertionMode,
                 compilerVersion
             );
-            const [recipe] = interposeCall(ctx, contract, callSite);
-            cook(recipe);
-
+            interposeCall(ctx, contract, callSite);
             ctx.finalize();
 
             const instrumented = print(sources, [content], "0.6.0").get(sources[0]) as string;
@@ -1652,7 +1647,10 @@ contract Child is Foo {
                     const container = node.getClosestParentByType(
                         FunctionDefinition
                     ) as FunctionDefinition;
-                    const transCtx = ctx.getTranspilingCtx(container);
+                    const transCtx = ctx.getTranspilingCtx(
+                        container,
+                        InstrumentationSiteType.StateVarUpdated
+                    );
 
                     interposeTupleAssignment(transCtx, node, vars);
                 } else if (node instanceof VariableDeclaration) {
