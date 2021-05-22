@@ -54,6 +54,9 @@ import { BuiltinSymbols, SemInfo, StateVarScope } from "../spec-lang/tc";
 import { FunctionSetType } from "../spec-lang/tc/internal_types";
 import { TranspilingContext } from "./transpiling_context";
 
+/**
+ * Transpile the `TypeNode` `type` (using the passed in `ASTNodeFactory`).
+ */
 export function transpileType(type: TypeNode, factory: ASTNodeFactory): TypeName {
     if (
         type instanceof TupleType ||
@@ -95,6 +98,9 @@ export function transpileType(type: TypeNode, factory: ASTNodeFactory): TypeName
     throw new Error(`NYI emitting spec type ${type.pp()}`);
 }
 
+/**
+ * Transpile the `SId` `expr` in the context of `ctx.container`.
+ */
 function transpileId(expr: SId, ctx: TranspilingContext): Expression {
     const typeEnv = ctx.typeEnv;
     const factory = ctx.factory;
@@ -203,6 +209,9 @@ function transpileId(expr: SId, ctx: TranspilingContext): Expression {
     return factory.makeIdentifierFor(referrencedDef);
 }
 
+/**
+ * Transpile the `SResult` `expr` in the context of `ctx.container`.
+ */
 function transpileResult(expr: SResult, ctx: TranspilingContext): Expression {
     const factory = ctx.factory;
     const retParams = ctx.container.vReturnParameters.vParameters;
@@ -222,6 +231,9 @@ function transpileResult(expr: SResult, ctx: TranspilingContext): Expression {
     throw new Error(`InternalError: attempt to transpile $result in function without returns.`);
 }
 
+/**
+ * Transpile the `SIndexAccess` `expr` in the context of `ctx.container`.
+ */
 function transpileIndexAccess(expr: SIndexAccess, ctx: TranspilingContext): Expression {
     const factory = ctx.factory;
     const base = transpile(expr.base, ctx);
@@ -244,6 +256,9 @@ function transpileIndexAccess(expr: SIndexAccess, ctx: TranspilingContext): Expr
     return factory.makeIndexAccess("<missing>", base, index);
 }
 
+/**
+ * Transpile the `SMemberAccess` `expr` in the context of `ctx.container`.
+ */
 function transpileMemberAccess(expr: SMemberAccess, ctx: TranspilingContext): Expression {
     const factory = ctx.factory;
     const base = transpile(expr.base, ctx);
@@ -259,6 +274,12 @@ function transpileMemberAccess(expr: SMemberAccess, ctx: TranspilingContext): Ex
     return factory.makeMemberAccess("<missing>", base, expr.member, referencedDeclaration);
 }
 
+/**
+ * Transpile the `SUnaryOperation` `expr` in the context of `ctx.container`.
+ *
+ * Note: When the unary operation is `old()` this will insert additional
+ * assignments _before_ the wrapped original call/statement.
+ */
 function transpileUnaryOperation(expr: SUnaryOperation, ctx: TranspilingContext): Expression {
     const factory = ctx.factory;
     const subExp = transpile(expr.subexp, ctx);
@@ -276,6 +297,9 @@ function transpileUnaryOperation(expr: SUnaryOperation, ctx: TranspilingContext)
     return factory.makeUnaryOperation("<missing>", true, expr.op, subExp);
 }
 
+/**
+ * Transpile the `SBinaryOperation` `expr` in the context of `ctx.container`.
+ */
 function transpileBinaryOperation(expr: SBinaryOperation, ctx: TranspilingContext): Expression {
     const factory = ctx.factory;
     const left = transpile(expr.left, ctx);
@@ -290,6 +314,9 @@ function transpileBinaryOperation(expr: SBinaryOperation, ctx: TranspilingContex
     return factory.makeBinaryOperation("<missing>", expr.op, left, right);
 }
 
+/**
+ * Transpile the `SConditional` `expr` in the context of `ctx.container`.
+ */
 function transpileConditional(expr: SConditional, ctx: TranspilingContext): Expression {
     const factory = ctx.factory;
     const condition = transpile(expr.condition, ctx);
@@ -299,6 +326,9 @@ function transpileConditional(expr: SConditional, ctx: TranspilingContext): Expr
     return factory.makeConditional("<missing>", condition, trueExp, falseExp);
 }
 
+/**
+ * Transpile the `SFunctionCall` `expr` in the context of `ctx.container`.
+ */
 function transpileFunctionCall(expr: SFunctionCall, ctx: TranspilingContext): Expression {
     const factory = ctx.factory;
     const calleeT = ctx.typeEnv.typeOf(expr.callee);
@@ -350,6 +380,10 @@ function transpileFunctionCall(expr: SFunctionCall, ctx: TranspilingContext): Ex
     return factory.makeFunctionCall("<mising>", kind, callee, args);
 }
 
+/**
+ * Transpile the `SLet` statement `expr`. Note that this will generate and insert additional
+ * assignments in `ctx.container`.
+ */
 function transpileLet(expr: SLet, ctx: TranspilingContext): Expression {
     const factory = ctx.factory;
     const isLetOld = (ctx.semInfo.get(expr) as SemInfo).isOld;
@@ -405,6 +439,10 @@ function transpileLet(expr: SLet, ctx: TranspilingContext): Expression {
     return ctx.refBinding(letVarName);
 }
 
+/**
+ * Given `AnnotationMetaData` `annotationMD` and a `TranspilingContext` `ctx`
+ * transpile the predicate/body of the annotation and return it.
+ */
 export function transpileAnnotation(
     annotMD: AnnotationMetaData,
     ctx: TranspilingContext
@@ -427,13 +465,11 @@ export function transpileAnnotation(
 }
 
 /**
- * Given a Scribble expression `expr` and a `TranspilingContext` `ctx` generate and insert
- * all of the neccessary `ASTNode`s to compute `expr`.
+ * Given a Scribble expression `expr` and a `TranspilingContext` `ctx` generate and return an ASTNode equivalnt to computing
+ * `expr`.
  *
  * Note: This may involve inserting assignment statements to compute the values of `old()`, `let` and `forall` expressions.
  * In the case of `old()` expressions the newly inserted assignments would be in the appropriate location before the wrapped statement.
- * @param node
- * @param ctx
  */
 export function transpile(expr: SNode, ctx: TranspilingContext): Expression {
     const factory = ctx.factory;

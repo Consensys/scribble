@@ -1,5 +1,4 @@
 import {
-    Assignment,
     ASTNodeFactory,
     Block,
     ContractDefinition,
@@ -61,12 +60,22 @@ import { InstrumentationContext } from "./instrumentation_context";
 import { InstrumentationSiteType, TranspilingContext } from "./transpiling_context";
 
 import { gte } from "semver";
-import { transpile, transpileAnnotation, transpileFunVarDecl, transpileType } from "..";
+import {
+    filterByType,
+    transpile,
+    transpileAnnotation,
+    transpileFunVarDecl,
+    transpileType
+} from "..";
 
 export type SBinding = [string | string[], TypeNode, SNode, boolean];
 export type SBindings = SBinding[];
 
+/**
+ * Base class for all instrumentation errors.
+ */
 export class InstrumentationError extends PPAbleError {}
+
 /**
  * Base class for all type errors due to some valid Solidity feature that
  * we do not yet support
@@ -91,34 +100,16 @@ export class UnsupportedConstruct extends InstrumentationError {
     }
 }
 
-export interface InstrumentationResult {
-    oldAssignments: Assignment[];
-    newAssignments: Assignment[];
-    transpiledPredicates: Expression[];
-    debugEventsInfo: Array<[EventDefinition, EmitStatement] | undefined>;
-}
-
-export type SubclassConstructor<Base, Child extends Base> = new (...args: any[]) => Child;
-function filterByType<Base, Child extends Base>(
-    original: Base[],
-    constr: SubclassConstructor<Base, Child>
-): Child[] {
-    const result: Child[] = [];
-    for (const annotation of original) {
-        if (annotation instanceof constr) {
-            result.push(annotation);
-        }
-    }
-
-    return result;
-}
-
 /// Return true if the current instrumentation configuration requires
 /// instrumented pure/view functions to become non-payable
 export function changesMutability(ctx: InstrumentationContext): boolean {
     return ctx.assertionMode === "log";
 }
 
+/**
+ * Find all external calls in the `ContractDfinition`/`FunctionDefinition` `node`.
+ * Ignore any calls that were inserted by instrumentation (we tell those appart by their `<missing>` typeString).
+ */
 export function findExternalCalls(
     node: ContractDefinition | FunctionDefinition,
     version: string
@@ -161,6 +152,10 @@ export function findExternalCalls(
     return res;
 }
 
+/**
+ * Generate and return the `__scribble_reentrancyUtil` contract that
+ * contains the out-of-contract flag.
+ */
 export function generateUtilsContract(
     factory: ASTNodeFactory,
     sourceEntryKey: string,
@@ -210,6 +205,10 @@ export function generateUtilsContract(
     return sourceUnit;
 }
 
+/**
+ * Walk the given Scribble expression `n`, and build a set of all identifiers appearing inside
+ * that are of interest for debugging purposes.
+ */
 function gatherDebugIds(n: SNode, typeEnv: TypeEnv): Set<SId> {
     const debugIds: Map<string, SId> = new Map();
     const selectId = (id: SId): void => {
@@ -266,6 +265,13 @@ function gatherDebugIds(n: SNode, typeEnv: TypeEnv): Set<SId> {
 
 type DebugInfo = [EventDefinition, EmitStatement];
 
+/**
+ * Build a debug event/debug event emission statement for each of the provided `annotations`. Return
+ * an array of the computed tuples `[EventDefinition, `EmitStatement`].
+ *
+ * If a given annotation doesn't have any identifiers to output for debugging purposes, return `undefined`
+ * in that respective index.
+ */
 function getDebugInfo(
     annotations: PropertyMetaData[],
     transCtx: TranspilingContext
@@ -346,6 +352,12 @@ function getBitPattern(factory: ASTNodeFactory, id: number): Literal {
     );
 }
 
+/**
+ * Build the AST `Statement` that checks whether the provided `expr` is true, and
+ * outputs an `AssertionFailed` event with the appropriate error otherwise.
+ *
+ * If a debug `emitStmt` is provided emit it upon failure too.
+ */
 function emitAssert(
     transCtx: TranspilingContext,
     expr: Expression,
@@ -440,6 +452,11 @@ function emitAssert(
     return ifStmt;
 }
 
+/**
+ * Return the `EventDefinition` for the 'AssertFailed` event. If such a
+ * defintion is not declared in the current contract, or a parent contract,
+ * build it and insert it under `contract`.
+ */
 export function getAssertionFailedEvent(
     factory: ASTNodeFactory,
     contract: ContractDefinition
@@ -488,6 +505,10 @@ function isPublic(fn: FunctionDefinition): boolean {
     return [FunctionVisibility.Default, FunctionVisibility.Public].includes(fn.visibility);
 }
 
+/**
+ * Given a list of `PropertyMetaData` `annotations` and a `TranspilingContext` `ctx`,
+ * transpile all the `annotations`, generate the checks for each one, and insert them in `ctx.container`.
+ */
 export function insertAnnotations(annotations: PropertyMetaData[], ctx: TranspilingContext): void {
     const factory = ctx.factory;
     const contract = ctx.container.vScope as ContractDefinition;
@@ -609,6 +630,10 @@ export class ContractInstrumenter {
         );
     }
 
+    /**
+     * Genrate and insert all the user-defined functions in `annotations` to the current
+     * contract `contract`. Returns a list of the newly transpiler user-functions.
+     */
     private makeUserFunctions(
         ctx: InstrumentationContext,
         typeEnv: TypeEnv,
@@ -680,6 +705,12 @@ export class ContractInstrumenter {
         return userFuns;
     }
 
+    /**
+     * Make the "internal invariant checker" function. For example given a
+     * contract `C` with contract-wide invariants [I1, I2], the "internal
+     * invariant checker" function is responsible ONLY for checking `I1` and
+     * `I2`, but NOT for any of the invariants of base contracts.
+     */
     private makeInternalInvariantChecker(
         ctx: InstrumentationContext,
         typeEnv: TypeEnv,
@@ -883,6 +914,10 @@ export class ContractInstrumenter {
         body.appendChild(exitGuard);
     }
 
+    /**
+     * Wrap all external call sites in `contract` with wrappers that also invoke the
+     * `generalInvChecker` function, to check contract invariants before leaving the contract.
+     */
     private replaceExternalCallSites(
         ctx: InstrumentationContext,
         contract: ContractDefinition,
@@ -1005,6 +1040,11 @@ export class FunctionInstrumenter {
         }
     }
 
+    /**
+     * For public/external functions insert a peramble that set the "out-of-contract" flag to false (marking that we are executing in the contract).
+     * When the function is public, we remember the old value of the "out-of-contract" flag and restore it upon exit. This is done since
+     * public function can also be invoked internally.
+     */
     private insertEnterMarker(stub: FunctionDefinition, transCtx: TranspilingContext): void {
         const body = stub.vBody as Block;
         const factory = transCtx.factory;
@@ -1064,6 +1104,13 @@ export class FunctionInstrumenter {
         }
     }
 
+    /**
+     * For public/external functions insert a epilgoue that sets the "out-of-contract" flag(marking that we are executing in the contract).
+     * When the function is public, we remember the old value of the "out-of-contract" flag and restore it upon exit. This is done since
+     * public function can also be invoked internally.
+     *
+     * When the function is external we just set the flag to true.
+     */
     private insertExitMarker(stub: FunctionDefinition, transCtx: TranspilingContext): void {
         const factory = transCtx.factory;
         const instrCtx = transCtx.instrCtx;

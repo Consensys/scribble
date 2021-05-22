@@ -25,13 +25,14 @@ import {
     isSane,
     MemberAccess,
     ParameterList,
+    replaceNode,
     SourceUnit,
     SrcRangeMap,
     StructDefinition,
     UserDefinedTypeName,
     VariableDeclaration
 } from "solc-typed-ast";
-import { findAliasedStateVars, findStateVarUpdates, replaceNode, UnsupportedConstruct } from "..";
+import { findAliasedStateVars, findStateVarUpdates, UnsupportedConstruct } from "..";
 import { print, rewriteImports } from "../ast_to_source_printer";
 import {
     PropertyMetaData,

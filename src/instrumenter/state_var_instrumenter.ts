@@ -32,6 +32,7 @@ import {
     MemberAccess,
     Mutability,
     PointerType,
+    replaceNode,
     Statement,
     StateVariableVisibility,
     StringLiteralType,
@@ -49,7 +50,7 @@ import {
     VariableDeclaration,
     WhileStatement
 } from "solc-typed-ast";
-import { AnnotationMetaData, replaceNode } from ".";
+import { AnnotationMetaData } from ".";
 import {
     AnnotationMap,
     ConcreteDatastructurePath,
