@@ -26,32 +26,19 @@ import {
     TypeNode,
     VariableDeclaration
 } from "solc-typed-ast";
-import {
-    ChangeArgumentLocation,
-    ChangeFunctionDocumentation,
-    ChangeFunctionKind,
-    ChangeFunctionModifiers,
-    ChangeFunctionMutability,
-    ChangeFunctionOverrides,
-    ChangeFunctionVirtual,
-    ChangeVisibility,
-    InsertArgument,
-    InsertFunction,
-    InsertFunctionBefore,
-    InsertStatement,
-    Recipe,
-    Rename,
-    RenameReturn,
-    ReplaceCallee
-} from "../rewriter";
 import { assert, getScopeFun, isChangingState, single } from "../util";
 import { FunSet } from "./callgraph";
 import { changesMutability } from "./instrument";
 import { InstrumentationContext } from "./instrumentation_context";
-import { generateTypeAst } from "./transpile";
+import { transpileType } from "./transpile";
 
 const semver = require("semver");
 
+/**
+ * Generate a Statement calling the passed-in `original` function from the `stub` function.
+ *
+ * Note that `original` and `stub` must have the same arguments.
+ */
 function callOriginal(
     ctx: InstrumentationContext,
     stub: FunctionDefinition,
@@ -92,10 +79,16 @@ function callOriginal(
     return assignmentStmt;
 }
 
-function renameReturns(factory: ASTNodeFactory, stub: FunctionDefinition): Recipe {
-    return stub.vReturnParameters.vParameters
-        .filter((ret) => ret.name === "")
-        .map((_, idx) => new RenameReturn(factory, stub, idx, `RET_${idx}`));
+/**
+ * Rename any unnamed returns for the given `stub` function to `RET_<x>`.
+ */
+function renameReturns(stub: FunctionDefinition): void {
+    for (let i = 0; i < stub.vReturnParameters.vParameters.length; i++) {
+        const param = stub.vReturnParameters.vParameters[i];
+        if (param.name === "") {
+            param.name = `RET_${i}`;
+        }
+    }
 }
 
 /**
@@ -141,40 +134,36 @@ function changeDependentsMutabilty(
     fun: FunctionDefinition,
     ctx: InstrumentationContext,
     skipStartingFun = false
-): Recipe {
+) {
     const queue = [fun];
-    const recipe: Recipe = [];
+    const seen = new Set<FunctionDefinition>();
     // Walk back recursively through all callers, overriden and overriding functions of fun, and
     // mark all of those that have view/pure mutability to be modified.
     while (queue.length > 0) {
         const cur = queue.shift() as FunctionDefinition;
 
-        if (isChangingState(cur) || ctx.funsToChangeMutability.has(cur)) {
+        if (isChangingState(cur) || seen.has(cur)) {
             continue;
         }
 
         if (cur !== fun || !skipStartingFun) {
-            ctx.funsToChangeMutability.add(cur);
-            recipe.push(
-                new ChangeFunctionMutability(ctx.factory, cur, FunctionStateMutability.NonPayable)
-            );
+            seen.add(cur);
+            cur.stateMutability = FunctionStateMutability.NonPayable;
         }
 
         queue.push(...(ctx.callgraph.callers.get(cur) as FunSet));
         queue.push(...(ctx.callgraph.overridenBy.get(cur) as FunSet));
         queue.push(...(ctx.callgraph.overrides.get(cur) as FunSet));
     }
-
-    return recipe;
 }
 
 /**
- * Given a function `fun` generate the steps to create stub interposing on `fun`
+ * Given a function `fun` create a stub interposing on `fun` and rename the original function
  */
 export function interpose(
     fun: FunctionDefinition,
     ctx: InstrumentationContext
-): [Recipe, FunctionDefinition] {
+): FunctionDefinition {
     assert(
         fun.vScope instanceof ContractDefinition,
         "Instrumenting free functions is not supported yet"
@@ -182,6 +171,7 @@ export function interpose(
 
     const factory = ctx.factory;
     const stub = makeStub(fun, factory);
+    const contract = fun.vScope;
 
     // The compiler may emit some internal code related to named returns.
     for (const retDecl of stub.vReturnParameters.vParameters) {
@@ -192,41 +182,28 @@ export function interpose(
 
     const name = fun.kind === FunctionKind.Function ? fun.name : fun.kind;
 
-    const recipe: Recipe = [
-        new InsertFunctionBefore(factory, fun, stub),
-        new Rename(
-            factory,
-            fun,
-            ctx.nameGenerator.getFresh(`_original_${fun.vScope.name}_${name}`, true)
-        )
-    ];
+    contract.insertBefore(stub, fun);
+    fun.name = ctx.nameGenerator.getFresh(`_original_${fun.vScope.name}_${name}`, true);
 
     if (!isChangingState(stub) && changesMutability(ctx)) {
         stub.stateMutability = FunctionStateMutability.NonPayable;
 
-        recipe.push(...changeDependentsMutabilty(fun, ctx, true));
+        changeDependentsMutabilty(fun, ctx, true);
     }
 
     if (fun.stateMutability === FunctionStateMutability.Payable) {
-        recipe.push(new ChangeFunctionMutability(factory, fun, FunctionStateMutability.NonPayable));
+        fun.stateMutability = FunctionStateMutability.NonPayable;
     }
 
-    recipe.push(
-        new ChangeFunctionDocumentation(factory, fun, undefined),
-        new ChangeFunctionDocumentation(factory, stub, undefined),
-        new ChangeVisibility(factory, fun, FunctionVisibility.Private),
-        ...renameReturns(factory, stub),
-        new ChangeFunctionModifiers(factory, stub, []),
-        new InsertStatement(
-            factory,
-            callOriginal.bind(undefined, ctx, stub, fun),
-            "end",
-            stub.vBody as Block
-        ),
-        new ChangeFunctionOverrides(factory, fun, undefined),
-        new ChangeFunctionVirtual(factory, fun, false),
-        new ChangeFunctionKind(factory, fun, FunctionKind.Function)
-    );
+    fun.documentation = undefined;
+    stub.documentation = undefined;
+    fun.visibility = FunctionVisibility.Private;
+    renameReturns(stub);
+    stub.vModifiers = [];
+    stub.vBody?.appendChild(callOriginal(ctx, stub, fun));
+    fun.vOverrideSpecifier = undefined;
+    fun.virtual = false;
+    fun.kind = FunctionKind.Function;
 
     /**
      * In solc < 0.6.9 internal functions cannot have calldata arguments/returns.
@@ -248,12 +225,12 @@ export function interpose(
 
         for (const arg of fun.vParameters.vParameters) {
             if (arg.storageLocation === DataLocation.CallData) {
-                recipe.push(new ChangeArgumentLocation(factory, arg, DataLocation.Memory));
+                arg.storageLocation = DataLocation.Memory;
             }
         }
     }
 
-    return [recipe, stub];
+    return stub;
 }
 
 function copyDefs(
@@ -364,7 +341,7 @@ export function interposeCall(
     ctx: InstrumentationContext,
     contract: ContractDefinition,
     call: FunctionCall
-): [Recipe, FunctionDefinition] {
+): FunctionDefinition {
     const factory = ctx.factory;
     const callsite = decodeCallsite(call);
     const callee = callsite.callee;
@@ -500,14 +477,14 @@ export function interposeCall(
                 Mutability.Mutable,
                 callee.vExpression.typeString,
                 undefined,
-                generateTypeAst(baseT, factory)
+                transpileType(baseT, factory)
             )
         );
 
         const getTypeAndLoc = (t: TypeNode): [TypeName, DataLocation] => {
             return t instanceof PointerType
-                ? [generateTypeAst(t.to, factory), t.location]
-                : [generateTypeAst(t, factory), DataLocation.Default];
+                ? [transpileType(t.to, factory), t.location]
+                : [transpileType(t, factory), DataLocation.Default];
         };
 
         calleeT.parameters.forEach((paramT, idx) => {
@@ -560,7 +537,6 @@ export function interposeCall(
         );
     }
 
-    const recipe: Recipe = [];
     let nImplicitArgs = 1;
 
     /**
@@ -594,7 +570,9 @@ export function interposeCall(
 
             params.splice(1, 0, param);
             options.set(name, factory.makeIdentifierFor(param));
-            recipe.push(new InsertArgument(factory, expr, "after", call, receiver));
+
+            // Insert implicit gas arguments at begining
+            call.vArguments.splice(0, 0, expr);
             nImplicitArgs++;
         }
 
@@ -646,99 +624,15 @@ export function interposeCall(
     const newCallee = factory.makeIdentifierFor(wrapper);
     newCallee.src = call.vExpression.src;
 
-    recipe.push(
-        new InsertFunction(factory, contract, wrapper),
-        new ReplaceCallee(factory, call.vExpression, newCallee),
-        new InsertArgument(factory, receiver, "start", call)
-    );
+    contract.appendChild(wrapper);
+    call.vExpression = newCallee;
+    call.vArguments.unshift(receiver);
 
     // If the call is in a pure/view function change its mutability
     const containingFun = getScopeFun(call);
     if (containingFun !== undefined && !isChangingState(containingFun) && changesMutability(ctx)) {
-        recipe.push(...changeDependentsMutabilty(containingFun, ctx));
+        changeDependentsMutabilty(containingFun, ctx);
     }
 
-    return [recipe, wrapper];
-}
-
-/**
- * Replace the node `oldNode` in the tree with `newNode`.
- *
- * If `p` is the parent of `oldNode`, this function needs to find a property
- * `propName` of `p` such that `p[propName] === oldNode`. `ASTNode`s have both
- * own properties and getters/setters, so this function first:
- *
- * 1. Iterates over the own properties of `p`
- * 2. Walks the prototype chain of `p` iterating over all getters/setters
- *
- * Once found, it re-assigns `p[propName] = newNode` and sets
- * `newNode.parent=p` using `acceptChildren`. Since `children` is a getter
- * there is nothing further to do.
- *
- * @param oldNode - old node to replace
- * @param newNode - new node with which we are replacing it
- */
-export function replaceNode(oldNode: ASTNode, newNode: ASTNode): void {
-    assert(oldNode.context === newNode.context, `Context mismatch`);
-    const parent = oldNode.parent;
-
-    if (!parent) return;
-
-    // First check if parent has an OWN property with the child
-    const ownProps = Object.getOwnPropertyDescriptors(parent);
-    for (const propName in ownProps) {
-        const propVal = ownProps[propName].value;
-        if (propVal === oldNode) {
-            const tmpObj: any = {};
-            tmpObj[propName] = newNode;
-
-            Object.assign(parent, tmpObj);
-            parent.acceptChildren();
-            return;
-        }
-
-        if (propVal instanceof Array) {
-            for (let i = 0; i < propVal.length; i++) {
-                if (propVal[i] === oldNode) {
-                    propVal[i] = newNode;
-                    parent.acceptChildren();
-                    return;
-                }
-            }
-        }
-    }
-
-    // If not, walk up the inheritance tree, looking for a getter/setter pair that matches
-    // this child
-    let proto = Object.getPrototypeOf(parent);
-
-    while (proto) {
-        for (const name of Object.getOwnPropertyNames(proto)) {
-            if (name === "__proto__") {
-                continue;
-            }
-
-            const descriptor = Object.getOwnPropertyDescriptor(proto, name);
-
-            if (
-                descriptor &&
-                typeof descriptor.get === "function" &&
-                typeof descriptor.set === "function"
-            ) {
-                const val = descriptor.get.call(parent);
-                if (val === oldNode) {
-                    descriptor.set.call(parent, newNode);
-                    parent.acceptChildren();
-                    return;
-                }
-            }
-        }
-
-        proto = Object.getPrototypeOf(proto);
-    }
-
-    assert(
-        false,
-        `Couldn't find child ${oldNode.type}#${oldNode.id} under parent ${parent.type}#${parent.id}`
-    );
+    return wrapper;
 }
