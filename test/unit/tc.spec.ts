@@ -595,7 +595,7 @@ describe("TypeChecker Expression Unit Tests", () => {
                 address sA;
                 bool b;
                 using Lib2 for *;
-            
+
                 mapping (uint32 => int64) sM;
 
                 function add(uint x, uint y) public returns(uint add) {

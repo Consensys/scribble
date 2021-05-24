@@ -38,21 +38,21 @@ Invariant =
     return new SProperty(type as AnnotationType, expr, label !== null ? label : undefined, location());
   }
 
-StartBracket = "(" 
+StartBracket = "("
               / "["
 
-EndBracket = ")" 
+EndBracket = ")"
             / "]"
 
-Range = 
+Range =
     start_bracket: StartBracket __ start: Expression __ "..."  __ end: Expression __ end_bracket: EndBracket
     {
       return [start, end, start_bracket, end_bracket];
     }
     / expression: Expression {return expression;}
-    
 
-For_All = 
+
+For_All =
   type: FORALL __ "(" __ itr_type: IntType __ iterator: Identifier __ IN __ range: Range __ ")" __ expr: Expression
   {
     if(Array.isArray(range)) {

@@ -844,6 +844,7 @@ function locateKeyType(type: TypeName, idx: number, path: Array<SId | string>): 
 
 function tcIdVariable(expr: SId, ctx: STypingCtx, typeEnv: TypeEnv): TypeNode | undefined {
     const def = lookupVarDef(expr.name, ctx);
+
     if (def === undefined) {
         return undefined;
     }
@@ -1570,15 +1571,31 @@ function matchArguments(
 }
 
 /**
- * We check the following in forall (uint t in [a ... b]) e(t):
- *   - Type of t should be numeric
- *   - a and b should be numeric and be castable to the type of t
- *   - type of e is boolean
- *   - return value of this expression is boolean
- *   - t is defined in e(t).
+ * We check the following in `forall (uint t in [a ... b]) e(t)`:
+ *   - `a` and `b` should be numeric and be castable to the type of `t`
+ *   - type of `e(t)` is boolean
+ *   (the requirement that the iterator variable `t` should have a numeric type is maintained by the grammar at the moment).
  */
 export function tcForAll(expr: SForAll, ctx: STypingCtx, typeEnv: TypeEnv): TypeNode {
     const startT = tc(expr.start(), ctx, typeEnv);
+
+    // A more user-friendly error for the case when a non-array was passed
+    if (expr.array !== undefined) {
+        const arrT = tc(expr.array, ctx, typeEnv);
+
+        if (
+            !(
+                (arrT instanceof PointerType && arrT.to instanceof ArrayType) ||
+                arrT instanceof FixedBytesType
+            )
+        ) {
+            throw new SWrongType(
+                `Provided iterable ${expr.array.pp()} is not an array or fixed bytes - instead got ${arrT.pp()}.`,
+                expr.start(),
+                startT
+            );
+        }
+    }
 
     if (!(startT instanceof IntType || startT instanceof IntLiteralType)) {
         throw new SWrongType(
@@ -1589,7 +1606,7 @@ export function tcForAll(expr: SForAll, ctx: STypingCtx, typeEnv: TypeEnv): Type
     }
 
     const endT = tc(expr.end(), ctx, typeEnv);
-    if (!(startT instanceof IntType || startT instanceof IntLiteralType)) {
+    if (!(endT instanceof IntType || endT instanceof IntLiteralType)) {
         throw new SWrongType(
             `The expected type for ${expr.end().pp()} is numeric and not ${endT}.`,
             expr.end(),
