@@ -112,7 +112,7 @@ function transpileId(expr: SId, ctx: TranspilingContext): Expression {
     // Builtin symbols are the only identifiers with undefined `defSite`.
     if (expr.defSite === undefined) {
         throw new Error(
-            `Cannot generate AST for id ${expr.pp()} with no corrseponding definition.`
+            `Cannot generate AST for id ${expr.pp()} with no corresponding definition.`
         );
     }
 
