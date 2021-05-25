@@ -198,6 +198,7 @@ export function interpose(
     fun.documentation = undefined;
     stub.documentation = undefined;
     fun.visibility = FunctionVisibility.Private;
+    fun.isConstructor = false;
     renameReturns(stub);
     stub.vModifiers = [];
     stub.vBody?.appendChild(callOriginal(ctx, stub, fun));
