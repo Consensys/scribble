@@ -433,10 +433,6 @@ export function scFunctionCall(
 /**
  * For Any expression of form old(e1) in `forall(type t in range) e(t)`
  * throw an error if the expression depends on t.
- * @param expr
- * @param ctx
- * @param typeEnv
- * @param semMap
  */
 export function scForAll(expr: SForAll, ctx: SemCtx, typeEnv: TypeEnv, semMap: SemMap): SemInfo {
     const exprSemInfo = sc(expr.expression, ctx, typeEnv, semMap);

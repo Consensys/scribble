@@ -178,6 +178,7 @@ Keyword
     / VIEW
     / NONPAYABLE
     / RESULT
+    / FORALL
 
 // Number units
 NumberUnit = 'wei' / 'gwei' / 'ether' / 'seconds' 
