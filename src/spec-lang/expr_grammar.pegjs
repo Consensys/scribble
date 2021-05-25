@@ -38,16 +38,10 @@ Invariant =
     return new SProperty(type as AnnotationType, expr, label !== null ? label : undefined, location());
   }
 
-StartBracket = "("
-              / "["
-
-EndBracket = ")"
-            / "]"
-
 Range =
-    start_bracket: StartBracket __ start: Expression __ "..."  __ end: Expression __ end_bracket: EndBracket
+    start: Expression __ "..."  __ end: Expression
     {
-      return [start, end, start_bracket, end_bracket];
+      return [start, end];
     }
     / expression: Expression {return expression;}
 
@@ -56,13 +50,14 @@ For_All =
   type: FORALL __ "(" __ itr_type: IntType __ iterator: Identifier __ IN __ range: Range __ ")" __ expr: Expression
   {
     if(Array.isArray(range)) {
-      const [start, end, start_bracket, end_bracket] = range;
-      return new SForAll(itr_type, iterator, expr, start, end, start_bracket, end_bracket, undefined, location());
+      const [start, end] = range;
+      return new SForAll(itr_type, iterator, expr, start, end, undefined, location());
     }
     else {
-      return new SForAll(itr_type, iterator, expr, undefined, undefined, undefined, undefined, range, location());
+      return new SForAll(itr_type, iterator, expr, undefined, undefined, range, location());
     }
   }
+
 If_Succeeds =
   type: IF_SUCCEEDS __ label: AnnotationLabel? __ expr: Expression __ ";"
   {

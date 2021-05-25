@@ -53,13 +53,13 @@ describe("SemanticChecker Expression Unit Tests", () => {
                     { isOld: false, isConst: false, canFail: false }
                 ],
                 [
-                    "forall (uint i in [1...10]) true",
+                    "forall (uint i in 1...10) true",
                     ["Foo", "pId"],
                     new BoolType(),
                     { isOld: false, isConst: true, canFail: false }
                 ],
                 [
-                    "forall (uint i in [1...10]) let i := 10 in old(i) > 100",
+                    "forall (uint i in 1...10) let i := 10 in old(i) > 100",
                     ["Foo", "pId"],
                     new BoolType(),
                     { isOld: false, isConst: true, canFail: false }
@@ -71,7 +71,7 @@ describe("SemanticChecker Expression Unit Tests", () => {
                     { isOld: true, isConst: false, canFail: false }
                 ],
                 [
-                    "forall (uint i in [1...10]) let i := 10 in old(sV) > 100",
+                    "forall (uint i in 1...10) let i := 10 in old(sV) > 100",
                     ["Foo", "pId"],
                     new BoolType(),
                     { isOld: false, isConst: false, canFail: false }
@@ -293,8 +293,8 @@ describe("SemanticChecker Expression Unit Tests", () => {
                 }
             }`,
             [
-                ["forall(uint x in [1...10]) arr[x] > 10 + old(x*sV+100)", ["Foo", "add"]],
-                ["forall(uint x in [1...10]) arr[0] > 10 + old(x)", ["Foo", "add"]],
+                ["forall(uint x in 1...10) arr[x] > 10 + old(x*sV+100)", ["Foo", "add"]],
+                ["forall(uint x in 1...10) arr[0] > 10 + old(x)", ["Foo", "add"]],
                 ["old(old(x))", ["Foo", "add"]],
                 ["let x := y in old(x)", ["Foo", "add"]],
                 ["let x := y in let z := old(1) in old(x+z)", ["Foo", "add"]],

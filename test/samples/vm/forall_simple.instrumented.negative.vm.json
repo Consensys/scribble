@@ -146,41 +146,6 @@
             "user": "owner",
             "contract": "instance1",
 
-            "method": "test8",
-            "args": {
-                "types": [],
-                "values": []
-            }
-        },
-        {
-            "act": "txCall",
-            "user": "owner",
-            "contract": "instance1",
-
-            "method": "test9",
-            "args": {
-                "types": [],
-                "values": []
-            },
-            "failure": "revert"
-        },
-        {
-            "act": "txCall",
-            "user": "owner",
-            "contract": "instance1",
-
-            "method": "test10",
-            "args": {
-                "types": [],
-                "values": []
-            },
-            "failure": "revert"
-        },
-        {
-            "act": "txCall",
-            "user": "owner",
-            "contract": "instance1",
-
             "method": "test11",
             "args": {
                 "types": [],

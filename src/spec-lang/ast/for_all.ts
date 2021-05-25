@@ -22,12 +22,6 @@ export class SForAll extends SNode {
     /*  End range */
     public readonly end: SNode;
 
-    /* Start bracket type, belongs to {'[', '('} */
-    public readonly startBracket?: "[" | "(";
-
-    /* End bracket type, belongs to {']', ')'} */
-    public readonly endBracket?: "]" | ")";
-
     /* condition on  which forall is applied */
     public readonly expression: SNode;
 
@@ -40,8 +34,6 @@ export class SForAll extends SNode {
         expression: SNode,
         start?: SNode,
         end?: SNode,
-        startBracket?: "[" | "(",
-        endBracket?: "]" | ")",
         array?: SId,
         src?: Range
     ) {
@@ -66,17 +58,13 @@ export class SForAll extends SNode {
             this.end = new SMemberAccess(array, "length");
         }
 
-        this.startBracket = startBracket;
-        this.endBracket = endBracket;
         this.expression = expression;
         this.array = array;
     }
 
     pp(): string {
         if (this.array === undefined) {
-            return `(forall(${this.iteratorType.pp()} ${this.iteratorVariable.pp()} in ${
-                this.startBracket
-            } ${this.start.pp()}...${this.end.pp()} ${this.endBracket}) ${this.expression.pp()}`;
+            return `(forall(${this.iteratorType.pp()} ${this.iteratorVariable.pp()} in ${this.start.pp()}...${this.end.pp()} ${this.expression.pp()}`;
         } else {
             return `(forall(${this.iteratorType.pp()} ${this.iteratorVariable.pp()} in ${this.array.pp()}) ${this.expression.pp()}`;
         }
@@ -87,10 +75,8 @@ export class SForAll extends SNode {
             this.iteratorType,
             this.iteratorVariable,
             this.expression,
-            this.startBracket,
             this.start,
             this.end,
-            this.endBracket,
             this.array
         ];
     }

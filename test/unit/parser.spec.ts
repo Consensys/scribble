@@ -574,13 +574,11 @@ describe("Expression Parser Unit Tests", () => {
                 ),
                 undefined,
                 undefined,
-                undefined,
-                undefined,
                 new SId("a")
             )
         ],
         [
-            "forall (uint x in [1...10)) a[x]>10",
+            "forall (uint x in 1...10) a[x]>10",
             new SForAll(
                 new IntType(256, false),
                 new SId("x"),
@@ -590,9 +588,7 @@ describe("Expression Parser Unit Tests", () => {
                     new SNumber(bigInt(10), 10)
                 ),
                 new SNumber(bigInt(1), 10),
-                new SNumber(bigInt(10), 10),
-                "[",
-                ")"
+                new SNumber(bigInt(10), 10)
             )
         ],
         ["$result", new SResult()]
@@ -612,8 +608,8 @@ describe("Expression Parser Unit Tests", () => {
         "old(1,2)",
         "forall (uint x in let) f(sheep)",
         "forall (uint x in [0, 100)] a[x] > 10",
-        "forall (string x in [0, 100]) x > 0",
-        "forall (x in [0, 100]) x > 0"
+        "forall (string x in 0...100) x > 0",
+        "forall (x in 0...100) x > 0"
     ];
 
     for (const [sample, expectedAST] of goodSamples) {
@@ -798,7 +794,7 @@ describe("Annotation Parser Unit Tests", () => {
             )
         ],
         [
-            "/// if_succeeds forall (uint x in [1...10]) a[x]>10;",
+            "/// if_succeeds forall (uint x in 1...10) a[x]>10;",
             new SProperty(
                 AnnotationType.IfSucceeds,
                 new SForAll(
@@ -810,9 +806,7 @@ describe("Annotation Parser Unit Tests", () => {
                         new SNumber(bigInt(10), 10)
                     ),
                     new SNumber(bigInt(1), 10),
-                    new SNumber(bigInt(10), 10),
-                    "[",
-                    "]"
+                    new SNumber(bigInt(10), 10)
                 )
             )
         ],
@@ -829,8 +823,6 @@ describe("Annotation Parser Unit Tests", () => {
                         ">",
                         new SNumber(bigInt(10), 10)
                     ),
-                    undefined,
-                    undefined,
                     undefined,
                     undefined,
                     new SId("a")

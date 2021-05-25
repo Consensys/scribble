@@ -1,3 +1,5 @@
+pragma solidity 0.8.4;
+
 /// #invariant forall (uint i in a) a[i] > 10;
 contract ForallSimple {
 	uint[] a;
@@ -27,35 +29,23 @@ contract ForallSimple {
 		t2 = x;
 	}
 
-	/// #if_succeeds forall (uint i in [1...5]) i >= 1 && i <= 5;
+	/// #if_succeeds forall (uint i in 1...5) i >= 1 && i < 5;
 	function test5() public {
 	}
 
-	/// #if_succeeds forall (uint i in [1...5]) i > 1;
+	/// #if_succeeds forall (uint i in 1...5) i > 1;
 	function test6() public {
 	}
 
-	/// #if_succeeds forall (uint i in [1...5]) i < 5;
+	/// #if_succeeds forall (uint i in 1...5) i < 4;
 	function test7() public {
 	}
 
-	/// #if_succeeds forall (uint i in (1...5)) i > 1 && i < 5;
-	function test8() public {
-	}
-
-	/// #if_succeeds forall (uint i in (1...5)) i > 2;
-	function test9() public {
-	}
-
-	/// #if_succeeds forall (uint i in (1...5)) i < 4;
-	function test10() public {
-	}
-
-	/// #if_succeeds forall (uint i in [5...4]) false;
+	/// #if_succeeds forall (uint i in 5...5) false;
 	function test11() public {
 	}
 
-	/// #if_succeeds let MAX_INT := uint(2**255 - 1 + 2**255) in forall (uint i in (MAX_INT...MAX_INT)) false;
+	/// #if_succeeds let MAX_INT := uint(2**255 - 1 + 2**255) in forall (uint i in MAX_INT...MAX_INT) false;
 	function test12() public {
 	}
 }

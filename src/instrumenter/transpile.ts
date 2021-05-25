@@ -1,4 +1,3 @@
-import bigInt from "big-integer";
 import {
     AddressType,
     ArrayType,
@@ -471,24 +470,20 @@ function transpileForAll(expr: SForAll, ctx: TranspilingContext): Expression {
         true
     );
 
-    // Compute inclusive start (based on the optionally specified start bracket)
-    const start =
-        expr.startBracket === undefined || expr.startBracket === "["
-            ? expr.start
-            : new SBinaryOperation(expr.start, "+", new SNumber(bigInt(1), 10));
-
-    // Compute end (based on the optionally specified end bracket)
-    const endCond = expr.endBracket === undefined || expr.endBracket === ")" ? "<" : "<=";
-
     // Iteration variable initialization statmenet
     const initStmt = factory.makeExpressionStatement(
-        factory.makeAssignment("<missing>", "=", ctx.refBinding(iterVarName), transpile(start, ctx))
+        factory.makeAssignment(
+            "<missing>",
+            "=",
+            ctx.refBinding(iterVarName),
+            transpile(expr.start, ctx)
+        )
     );
 
     // Loop condition
     const iterCond = factory.makeBinaryOperation(
         "<missing>",
-        endCond,
+        "<",
         ctx.refBinding(iterVarName),
         transpile(expr.end, ctx)
     );
