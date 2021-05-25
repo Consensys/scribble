@@ -139,7 +139,7 @@ async function deployContract(
 
     const tx = new Transaction({
         value: 0,
-        gasLimit: 2000000,
+        gasLimit: 200000000,
         gasPrice: 1,
         data: payload,
         nonce: (await sender.getAccount(vm)).nonce

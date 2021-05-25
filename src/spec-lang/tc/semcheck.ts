@@ -441,8 +441,8 @@ export function scFunctionCall(
 export function scForAll(expr: SForAll, ctx: SemCtx, typeEnv: TypeEnv, semMap: SemMap): SemInfo {
     const exprSemInfo = sc(expr.expression, ctx, typeEnv, semMap);
     const itrSemInfo = sc(expr.iteratorVariable, ctx, typeEnv, semMap);
-    const startSemInfo = sc(expr.start(), ctx, typeEnv, semMap);
-    const endSemInfo = sc(expr.end(), ctx, typeEnv, semMap);
+    const startSemInfo = sc(expr.start, ctx, typeEnv, semMap);
+    const endSemInfo = sc(expr.end, ctx, typeEnv, semMap);
     const canFail =
         exprSemInfo.canFail || itrSemInfo.canFail || startSemInfo.canFail || endSemInfo.canFail;
 

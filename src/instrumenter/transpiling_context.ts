@@ -18,7 +18,7 @@ import {
     VariableDeclaration
 } from "solc-typed-ast";
 import { AnnotationMetaData } from "..";
-import { SId, SLet, SUnaryOperation, SUserFunctionDefinition } from "../spec-lang/ast";
+import { SForAll, SId, SLet, SUnaryOperation, SUserFunctionDefinition } from "../spec-lang/ast";
 import { SemMap, TypeEnv } from "../spec-lang/tc";
 import { assert, last } from "../util";
 import { InstrumentationContext } from "./instrumentation_context";
@@ -203,14 +203,26 @@ export class TranspilingContext {
         }
     }
 
-    insertStatement(stmt: Statement, isOld: boolean): void {
-        this._insertStatement(stmt, last(this.getMarkerStack(isOld)));
+    insertStatement(arg: Statement | Expression, isOld: boolean, addToCurAnnotation = false): void {
+        if (arg instanceof Expression) {
+            arg = this.factory.makeExpressionStatement(arg);
+        }
+        this._insertStatement(arg, last(this.getMarkerStack(isOld)));
+
+        if (addToCurAnnotation) {
+            this.instrCtx.addAnnotationInstrumentation(this.curAnnotation, arg);
+        }
     }
 
-    insertAssignment(lhs: Expression, rhs: Expression, isOld: boolean): Statement {
+    insertAssignment(
+        lhs: Expression,
+        rhs: Expression,
+        isOld: boolean,
+        addToCurAnnotation = false
+    ): Statement {
         const assignment = this.factory.makeAssignment("<missing>", "=", lhs, rhs);
         const stmt = this.factory.makeExpressionStatement(assignment);
-        this.insertStatement(stmt, isOld);
+        this.insertStatement(stmt, isOld, addToCurAnnotation);
         return stmt;
     }
 
@@ -260,7 +272,6 @@ export class TranspilingContext {
      * ```
      *
      * For the first `x` `getLetBinding` will return `x` and for the second it will return `x1`.
-     * @param arg
      */
     getLetBinding(arg: SId | [SLet, number]): string {
         const [letDecl, idx] = arg instanceof SId ? (arg.defSite as [SLet, number]) : arg;
@@ -296,8 +307,6 @@ export class TranspilingContext {
      * ```
      *
      * getLetVar(..) will generate a temporary variable `let_1` that stores the result of the whole expression (true in this case.)
-     *
-     * @param arg
      */
     getLetVar(node: SLet): string {
         const key = `<let_${node.id}>`;
@@ -315,14 +324,51 @@ export class TranspilingContext {
      * ```
      *
      * getOldVar(..) will generate a temporary variable `old_1` that stores the result of the whole expression before the function call.
-     *
-     * @param arg
      */
     getOldVar(node: SUnaryOperation): string {
         const key = `<old_${node.id}>`;
         assert(!this.bindingMap.has(key), `getOldVar called more than once for ${node.pp()}`);
         const res = this.instrCtx.nameGenerator.getFresh("old_");
         this.bindingMap.set(key, res);
+        return res;
+    }
+
+    /**
+     * Get temporary var used to store the result of a forall expression. E.g. for this expression:
+     *
+     * ```
+     *      forall (uint t in a) a[t] > 10
+     * ```
+     *
+     * getForAllVar(..) will generate a temporary variable `forall_1` that stores the result of the ForAll expression and is
+     * updated on every iteration
+     */
+    getForAllVar(node: SForAll): string {
+        const key = `<forall_${node.id}>`;
+        assert(!this.bindingMap.has(key), `getForAllVar called more than once for ${node.pp()}`);
+        const res = this.instrCtx.nameGenerator.getFresh("forall_");
+        this.bindingMap.set(key, res);
+        return res;
+    }
+
+    /**
+     * Get temporary var used to store iterator variable of a forall expression. E.g. for this expression:
+     *
+     * ```
+     *      forall (uint t in a) a[t] > 10
+     * ```
+     *
+     * getForAllVar(..) will generate a temporary variable `t_1` that stores the value of t across every iteration.
+     */
+    getForAllIterVar(node: SForAll): string {
+        const key = `<forall_${node.id}_iter>`;
+        let res: string | undefined = this.bindingMap.get(key);
+
+        if (res === undefined) {
+            res = this.instrCtx.nameGenerator.getFresh(node.iteratorVariable.name);
+            this.bindingMap.set(key, res);
+        }
+
         return res;
     }
 

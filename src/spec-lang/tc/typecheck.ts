@@ -1577,7 +1577,9 @@ function matchArguments(
  *   (the requirement that the iterator variable `t` should have a numeric type is maintained by the grammar at the moment).
  */
 export function tcForAll(expr: SForAll, ctx: STypingCtx, typeEnv: TypeEnv): TypeNode {
-    const startT = tc(expr.start(), ctx, typeEnv);
+    // Call tc on iterator variable to make sure its defSite is set
+    tc(expr.iteratorVariable, ctx.concat(expr), typeEnv);
+    const startT = tc(expr.start, ctx, typeEnv);
 
     // A more user-friendly error for the case when a non-array was passed
     if (expr.array !== undefined) {
@@ -1591,7 +1593,7 @@ export function tcForAll(expr: SForAll, ctx: STypingCtx, typeEnv: TypeEnv): Type
         ) {
             throw new SWrongType(
                 `Provided iterable ${expr.array.pp()} is not an array or fixed bytes - instead got ${arrT.pp()}.`,
-                expr.start(),
+                expr.start,
                 startT
             );
         }
@@ -1599,33 +1601,33 @@ export function tcForAll(expr: SForAll, ctx: STypingCtx, typeEnv: TypeEnv): Type
 
     if (!(startT instanceof IntType || startT instanceof IntLiteralType)) {
         throw new SWrongType(
-            `The expected type for ${expr.start().pp()} is numeric and not ${startT}.`,
-            expr.start(),
+            `The expected type for ${expr.start.pp()} is numeric and not ${startT}.`,
+            expr.start,
             startT
         );
     }
 
-    const endT = tc(expr.end(), ctx, typeEnv);
+    const endT = tc(expr.end, ctx, typeEnv);
     if (!(endT instanceof IntType || endT instanceof IntLiteralType)) {
         throw new SWrongType(
-            `The expected type for ${expr.end().pp()} is numeric and not ${endT}.`,
-            expr.end(),
+            `The expected type for ${expr.end.pp()} is numeric and not ${endT}.`,
+            expr.end,
             endT
         );
     }
 
     if (!isImplicitlyCastable(expr, startT, expr.iteratorType)) {
         throw new SWrongType(
-            `The type for ${expr.start().pp()} is not castable to ${expr.iteratorType}.`,
-            expr.start(),
+            `The type for ${expr.start.pp()} is not castable to ${expr.iteratorType}.`,
+            expr.start,
             startT
         );
     }
 
     if (!isImplicitlyCastable(expr, endT, expr.iteratorType)) {
         throw new SWrongType(
-            `The type for ${expr.end().pp()} is not castable to ${expr.iteratorType}.`,
-            expr.end(),
+            `The type for ${expr.end.pp()} is not castable to ${expr.iteratorType}.`,
+            expr.end,
             endT
         );
     }

@@ -17,10 +17,10 @@ export class SForAll extends SNode {
     public readonly iteratorVariable: SId;
 
     /* start range */
-    public readonly _start?: SNode;
+    public readonly start: SNode;
 
     /*  End range */
-    public readonly _end?: SNode;
+    public readonly end: SNode;
 
     /* Start bracket type, belongs to {'[', '('} */
     public readonly startBracket?: "[" | "(";
@@ -48,37 +48,36 @@ export class SForAll extends SNode {
         super(src);
         this.iteratorType = iteratorType;
         this.iteratorVariable = iteratorVariable;
-        this._start = start;
-        this._end = end;
+        this.array = array;
+
+        if (array === undefined) {
+            assert(
+                start !== undefined && end !== undefined,
+                `When array is not passed in, must specify start and end for forall`
+            );
+            this.start = start;
+            this.end = end;
+        } else {
+            assert(
+                start === undefined && end === undefined,
+                `Can't specify both an array and start or end for forall.`
+            );
+            this.start = new SNumber(bigInt(0), 10);
+            this.end = new SMemberAccess(array, "length");
+        }
+
         this.startBracket = startBracket;
         this.endBracket = endBracket;
         this.expression = expression;
         this.array = array;
     }
-    start(): SNode {
-        if (this._start) {
-            return this._start;
-        }
-        return new SNumber(bigInt(0), 10);
-    }
-
-    end(): SNode {
-        if (this._end) {
-            return this._end;
-        }
-        assert(this.array !== undefined, "The array cannot be undefined when range is empty");
-        return new SMemberAccess(this.array, "length");
-    }
 
     pp(): string {
-        if (this._start) {
+        if (this.array === undefined) {
             return `(forall(${this.iteratorType.pp()} ${this.iteratorVariable.pp()} in ${
                 this.startBracket
-            } ${this.start().pp()}...${this.end().pp()} ${
-                this.endBracket
-            }) ${this.expression.pp()}`;
+            } ${this.start.pp()}...${this.end.pp()} ${this.endBracket}) ${this.expression.pp()}`;
         } else {
-            assert(this.array != undefined, "The array cannot be undefined when range is empty");
             return `(forall(${this.iteratorType.pp()} ${this.iteratorVariable.pp()} in ${this.array.pp()}) ${this.expression.pp()}`;
         }
     }
@@ -89,8 +88,8 @@ export class SForAll extends SNode {
             this.iteratorVariable,
             this.expression,
             this.startBracket,
-            this._start,
-            this._end,
+            this.start,
+            this.end,
             this.endBracket,
             this.array
         ];
