@@ -32,6 +32,7 @@ import {
     MemberAccess,
     Mutability,
     PointerType,
+    replaceNode,
     Statement,
     StateVariableVisibility,
     StringLiteralType,
@@ -49,16 +50,13 @@ import {
     VariableDeclaration,
     WhileStatement
 } from "solc-typed-ast";
-import { AnnotationMetaData, replaceNode } from ".";
+import { AnnotationMetaData } from ".";
 import {
     AnnotationMap,
     ConcreteDatastructurePath,
     decomposeLHS,
-    generateExpressions,
-    generateTypeAst,
     getOrInit,
-    getTypeLocation,
-    insertInvChecks,
+    insertAnnotations,
     isStateVarRef,
     isTypeAliasable,
     last,
@@ -67,17 +65,18 @@ import {
     single,
     StateVarUpdateDesc,
     StateVarUpdateNode,
+    transpileType,
     UnsupportedConstruct,
     updateMap
 } from "..";
 import { assert } from "../util";
 import { InstrumentationContext } from "./instrumentation_context";
-import { TranspilingContext } from "./transpiling_context";
+import { InstrumentationSiteType, TranspilingContext } from "./transpiling_context";
 import { SId, SIfUpdated, SStateVarProp } from "../spec-lang/ast";
 import { makeTypeString } from "./type_string";
-import { cook } from "../rewriter";
 import { getOrAddConstructor } from "./instrument";
 import { lt } from "semver";
+import { getTypeLocation } from "./transpile";
 
 /**
  * Given a Solidity `Expression` `e` and the `expectedType` where its being used,
@@ -477,7 +476,7 @@ function makeWrapper(
                 Mutability.Mutable,
                 "<missing>",
                 undefined,
-                generateTypeAst(formalT, factory)
+                transpileType(formalT, factory)
             )
         );
     }
@@ -526,7 +525,7 @@ function makeWrapper(
     for (let i = 0; i < retParamTs.length; i++) {
         const formalT = retParamTs[i];
         const loc = formalT instanceof PointerType ? formalT.location : DataLocation.Default;
-        const solFromalT = generateTypeAst(formalT, factory);
+        const solFromalT = transpileType(formalT, factory);
 
         const decl = factory.makeVariableDeclaration(
             false,
@@ -714,7 +713,7 @@ export function interposeTupleAssignment(
     // Helper function to replace just ONE part of a tuple with a temporary.
     // The part of the tuple to replace is specified by `tuplePath`
     const replaceLHSComp = (lhsComp: Expression, rhsT: TypeNode, tuplePath: number[]): void => {
-        const tempSolT = generateTypeAst(rhsT, factory);
+        const tempSolT = transpileType(rhsT, factory);
         const loc = getTypeLocation(rhsT);
 
         const [, path] = decomposeLHSWithTypes(lhsComp, factory);
@@ -1154,7 +1153,10 @@ export function instrumentStateVars(
 
         if (node instanceof Assignment && node.vLeftHandSide instanceof TupleExpression) {
             const varsOfInterest = new Set(locs.map((loc) => loc[1]));
-            const transCtx = ctx.getTranspilingCtx(containingFun);
+            const transCtx = ctx.getTranspilingCtx(
+                containingFun,
+                InstrumentationSiteType.StateVarUpdated
+            );
             const tupleWrappedMap = interposeTupleAssignment(transCtx, node, varsOfInterest);
 
             updateMap(wrapperMap, tupleWrappedMap);
@@ -1180,13 +1182,8 @@ export function instrumentStateVars(
         const relevantAnnotats = annotMap.get(updateLocKey) as PropertyMetaData[];
         assert(relevantAnnotats !== undefined, ``);
 
-        const transCtx = ctx.getTranspilingCtx(wrapper);
-        const body = wrapper.vBody as Block;
-
-        const instrResult = generateExpressions(relevantAnnotats, transCtx);
-        const contract = wrapper.vScope as ContractDefinition;
-        const recipe = insertInvChecks(transCtx, instrResult, relevantAnnotats, contract, body);
-        cook(recipe);
+        const transCtx = ctx.getTranspilingCtx(wrapper, InstrumentationSiteType.StateVarUpdated);
+        insertAnnotations(relevantAnnotats, transCtx);
     }
 
     // Finally strip the documentation, otherwise solidity may fail due to natspec on internal vars

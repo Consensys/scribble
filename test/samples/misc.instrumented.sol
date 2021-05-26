@@ -59,10 +59,8 @@ contract OldInOld {
     event AssertionFailed(string message);
 
     struct vars3 {
-        uint256 old_0;
         uint256 oldTT;
         uint256 oldT;
-        uint256 old_1;
         uint256 oldTTimes2;
         bool let_0;
         bool let_1;
@@ -73,11 +71,9 @@ contract OldInOld {
 
     function moo() public {
         vars3 memory _v;
-        _v.old_0 = t;
-        _v.oldTT = _v.old_0;
+        _v.oldTT = t;
         _v.oldT = _v.oldTT;
-        _v.old_1 = _v.oldT * 2;
-        _v.oldTTimes2 = _v.old_1;
+        _v.oldTTimes2 = _v.oldT * 2;
         _original_OldInOld_moo();
         _v.let_0 = _v.oldTTimes2 == t;
         _v.let_1 = _v.let_0;
@@ -174,8 +170,7 @@ contract Result {
     function d() public returns (uint RET_0, uint t) {
         vars7 memory _v;
         (RET_0, t) = _original_Result_d();
-        _v.a1 = RET_0;
-        _v.b1 = t;
+        (_v.a1, _v.b1) = (RET_0, t);
         _v.let_5 = ((_v.a1 == 1) && (_v.b1 == 2)) && (t == _v.b1);
         if (!(_v.let_5)) {
             emit AssertionFailed("8: ");

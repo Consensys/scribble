@@ -293,3 +293,22 @@ export function last<T>(arr: T[], throwOnEmpty = true): T | undefined {
     assert(!throwOnEmpty || arr.length > 0, `Internal Error: Unexpected empty array`);
     return arr[arr.length - 1];
 }
+
+export type SubclassConstructor<Base, Child extends Base> = new (...args: any[]) => Child;
+/**
+ * Given an array of nodes inheriting from `Base` filter out only the nodes also inheriting from `Child` where
+ * `Child` inherits from `Base`.
+ */
+export function filterByType<Base, Child extends Base>(
+    original: Base[],
+    constr: SubclassConstructor<Base, Child>
+): Child[] {
+    const result: Child[] = [];
+    for (const annotation of original) {
+        if (annotation instanceof constr) {
+            result.push(annotation);
+        }
+    }
+
+    return result;
+}

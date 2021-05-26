@@ -1,0 +1,106 @@
+{
+    "file": "test/samples/forall_simple.sol",
+    "steps": [
+        {
+            "act": "createUser",
+            "alias": "owner",
+            "options": {
+                "balance": 1000e18
+            }
+        },
+        {
+            "act": "deployContract",
+            "contract": "ForallSimple",
+            "user": "owner",
+            "alias": "instance1"
+        },
+        {
+            "act": "txCall",
+            "user": "owner",
+            "contract": "instance1",
+
+            "method": "push",
+            "args": {
+                "types": ["uint256"],
+                "values": ["11"]
+            }
+        },
+        {
+            "act": "txCall",
+            "user": "owner",
+            "contract": "instance1",
+
+            "method": "push",
+            "args": {
+                "types": ["uint256"],
+                "values": ["1"]
+            }
+        },
+        {
+            "act": "txCall",
+            "user": "owner",
+            "contract": "instance1",
+
+            "method": "test1",
+            "args": {
+                "types": ["uint256[]", "uint256"],
+                "values": [["5", "4", "3", "2"], "1"]
+            }
+        },
+        {
+            "act": "txCall",
+            "user": "owner",
+            "contract": "instance1",
+
+            "method": "test1",
+            "args": {
+                "types": ["uint256[]", "uint256"],
+                "values": [["5", "4", "3", "2"], "2"]
+            }
+        },
+        {
+            "act": "txCall",
+            "user": "owner",
+            "contract": "instance1",
+
+            "method": "test2",
+            "args": {
+                "types": ["uint256[]", "uint256"],
+                "values": [["5", "4", "3", "2"], "5"]
+            }
+        },
+        {
+            "act": "txCall",
+            "user": "owner",
+            "contract": "instance1",
+
+            "method": "test2",
+            "args": {
+                "types": ["uint256[]", "uint256"],
+                "values": [["5", "4", "3", "2"], "0"]
+            }
+        },
+        {
+            "act": "txCall",
+            "user": "owner",
+            "contract": "instance1",
+
+            "method": "test3",
+            "args": {
+                "types": ["uint256[]", "uint256"],
+                "values": [["5", "4", "3", "2"], "2"]
+            }
+        },
+        {
+            "act": "txCall",
+            "user": "owner",
+            "contract": "instance1",
+
+            "method": "test3",
+            "args": {
+                "types": ["uint256[]", "uint256"],
+                "values": [["5", "4", "3", "2"], "0"]
+            }
+        }
+    ]
+}

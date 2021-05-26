@@ -12,6 +12,7 @@ import {
     SFunctionCall,
     SConditional,
     SLet,
+    SForAll,
     SResult,
     SAnnotation,
     SUserFunctionDefinition,
@@ -32,6 +33,7 @@ describe("Expression Parser Unit Tests", () => {
         ["1234", new SNumber(bigInt(1234), 10)],
         ["10 wei", new SNumber(bigInt(10), 10)],
         ["10 gwei", new SNumber(bigInt(1e10), 10)],
+
         ["1 ether", new SNumber(bigInt(1e18), 10)],
         ["100 seconds", new SNumber(bigInt(100), 10)],
         ["100 \n\n\n minutes", new SNumber(bigInt(6000), 10)],
@@ -560,6 +562,35 @@ describe("Expression Parser Unit Tests", () => {
                 new SBinaryOperation(new SId("a"), "+", new SId("b"))
             )
         ],
+        [
+            "forall (uint x in a) a[x]>10",
+            new SForAll(
+                new IntType(256, false),
+                new SId("x"),
+                new SBinaryOperation(
+                    new SIndexAccess(new SId("a"), new SId("x")),
+                    ">",
+                    new SNumber(bigInt(10), 10)
+                ),
+                undefined,
+                undefined,
+                new SId("a")
+            )
+        ],
+        [
+            "forall (uint x in 1...10) a[x]>10",
+            new SForAll(
+                new IntType(256, false),
+                new SId("x"),
+                new SBinaryOperation(
+                    new SIndexAccess(new SId("a"), new SId("x")),
+                    ">",
+                    new SNumber(bigInt(10), 10)
+                ),
+                new SNumber(bigInt(1), 10),
+                new SNumber(bigInt(10), 10)
+            )
+        ],
         ["$result", new SResult()]
     ];
 
@@ -574,7 +605,11 @@ describe("Expression Parser Unit Tests", () => {
         "old.foo",
         "old+1",
         "old[1]",
-        "old(1,2)"
+        "old(1,2)",
+        "forall (uint x in let) f(sheep)",
+        "forall (uint x in [0, 100)] a[x] > 10",
+        "forall (string x in 0...100) x > 0",
+        "forall (x in 0...100) x > 0"
     ];
 
     for (const [sample, expectedAST] of goodSamples) {
@@ -602,6 +637,7 @@ describe("Annotation Parser Unit Tests", () => {
             "/// if_succeeds true;",
             new SProperty(AnnotationType.IfSucceeds, new SBooleanLiteral(true))
         ],
+
         [
             '/// if_succeeds {:msg "hi"} true;',
             new SProperty(AnnotationType.IfSucceeds, new SBooleanLiteral(true), "hi")
@@ -755,6 +791,42 @@ describe("Annotation Parser Unit Tests", () => {
                 ],
                 new IntType(256, false),
                 new SBinaryOperation(new SId("a"), "+", new SId("b"))
+            )
+        ],
+        [
+            "/// if_succeeds forall (uint x in 1...10) a[x]>10;",
+            new SProperty(
+                AnnotationType.IfSucceeds,
+                new SForAll(
+                    new IntType(256, false),
+                    new SId("x"),
+                    new SBinaryOperation(
+                        new SIndexAccess(new SId("a"), new SId("x")),
+                        ">",
+                        new SNumber(bigInt(10), 10)
+                    ),
+                    new SNumber(bigInt(1), 10),
+                    new SNumber(bigInt(10), 10)
+                )
+            )
+        ],
+
+        [
+            "/// if_succeeds forall (uint x in a) a[x]>10;",
+            new SProperty(
+                AnnotationType.IfSucceeds,
+                new SForAll(
+                    new IntType(256, false),
+                    new SId("x"),
+                    new SBinaryOperation(
+                        new SIndexAccess(new SId("a"), new SId("x")),
+                        ">",
+                        new SNumber(bigInt(10), 10)
+                    ),
+                    undefined,
+                    undefined,
+                    new SId("a")
+                )
             )
         ]
     ];

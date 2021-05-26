@@ -15,7 +15,8 @@ Annotation
       }
 
 Expression =
-    LetExpression
+    For_All
+    / LetExpression
 
 // Non-top-level rules
 
@@ -35,6 +36,26 @@ Invariant =
   type: INVARIANT __ label: AnnotationLabel? __ expr: Expression __ ";"
   {
     return new SProperty(type as AnnotationType, expr, label !== null ? label : undefined, location());
+  }
+
+Range =
+    start: Expression __ "..."  __ end: Expression
+    {
+      return [start, end];
+    }
+    / expression: Expression {return expression;}
+
+
+For_All =
+  type: FORALL __ "(" __ itr_type: IntType __ iterator: Identifier __ IN __ range: Range __ ")" __ expr: Expression
+  {
+    if(Array.isArray(range)) {
+      const [start, end] = range;
+      return new SForAll(itr_type, iterator, expr, start, end, undefined, location());
+    }
+    else {
+      return new SForAll(itr_type, iterator, expr, undefined, undefined, range, location());
+    }
   }
 
 If_Succeeds =
@@ -130,6 +151,7 @@ IF_SUCCEEDS = "if_succeeds"
 IF_UPDATED = "if_updated"
 IF_ASSIGNED = "if_assigned"
 DEFINE = "define"
+FORALL = "forall"
 
 Keyword
     = TRUE
@@ -156,6 +178,7 @@ Keyword
     / VIEW
     / NONPAYABLE
     / RESULT
+    / FORALL
 
 // Number units
 NumberUnit = 'wei' / 'gwei' / 'ether' / 'seconds' 
