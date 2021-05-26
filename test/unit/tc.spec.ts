@@ -731,6 +731,10 @@ describe("TypeChecker Annotation Tests", () => {
             `pragma solidity 0.6.0;
              contract Base {
                  uint x;
+                 uint8 a;
+                 uint8 b;
+                 uint[] arr;
+                 uint[][] arr2;
                  function plus(uint t) public returns (uint) {
                      x+=t;
                      return x;
@@ -754,7 +758,6 @@ describe("TypeChecker Annotation Tests", () => {
                  int64 z;
                  int64 w;
                  uint[] arr;
-
                  struct SArr {
                     uint[] arr;
                  }
@@ -878,7 +881,31 @@ describe("TypeChecker Annotation Tests", () => {
                     new BoolType(),
                     true
                 ],
-                ["if_updated old(z)>0;", ["Unrelated", "z"], new BoolType(), true]
+                ["if_updated old(z)>0;", ["Unrelated", "z"], new BoolType(), true],
+                [
+                    "if_succeeds forall(uint i in 1...10) arr[i] > 0;",
+                    ["Base", "plus"],
+                    undefined,
+                    true
+                ],
+                [
+                    "if_succeeds forall(uint256 i in a...b) arr[i] > 0;",
+                    ["Base", "plus"],
+                    undefined,
+                    true
+                ],
+                [
+                    "if_succeeds forall(uint256 i in arr2[0]) arr[i] > 0;",
+                    ["Base", "plus"],
+                    undefined,
+                    true
+                ],
+                [
+                    "if_succeeds forall(uint256 i in a+b...a*b) arr[i] > 0;",
+                    ["Base", "plus"],
+                    undefined,
+                    true
+                ]
             ]
         ]
     ];
@@ -891,6 +918,9 @@ describe("TypeChecker Annotation Tests", () => {
             `pragma solidity 0.6.0;
              contract Base {
                  uint x;
+                 uint256 a;
+                 uint128 b;
+                 uint[] arr;
                  function plus(uint t) public returns (uint) {
                      x+=t;
                      return x;
@@ -945,7 +975,11 @@ describe("TypeChecker Annotation Tests", () => {
                 [
                     "if_assigned[bts][addr] addr == address(0x0) && bts[0] == byte(0x01);",
                     ["Unrelated", "m2"]
-                ]
+                ],
+                ["if_succeeds forall(uint i in 1...arr) arr[i] > 0;", ["Base", "plus"]],
+                ["if_succeeds forall(uint i in 1...10) i+10;", ["Base", "plus"]],
+                ["if_succeeds forall(uint i in a) true;", ["Base", "plus"]],
+                ["if_succeeds forall(uint8 i in a...b) arr[i] > 0;", ["Base", "plus"]]
             ]
         ]
     ];

@@ -49,6 +49,7 @@ import {
     SBinaryOperation,
     SBooleanLiteral,
     SConditional,
+    SForAll,
     SFunctionCall,
     SHexLiteral,
     SId,
@@ -81,7 +82,9 @@ export type SScope =
     | FunctionDefinition
     | SLet
     | SUserFunctionDefinition
-    | StateVarScope;
+    | StateVarScope
+    | SForAll;
+
 export type STypingCtx = SScope[];
 
 export function ppTypingCtx(ctx: STypingCtx): string {
@@ -293,6 +296,10 @@ export function lookupVarDef(name: string, ctx: STypingCtx): VarDefSite | undefi
                 if (element instanceof SId && element.name === name) {
                     return [scope, i];
                 }
+            }
+        } else if (scope instanceof SForAll) {
+            if (scope.iteratorVariable.name == name) {
+                return scope;
             }
         } else {
             for (let bindingIdx = 0; bindingIdx < scope.lhs.length; bindingIdx++) {
@@ -633,6 +640,10 @@ export function tc(expr: SNode, ctx: STypingCtx, typeEnv: TypeEnv): TypeNode {
         return new TypeNameType(expr);
     }
 
+    if (expr instanceof SForAll) {
+        return cache(expr, tcForAll(expr, ctx, typeEnv));
+    }
+
     throw new Error(`NYI type-checking of ${expr.pp()}`);
 }
 
@@ -846,6 +857,10 @@ function tcIdVariable(expr: SId, ctx: STypingCtx, typeEnv: TypeEnv): TypeNode | 
         }
 
         return astVarToTypeNode(def);
+    }
+
+    if (def instanceof SForAll) {
+        return def.iteratorType;
     }
 
     const [defNode, bindingIdx] = def;
@@ -1553,6 +1568,80 @@ function matchArguments(
     }
 
     return true;
+}
+
+/**
+ * We check the following in `forall (uint t in [a ... b]) e(t)`:
+ *   - `a` and `b` should be numeric and be castable to the type of `t`
+ *   - type of `e(t)` is boolean
+ *   (the requirement that the iterator variable `t` should have a numeric type is maintained by the grammar at the moment).
+ */
+export function tcForAll(expr: SForAll, ctx: STypingCtx, typeEnv: TypeEnv): TypeNode {
+    // Call tc on iterator variable to make sure its defSite is set
+    tc(expr.iteratorVariable, ctx.concat(expr), typeEnv);
+    const startT = tc(expr.start, ctx, typeEnv);
+
+    // A more user-friendly error for the case when a non-array was passed
+    if (expr.array !== undefined) {
+        const arrT = tc(expr.array, ctx, typeEnv);
+
+        if (
+            !(
+                (arrT instanceof PointerType && arrT.to instanceof ArrayType) ||
+                arrT instanceof FixedBytesType
+            )
+        ) {
+            throw new SWrongType(
+                `Provided iterable ${expr.array.pp()} is not an array or fixed bytes - instead got ${arrT.pp()}.`,
+                expr.start,
+                startT
+            );
+        }
+    }
+
+    if (!(startT instanceof IntType || startT instanceof IntLiteralType)) {
+        throw new SWrongType(
+            `The expected type for ${expr.start.pp()} is numeric and not ${startT}.`,
+            expr.start,
+            startT
+        );
+    }
+
+    const endT = tc(expr.end, ctx, typeEnv);
+    if (!(endT instanceof IntType || endT instanceof IntLiteralType)) {
+        throw new SWrongType(
+            `The expected type for ${expr.end.pp()} is numeric and not ${endT}.`,
+            expr.end,
+            endT
+        );
+    }
+
+    if (!isImplicitlyCastable(expr, startT, expr.iteratorType)) {
+        throw new SWrongType(
+            `The type for ${expr.start.pp()} is not castable to ${expr.iteratorType}.`,
+            expr.start,
+            startT
+        );
+    }
+
+    if (!isImplicitlyCastable(expr, endT, expr.iteratorType)) {
+        throw new SWrongType(
+            `The type for ${expr.end.pp()} is not castable to ${expr.iteratorType}.`,
+            expr.end,
+            endT
+        );
+    }
+
+    const exprT = tc(expr.expression, ctx.concat(expr), typeEnv);
+    if (!(exprT instanceof BoolType)) {
+        throw new SWrongType(
+            `The expected type for ${expr.expression.pp()} is boolean and not ${exprT}.`,
+            expr.expression,
+            exprT
+        );
+    }
+
+    return exprT;
 }
 
 export function tcFunctionCall(expr: SFunctionCall, ctx: STypingCtx, typeEnv: TypeEnv): TypeNode {

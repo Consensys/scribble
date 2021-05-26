@@ -17,6 +17,7 @@ import {
     SMemberAccess,
     SIndexAccess,
     SFunctionCall,
+    SForAll,
     SConditional,
     SLet,
     SMemberAccess,

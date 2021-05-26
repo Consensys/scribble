@@ -3,6 +3,7 @@ import {
     ArrayType,
     assert,
     ASTNodeFactory,
+    Block,
     BoolType,
     BytesType,
     ContractDefinition,
@@ -37,6 +38,7 @@ import {
     SBinaryOperation,
     SBooleanLiteral,
     SConditional,
+    SForAll,
     SFunctionCall,
     SHexLiteral,
     SId,
@@ -130,6 +132,11 @@ function transpileId(expr: SId, ctx: TranspilingContext): Expression {
     // Let-variable used inside the body
     if (expr.defSite instanceof Array && expr.defSite[0] instanceof SLet) {
         return ctx.refBinding(ctx.getLetBinding(expr));
+    }
+
+    // ForAll iterator var
+    if (expr.defSite instanceof SForAll) {
+        return ctx.refBinding(ctx.getForAllIterVar(expr.defSite));
     }
 
     // User function argument
@@ -289,8 +296,7 @@ function transpileUnaryOperation(expr: SUnaryOperation, ctx: TranspilingContext)
         const type = ctx.typeEnv.typeOf(expr.subexp);
         ctx.addBinding(bindingName, transpileType(type, ctx.factory));
         const binding = ctx.refBinding(bindingName);
-        const stmt = ctx.insertAssignment(binding, subExp, true);
-        ctx.instrCtx.addAnnotationInstrumentation(ctx.curAnnotation, stmt);
+        ctx.insertAssignment(binding, subExp, true, true);
         return ctx.refBinding(bindingName);
     }
 
@@ -425,18 +431,97 @@ function transpileLet(expr: SLet, ctx: TranspilingContext): Expression {
         lhs = factory.makeTupleExpression("<missing>", false, lhss);
     }
 
-    let stmt = ctx.insertAssignment(lhs, rhs, isLetBindingOld);
-    ctx.instrCtx.addAnnotationInstrumentation(ctx.curAnnotation, stmt);
+    ctx.insertAssignment(lhs, rhs, isLetBindingOld, true);
 
     const body = transpile(expr.in, ctx);
     const letVarName = ctx.getLetVar(expr);
     ctx.addBinding(letVarName, transpileType(ctx.typeEnv.typeOf(expr), ctx.factory));
     const letVar = ctx.refBinding(letVarName);
 
-    stmt = ctx.insertAssignment(letVar, body, isLetOld);
-    ctx.instrCtx.addAnnotationInstrumentation(ctx.curAnnotation, stmt);
+    ctx.insertAssignment(letVar, body, isLetOld, true);
 
     return ctx.refBinding(letVarName);
+}
+
+/**
+ * Transpile the `SForAll` statement `expr`. Note that this will generate and insert a loop
+ * in `ctx.container`.
+ */
+function transpileForAll(expr: SForAll, ctx: TranspilingContext): Expression {
+    const factory = ctx.factory;
+    const isOld = (ctx.semInfo.get(expr) as SemInfo).isOld;
+
+    // Add temp bindings for iterator variable and result var
+    const iterVarName = ctx.getForAllIterVar(expr);
+    const resultVarName = ctx.getForAllVar(expr);
+
+    ctx.addBinding(iterVarName, transpileType(expr.iteratorType, ctx.factory));
+    ctx.addBinding(resultVarName, transpileType(new BoolType(), ctx.factory));
+
+    // Initialize result of forall to true (so `forall (uint x in [0, 0)) false` is true).
+    ctx.insertStatement(
+        factory.makeAssignment(
+            "<missing>",
+            "=",
+            ctx.refBinding(resultVarName),
+            factory.makeLiteral("<missing>", LiteralKind.Bool, "", "true")
+        ),
+        isOld,
+        true
+    );
+
+    // Iteration variable initialization statmenet
+    const initStmt = factory.makeExpressionStatement(
+        factory.makeAssignment(
+            "<missing>",
+            "=",
+            ctx.refBinding(iterVarName),
+            transpile(expr.start, ctx)
+        )
+    );
+
+    // Loop condition
+    const iterCond = factory.makeBinaryOperation(
+        "<missing>",
+        "<",
+        ctx.refBinding(iterVarName),
+        transpile(expr.end, ctx)
+    );
+
+    // Iteration variable increment
+    const incStmt = factory.makeExpressionStatement(
+        factory.makeUnaryOperation("<missing>", false, "++", ctx.refBinding(iterVarName))
+    );
+
+    const body: Block = factory.makeBlock([]);
+
+    // Build and insert a for-loop with empty body
+    ctx.insertStatement(factory.makeForStatement(body, initStmt, iterCond, incStmt), isOld, true);
+
+    // Transpile the predicate expression in the empty body of the newly inserted for-loop
+    ctx.pushMarker([body, "end"], isOld);
+
+    const bodyPred = transpile(expr.expression, ctx);
+    // Update the result variable for the forall on every loop iteration
+    ctx.insertStatement(
+        factory.makeAssignment("<missing>", "=", ctx.refBinding(resultVarName), bodyPred),
+        isOld,
+        true
+    );
+
+    // If the result ever becomes false, terminate early
+    ctx.insertStatement(
+        factory.makeIfStatement(
+            factory.makeUnaryOperation("<missing>", true, "!", ctx.refBinding(resultVarName)),
+            factory.makeBreak()
+        ),
+        isOld,
+        true
+    );
+
+    ctx.popMarker(isOld);
+
+    return ctx.refBinding(resultVarName);
 }
 
 /**
@@ -535,6 +620,10 @@ export function transpile(expr: SNode, ctx: TranspilingContext): Expression {
 
     if (expr instanceof SLet) {
         return transpileLet(expr, ctx);
+    }
+
+    if (expr instanceof SForAll) {
+        return transpileForAll(expr, ctx);
     }
 
     if (expr instanceof TypeNode) {
