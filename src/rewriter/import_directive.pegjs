@@ -31,8 +31,8 @@ LineTerminatorSequence "end of line" =
     / "\u2028"
     / "\u2029"
 
-__
-    = (WhiteSpace / LineTerminator)*
+__ =
+    (WhiteSpace / LineTerminator)*
 
 IMPORT = "import"
 AS = "as"
