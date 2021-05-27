@@ -285,11 +285,11 @@ DecDigit =
 ExponentIndicator =
     "e" / "E"
 
-SignedInteger
-    = [+-]? DecDigit+
+SignedInteger =
+    [+-]? DecDigit+
 
-ExponentPart
-    = ExponentIndicator SignedInteger
+ExponentPart =
+    ExponentIndicator SignedInteger
 
 DecNumber =
     DecDigit+ ExponentPart? {
