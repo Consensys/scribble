@@ -30,10 +30,7 @@ AnnotationLabel =
     "{:msg" __  str: AnnotationStr __ "}" { return str; }
 
 Invariant =
-    type: INVARIANT
-    __ label: AnnotationLabel?
-    __ expr: Expression
-    __ ";" {
+    type: INVARIANT __ label: AnnotationLabel? __ expr: Expression __ ";" {
         return new SProperty(
             type as AnnotationType,
             expr,
@@ -48,14 +45,7 @@ Range =
 
 
 For_All =
-    type: FORALL
-    __ "("
-    __ itr_type: IntType
-    __ iterator: Identifier
-    __ IN
-    __ range: Range
-    __ ")"
-    __ expr: Expression {
+    type: FORALL __ "(" __ itr_type: IntType __ iterator: Identifier __ IN __ range: Range __ ")" __ expr: Expression {
         if (Array.isArray(range)) {
             const [start, end] = range;
 
@@ -66,10 +56,7 @@ For_All =
     }
 
 If_Succeeds =
-    type: IF_SUCCEEDS
-    __ label: AnnotationLabel?
-    __ expr: Expression
-    __ ";" {
+    type: IF_SUCCEEDS __ label: AnnotationLabel? __ expr: Expression __ ";" {
         return new SProperty(
             type as AnnotationType,
             expr,
@@ -90,10 +77,7 @@ IndexPath =
 // TODO: Eventually remove hacky '/' from if_updated rule. This is to work around
 // limitations in Solidity - it throws if it sees natspec on internal state vars
 If_Updated =
-    ("/" __)?
-    type: IF_UPDATED
-    __ label: AnnotationLabel?
-    __ expr: Expression __ ";" {
+    ("/" __)? type: IF_UPDATED __ label: AnnotationLabel? __ expr: Expression __ ";" {
         return new SIfUpdated(
             expr,
             [],
@@ -103,11 +87,7 @@ If_Updated =
     }
 
 If_Assigned =
-    ("/" __)?
-    type: IF_ASSIGNED
-    path: IndexPath
-    __ label: AnnotationLabel?
-    __ expr: Expression __ ";" {
+    ("/" __)? type: IF_ASSIGNED path: IndexPath __ label: AnnotationLabel? __ expr: Expression __ ";" {
         return new SIfAssigned(
             expr,
             path,
@@ -138,13 +118,7 @@ TypedArgs =
     }
 
 UserFunctionDefinition =
-    type: DEFINE
-    __ label: AnnotationLabel?
-    __ name: Identifier
-    __ "(" __ args: TypedArgs? __ ")"
-    __ returnType: Type
-    __ "="
-    __ body: Expression {
+    type: DEFINE __ label: AnnotationLabel? __ name: Identifier __ "(" __ args: TypedArgs? __ ")" __ returnType: Type __ "=" __ body: Expression {
         return new SUserFunctionDefinition(
             name,
             args === null ? [] : args,
@@ -156,6 +130,7 @@ UserFunctionDefinition =
     }
 
 // Terminals
+
 PrimitiveWhiteSpace "whitespace" =
     "\t"
     / "\v"
@@ -173,6 +148,7 @@ StartingWhiteSpace "whitespace" =
     PrimitiveWhiteSpace* LineTerminator? PrimitiveWhiteSpace* ("*" / "///")? __
 
 // Separator, Space
+
 Zs =
     [\u0020\u00A0\u1680\u2000-\u200A\u202F\u205F\u3000]
 
@@ -510,9 +486,7 @@ BitwiseORExpression =
 
 RelationalExpression =
     (
-        left: BitwiseORExpression
-        __ op: RelationalOperator
-        __ right: BitwiseORExpression {
+        left: BitwiseORExpression __ op: RelationalOperator __ right: BitwiseORExpression {
             return new SBinaryOperation(left, op as RleationalBinaryOperator, right, location());
         }
     )
@@ -608,7 +582,7 @@ AddressType =
     }
 
 IntType =
-    unsigned: ("u"?) "int" width:(Number?) {
+    unsigned: ("u"?) "int" width: (Number?) {
         const isSigned = unsigned === null;
         const bitWidth = width === null ? 256 : width.num.toJSNumber();
 
@@ -717,10 +691,7 @@ FunctionDecoratorList =
     }
 
 FunctionType =
-    FUNCTION
-    __ "(" __ args: TypeList? __ ")"
-    __ decorators: (FunctionDecoratorList?)
-    __ returns: (RETURNS __ "(" __ (TypeList) __ ")")? {
+    FUNCTION __ "(" __ args: TypeList? __ ")" __ decorators: (FunctionDecoratorList?) __ returns: (RETURNS __ "(" __ (TypeList) __ ")")? {
         const argTs = args === null ? [] : args;
         const retTs = returns === null ? [] : returns[4];
         const decoratorsList = decorators === null ? [] : decorators;
