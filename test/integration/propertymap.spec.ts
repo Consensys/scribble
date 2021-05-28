@@ -1,45 +1,50 @@
+import expect from "expect";
 import {
+    ContractDefinition,
+    FunctionDefinition,
     SourceUnit,
     StructuredDocumentation,
-    VariableDeclaration,
-    FunctionDefinition,
-    ContractDefinition
+    VariableDeclaration
 } from "solc-typed-ast";
-import expect from "expect";
-import fse from "fs-extra";
-import { toAst, searchRecursive } from "./utils";
-import { scribble } from "./utils";
-import { InstrumentationMetaData, assert, pp } from "../../src/util";
+import { assert, InstrumentationMetaData, pp } from "../../src/util";
+import { removeProcWd, scribble, searchRecursive, toAstUsingCache } from "./utils";
 
 function findPredicates(inAST: SourceUnit[]): Map<number, Set<string>> {
     const res: Map<number, Set<string>> = new Map();
     const rx = /\s*(if_succeeds|if_aborts|invariant|if_updated|if_assigned)[a-z0-9.[\])_]*\s*({:msg\s*"([^"]*)"\s*})?\s*([^;]*);/g;
 
     for (const unit of inAST) {
-        const targets: Array<VariableDeclaration | FunctionDefinition | ContractDefinition> = [];
-        const preds: Set<string> = new Set();
+        const targets: Array<
+            VariableDeclaration | FunctionDefinition | ContractDefinition
+        > = unit.getChildrenBySelector(
+            (node) =>
+                node instanceof ContractDefinition ||
+                node instanceof FunctionDefinition ||
+                node instanceof VariableDeclaration
+        );
 
-        targets.push(...unit.getChildrenByType(ContractDefinition));
-        targets.push(...unit.getChildrenByType(FunctionDefinition));
-        targets.push(...unit.getChildrenByType(VariableDeclaration));
+        const preds = new Set<string>();
+
         for (const target of targets) {
             if (target.documentation === undefined) {
                 continue;
             }
 
-            const text: string =
+            const text =
                 target.documentation instanceof StructuredDocumentation
                     ? target.documentation.text
                     : target.documentation;
 
-            let m;
+            let m: RegExpExecArray | null;
 
             while ((m = rx.exec(text)) !== null) {
                 preds.add((m[4] as string).trim());
             }
         }
+
         res.set(unit.sourceListIndex, preds);
     }
+
     return res;
 }
 
@@ -56,43 +61,63 @@ describe("Property map test", () => {
         "semicolon_in_string.sol",
         "increment_inherited_collision.sol"
     ];
-    const samples = searchRecursive(samplesDir, /(?<=\.instrumented)\.sol$/)
-        .map((fileName) => fileName.replace(".instrumented.sol", ".sol"))
-        .filter((x) => {
-            for (const needle of skip) {
-                if (x.includes(needle)) {
-                    return false;
-                }
-            }
 
-            return true;
-        });
+    const samples = searchRecursive(samplesDir, /(?<=\.instrumented)\.sol$/)
+        .map((fileName) => removeProcWd(fileName).replace(".instrumented.sol", ".sol"))
+        .filter((fileName) => !skip.some((needle) => fileName.includes(needle)));
+
     const rx = /^([0-9]*):([0-9]*):([0-9]*)$/;
 
     it(`Source samples are present in ${samplesDir}`, () => {
         expect(samples.length).toBeGreaterThan(0);
     });
 
-    for (const fileName of samples) {
-        describe(`Sample ${fileName}`, () => {
+    for (const sample of samples) {
+        describe(`Sample ${sample}`, () => {
             let inAst: SourceUnit[];
             let contents: string;
             let outJSON: any;
 
             before(() => {
-                contents = fse.readFileSync(fileName, { encoding: "utf8" });
-                [inAst] = toAst(fileName, contents);
-                outJSON = JSON.parse(scribble(fileName, "--output-mode", "json"));
+                const result = toAstUsingCache(sample);
+
+                if (!result.files.has(sample)) {
+                    throw new Error(`Missing source for ${sample} in files mapping`);
+                }
+
+                inAst = result.units;
+                contents = result.files.get(sample) as string;
+
+                let fileName: string;
+
+                const args: string[] = [];
+
+                if (result.artefact) {
+                    fileName = result.artefact;
+
+                    args.push("--input-mode", "json", "--compiler-version", result.compilerVersion);
+                } else {
+                    fileName = sample;
+                }
+
+                args.push("--output-mode", "json");
+
+                outJSON = JSON.parse(scribble(fileName, ...args));
             });
 
             it("All predicates appear in the source map", () => {
                 const preds = findPredicates(inAst);
                 const instrMetadata: InstrumentationMetaData = outJSON.instrumentationMetadata;
+
                 for (const entry of instrMetadata.propertyMap) {
-                    expect(entry.filename).toEqual(fileName);
+                    expect(entry.filename).toEqual(sample);
+
                     const m = (entry.propertySource as string).match(rx);
+
                     expect(m).not.toEqual(null);
+
                     assert(m !== null, ``);
+
                     const start = parseInt(m[1]);
                     const len = parseInt(m[2]);
                     const fileInd = parseInt(m[3]);
@@ -101,10 +126,15 @@ describe("Property map test", () => {
                     expect(fileInd).toEqual(0);
 
                     let extracted = contents.slice(start, start + len).trim();
-                    if (extracted.endsWith(";")) extracted = extracted.slice(0, -1);
+
+                    if (extracted.endsWith(";")) {
+                        extracted = extracted.slice(0, -1);
+                    }
 
                     const predSet = preds.get(fileInd) as Set<string>;
+
                     expect(predSet).not.toEqual(undefined);
+
                     if (!predSet.has(extracted)) {
                         assert(
                             false,
