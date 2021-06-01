@@ -286,9 +286,11 @@ function makeFunPtrType(f: FunctionDefinition, factory: ASTNodeFactory): Functio
  *  - the underlying callee without the call options
  * @param s - `FunctionCall` whose callee we are decoding.
  */
-function decodeCallsite(
-    s: FunctionCall
-): { callee: Expression; gas?: Expression; value?: Expression } {
+function decodeCallsite(s: FunctionCall): {
+    callee: Expression;
+    gas?: Expression;
+    value?: Expression;
+} {
     let callee = s.vExpression;
     let gas: Expression | undefined;
     let value: Expression | undefined;

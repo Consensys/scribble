@@ -1,30 +1,30 @@
-import { parseExpression as parseExpr, parseAnnotation } from "../../src/spec-lang/expr_parser";
-import expect from "expect";
-import {
-    SNode,
-    SId,
-    SNumber,
-    SBooleanLiteral,
-    SUnaryOperation,
-    SBinaryOperation,
-    SMemberAccess,
-    SIndexAccess,
-    SFunctionCall,
-    SConditional,
-    SLet,
-    SForAll,
-    SResult,
-    SAnnotation,
-    SUserFunctionDefinition,
-    SProperty,
-    AnnotationType,
-    SIfUpdated,
-    SIfAssigned
-} from "../../src/spec-lang/ast";
-import { eq } from "../../src/util/struct_equality";
 import bigInt from "big-integer";
+import expect from "expect";
 import { ASTNode, BoolType, IntType } from "solc-typed-ast";
 import { Logger } from "../../src/logger";
+import {
+    AnnotationType,
+    SAnnotation,
+    SBinaryOperation,
+    SBooleanLiteral,
+    SConditional,
+    SForAll,
+    SFunctionCall,
+    SId,
+    SIfAssigned,
+    SIfUpdated,
+    SIndexAccess,
+    SLet,
+    SMemberAccess,
+    SNode,
+    SNumber,
+    SProperty,
+    SResult,
+    SUnaryOperation,
+    SUserFunctionDefinition
+} from "../../src/spec-lang/ast";
+import { parseAnnotation, parseExpression as parseExpr } from "../../src/spec-lang/expr_parser";
+import { eq } from "../../src/util/struct_equality";
 
 describe("Expression Parser Unit Tests", () => {
     const goodSamples: Array<[string, SNode]> = [
@@ -615,7 +615,7 @@ describe("Expression Parser Unit Tests", () => {
     for (const [sample, expectedAST] of goodSamples) {
         describe(`Sample ${sample}`, () => {
             it("Parses correctly", () => {
-                const parsed = parseExpr(sample, (undefined as unknown) as ASTNode, "0.6.0");
+                const parsed = parseExpr(sample, undefined as unknown as ASTNode, "0.6.0");
                 expect(eq(parsed, expectedAST)).toEqual(true);
             });
         });
@@ -873,7 +873,7 @@ describe("Annotation Parser Unit Tests", () => {
     for (const [sample, expected] of goodSamples) {
         describe(`Sample ${sample}`, () => {
             it("Parses correctly", () => {
-                const parsed = parseAnnotation(sample, (undefined as unknown) as ASTNode, "0.6.0");
+                const parsed = parseAnnotation(sample, undefined as unknown as ASTNode, "0.6.0");
                 Logger.debug(`[${sample}]: Got: ${parsed.pp()} expected: ${expected.pp()}`);
                 expect(eq(parsed, expected)).toEqual(true);
             });

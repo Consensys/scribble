@@ -1,19 +1,19 @@
-import {
-    SourceUnit,
-    StructuredDocumentation,
-    VariableDeclaration,
-    FunctionDefinition,
-    ContractDefinition
-} from "solc-typed-ast";
 import expect from "expect";
 import fse from "fs-extra";
-import { toAst, searchRecursive } from "./utils";
-import { scribble } from "./utils";
-import { InstrumentationMetaData, assert, pp } from "../../src/util";
+import {
+    ContractDefinition,
+    FunctionDefinition,
+    SourceUnit,
+    StructuredDocumentation,
+    VariableDeclaration
+} from "solc-typed-ast";
+import { assert, InstrumentationMetaData, pp } from "../../src/util";
+import { scribble, searchRecursive, toAst } from "./utils";
 
 function findPredicates(inAST: SourceUnit[]): Map<number, Set<string>> {
     const res: Map<number, Set<string>> = new Map();
-    const rx = /\s*(if_succeeds|if_aborts|invariant|if_updated|if_assigned)[a-z0-9.[\])_]*\s*({:msg\s*"([^"]*)"\s*})?\s*([^;]*);/g;
+    const rx =
+        /\s*(if_succeeds|if_aborts|invariant|if_updated|if_assigned)[a-z0-9.[\])_]*\s*({:msg\s*"([^"]*)"\s*})?\s*([^;]*);/g;
 
     for (const unit of inAST) {
         const targets: Array<VariableDeclaration | FunctionDefinition | ContractDefinition> = [];
