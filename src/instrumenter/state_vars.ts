@@ -7,12 +7,14 @@ import {
     ContractKind,
     DataLocation,
     ElementaryTypeName,
+    ErrorDefinition,
     EventDefinition,
     Expression,
     ExternalReferenceType,
     FunctionCall,
     FunctionCallKind,
     FunctionDefinition,
+    FunctionTypeName,
     Identifier,
     IndexAccess,
     InheritanceSpecifier,
@@ -144,11 +146,9 @@ export function* getAssignments(node: ASTNode): Iterable<[LHS, RHS]> {
         }
 
         if (actuals instanceof FunctionCall) {
-            const callRets: Array<
-                [FunctionCall, number]
-            > = (actuals.vReferencedDeclaration as FunctionDefinition).vReturnParameters.vParameters.map<
-                [FunctionCall, number]
-            >((decl, i) => [actuals, i]);
+            const callRets: Array<[FunctionCall, number]> = (
+                actuals.vReferencedDeclaration as FunctionDefinition
+            ).vReturnParameters.vParameters.map<[FunctionCall, number]>((decl, i) => [actuals, i]);
             return zip(formals, callRets);
         }
 
@@ -248,16 +248,22 @@ export function* getAssignments(node: ASTNode): Iterable<[LHS, RHS]> {
             if (
                 decl instanceof FunctionDefinition ||
                 decl instanceof EventDefinition ||
+                decl instanceof ErrorDefinition ||
                 decl instanceof ModifierDefinition
             ) {
                 formals = decl.vParameters.vParameters;
+            } else if (decl instanceof VariableDeclaration) {
+                assert(
+                    decl.vType instanceof FunctionTypeName,
+                    "Unexpected callee variable without function type"
+                );
+
+                formals = decl.vType.vParameterTypes.vParameters;
+            } else if (decl.vConstructor) {
+                formals = decl.vConstructor.vParameters.vParameters;
             } else {
-                if (decl.vConstructor) {
-                    formals = decl.vConstructor.vParameters.vParameters;
-                } else {
-                    // Implicit constructor - no arguments
-                    formals = [];
-                }
+                // Implicit constructor - no arguments
+                formals = [];
             }
 
             const actuals = [...candidate.vArguments];
@@ -611,7 +617,8 @@ export function findStateVarUpdates(units: SourceUnit[]): StateVarUpdateDesc[] {
             return;
         }
 
-        const stateVarDecl: VariableDeclaration = baseExp.vReferencedDeclaration as VariableDeclaration;
+        const stateVarDecl: VariableDeclaration =
+            baseExp.vReferencedDeclaration as VariableDeclaration;
 
         res.push([node, stateVarDecl, path, rhs]);
     };

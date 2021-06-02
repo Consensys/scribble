@@ -1,3 +1,4 @@
+import expect from "expect";
 import {
     AddressType,
     ArrayType,
@@ -23,14 +24,13 @@ import {
     UserDefinedType,
     UserDefinition
 } from "solc-typed-ast";
-import expect from "expect";
 import { Logger } from "../../src/logger";
-import { SUserFunctionDefinition, SId } from "../../src/spec-lang/ast";
+import { SId, SUserFunctionDefinition } from "../../src/spec-lang/ast";
 import { parseAnnotation, parseExpression as parse } from "../../src/spec-lang/expr_parser";
 import { tc, tcAnnotation, TypeEnv } from "../../src/spec-lang/tc";
+import { assert, pp } from "../../src/util";
 import { eq } from "../../src/util/struct_equality";
 import { getTarget, getTypeCtxAndTarget, toAst } from "../integration/utils";
-import { assert, pp } from "../../src/util";
 
 export type LocationDesc = [string, string | undefined];
 
@@ -1019,7 +1019,9 @@ describe("TypeChecker Annotation Tests", () => {
                         assert(expectedType !== undefined, ``);
                         const received = tc(new SId(parsed.name.name), ctx, typeEnv);
                         Logger.debug(
-                            `[${specString}]: Expected type ${expectedType.pp()} received: ${(received as TypeNode).pp()}`
+                            `[${specString}]: Expected type ${expectedType.pp()} received: ${(
+                                received as TypeNode
+                            ).pp()}`
                         );
                         expect(eq(received, expectedType)).toEqual(true);
                     }

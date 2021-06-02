@@ -11,17 +11,17 @@ import { removeProcWd, scribble, searchRecursive, toAstUsingCache } from "./util
 
 function findPredicates(inAST: SourceUnit[]): Map<number, Set<string>> {
     const res: Map<number, Set<string>> = new Map();
-    const rx = /\s*(if_succeeds|if_aborts|invariant|if_updated|if_assigned)[a-z0-9.[\])_]*\s*({:msg\s*"([^"]*)"\s*})?\s*([^;]*);/g;
+    const rx =
+        /\s*(if_succeeds|if_aborts|invariant|if_updated|if_assigned)[a-z0-9.[\])_]*\s*({:msg\s*"([^"]*)"\s*})?\s*([^;]*);/g;
 
     for (const unit of inAST) {
-        const targets: Array<
-            VariableDeclaration | FunctionDefinition | ContractDefinition
-        > = unit.getChildrenBySelector(
-            (node) =>
-                node instanceof ContractDefinition ||
-                node instanceof FunctionDefinition ||
-                node instanceof VariableDeclaration
-        );
+        const targets: Array<VariableDeclaration | FunctionDefinition | ContractDefinition> =
+            unit.getChildrenBySelector(
+                (node) =>
+                    node instanceof ContractDefinition ||
+                    node instanceof FunctionDefinition ||
+                    node instanceof VariableDeclaration
+            );
 
         const preds = new Set<string>();
 
