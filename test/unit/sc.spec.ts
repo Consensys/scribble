@@ -307,16 +307,18 @@ describe("SemanticChecker Expression Unit Tests", () => {
 
     for (const [fileName, content, testCases] of goodSamples) {
         describe(`Positive tests for #${fileName}`, () => {
-            let sources: SourceUnit[];
+            let units: SourceUnit[];
 
             before(() => {
-                [sources] = toAst(fileName, content);
+                const result = toAst(fileName, content);
+
+                units = result.units;
             });
 
             for (const [specString, loc, expectedType, expectedInfo] of testCases) {
                 it(`SemCheck for ${specString} returns ${JSON.stringify(expectedInfo)}`, () => {
                     const compilerVersion = "0.6.0";
-                    const [ctx, target] = getTypeCtxAndTarget(loc, sources);
+                    const [ctx, target] = getTypeCtxAndTarget(loc, units);
                     const parsed = parse(specString, target, compilerVersion);
                     const annotationType =
                         target instanceof ContractDefinition
@@ -339,16 +341,18 @@ describe("SemanticChecker Expression Unit Tests", () => {
 
     for (const [fileName, content, testCases] of badSamples) {
         describe(`Negative tests for #${fileName}`, () => {
-            let sources: SourceUnit[];
+            let units: SourceUnit[];
 
             before(() => {
-                [sources] = toAst(fileName, content);
+                const result = toAst(fileName, content);
+
+                units = result.units;
             });
 
             for (const [specString, loc] of testCases) {
                 it(`SemCheck for ${specString} throws SemError`, () => {
                     const compilerVersion = "0.6.0";
-                    const [ctx, target] = getTypeCtxAndTarget(loc, sources);
+                    const [ctx, target] = getTypeCtxAndTarget(loc, units);
                     const parsed = parse(specString, target, compilerVersion);
                     const annotationType =
                         target instanceof ContractDefinition
@@ -432,18 +436,20 @@ describe("SemanticChecker Annotation Unit Tests", () => {
 
     for (const [fileName, content, testCases] of goodSamples) {
         describe(`Positive tests for #${fileName}`, () => {
-            let sources: SourceUnit[];
+            let units: SourceUnit[];
 
             before(() => {
-                [sources] = toAst(fileName, content);
+                const result = toAst(fileName, content);
+
+                units = result.units;
             });
 
             for (const [specString, loc] of testCases) {
                 it(`SemCheck for ${specString} succeeds`, () => {
                     const compilerVersion = "0.6.0";
-                    const target = getTarget(loc, sources);
+                    const target = getTarget(loc, units);
                     const annotation = parseAnnotation(specString, target, compilerVersion);
-                    const [ctx] = getTypeCtxAndTarget(loc, sources, annotation);
+                    const [ctx] = getTypeCtxAndTarget(loc, units, annotation);
                     const typeEnv = new TypeEnv(compilerVersion);
                     tcAnnotation(annotation, ctx, target, typeEnv);
                     scAnnotation(annotation, typeEnv, new Map(), { isOld: false, annotation });
@@ -454,18 +460,20 @@ describe("SemanticChecker Annotation Unit Tests", () => {
 
     for (const [fileName, content, testCases] of badSamples) {
         describe(`Negative tests for #${fileName}`, () => {
-            let sources: SourceUnit[];
+            let units: SourceUnit[];
 
             before(() => {
-                [sources] = toAst(fileName, content);
+                const result = toAst(fileName, content);
+
+                units = result.units;
             });
 
             for (const [specString, loc] of testCases) {
                 it(`SemCheck for ${specString} throws as expected`, () => {
                     const compilerVersion = "0.6.0";
-                    const target = getTarget(loc, sources);
+                    const target = getTarget(loc, units);
                     const annotation = parseAnnotation(specString, target, compilerVersion);
-                    const [ctx] = getTypeCtxAndTarget(loc, sources, annotation);
+                    const [ctx] = getTypeCtxAndTarget(loc, units, annotation);
                     const typeEnv = new TypeEnv(compilerVersion);
                     tcAnnotation(annotation, ctx, target, typeEnv);
                     expect(

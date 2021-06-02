@@ -1,3 +1,4 @@
+import expect from "expect";
 import {
     ContractDefinition,
     FunctionDefinition,
@@ -6,10 +7,7 @@ import {
     StateVariableVisibility,
     VariableDeclaration
 } from "solc-typed-ast";
-import expect from "expect";
-import fse from "fs-extra";
-import { searchRecursive, toAst } from "./utils";
-import { scribble } from "./utils";
+import { removeProcWd, scribble, searchRecursive, toAst, toAstUsingCache } from "./utils";
 
 function extractExportSymbols(units: SourceUnit[]): Map<string, ContractDefinition> {
     const result = new Map<string, ContractDefinition>();
@@ -129,19 +127,25 @@ function checkCompatibility(a: ContractDefinition, b: ContractDefinition) {
 describe("Interface compatibility test", () => {
     const samplesDir = "test/samples/";
     const samples = searchRecursive(samplesDir, /(?<=\.instrumented)\.sol$/).map((fileName) =>
-        fileName.replace(".instrumented.sol", ".sol")
+        removeProcWd(fileName).replace(".instrumented.sol", ".sol")
     );
 
     it(`Source samples are present in ${samplesDir}`, () => {
         expect(samples.length).toBeGreaterThan(0);
     });
 
-    for (const fileName of samples) {
-        describe(`Sample ${fileName}`, () => {
+    for (const sample of samples) {
+        describe(`Sample ${sample}`, () => {
+            let artefact: string | undefined;
+            let compilerVersion: string;
             let inAst: SourceUnit[];
 
             before(() => {
-                [inAst] = toAst(fileName, fse.readFileSync(fileName, { encoding: "utf8" }));
+                const result = toAstUsingCache(sample);
+
+                artefact = result.artefact;
+                compilerVersion = result.compilerVersion;
+                inAst = result.units;
             });
 
             const compareSourceUnits = (inAst: SourceUnit[], outAst: SourceUnit[]) => {
@@ -163,20 +167,45 @@ describe("Interface compatibility test", () => {
             };
 
             it("Instrumented source in 'log' mode has compatible external interface", () => {
-                const args = [fileName];
-                if (!(fileName.includes("if_updated") || fileName.includes("if_assigned"))) {
+                let fileName: string;
+
+                const args: string[] = [];
+
+                if (artefact) {
+                    fileName = artefact;
+
+                    args.push("--input-mode", "json", "--compiler-version", compilerVersion);
+                } else {
+                    fileName = sample;
+                }
+
+                if (!(sample.includes("if_updated") || sample.includes("if_assigned"))) {
                     args.push("--debug-events");
                 }
-                const [outLogAst] = toAst(fileName, scribble(args));
-                compareSourceUnits(inAst, outLogAst);
+
+                const result = toAst(sample + ".log.sol", scribble(fileName, ...args));
+
+                compareSourceUnits(inAst, result.units);
             });
 
             it("Instrumented source in 'mstore' mode has compatible external interface", () => {
-                const [outMStoreAst] = toAst(
-                    fileName,
-                    scribble(fileName, "--user-assert-mode", "mstore")
-                );
-                compareSourceUnits(inAst, outMStoreAst);
+                let fileName: string;
+
+                const args: string[] = [];
+
+                if (artefact) {
+                    fileName = artefact;
+
+                    args.push("--input-mode", "json", "--compiler-version", compilerVersion);
+                } else {
+                    fileName = sample;
+                }
+
+                args.push("--user-assert-mode", "mstore");
+
+                const result = toAst(sample + ".mstore.sol", scribble(fileName, ...args));
+
+                compareSourceUnits(inAst, result.units);
             });
         });
     }

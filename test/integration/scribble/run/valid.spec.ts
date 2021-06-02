@@ -1,11 +1,14 @@
 import expect from "expect";
 import fse from "fs-extra";
-import { scribble, searchRecursive } from "../../utils";
+import { removeProcWd, scribble, searchRecursive } from "../../utils";
 import { basename } from "path";
 
 describe(`Command "scribble <filename>" is working properly`, () => {
     const samplesDir = "test/samples/";
-    const samples = searchRecursive(samplesDir, /(?<=\.instrumented)\.sol$/);
+    const samples = searchRecursive(samplesDir, /(?<=\.instrumented)\.sol$/).map((fileName) =>
+        removeProcWd(fileName)
+    );
+
     const argMap: Map<string, string[]> = new Map([
         ["contract_pos.sol", ["--debug-events", "--no-assert"]]
     ]);
@@ -14,26 +17,45 @@ describe(`Command "scribble <filename>" is working properly`, () => {
         expect(samples.length).toBeGreaterThan(0);
     });
 
-    for (const outFileName of samples) {
-        const inFileName = outFileName.replace(".instrumented.sol", ".sol");
+    for (const instrFileName of samples) {
+        const sample = instrFileName.replace(".instrumented.sol", ".sol");
 
-        if (!fse.existsSync(inFileName)) {
+        if (!fse.existsSync(sample)) {
             continue;
         }
 
-        describe(`scribble ${inFileName}`, () => {
-            let outData: string;
+        let fileName: string;
+
+        const artefactFileName = sample + ".json";
+        const args: string[] = [];
+
+        if (fse.existsSync(artefactFileName)) {
+            fileName = artefactFileName;
+
+            const artefact = fse.readJSONSync(artefactFileName);
+
+            args.push("--input-mode", "json", "--compiler-version", artefact.compilerVersion);
+        } else {
+            fileName = sample;
+        }
+
+        const mappedArgs = argMap.get(basename(sample));
+
+        if (mappedArgs) {
+            args.push(...mappedArgs);
+        }
+
+        describe(`scribble ${fileName} ${args.join(" ")}`, () => {
+            let output: string;
 
             before(() => {
-                const args = argMap.get(basename(inFileName)) || [];
-
-                outData = scribble(inFileName, ...args);
+                output = scribble(fileName, ...args);
             });
 
             it("STDOUT is correct", () => {
-                const sampleOutput = fse.readFileSync(outFileName).toString();
+                const instrSource = fse.readFileSync(instrFileName, { encoding: "utf-8" });
 
-                expect(outData).toEqual(sampleOutput);
+                expect(output).toEqual(instrSource);
             });
         });
     }
