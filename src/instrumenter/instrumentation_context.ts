@@ -72,6 +72,7 @@ export class InstrumentationContext {
     public readonly outOfContractFlagName: string;
     public readonly scratchField: string;
     public readonly checkInvsFlag: string;
+    public readonly encodedLoggerArgs: string
 
     public readonly utilsContractName: string;
     private internalInvariantCheckers: Map<ContractDefinition, string> = new Map();
@@ -152,6 +153,8 @@ export class InstrumentationContext {
             true
         );
 
+        this.encodedLoggerArgs = this.nameGenerator.getFresh("encoded_logger_args", false);
+        
         this.scratchField = this.nameGenerator.getFresh("__mstore_scratch__", true);
         this.checkInvsFlag = this.nameGenerator.getFresh("__scribble_check_invs_at_end", true);
         this.utilsContractName = this.nameGenerator.getFresh("__scribble_ReentrancyUtils", true);

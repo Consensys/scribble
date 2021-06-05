@@ -6,6 +6,7 @@ import {
     DataLocation,
     EventDefinition,
     Expression,
+    ExpressionStatement,
     ExternalReferenceType,
     FunctionCall,
     FunctionCallKind,
@@ -64,8 +65,7 @@ import {
     filterByType,
     transpile,
     transpileAnnotation,
-    transpileFunVarDecl,
-    transpileType
+    transpileFunVarDecl
 } from "..";
 
 export type SBinding = [string | string[], TypeNode, SNode, boolean];
@@ -211,12 +211,13 @@ export function generateUtilsContract(
  */
 function gatherDebugIds(n: SNode, typeEnv: TypeEnv): Set<SId> {
     const debugIds: Map<string, SId> = new Map();
+
     const selectId = (id: SId): void => {
         // Only want let-bindings and variable identifiers
         if (!(id.defSite instanceof Array || id.defSite instanceof VariableDeclaration)) {
             return;
         }
-
+        
         let key: string;
 
         if (id.defSite instanceof VariableDeclaration) {
@@ -263,7 +264,7 @@ function gatherDebugIds(n: SNode, typeEnv: TypeEnv): Set<SId> {
     return new Set(debugIds.values());
 }
 
-type DebugInfo = [EventDefinition, EmitStatement];
+type DebugInfo = [EventDefinition, ExpressionStatement, EmitStatement];
 
 /**
  * Build a debug event/debug event emission statement for each of the provided `annotations`. Return
@@ -279,41 +280,51 @@ function getDebugInfo(
     const res: Array<DebugInfo | undefined> = [];
     const factory = transCtx.factory;
     const instrCtx = transCtx.instrCtx;
-
     for (const annot of annotations) {
         const dbgIds = [...gatherDebugIds(annot.expression, transCtx.typeEnv)];
 
         if (dbgIds.length == 0) {
             res.push(undefined);
         } else {
-            // Next construct the parameters for the event
-            const evtParams = dbgIds.map((v) => {
-                const vType = transCtx.typeEnv.typeOf(v);
-                const type = transpileType(vType, transCtx.factory);
-                const typeString = vType instanceof PointerType ? vType.to.pp() : vType.pp();
+            const evtArgs = dbgIds.map((v) => transpile(v, transCtx));
+            const state = transCtx.refBinding(instrCtx.encodedLoggerArgs)
+            const stateAssignment = factory.makeExpressionStatement(
+                factory.makeAssignment(
+                    "<missing>",
+                    "=",
+                    state,
+                    factory.makeFunctionCall(
+                        "<missing>",
+                        FunctionCallKind.FunctionCall,
+                        factory.makeIdentifier("<missing>", "abi.encode", -1),
+                        evtArgs
+                    )
+                )
+            );
 
-                return factory.makeVariableDeclaration(
+            const eventId = factory.makeVariableDeclaration(
                     false,
                     false,
-                    v.name,
+                    "eventId",
                     -1,
                     false,
                     DataLocation.Default,
                     StateVariableVisibility.Default,
                     Mutability.Mutable,
-                    typeString,
+                    "int",
                     undefined,
-                    type
+                    factory.makeElementaryTypeName("<missing>", "int")
                 );
-            });
+
 
             // Get or construct the event definition
             let evtDef: EventDefinition;
             if (!instrCtx.debugEventDefs.has(annot.id)) {
+
                 evtDef = factory.makeEventDefinition(
-                    true,
-                    `P${annot.id}Fail`,
-                    factory.makeParameterList(evtParams)
+                    false,
+                    `AssertionFailedData`,
+                    factory.makeParameterList([state, eventId])
                 );
 
                 instrCtx.debugEventDefs.set(annot.id, evtDef);
@@ -321,7 +332,6 @@ function getDebugInfo(
                 evtDef = instrCtx.debugEventDefs.get(annot.id) as EventDefinition;
             }
 
-            const evtArgs = dbgIds.map((v) => transpile(v, transCtx));
 
             // Finally construct the emit statement for the debug event.
             const emitStmt = factory.makeEmitStatement(
@@ -329,13 +339,12 @@ function getDebugInfo(
                     "<missing>",
                     FunctionCallKind.FunctionCall,
                     factory.makeIdentifierFor(evtDef),
-                    evtArgs
+                    [factory.makeIdentifierFor(transCtx.encodedLoggerArgs), factory.makeIdentifierFor(eventId)]
                 )
             );
-
+            
             instrCtx.addAnnotationInstrumentation(annot, emitStmt);
-
-            res.push([evtDef, emitStmt]);
+            res.push([evtDef, stateAssignment,  emitStmt]);
         }
     }
 
@@ -363,7 +372,8 @@ function emitAssert(
     expr: Expression,
     annotation: PropertyMetaData,
     event: EventDefinition,
-    emitStmt?: EmitStatement
+    emitStmt?: EmitStatement,
+    encoding?: ExpressionStatement
 ): Statement {
     const instrCtx = transCtx.instrCtx;
     const factory = instrCtx.factory;
@@ -413,6 +423,9 @@ function emitAssert(
 
     const ifBody: Statement[] = [userAssertFailed];
 
+    if (encoding) {
+        ifBody.push(encoding);
+    }
     if (emitStmt) {
         ifBody.push(emitStmt);
     }
@@ -523,8 +536,9 @@ export function insertAnnotations(annotations: PropertyMetaData[], ctx: Transpil
     const checkStmts: Statement[] = predicates.map(([annotation, predicate], i) => {
         const event = getAssertionFailedEvent(factory, contract);
         const dbgInfo = debugInfos[i];
-        const emitStmt = dbgInfo !== undefined ? dbgInfo[1] : undefined;
-        return emitAssert(ctx, predicate, annotation, event, emitStmt);
+        const emitStmt = dbgInfo !== undefined ? dbgInfo[2] : undefined;
+        const encoding = dbgInfo !== undefined ? dbgInfo[1] : undefined;
+        return emitAssert(ctx, predicate, annotation, event, emitStmt, encoding);
     });
 
     for (const check of checkStmts) {
