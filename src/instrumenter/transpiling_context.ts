@@ -113,11 +113,13 @@ export class TranspilingContext {
             FunctionVisibility.Private,
             []
         );
-        
-        this.encodedLoggerArgs = this.addBinding(
-            instrCtx.encodedLoggerArgs, 
-            this.factory.makeElementaryTypeName("<missing>", "bytes")
-        );
+
+        if (instrCtx.encodedLoggerArgs != null) {
+            this.encodedLoggerArgs = this.addBinding(
+                instrCtx.encodedLoggerArgs,
+                this.factory.makeElementaryTypeName("<missing>", "bytes")
+            );
+        }
 
         const bindingsVarType = this.factory.makeUserDefinedTypeName(
             "<missing>",

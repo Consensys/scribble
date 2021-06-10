@@ -72,7 +72,7 @@ export class InstrumentationContext {
     public readonly outOfContractFlagName: string;
     public readonly scratchField: string;
     public readonly checkInvsFlag: string;
-    public readonly encodedLoggerArgs: string
+    public readonly encodedLoggerArgs: string | null;
 
     public readonly utilsContractName: string;
     private internalInvariantCheckers: Map<ContractDefinition, string> = new Map();
@@ -115,6 +115,11 @@ export class InstrumentationContext {
     }
 
     /**
+     * Debug events assertion's signature
+     */
+    public debugEventsSignature: string;
+
+    /**
      * Map keeping track of the `TranspilingContext`s for each `FunctionDefinition`.
      */
     private transCtxMap = new Map<FunctionDefinition, TranspilingContext>();
@@ -137,7 +142,7 @@ export class InstrumentationContext {
         public readonly files: Map<string, string>,
         public readonly compilerVersion: string,
         public readonly debugEvents: boolean,
-        public readonly debugEventDefs: Map<number, EventDefinition>,
+        public readonly debugEventsEncoding: Map<number, Array<[string, string]>>,
         public readonly outputMode: "files" | "flat" | "json",
         public readonly typeEnv: TypeEnv,
         public readonly semMap: SemMap
@@ -152,9 +157,13 @@ export class InstrumentationContext {
             "__scribble_out_of_contract",
             true
         );
+        if (debugEvents) {
+            this.encodedLoggerArgs = this.nameGenerator.getFresh("encoded_logger_args", false);
+        } else {
+            this.encodedLoggerArgs = null;
+        }
+        this.debugEventsSignature = "";
 
-        this.encodedLoggerArgs = this.nameGenerator.getFresh("encoded_logger_args", false);
-        
         this.scratchField = this.nameGenerator.getFresh("__mstore_scratch__", true);
         this.checkInvsFlag = this.nameGenerator.getFresh("__scribble_check_invs_at_end", true);
         this.utilsContractName = this.nameGenerator.getFresh("__scribble_ReentrancyUtils", true);
