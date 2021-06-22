@@ -31,8 +31,6 @@
     "ignorePatterns": [
         "src/spec-lang/expr_parser_header.ts",
         "src/spec-lang/expr_parser.ts",
-        "src/spec-lang/annotation_parser_header.ts",
-        "src/spec-lang/annotation_parser.ts",
         "src/rewriter/import_directive_parser.ts",
         "src/rewriter/import_directive_header.ts"
     ]

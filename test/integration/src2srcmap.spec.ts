@@ -1,5 +1,4 @@
 import expect from "expect";
-import fse from "fs-extra";
 import {
     Assignment,
     ASTKind,
@@ -20,30 +19,31 @@ import {
     TupleExpression,
     UnaryOperation
 } from "solc-typed-ast";
-import { searchRecursive, toAst } from "./utils";
-import { scribble } from "./utils";
 import {
     assert,
+    contains,
     forAll,
     forAny,
-    pp,
-    single,
-    parseSrcTriple,
-    PropertyMap,
-    contains,
-    reNumber,
     InstrumentationMetaData,
-    print
+    parseSrcTriple,
+    pp,
+    print,
+    PropertyMap,
+    reNumber,
+    single
 } from "../../src/util";
+import { removeProcWd, scribble, searchRecursive, toAstUsingCache } from "./utils";
 
 type Src2NodeMap = Map<string, Set<ASTNode>>;
 function buildSrc2NodeMap(units: SourceUnit[], newSrcList?: string[]): Src2NodeMap {
     const res: Src2NodeMap = new Map();
+
     let newIdx: number;
 
     for (const unit of units) {
         if (newSrcList) {
             newIdx = newSrcList.indexOf(unit.absolutePath);
+
             assert(newIdx !== -1, `No entry for ${unit.absolutePath} in ${pp(newSrcList)}`);
         }
 
@@ -63,6 +63,7 @@ function buildSrc2NodeMap(units: SourceUnit[], newSrcList?: string[]): Src2NodeM
 
 function fragment(src: string, contents: string) {
     const [off, len] = parseSrcTriple(src);
+
     return contents.slice(off, off + len);
 }
 
@@ -104,15 +105,15 @@ function parseBytecodeSourceMapping(sourceMap: string): DecodedBytecodeSourceMap
 describe("Src2src map test", () => {
     const samplesDir = "test/samples/";
     const samples = searchRecursive(samplesDir, /(?<=\.instrumented)\.sol$/).map((fileName) =>
-        fileName.replace(".instrumented.sol", ".sol")
+        removeProcWd(fileName).replace(".instrumented.sol", ".sol")
     );
 
     it(`Source samples are present in ${samplesDir}`, () => {
         expect(samples.length).toBeGreaterThan(0);
     });
 
-    for (const fileName of samples) {
-        describe(`Sample ${fileName}`, () => {
+    for (const sample of samples) {
+        describe(`Sample ${sample}`, () => {
             let inAst: SourceUnit[];
             let contents: string;
             let instrContents: string;
@@ -125,12 +126,35 @@ describe("Src2src map test", () => {
             const coveredOriginalNodes = new Set<ASTNode>();
 
             before(() => {
-                contents = fse.readFileSync(fileName, { encoding: "utf8" });
-                [inAst] = toAst(fileName, contents);
-                outJSON = JSON.parse(scribble(fileName, "--output-mode", "json"));
+                const result = toAstUsingCache(sample);
+
+                if (!result.files.has(sample)) {
+                    throw new Error(`Missing source for ${sample} in files mapping`);
+                }
+
+                inAst = result.units;
+                contents = result.files.get(sample) as string;
+
+                let fileName: string;
+
+                const args: string[] = [];
+
+                if (result.artefact) {
+                    fileName = result.artefact;
+
+                    args.push("--input-mode", "json", "--compiler-version", result.compilerVersion);
+                } else {
+                    fileName = sample;
+                }
+
+                args.push("--output-mode", "json");
+
+                outJSON = JSON.parse(scribble(fileName, ...args));
                 instrContents = outJSON["sources"]["flattened.sol"]["source"];
+
                 const contentsMap = new Map<string, string>([["flattened.sol", instrContents]]);
                 const reader = new ASTReader();
+
                 [outAST] = reader.read(outJSON, ASTKind.Modern, contentsMap);
 
                 instrMD = outJSON.instrumentationMetadata;

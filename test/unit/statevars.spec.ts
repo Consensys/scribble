@@ -96,8 +96,8 @@ describe("Finding all assignments.", () => {
 
     for (const [fileName, content, expectedAssignmentDescs] of samples) {
         it(`Sample #${fileName}`, () => {
-            const [sources] = toAst(fileName, content);
-            const unit = single(sources);
+            const { units } = toAst(fileName, content);
+            const unit = single(units);
 
             const assignments = getAssignments(unit);
             const assignmentDescs = new Set(
@@ -292,8 +292,8 @@ describe("Finding aliased vars.", () => {
 
     for (const [fileName, content, expectedAliasedNames] of samples) {
         it(`Sample #${fileName}`, () => {
-            const [sources] = toAst(fileName, content);
-            const unit = single(sources);
+            const { units } = toAst(fileName, content);
+            const unit = single(units);
 
             const aliased = findAliasedStateVars([unit]);
             const aliasedNames = new Set([...aliased.keys()].map((decl) => decl.name));
@@ -677,8 +677,8 @@ describe("Finding all state variable updates.", () => {
 
     for (const [fileName, content, expectedStateVarUpdates] of samples) {
         it(`Sample #${fileName}`, () => {
-            const [sources] = toAst(fileName, content);
-            const unit = single(sources);
+            const { units } = toAst(fileName, content);
+            const unit = single(units);
 
             const assignments = findStateVarUpdates([unit]);
             const assignmentDescs = new Set([...assignments].map(printStateVarUpdateDesc));

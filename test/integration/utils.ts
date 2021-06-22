@@ -1,21 +1,26 @@
+import { spawnSync } from "child_process";
 import fse from "fs-extra";
 import path from "path";
 import {
-    SourceUnit,
-    VersionDetectionStrategy,
-    LatestVersionInEachSeriesStrategy,
-    CompileFailure,
-    createFileSystemImportFinder,
-    compile,
-    detectCompileErrors,
-    ASTReader,
+    ASTKind,
     ASTNode,
-    ASTKind
+    ASTReader,
+    compileJsonData,
+    CompileResult,
+    compileSol,
+    compileSourceString,
+    SourceUnit
 } from "solc-typed-ast";
-import { spawnSync } from "child_process";
 import { AnnotationTarget, assert } from "../../src";
-import { StateVarScope, STypingCtx } from "../../src/spec-lang/tc";
 import { SAnnotation, SStateVarProp } from "../../src/spec-lang/ast";
+import { StateVarScope, STypingCtx } from "../../src/spec-lang/tc";
+
+export interface ExtendedCompileResult extends CompileResult {
+    compilerVersion: string;
+    artefact?: string;
+    units: SourceUnit[];
+    reader: ASTReader;
+}
 
 export function searchRecursive(directory: string, pattern: RegExp): string[] {
     let results: string[] = [];
@@ -36,43 +41,77 @@ export function searchRecursive(directory: string, pattern: RegExp): string[] {
     return results;
 }
 
-export function toAst(
-    fileName: string,
-    content: string
-): [SourceUnit[], ASTReader, Map<string, string>, string] {
-    const files = new Map<string, string>();
-    const strategy = new VersionDetectionStrategy(content, new LatestVersionInEachSeriesStrategy());
+export function removeProcWd(path: string): string {
+    const rx = new RegExp(process.cwd() + "/", "g");
 
-    files.set(fileName, content);
+    return path.replace(rx, "");
+}
 
-    const failures: CompileFailure[] = [];
+export function makeArtefact(result: CompileResult): string {
+    const { data, files, compilerVersion } = result;
 
-    for (const compilerVersion of strategy.select()) {
-        const finder = createFileSystemImportFinder(fileName, files, []);
-        const data = compile(fileName, content, compilerVersion, finder, []);
-        const errors = detectCompileErrors(data);
+    const artefact: any = { sources: {}, compilerVersion };
 
-        if (errors.length === 0) {
-            const reader = new ASTReader();
+    for (const [name, entry] of Object.entries(data.sources) as Iterable<[string, any]>) {
+        const source = files.get(name);
 
-            return [reader.read(data, ASTKind.Any, files), reader, files, compilerVersion];
+        if (source === undefined) {
+            throw new Error(`Missing source for ${name} compile result`);
         }
 
-        failures.push({ compilerVersion, errors });
+        if ("ast" in entry && "legacyAST" in entry) {
+            /**
+             * No need for legacy version of AST here.
+             * Better to reduce storage size of the repository.
+             */
+            delete entry.legacyAST;
+        }
+
+        artefact.sources[removeProcWd(name)] = { ...entry, source };
     }
 
-    if (failures.length === 0) {
-        throw new Error("Unexpected empty compiler failures array");
+    return removeProcWd(JSON.stringify(artefact));
+}
+
+export function toAst(fileName: string, content?: string): ExtendedCompileResult {
+    const remapping: string[] = [];
+
+    const result =
+        content === undefined
+            ? compileSol(fileName, "auto", remapping)
+            : compileSourceString(fileName, content, "auto", remapping);
+
+    const compilerVersion = result.compilerVersion;
+
+    if (compilerVersion === undefined) {
+        throw new Error(`Compiler version is undefined in compile result of ${fileName}`);
     }
 
-    const message = [
-        "Compiler failures detected:",
-        ...failures.map(
-            ({ compilerVersion, errors }) => compilerVersion + ":\n" + errors.join("\n")
-        )
-    ].join("\n");
+    const reader = new ASTReader();
+    const units = reader.read(result.data, ASTKind.Any, result.files);
 
-    throw new Error(message);
+    return { ...result, units, reader, compilerVersion };
+}
+
+export function toAstUsingCache(fileName: string, content?: string): ExtendedCompileResult {
+    if (!fse.existsSync(fileName + ".json")) {
+        return toAst(fileName, content);
+    }
+
+    const artefact = fileName + ".json";
+    const jsonData = fse.readJSONSync(artefact, { encoding: "utf-8" });
+    const compilerVersion = jsonData.compilerVersion;
+
+    const result = compileJsonData(fileName, jsonData, compilerVersion, []);
+
+    if (compilerVersion === undefined) {
+        throw new Error(`Missing compiler version in ${artefact}`);
+    }
+
+    const reader = new ASTReader();
+    const units = reader.read(result.data, ASTKind.Any, result.files);
+
+    return { ...result, artefact, units, reader, compilerVersion };
 }
 
 export function scribble(fileName: string | string[], ...args: string[]): string {

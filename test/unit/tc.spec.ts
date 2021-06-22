@@ -1,3 +1,4 @@
+import expect from "expect";
 import {
     AddressType,
     ArrayType,
@@ -23,14 +24,13 @@ import {
     UserDefinedType,
     UserDefinition
 } from "solc-typed-ast";
-import expect from "expect";
 import { Logger } from "../../src/logger";
-import { SUserFunctionDefinition, SId } from "../../src/spec-lang/ast";
+import { SId, SUserFunctionDefinition } from "../../src/spec-lang/ast";
 import { parseAnnotation, parseExpression as parse } from "../../src/spec-lang/expr_parser";
 import { tc, tcAnnotation, TypeEnv } from "../../src/spec-lang/tc";
+import { assert, pp } from "../../src/util";
 import { eq } from "../../src/util/struct_equality";
 import { getTarget, getTypeCtxAndTarget, toAst } from "../integration/utils";
-import { assert, pp } from "../../src/util";
 
 export type LocationDesc = [string, string | undefined];
 
@@ -674,18 +674,20 @@ describe("TypeChecker Expression Unit Tests", () => {
 
     for (const [fileName, content, testCases] of goodSamples) {
         describe(`Positive tests for #${fileName}`, () => {
-            let sources: SourceUnit[];
+            let units: SourceUnit[];
             let compilerVersion: string;
 
             before(() => {
-                [sources, , , compilerVersion] = toAst(fileName, content);
+                const result = toAst(fileName, content);
+
+                units = result.units;
+                compilerVersion = result.compilerVersion;
             });
 
             for (const [specString, loc, expected] of testCases) {
                 it(`Typecheck for ${specString}`, () => {
-                    const expectedType =
-                        expected instanceof TypeNode ? expected : expected(sources);
-                    const [typeCtx, target] = getTypeCtxAndTarget(loc, sources);
+                    const expectedType = expected instanceof TypeNode ? expected : expected(units);
+                    const [typeCtx, target] = getTypeCtxAndTarget(loc, units);
                     const parsed = parse(specString, target, compilerVersion);
                     const typeEnv = new TypeEnv(compilerVersion);
                     const type = tc(parsed, typeCtx, typeEnv);
@@ -700,19 +702,22 @@ describe("TypeChecker Expression Unit Tests", () => {
 
     for (const [fileName, content, testCases] of badSamples) {
         describe(`Negative tests for #${fileName}`, () => {
-            let sources: SourceUnit[];
+            let units: SourceUnit[];
             let compilerVersion: string;
             let typeEnv: TypeEnv;
 
             before(() => {
-                [sources, , , compilerVersion] = toAst(fileName, content);
+                const result = toAst(fileName, content);
+
+                units = result.units;
+                compilerVersion = result.compilerVersion;
 
                 typeEnv = new TypeEnv(compilerVersion);
             });
 
             for (const [specString, loc] of testCases) {
                 it(`Typecheck for ${specString} throws`, () => {
-                    const [typeCtx, target] = getTypeCtxAndTarget(loc, sources);
+                    const [typeCtx, target] = getTypeCtxAndTarget(loc, units);
                     const parsed = parse(specString, target, compilerVersion);
 
                     expect(() => tc(parsed, typeCtx, typeEnv)).toThrow();
@@ -986,21 +991,24 @@ describe("TypeChecker Annotation Tests", () => {
 
     for (const [fileName, content, testCases] of goodSamples) {
         describe(`Positive tests for #${fileName}`, () => {
-            let sources: SourceUnit[];
+            let units: SourceUnit[];
             let compilerVersion: string;
             let typeEnv: TypeEnv;
 
             before(() => {
-                [sources, , , compilerVersion] = toAst(fileName, content);
+                const result = toAst(fileName, content);
+
+                units = result.units;
+                compilerVersion = result.compilerVersion;
 
                 typeEnv = new TypeEnv(compilerVersion);
             });
 
             for (const [specString, loc, expectedType, clearFunsBefore] of testCases) {
                 it(`Typecheck for ${specString} succeeds.`, () => {
-                    const target = getTarget(loc, sources);
+                    const target = getTarget(loc, units);
                     const parsed = parseAnnotation(specString, target, compilerVersion);
-                    const [ctx] = getTypeCtxAndTarget(loc, sources, parsed);
+                    const [ctx] = getTypeCtxAndTarget(loc, units, parsed);
 
                     if (clearFunsBefore) {
                         typeEnv = new TypeEnv(compilerVersion);
@@ -1011,7 +1019,9 @@ describe("TypeChecker Annotation Tests", () => {
                         assert(expectedType !== undefined, ``);
                         const received = tc(new SId(parsed.name.name), ctx, typeEnv);
                         Logger.debug(
-                            `[${specString}]: Expected type ${expectedType.pp()} received: ${(received as TypeNode).pp()}`
+                            `[${specString}]: Expected type ${expectedType.pp()} received: ${(
+                                received as TypeNode
+                            ).pp()}`
                         );
                         expect(eq(received, expectedType)).toEqual(true);
                     }
@@ -1022,18 +1032,21 @@ describe("TypeChecker Annotation Tests", () => {
 
     for (const [fileName, content, setupSteps, testCases] of badSamples) {
         describe(`Negative tests for #${fileName}`, () => {
-            let sources: SourceUnit[];
+            let units: SourceUnit[];
             let compilerVersion: string;
             let typeEnv: TypeEnv;
 
             before(() => {
-                [sources, , , compilerVersion] = toAst(fileName, content);
+                const result = toAst(fileName, content);
+
+                units = result.units;
+                compilerVersion = result.compilerVersion;
 
                 typeEnv = new TypeEnv(compilerVersion);
 
                 // Setup any definitions
                 for (const [specString, loc] of setupSteps) {
-                    const [ctx, target] = getTypeCtxAndTarget(loc, sources);
+                    const [ctx, target] = getTypeCtxAndTarget(loc, units);
                     const parsed = parseAnnotation(specString, target, compilerVersion);
 
                     tcAnnotation(parsed, ctx, target, typeEnv);
@@ -1042,9 +1055,9 @@ describe("TypeChecker Annotation Tests", () => {
 
             for (const [specString, loc] of testCases) {
                 it(`Typecheck for ${specString} throws`, () => {
-                    const target = getTarget(loc, sources);
+                    const target = getTarget(loc, units);
                     const parsed = parseAnnotation(specString, target, compilerVersion);
-                    const [ctx] = getTypeCtxAndTarget(loc, sources, parsed);
+                    const [ctx] = getTypeCtxAndTarget(loc, units, parsed);
                     Logger.debug(
                         `[${specString}]: Expect typechecking of ${parsed.pp()} in ctx ${pp(
                             ctx
