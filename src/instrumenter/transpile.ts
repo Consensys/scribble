@@ -20,6 +20,7 @@ import {
     IntLiteralType,
     IntType,
     LiteralKind,
+    MappingType,
     Mutability,
     PointerType,
     StateVariableVisibility,
@@ -94,6 +95,19 @@ export function transpileType(type: TypeNode, factory: ASTNodeFactory): TypeName
             type.size !== undefined
                 ? factory.makeLiteral("<missing>", LiteralKind.Number, "", "" + type.size)
                 : undefined
+        );
+    }
+
+    if (type instanceof MappingType) {
+        const keyT =
+            type.keyType instanceof AddressType && type.keyType.payable
+                ? new AddressType(false)
+                : type.keyType;
+
+        return factory.makeMapping(
+            "<missing>",
+            transpileType(keyT, factory),
+            transpileType(type.valueType, factory)
         );
     }
 

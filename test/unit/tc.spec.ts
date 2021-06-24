@@ -1019,9 +1019,7 @@ describe("TypeChecker Annotation Tests", () => {
                         assert(expectedType !== undefined, ``);
                         const received = tc(new SId(parsed.name.name), ctx, typeEnv);
                         Logger.debug(
-                            `[${specString}]: Expected type ${expectedType.pp()} received: ${(
-                                received as TypeNode
-                            ).pp()}`
+                            `[${specString}]: Expected type ${expectedType.pp()} received: ${(received as TypeNode).pp()}`
                         );
                         expect(eq(received, expectedType)).toEqual(true);
                     }

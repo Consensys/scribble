@@ -333,9 +333,9 @@ function resolveTypeDef(
         if (scope instanceof ContractDefinition) {
             // Check if this is a struct or enum defined on the current contract or one of its bases
             for (const base of scope.vLinearizedBaseContracts) {
-                for (const def of (
-                    base.vStructs as Array<StructDefinition | EnumDefinition>
-                ).concat(base.vEnums)) {
+                for (const def of (base.vStructs as Array<
+                    StructDefinition | EnumDefinition
+                >).concat(base.vEnums)) {
                     if (def.name === name) {
                         return def;
                     }
@@ -346,9 +346,9 @@ function resolveTypeDef(
         if (scope instanceof Array) {
             for (const sourceUnit of scope) {
                 // Check if this is a globally defined struct or enum
-                for (const def of (
-                    sourceUnit.vStructs as Array<StructDefinition | EnumDefinition>
-                ).concat(sourceUnit.vEnums)) {
+                for (const def of (sourceUnit.vStructs as Array<
+                    StructDefinition | EnumDefinition
+                >).concat(sourceUnit.vEnums)) {
                     if (def.name === name) {
                         return def;
                     }
