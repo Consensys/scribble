@@ -63,7 +63,6 @@ contract Foo is __scribble_ReentrancyUtils {
             emit AssertionFailed("0: ");
             _v.encoded_logger_args0 = abi.encode(x);
             emit AssertionFailedData(_v.encoded_logger_args0, 0);
-            assert(false);
         }
     }
 
