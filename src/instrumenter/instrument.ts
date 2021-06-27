@@ -212,7 +212,6 @@ function gatherDebugIds(n: SNode, typeEnv: TypeEnv): Set<SId> {
         if (!(id.defSite instanceof Array || id.defSite instanceof VariableDeclaration)) {
             return;
         }
-        console.log(id, typeEnv)
         let key: string;
 
         if (id.defSite instanceof VariableDeclaration) {

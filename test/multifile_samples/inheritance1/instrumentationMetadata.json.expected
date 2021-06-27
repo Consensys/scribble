@@ -219,6 +219,12 @@
         "560:13:0",
         "2372:13:0"
       ],
+      "debugEventEncoding": [
+         [
+           "",
+           ""
+         ]
+      ],
       "assertionRanges": [
         "589:27:0",
         "630:13:0",
@@ -243,6 +249,12 @@
       "checkRanges": [
         "2972:7:0"
       ],
+      "debugEventEncoding": [
+         [
+           "",
+           ""
+         ]
+      ],
       "assertionRanges": [
         "2995:29:0",
         "3038:13:0"
@@ -261,6 +273,12 @@
       "instrumentationRanges": [
         "2514:27:0",
         "2475:104:0"
+      ],
+      "debugEventEncoding": [
+         [
+           "",
+           ""
+         ]
       ],
       "checkRanges": [
         "2479:19:0"
