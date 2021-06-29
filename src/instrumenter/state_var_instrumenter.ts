@@ -583,7 +583,7 @@ function makeWrapper(
  * Given the expression `e` make sure that `e` is contained in an `ExpressionStatement`, which itself
  * is contained in a `Block`. There are several cases where we may need to create the block itself
  */
-function ensureTopLevelExprInBlock(e: Expression, factory: ASTNodeFactory): void {
+export function ensureTopLevelExprInBlock(e: Expression, factory: ASTNodeFactory): void {
     assert(e.parent instanceof ExpressionStatement, ``);
     const container = e.parent.parent;
     if (container instanceof Block || container instanceof UncheckedBlock) {
@@ -621,8 +621,7 @@ function ensureTopLevelExprInBlock(e: Expression, factory: ASTNodeFactory): void
 }
 
 /**
- * Complex interposing case - when `updateNode` is a (potentially nested) tuple assignment with multiple
- * state vars and other expressions updated together.
+ * Given a complex (potentially nested) tuple assignment with multiple explode it into a list of simple non-tuple assignments.
  *
  * The strategy here is to replace all expressions inside tuples on the LHS of `updateNode` with temporaries, then assign
  * those temporaries one-by-one to the original LHS expressions (while interposing with wrappers wherever we have properties to check).
@@ -634,17 +633,15 @@ function ensureTopLevelExprInBlock(e: Expression, factory: ASTNodeFactory): void
  * @param updateNode
  * @param stateVars - state variables whose update we want to interpose on.
  */
-export function interposeTupleAssignment(
+export function explodeTupleAssignment(
     transCtx: TranspilingContext,
-    updateNode: Assignment,
-    stateVars: Set<VariableDeclaration>
-): Map<string, FunctionDefinition> {
+    updateNode: Assignment
+): Array<[Assignment, number[]]> {
     const ctx = transCtx.instrCtx;
     const factory = ctx.factory;
     const containingFun = updateNode.getClosestParentByType(
         FunctionDefinition
     ) as FunctionDefinition;
-    const res = new Map<string, FunctionDefinition>();
 
     // First make sure we can instrument this node
     ensureTopLevelExprInBlock(updateNode, factory);
@@ -832,6 +829,7 @@ export function interposeTupleAssignment(
     }
 
     let marker: Statement = containingStmt;
+    const res: Array<[Assignment, number[]]> = [];
     // Insert an assginment/update function call for each pair of original LHS
     // expression, and temporary expression used to substitute it after the tuple assignment.
     for (const [originalLHS, temporary] of lhsReplMap) {
@@ -843,7 +841,38 @@ export function interposeTupleAssignment(
         marker = temporaryUpdateStmt;
         ctx.addGeneralInstrumentation(temporaryUpdateStmt);
 
+        res.push([temporaryUpdate, freshLHSToPathM.get(temporary.id) as number[]]);
+    }
+
+    return res;
+}
+
+/**
+ * Complex interposing case - when `updateNode` is a (potentially nested) tuple assignment with multiple
+ * state vars and other expressions updated together.
+ *
+ * The strategy here is to replace all expressions inside tuples on the LHS of `updateNode` with temporaries, then assign
+ * those temporaries one-by-one to the original LHS expressions (while interposing with wrappers wherever we have properties to check).
+ *
+ * Special care needs to be taken for any indexing sub-expressions appearing inside the LHS expressions - those need to be computed before
+ * the assignment to preserve evaluation order.
+ *
+ * @param ctx
+ * @param updateNode
+ * @param stateVars - state variables whose update we want to interpose on.
+ */
+export function interposeTupleAssignment(
+    transCtx: TranspilingContext,
+    updateNode: Assignment,
+    stateVars: Set<VariableDeclaration>
+): Map<string, FunctionDefinition> {
+    const ctx = transCtx.instrCtx;
+    const res = new Map<string, FunctionDefinition>();
+
+    const assignments = explodeTupleAssignment(transCtx, updateNode);
+    for (const [temporaryUpdate, tuplePath] of assignments) {
         // If this is a state var update re-write it to a wrapped call
+        const originalLHS = temporaryUpdate.vLeftHandSide;
         const [base] = decomposeLHS(originalLHS);
         const stateVar = isStateVarRef(base)
             ? (base.vReferencedDeclaration as VariableDeclaration)
@@ -852,9 +881,6 @@ export function interposeTupleAssignment(
         // @todo enhance this to account for paths of interest
         if (stateVar !== undefined && stateVars.has(stateVar)) {
             const [, wrapper] = interposeSimpleStateVarUpdate(ctx, temporaryUpdate);
-            const tuplePath = freshLHSToPathM.get(temporary.id);
-            assert(tuplePath !== undefined, ``);
-
             const updateNodeKey = stateVarUpdateNode2Str([updateNode, tuplePath]);
             res.set(updateNodeKey, wrapper);
         }

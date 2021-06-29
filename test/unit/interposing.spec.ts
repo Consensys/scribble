@@ -15,7 +15,6 @@ import { print as printUnits, rewriteImports } from "../../src/ast_to_source_pri
 import {
     ContractInstrumenter,
     findExternalCalls,
-    generateUtilsContract,
     interpose,
     interposeCall,
     interposeInlineInitializer,
@@ -24,43 +23,10 @@ import {
 } from "../../src/instrumenter";
 import { single } from "../../src/util";
 import { getTarget, getTypeCtxAndTarget, toAst } from "../integration/utils";
-import { getCallGraph } from "../../src/instrumenter/callgraph";
-import { getCHA } from "../../src/instrumenter/cha";
-import { InstrumentationContext } from "../../src/instrumenter/instrumentation_context";
-import { TypeEnv } from "../../src/spec-lang/tc";
 import { InstrumentationSiteType } from "../../src/instrumenter/transpiling_context";
+import { makeInstrumentationCtx } from "./utils";
 
 export type LocationDesc = [string, string];
-
-function makeInstrumentationCtx(
-    sources: SourceUnit[],
-    factory: ASTNodeFactory,
-    files: Map<string, string>,
-    assertionMode: "log" | "mstore",
-    compilerVersion: string
-): InstrumentationContext {
-    const ctx = new InstrumentationContext(
-        factory,
-        sources,
-        assertionMode,
-        true,
-        getCallGraph(sources),
-        getCHA(sources),
-        {},
-        [],
-        new Map(),
-        files,
-        compilerVersion,
-        false,
-        new Map(),
-        "flat",
-        new TypeEnv(compilerVersion),
-        new Map()
-    );
-
-    generateUtilsContract(factory, "", "scribble_utils.sol", compilerVersion, ctx).vContracts;
-    return ctx;
-}
 
 function print(units: SourceUnit[], contents: string[], version: string): Map<SourceUnit, string> {
     const contentMap = new Map(units.map((unit, idx) => [unit.absolutePath, contents[idx]]));

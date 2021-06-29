@@ -1,6 +1,9 @@
 import {
     AddressType,
     ArrayType,
+    ArrayTypeName,
+    assert,
+    Assignment,
     ASTNodeFactory,
     Block,
     BoolType,
@@ -8,18 +11,24 @@ import {
     ContractDefinition,
     ContractKind,
     DataLocation,
+    eq,
     Expression,
+    ExpressionStatement,
+    FunctionCall,
     FunctionCallKind,
     FunctionDefinition,
     FunctionKind,
     FunctionStateMutability,
     FunctionVisibility,
     getNodeType,
+    IndexAccess,
     IntType,
     LiteralKind,
+    Mapping,
     MappingType,
     MemberAccess,
     Mutability,
+    replaceNode,
     SourceUnit,
     Statement,
     StateVariableVisibility,
@@ -27,11 +36,21 @@ import {
     StructDefinition,
     TypeName,
     TypeNode,
+    UnaryOperation,
     UserDefinedType,
+    UserDefinedTypeName,
     VariableDeclaration,
     VariableDeclarationStatement
 } from "solc-typed-ast";
-import { transpileType } from "..";
+import {
+    ConcreteDatastructurePath,
+    explodeTupleAssignment,
+    findStateVarUpdates,
+    single,
+    transpileType
+} from "..";
+import { InstrumentationContext } from "./instrumentation_context";
+import { InstrumentationSiteType } from "./transpiling_context";
 
 function getTypeDesc(typ: TypeNode): string {
     if (
@@ -240,6 +259,77 @@ function mkVarDecl(
     return [decl, stmt];
 }
 
+function makeIncDecFun(
+    factory: ASTNodeFactory,
+    keyT: TypeNode,
+    valueT: TypeNode,
+    struct: StructDefinition,
+    lib: ContractDefinition,
+    operator: "++" | "--",
+    prefix: boolean
+): FunctionDefinition {
+    const name = (operator == "++" ? "inc" : "dec") + (prefix ? "_pre" : "");
+    const fun = addEmptyFun(factory, name, lib);
+
+    const m = addFunArg(
+        factory,
+        "m",
+        new UserDefinedType(struct.name, struct),
+        DataLocation.Storage,
+        fun
+    );
+    const key = addFunArg(
+        factory,
+        "key",
+        keyT,
+        needsLocation(keyT) ? DataLocation.Memory : DataLocation.Default,
+        fun
+    );
+
+    const RET = addFunRet(
+        factory,
+        "RET",
+        valueT,
+        needsLocation(valueT) ? DataLocation.Storage : DataLocation.Default,
+        fun
+    );
+
+    const mkInnerM = () => mkStructFieldAcc(factory, factory.makeIdentifierFor(m), struct, 0);
+    const curVal = factory.makeIndexAccess("<missing>", mkInnerM(), factory.makeIdentifierFor(key));
+    const newVal = factory.makeBinaryOperation(
+        "<missing>",
+        operator[0],
+        curVal,
+        factory.makeLiteral("<missing>", LiteralKind.Number, "", "1")
+    );
+    const setter = single(lib.vFunctions.filter((f) => f.name == "set"));
+
+    const update = factory.makeFunctionCall(
+        "<missing>",
+        FunctionCallKind.FunctionCall,
+        factory.makeIdentifierFor(setter),
+        [factory.makeIdentifierFor(m), factory.makeIdentifierFor(key), newVal]
+    );
+
+    if (prefix) {
+        addStmt(factory, fun, factory.makeReturn(fun.vReturnParameters.id, update));
+    } else {
+        addStmt(
+            factory,
+            fun,
+            factory.makeAssignment(
+                "<missing>",
+                "=",
+                factory.makeIdentifierFor(RET),
+                factory.makeIndexAccess("<missing>", mkInnerM(), factory.makeIdentifierFor(key))
+            )
+        );
+        addStmt(factory, fun, update);
+    }
+
+    return fun;
+}
+
 function makeGetFun(
     factory: ASTNodeFactory,
     keyT: TypeNode,
@@ -319,6 +409,14 @@ function makeSetFun(
         fun
     );
 
+    addFunRet(
+        factory,
+        "",
+        valueT,
+        needsLocation(valueT) ? DataLocation.Storage : DataLocation.Default,
+        fun
+    );
+
     const mkInnerM = () => mkStructFieldAcc(factory, factory.makeIdentifierFor(m), struct, 0);
     const mkKeys = () => mkStructFieldAcc(factory, factory.makeIdentifierFor(m), struct, 1);
     const mkKeysLen = () => factory.makeMemberAccess("<missing>", mkKeys(), "length", -1);
@@ -375,7 +473,10 @@ function makeSetFun(
                 factory.makeIdentifierFor(idx),
                 factory.makeLiteral("<missing>", LiteralKind.Number, "", "0")
             ),
-            factory.makeReturn(fun.vReturnParameters.id)
+            factory.makeReturn(
+                fun.vReturnParameters.id,
+                factory.makeIndexAccess("<missing>", mkInnerM(), factory.makeIdentifierFor(key))
+            )
         )
     );
 
@@ -424,6 +525,16 @@ function makeSetFun(
             factory.makeFunctionCall("<missing>", FunctionCallKind.FunctionCall, mkKeysPush(), [
                 factory.makeIdentifierFor(key)
             ])
+        )
+    );
+
+    // return m.innerM[key];
+    addStmt(
+        factory,
+        fun,
+        factory.makeReturn(
+            fun.vReturnParameters.id,
+            factory.makeIndexAccess("<missing>", mkInnerM(), factory.makeIdentifierFor(key))
         )
     );
 
@@ -619,6 +730,7 @@ export function generateMapLibrary(
         [],
         []
     );
+    container.appendChild(lib);
 
     const struct = makeStruct(factory, keyT, valueT, lib);
     lib.appendChild(struct);
@@ -630,5 +742,262 @@ export function generateMapLibrary(
         makeDeleteFun(factory, keyT, valueT, struct, lib);
     }
 
+    // For numeric types emit helpers for ++,--, {+,-,*,/,**,%,<<,>>}=
+    if (valueT instanceof IntType) {
+        makeIncDecFun(factory, keyT, valueT, struct, lib, "++", true);
+        makeIncDecFun(factory, keyT, valueT, struct, lib, "++", false);
+        makeIncDecFun(factory, keyT, valueT, struct, lib, "--", true);
+        makeIncDecFun(factory, keyT, valueT, struct, lib, "--", false);
+    }
+
     return lib;
+}
+
+type DatastructurePath = Array<null | string>;
+
+/**
+ * Given a TypeName `typ` and a `DatastructurePath` `path`, find the part of `typ` that corresponds to `path`.
+ * `idx` is used internaly in the recursion to keep track of where we are in the path.
+ *
+ * @param typ
+ * @param path
+ * @param idx
+ * @returns
+ */
+function lookupPathInType(typ: TypeName, path: DatastructurePath, idx = 0): TypeName {
+    if (idx === path.length) {
+        return typ;
+    }
+
+    const el = path[idx];
+
+    if (el === null) {
+        if (typ instanceof ArrayTypeName) {
+            return lookupPathInType(typ.vBaseType, path, idx + 1);
+        }
+
+        if (typ instanceof Mapping) {
+            return lookupPathInType(typ.vValueType, path, idx + 1);
+        }
+
+        throw new Error(`Unexpected type ${typ.constructor.name} for index path element`);
+    }
+
+    assert(
+        typ instanceof UserDefinedTypeName &&
+            typ.vReferencedDeclaration instanceof StructDefinition,
+        `Expected user defined struct for path element ${el}`
+    );
+
+    const field = single(
+        typ.vReferencedDeclaration.vMembers.filter((field) => field.name === el),
+        `No field matching element path ${el} in struct ${typ.vReferencedDeclaration.name}`
+    );
+
+    assert(field.vType !== undefined, ``);
+
+    return lookupPathInType(field.vType, path, idx + 1);
+}
+
+function pathMatch(a: DatastructurePath, b: ConcreteDatastructurePath): boolean {
+    if (a.length + 1 !== b.length) {
+        return false;
+    }
+
+    for (let i = 0; i < a.length; i++) {
+        if (a[i] === null && b[i] instanceof Expression) {
+            continue;
+        }
+
+        if (typeof a[i] === "string" && typeof b[i] === "string" && a[i] === b[i]) {
+            continue;
+        }
+
+        return false;
+    }
+
+    assert(b[a.length] instanceof Expression, ``);
+    return true;
+}
+
+function splitExpr(e: Expression): [Expression, Expression] {
+    assert(e instanceof IndexAccess && e.vIndexExpression !== undefined, ``);
+    return [e.vBaseExpression, e.vIndexExpression];
+}
+
+function getDeleteKey(factory: ASTNodeFactory, lib: ContractDefinition): Expression {
+    const deleteKeyF = single(lib.vFunctions.filter((fun) => fun.name === "deleteKey"));
+    return factory.makeMemberAccess(
+        "<missing>",
+        factory.makeIdentifierFor(lib),
+        "deleteKey",
+        deleteKeyF.id
+    );
+}
+
+function getSetter(factory: ASTNodeFactory, lib: ContractDefinition): Expression {
+    const setter = single(lib.vFunctions.filter((fun) => fun.name === "set"));
+    return factory.makeMemberAccess("<missing>", factory.makeIdentifierFor(lib), "set", setter.id);
+}
+
+function getIncDecFun(
+    factory: ASTNodeFactory,
+    lib: ContractDefinition,
+    operator: "++" | "--",
+    prefix: boolean
+): Expression {
+    const name = (operator == "++" ? "inc" : "dec") + (prefix ? "_pre" : "");
+    const setter = single(lib.vFunctions.filter((fun) => fun.name === name));
+    return factory.makeMemberAccess("<missing>", factory.makeIdentifierFor(lib), name, setter.id);
+}
+
+/*
+function getGetter(factory: ASTNodeFactory, lib: ContractDefinition): Expression {
+    const getter = single(lib.vFunctions.filter((fun) => fun.name === "get"));
+    return factory.makeMemberAccess("<missing>", factory.makeIdentifierFor(lib), "get", getter.id);
+}
+*/
+
+function replaceAssignmentHelper(
+    factory: ASTNodeFactory,
+    assignment: Assignment,
+    lib: ContractDefinition
+): void {
+    const newVal = assignment.vRightHandSide;
+    const [base, index] = splitExpr(assignment.vLeftHandSide);
+
+    const newNode = factory.makeFunctionCall(
+        "<missing>",
+        FunctionCallKind.FunctionCall,
+        getSetter(factory, lib),
+        [base, index, newVal]
+    );
+
+    replaceNode(assignment, newNode);
+}
+
+/**
+ * Given a state variable `stateVar` and a DatastructurePath `path`, let `path`
+ * reference the part `T` of `stateVar` (`T` is the whole variable when `path` is empty).
+ *
+ * If `T` is not a mapping an error is thrown. Otherwise:
+ *
+ * 0. Generate a custom library implementation `L` for the mapping type of `T`
+ * 1. Replace the type of `T` in the `stateVar` declaration with `L.S`.
+ * 2. Replace all var index updates with L.set(<base>, <key>, <newVal>) or L.deleteKey(<base>, <key>)
+ * 3. Replace all index accesses `<base>[<key>]` on `T` with `L.get(<base>, <key>)`
+ *
+ * @param stateVar
+ * @param path
+ */
+export function interposeMap(
+    instrCtx: InstrumentationContext,
+    stateVar: VariableDeclaration,
+    path: DatastructurePath,
+    mapContainer: SourceUnit,
+    units: SourceUnit[]
+): void {
+    const mapT = lookupPathInType(stateVar.vType as TypeName, path);
+    const factory = instrCtx.factory;
+    const compilerVersion = instrCtx.compilerVersion;
+
+    assert(
+        mapT instanceof Mapping,
+        `Referenced state var (part) must be mapping, not ${mapT.constructor.name}`
+    );
+
+    const keyT = getNodeType(mapT.vKeyType, compilerVersion);
+    const valueT = getNodeType(mapT.vValueType, compilerVersion);
+
+    // 0. Generate custom library implementation
+    const lib = generateMapLibrary(factory, keyT, valueT, mapContainer, compilerVersion);
+    const struct = single(lib.vStructs);
+
+    // 1. Replace the type of `T` in the `stateVar` declaration with `L.S`
+    replaceNode(
+        mapT,
+        factory.makeUserDefinedTypeName("<missing>", `${lib.name}.${struct.name}`, struct.id)
+    );
+
+    // 2. Replace all var index updates with L.set(<base>, <key>, <newVal>) or L.deleteKey(<base>, <key>)
+    // @todo (dimo): Repeated calls to `findStateVarUpdates` are expensive
+    const allUpdates = findStateVarUpdates(units);
+    const curVarUpdates = allUpdates.filter(([, v]) => v === stateVar);
+
+    for (const [updateNode, , updPath] of curVarUpdates) {
+        // Only interested in updates to the correct part of the state var
+        if (!pathMatch(path, updPath)) {
+            continue;
+        }
+
+        if (updateNode instanceof Array) {
+            const [assignment, lhsPath] = updateNode;
+            const containingFun = assignment.getClosestParentByType(
+                FunctionDefinition
+            ) as FunctionDefinition;
+
+            // Simple non-tuple case
+            if (lhsPath.length === 0) {
+                replaceAssignmentHelper(factory, assignment, lib);
+            } else {
+                // Tuple assignment case.
+                // @todo Do we need a new instrumentation type here?
+
+                const transCtx = instrCtx.getTranspilingCtx(
+                    containingFun,
+                    InstrumentationSiteType.StateVarUpdated
+                );
+
+                for (const [tempAssignment, tuplePath] of explodeTupleAssignment(
+                    transCtx,
+                    assignment
+                )) {
+                    if (eq(tuplePath, lhsPath)) {
+                        replaceAssignmentHelper(factory, tempAssignment, lib);
+                    }
+                }
+            }
+        } else if (updateNode instanceof UnaryOperation) {
+            const [base, index] = splitExpr(updateNode.vSubExpression);
+
+            if (updateNode.operator === "delete") {
+                assert(updateNode.parent instanceof ExpressionStatement, ``);
+                const deleteKeyF = getDeleteKey(factory, lib);
+
+                const newNode = factory.makeFunctionCall(
+                    "<missing>",
+                    FunctionCallKind.FunctionCall,
+                    deleteKeyF,
+                    [base, index]
+                );
+                replaceNode(updateNode, newNode);
+            } else {
+                assert(updateNode.operator === "++" || updateNode.operator == "--", ``);
+                const incDecF = getIncDecFun(factory, lib, updateNode.operator, updateNode.prefix);
+                const newNode = factory.makeFunctionCall(
+                    "<missing>",
+                    FunctionCallKind.FunctionCall,
+                    incDecF,
+                    [base, index]
+                );
+                replaceNode(updateNode, newNode);
+            }
+        } else {
+            /**
+             * Note that:
+             *
+             * 1) .push() and .pop() are handled by replacing IndexAccess-es
+             * 2) We dont need to worry about state var initializers, as those can't assign values to maps (the VariableDeclaration case)
+             */
+            assert(
+                updateNode instanceof FunctionCall,
+                `NYI wrapping map update ${updateNode.constructor.name}`
+            );
+        }
+    }
+
+    // 3. Replace all index accesses `<base>[<key>]` on `T` with `L.get(<base>, <key>)`
+    // All remaining references to the state var (and its part) that occur on
+    // the LHS of some assignments have been handled in step 2. Therefore we can
+    // replace the occuring references with calls to `L.get()`
 }
