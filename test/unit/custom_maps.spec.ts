@@ -16,7 +16,8 @@ import {
     StringType,
     StructDefinition,
     TypeNode,
-    UserDefinedType
+    UserDefinedType,
+    VariableDeclaration
 } from "solc-typed-ast";
 import { generateMapLibrary, interposeMap } from "../../src";
 import { single } from "../../src/util";
@@ -122,7 +123,116 @@ contract Foo {
 }
 `,
         [["x", []]]
+    ],
+    [
+        "Map index in the index location",
+        `
+pragma solidity 0.8.4;
+contract Foo {
+    mapping(uint => uint) x;
+    function main() public {
+        uint a;
+        x[0] = 1;
+        x[1] = 2;
+        assert(x[0] == 1);
+        assert(x[x[0]] == 2);
+    }
+}
+`,
+        [["x", []]]
+    ],
+    [
+        "Both maps that should and shouldn't be replaced",
+        `
+pragma solidity 0.8.4;
+contract Foo {
+    mapping(uint => uint) x;
+    mapping(uint => uint) y;
+
+    function main() public {
+        uint a;
+        x[0] = 1;
+        x[1] = 2;
+        assert(x[0] == 1);
+        assert(x[x[0]] == 2);
+
+        y[0] = 1;
+        y[1] = 2;
+
+        assert(y[0] == 1);
+        assert(y[x[0]] == 2);
+        assert(x[y[0]] == 2);
+    }
+}
+`,
+        [["x", []]]
+    ],
+    [
+        "Nested mappings",
+        `
+pragma solidity 0.8.4;
+contract Foo {
+    mapping(uint => mapping(address => bool)) x;
+    mapping(uint => mapping(bool => string)) y;
+    mapping(uint => mapping(int8 => uint)) z;
+    mapping(uint => uint) w;
+
+    function main() public {
+        x[0][address(0x0)] = true;
+        bool t = x[0][address(0x0)];
+        x[1][address(0x1)] = x[0][address(0x0)];
+
+        y[1][false] = "hi";
+        y[2][true] = y[1][false];
+        assert(keccak256(bytes(y[2][true])) == keccak256(bytes("hi")));
+        
+        z[0][1] = 1;
+        z[z[0][1]][2] = 2;
+        
+        assert(z[1][2] == 2);
+
+        z[w[0] = w[1] + 3][int8(uint8(w[2]))] = 42;
+        assert(z[3][0] == 42);
+    }
+}
+`,
+        [
+            ["x", [null]],
+            ["y", []],
+            ["z", []],
+            ["z", [null]],
+            ["w", []]
+        ]
+    ],
+    [
+        "Maps with arrays",
+        `
+pragma solidity 0.8.4;
+contract Foo {
+    mapping(uint => uint[]) x;
+
+    function main() public {
+        x[0] = [1,2,3];
+        assert(x[0].length == 3);
+
+        x[1] = x[0];
+        x[1].push(4);
+        assert(x[1].length == 4 && x[1][3] == 4);
+
+        x[1].pop();
+        assert(x[1].length == 3);
+
+        uint[] a = new uint[](3);
+        a[0] = 2; a[1] = 4; a[3] = 6;
+        x[2] = a;
+        assert(x[2].length == 3 && x[2][2] == 6);
+    }
+}
+`,
+        [["x", []]]
     ]
+    // @todo test with a state var where some parts should be interposed, and some shouldn't be interposed
+    // @todo test with a state var with a struct, containing a map, with an inline initializer
 ];
 
 describe("Interposing on a map", () => {
@@ -145,12 +255,15 @@ describe("Interposing on a map", () => {
                 new PrettyFormatter(4, 0),
                 version
             );
+            const contract = single(unit.vContracts);
+            const targets: Array<
+                [VariableDeclaration, Array<string | null>]
+            > = svs.map(([svName, path]) => [
+                single(contract.vStateVariables.filter((v) => v.name == svName)),
+                path
+            ]);
 
-            for (const [svName, path] of svs) {
-                const contract = single(unit.vContracts);
-                const sV = single(contract.vStateVariables.filter((v) => v.name == svName));
-                interposeMap(instrCtx, sV, path, unit, [unit]);
-            }
+            interposeMap(instrCtx, targets, unit, [unit]);
 
             const newContent = writer.write(unit);
             console.error(newContent);
