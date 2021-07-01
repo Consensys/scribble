@@ -95,7 +95,7 @@ describe("Maps with keys library generation", () => {
     }
 });
 
-const interposingTests: Array<[string, string, Array<[string, Array<string | null>]>]> = [
+const interposingTests: Array<[string, string, string, Array<[string, Array<string | null>]>]> = [
     [
         "Maps with simple assignments",
         `
@@ -123,6 +123,26 @@ contract Foo {
     }
 }
 `,
+        `pragma solidity 0.8.4;
+
+contract Foo {
+    uint256_to_uint256.S internal x;
+
+    function main() public {
+        uint a;
+        uint256_to_uint256.set(x, 0, 1);
+        assert(uint256_to_uint256.get(x, 0) == 1);
+        uint256_to_uint256.set(x, 1, a = 2);
+        assert(uint256_to_uint256.get(x, 1) == 2);
+        uint256_to_uint256.set(x, 3, uint256_to_uint256.set(x, 2, 1));
+        assert((1 == uint256_to_uint256.inc(x, 0)) && (uint256_to_uint256.get(x, 0) == 2));
+        assert((3 == uint256_to_uint256.inc_pre(x, 0)) && (uint256_to_uint256.get(x, 0) == 3));
+        assert((2 == uint256_to_uint256.dec_pre(x, 0)) && (uint256_to_uint256.get(x, 0) == 2));
+        assert((2 == uint256_to_uint256.dec(x, 0)) && (uint256_to_uint256.get(x, 0) == 1));
+        uint256_to_uint256.deleteKey(x, 3);
+        assert(uint256_to_uint256.get(x, 3) == 0);
+    }
+}`,
         [["x", []]]
     ],
     [
@@ -137,9 +157,26 @@ contract Foo {
         x[1] = 2;
         assert(x[0] == 1);
         assert(x[x[0]] == 2);
+        x[x[0] = x[0] + 1] = x[0] + 2;
+        assert(x[2] == 3);
     }
 }
 `,
+        `pragma solidity 0.8.4;
+
+contract Foo {
+    uint256_to_uint256.S internal x;
+
+    function main() public {
+        uint a;
+        uint256_to_uint256.set(x, 0, 1);
+        uint256_to_uint256.set(x, 1, 2);
+        assert(uint256_to_uint256.get(x, 0) == 1);
+        assert(uint256_to_uint256.get(x, uint256_to_uint256.get(x, 0)) == 2);
+        uint256_to_uint256.set(x, uint256_to_uint256.set(x, 0, uint256_to_uint256.get(x, 0) + 1), uint256_to_uint256.get(x, 0) + 2);
+        assert(uint256_to_uint256.get(x, 2) == 3);
+    }
+}`,
         [["x", []]]
     ],
     [
@@ -166,6 +203,25 @@ contract Foo {
     }
 }
 `,
+        `pragma solidity 0.8.4;
+
+contract Foo {
+    uint256_to_uint256.S internal x;
+    mapping(uint => uint) internal y;
+
+    function main() public {
+        uint a;
+        uint256_to_uint256.set(x, 0, 1);
+        uint256_to_uint256.set(x, 1, 2);
+        assert(uint256_to_uint256.get(x, 0) == 1);
+        assert(uint256_to_uint256.get(x, uint256_to_uint256.get(x, 0)) == 2);
+        y[0] = 1;
+        y[1] = 2;
+        assert(y[0] == 1);
+        assert(y[uint256_to_uint256.get(x, 0)] == 2);
+        assert(uint256_to_uint256.get(x, y[0]) == 2);
+    }
+}`,
         [["x", []]]
     ],
     [
@@ -193,10 +249,32 @@ contract Foo {
         assert(z[1][2] == 2);
 
         z[w[0] = w[1] + 3][int8(uint8(w[2]))] = 42;
-        assert(z[3][0] == 42);
+        assert(w[0] == 3 && z[3][0] == 42);
     }
 }
 `,
+        `pragma solidity 0.8.4;
+
+contract Foo {
+    mapping(uint => address_to_bool.S) internal x;
+    uint256_to_mapping_bool_to_string.S internal y;
+    uint256_to_int8_to_uint256_S_372.S internal z;
+    uint256_to_uint256.S internal w;
+
+    function main() public {
+        address_to_bool.set(x[0], address(0x0), true);
+        bool t = address_to_bool.get(x[0], address(0x0));
+        address_to_bool.set(x[1], address(0x1), address_to_bool.get(x[0], address(0x0)));
+        uint256_to_mapping_bool_to_string.get(y, 1)[false] = "hi";
+        uint256_to_mapping_bool_to_string.get(y, 2)[true] = uint256_to_mapping_bool_to_string.get(y, 1)[false];
+        assert(keccak256(bytes(uint256_to_mapping_bool_to_string.get(y, 2)[true])) == keccak256(bytes("hi")));
+        int8_to_uint256.set(uint256_to_int8_to_uint256_S_372.get(z, 0), 1, 1);
+        int8_to_uint256.set(uint256_to_int8_to_uint256_S_372.get(z, int8_to_uint256.get(uint256_to_int8_to_uint256_S_372.get(z, 0), 1)), 2, 2);
+        assert(int8_to_uint256.get(uint256_to_int8_to_uint256_S_372.get(z, 1), 2) == 2);
+        int8_to_uint256.set(uint256_to_int8_to_uint256_S_372.get(z, uint256_to_uint256.set(w, 0, uint256_to_uint256.get(w, 1) + 3)), int8(uint8(uint256_to_uint256.get(w, 2))), 42);
+        assert((uint256_to_uint256.get(w, 0) == 3) && (int8_to_uint256.get(uint256_to_int8_to_uint256_S_372.get(z, 3), 0) == 42));
+    }
+}`,
         [
             ["x", [null]],
             ["y", []],
@@ -220,6 +298,9 @@ contract Foo {
         x[1].push(4);
         assert(x[1].length == 4 && x[1][3] == 4);
 
+        x[1][1] = 10;
+        assert(x[1][1] == 10);
+
         x[1].pop();
         assert(x[1].length == 3);
 
@@ -230,6 +311,29 @@ contract Foo {
     }
 }
 `,
+        `pragma solidity 0.8.4;
+
+contract Foo {
+    uint256_to_uint256_arr.S internal x;
+
+    function main() public {
+        uint256_to_uint256_arr.set_uint8_arr_3(x, 0, [1, 2, 3]);
+        assert(uint256_to_uint256_arr.get(x, 0).length == 3);
+        uint256_to_uint256_arr.set(x, 1, uint256_to_uint256_arr.get(x, 0));
+        uint256_to_uint256_arr.get(x, 1).push(4);
+        assert((uint256_to_uint256_arr.get(x, 1).length == 4) && (uint256_to_uint256_arr.get(x, 1)[3] == 4));
+        uint256_to_uint256_arr.get(x, 1)[1] = 10;
+        assert(uint256_to_uint256_arr.get(x, 1)[1] == 10);
+        uint256_to_uint256_arr.get(x, 1).pop();
+        assert(uint256_to_uint256_arr.get(x, 1).length == 3);
+        uint[] memory a = new uint[](3);
+        a[0] = 2;
+        a[1] = 4;
+        a[2] = 6;
+        uint256_to_uint256_arr.set(x, 2, a);
+        assert((uint256_to_uint256_arr.get(x, 2).length == 3) && (uint256_to_uint256_arr.get(x, 2)[2] == 6));
+    }
+}`,
         [["x", []]]
     ],
     [
@@ -262,6 +366,32 @@ contract Foo {
     }
 }
 `,
+        `pragma solidity 0.8.4;
+
+contract Foo {
+    struct Moo {
+        uint256_to_uint256_arr.S x;
+        mapping(uint => uint[]) y;
+    }
+
+    Moo internal m;
+
+    function main() public {
+        m.y[0] = [1, 2, 3];
+        assert(m.y[0].length == 3);
+        uint256_to_uint256_arr.set(m.x, 1, m.y[0]);
+        uint256_to_uint256_arr.get(m.x, 1).push(4);
+        assert((uint256_to_uint256_arr.get(m.x, 1).length == 4) && (uint256_to_uint256_arr.get(m.x, 1)[3] == 4));
+        uint256_to_uint256_arr.get(m.x, 1).pop();
+        assert(uint256_to_uint256_arr.get(m.x, 1).length == 3);
+        uint[] memory a = new uint[](3);
+        a[0] = 2;
+        a[1] = 4;
+        a[2] = 6;
+        uint256_to_uint256_arr.set(m.x, 2, a);
+        assert((uint256_to_uint256_arr.get(m.x, 2).length == 3) && (uint256_to_uint256_arr.get(m.x, 2)[2] == 6));
+    }
+}`,
         [["m", ["x"]]]
     ],
     [
@@ -286,6 +416,7 @@ contract Foo {
     }
 }
 `,
+        ``,
         [["m", ["y"]]]
     ],
     [
@@ -313,6 +444,45 @@ contract Foo {
     }
 }
 `,
+        `pragma solidity 0.8.4;
+
+contract Foo {
+    enum E { A, B, C }
+
+    uint256_to_uint256.S x0;
+    uint256_to_uint256_to_uint256_S_141.S y0;
+    string_to_uint256_arr.S z0;
+    bytes_to_Foo_E_5.S u0;
+
+    function main() public {
+        uint256_to_uint256.set(x0, 2, 5);
+        assert(uint256_to_uint256.get(x0, 2) == 5);
+        uint256_to_uint256.set(uint256_to_uint256_to_uint256_S_141.get(y0, 0), 1, 6);
+        assert(uint256_to_uint256.get(uint256_to_uint256_to_uint256_S_141.get(y0, 0), 1) == 6);
+        uint256_to_uint256.set(x0, 1, uint256_to_uint256.get(uint256_to_uint256_to_uint256_S_141.get(y0, 0), 1) + uint256_to_uint256.get(x0, 2));
+        assert(uint256_to_uint256.get(x0, 1) == 11);
+        string_to_uint256_arr.set_uint8_arr_3(z0, "hi", [1, 2, 3]);
+        assert((string_to_uint256_arr.get(z0, "hi").length == 3) && (string_to_uint256_arr.get(z0, "hi")[2] == 3));
+        bytes_to_Foo_E_5.set(u0, hex"abcd", E.A);
+        assert(bytes_to_Foo_E_5.get(u0, hex"abcd") == E.A);
+    }
+
+    function y(uint256 ARG_0, uint256 ARG_1) public returns (uint256 RET_0) {
+        return uint256_to_uint256.get(uint256_to_uint256_to_uint256_S_141.get(y0, ARG_0), ARG_1);
+    }
+
+    function x(uint256 ARG_2) public returns (uint256 RET_1) {
+        return uint256_to_uint256.get(x0, ARG_2);
+    }
+
+    function z(string memory ARG_3, uint256 ARG_4) public returns (uint256 RET_2) {
+        return string_to_uint256_arr.get(z0, ARG_3)[ARG_4];
+    }
+
+    function u(bytes memory ARG_5) public returns (Foo.E RET_3) {
+        return bytes_to_Foo_E_5.get(u0, ARG_5);
+    }
+}`,
         [
             ["x", []],
             ["y", []],
@@ -324,7 +494,8 @@ contract Foo {
 ];
 
 describe("Interposing on a map", () => {
-    for (const [name, sample, svs] of interposingTests) {
+    for (const [name, sample, expectedInstrCode, svs] of interposingTests) {
+        let instrCode: string;
         let newContent: string;
 
         it(`Code compiles after interposing on ${pp(svs)} in sample ${name}`, () => {
@@ -364,12 +535,17 @@ describe("Interposing on a map", () => {
 
             interposeMap(instrCtx, targets, [unit]);
 
+            instrCode = writer.write(unit);
             newContent = [unit, instrCtx.utilsUnit].map((unit) => writer.write(unit)).join("\n");
             console.error(newContent);
             const compRes = compileSourceString("foo.sol", newContent, version, []);
 
             expect(compRes.data.contracts["foo.sol"]).toBeDefined();
             expect(forAll(compRes.data.errors, (error: any) => error.severity === "warning"));
+        });
+
+        it(`Interposed code matches expected in sample ${name}`, () => {
+            expect(instrCode).toEqual(expectedInstrCode);
         });
 
         it(`Interposed code executes successfully in sample ${name}`, () => {
