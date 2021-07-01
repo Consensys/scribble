@@ -11,15 +11,18 @@ import {
     ImportDirective,
     ASTNode,
     Expression,
-    Statement
+    Statement,
+    TypeNode,
+    getNodeType
 } from "solc-typed-ast";
-import { assert } from "..";
+import { assert, getSetterName, single, specializeSetter } from "..";
 import { SUserFunctionDefinition } from "../spec-lang/ast";
 import { SemMap, TypeEnv } from "../spec-lang/tc";
 import { NameGenerator } from "../util/name_generator";
 import { AnnotationMetaData, AnnotationFilterOptions } from "./annotations";
 import { CallGraph } from "./callgraph";
 import { CHA } from "./cha";
+import { generateMapLibrary, getCustomMapLibraryName } from "./custom_maps_templates";
 import { InstrumentationSiteType, TranspilingContext } from "./transpiling_context";
 
 /**
@@ -243,5 +246,88 @@ export class InstrumentationContext {
         for (const transCtx of this.transCtxMap.values()) {
             transCtx.finalize();
         }
+    }
+
+    private customMapLibrary = new Map<
+        string,
+        [ContractDefinition, StructDefinition, Map<string, FunctionDefinition>, TypeNode, TypeNode]
+    >();
+
+    getCustomMapLibrary(keyT: TypeNode, valueT: TypeNode): ContractDefinition {
+        const name = getCustomMapLibraryName(keyT, valueT);
+
+        let res = this.customMapLibrary.get(name);
+
+        if (!res) {
+            const library = generateMapLibrary(
+                this.factory,
+                keyT,
+                valueT,
+                this.utilsUnit,
+                this.compilerVersion
+            );
+            const struct = single(library.vStructs);
+            const funcs = new Map(library.vFunctions.map((fn) => [fn.name, fn]));
+            res = [library, struct, funcs, keyT, valueT];
+            this.customMapLibrary.set(name, res);
+        }
+
+        return res[0];
+    }
+
+    getCustomMapStruct(library: ContractDefinition): StructDefinition {
+        const res = this.customMapLibrary.get(library.name);
+        assert(res !== undefined, ``);
+        return res[1];
+    }
+
+    getCustomMapGetter(library: ContractDefinition): FunctionDefinition {
+        const res = this.customMapLibrary.get(library.name);
+        assert(res !== undefined, ``);
+        const getter = res[2].get("get");
+        assert(getter !== undefined, ``);
+
+        return getter;
+    }
+
+    getCustomMapSetter(library: ContractDefinition, newVal: Expression): FunctionDefinition {
+        const res = this.customMapLibrary.get(library.name);
+        assert(res !== undefined, ``);
+        const [lib, , funs, , valueT] = res;
+
+        const newValT = getNodeType(newVal, this.compilerVersion);
+        const setterName = getSetterName(valueT, newValT);
+        let setter = funs.get(setterName);
+
+        if (setter === undefined) {
+            setter = specializeSetter(this.factory, funs.get("set") as FunctionDefinition, newValT);
+            lib.appendChild(setter);
+            funs.set(setterName, setter);
+        }
+
+        return setter;
+    }
+
+    getCustomMapIncDec(
+        library: ContractDefinition,
+        operator: "++" | "--",
+        prefix: boolean
+    ): FunctionDefinition {
+        const res = this.customMapLibrary.get(library.name);
+        assert(res !== undefined, ``);
+        const funName = (operator == "++" ? "inc" : "dec") + (prefix ? "_pre" : "");
+        const setter = res[2].get(funName);
+        assert(setter !== undefined, ``);
+
+        return setter;
+    }
+
+    getCustomMapDeleteKey(library: ContractDefinition): FunctionDefinition {
+        const res = this.customMapLibrary.get(library.name);
+        assert(res !== undefined, ``);
+        const setter = res[2].get("deleteKey");
+        assert(setter !== undefined, ``);
+
+        return setter;
     }
 }

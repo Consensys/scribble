@@ -19,7 +19,7 @@ import {
     UserDefinedType,
     VariableDeclaration
 } from "solc-typed-ast";
-import { generateMapLibrary, interposeMap } from "../../src";
+import { generateMapLibrary, generateUtilsContract, interposeMap } from "../../src";
 import { single } from "../../src/util";
 import { toAst } from "../integration/utils";
 import { makeInstrumentationCtx } from "./utils";
@@ -222,8 +222,8 @@ contract Foo {
         x[1].pop();
         assert(x[1].length == 3);
 
-        uint[] a = new uint[](3);
-        a[0] = 2; a[1] = 4; a[3] = 6;
+        uint[] memory a = new uint[](3);
+        a[0] = 2; a[1] = 4; a[2] = 6;
         x[2] = a;
         assert(x[2].length == 3 && x[2][2] == 6);
     }
@@ -256,6 +256,15 @@ describe("Interposing on a map", () => {
                 version
             );
             const contract = single(unit.vContracts);
+
+            generateUtilsContract(
+                factory,
+                "__scribble_ReentrancyUtils.sol",
+                "__scribble_ReentrancyUtils.sol",
+                version,
+                instrCtx
+            );
+
             const targets: Array<
                 [VariableDeclaration, Array<string | null>]
             > = svs.map(([svName, path]) => [
@@ -263,9 +272,11 @@ describe("Interposing on a map", () => {
                 path
             ]);
 
-            interposeMap(instrCtx, targets, unit, [unit]);
+            interposeMap(instrCtx, targets, [unit]);
 
-            const newContent = writer.write(unit);
+            const newContent = [unit, instrCtx.utilsUnit]
+                .map((unit) => writer.write(unit))
+                .join("\n");
             console.error(newContent);
             const compRes = compileSourceString("foo.sol", newContent, version, []);
 
