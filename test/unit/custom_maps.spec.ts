@@ -20,8 +20,9 @@ import {
     VariableDeclaration
 } from "solc-typed-ast";
 import { generateMapLibrary, generateUtilsContract, interposeMap } from "../../src";
-import { single } from "../../src/util";
+import { pp, single } from "../../src/util";
 import { toAst } from "../integration/utils";
+import { Config, executeTestSuiteInternal } from "../integration/vm";
 import { makeInstrumentationCtx } from "./utils";
 
 const libGenTests: [string, Array<[TypeNode, TypeNode | ((s: SourceUnit) => TypeNode)]>] = [
@@ -299,9 +300,16 @@ contract Foo {
     mapping (bytes => E) public u;
 
     function main() public {
+        x[2] = 5;
+        assert(x[2] == 5);
+        y[0][1] = 6;
+        assert(y[0][1] == 6);
         x[1] = y[0][1] + x[2];
+        assert(x[1] == 11);
         z["hi"] = [1,2,3];
+        assert(z["hi"].length == 3 && z["hi"][2] == 3);
         u[hex"abcd"] = E.A;
+        assert(u[hex"abcd"] == E.A);
     }
 }
 `,
@@ -317,7 +325,9 @@ contract Foo {
 
 describe("Interposing on a map", () => {
     for (const [name, sample, svs] of interposingTests) {
-        it(`Can interpose on map in sample ${name}`, () => {
+        let newContent: string;
+
+        it(`Code compiles after interposing on ${pp(svs)} in sample ${name}`, () => {
             const res = toAst(name, sample);
             const unit = single(res.units);
             const ctx = res.reader.context;
@@ -354,14 +364,43 @@ describe("Interposing on a map", () => {
 
             interposeMap(instrCtx, targets, [unit]);
 
-            const newContent = [unit, instrCtx.utilsUnit]
-                .map((unit) => writer.write(unit))
-                .join("\n");
+            newContent = [unit, instrCtx.utilsUnit].map((unit) => writer.write(unit)).join("\n");
             console.error(newContent);
             const compRes = compileSourceString("foo.sol", newContent, version, []);
 
             expect(compRes.data.contracts["foo.sol"]).toBeDefined();
             expect(forAll(compRes.data.errors, (error: any) => error.severity === "warning"));
+        });
+
+        it(`Interposed code executes successfully in sample ${name}`, () => {
+            const cfg: Config = {
+                file: "sample.sol",
+                contents: newContent,
+                steps: [
+                    {
+                        act: "createUser",
+                        alias: "owner",
+                        options: {
+                            balance: 1000e18
+                        }
+                    },
+                    {
+                        act: "deployContract",
+                        contract: "Foo",
+                        user: "owner",
+                        alias: "instance1"
+                    },
+                    {
+                        act: "txCall",
+                        user: "owner",
+                        contract: "instance1",
+
+                        method: "main"
+                    }
+                ]
+            };
+
+            executeTestSuiteInternal("foo.json", cfg);
         });
     }
 });
