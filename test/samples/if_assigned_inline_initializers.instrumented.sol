@@ -1,4 +1,4 @@
-pragma solidity 0.8.4;
+pragma solidity 0.8.6;
 
 contract Base {
     event AssertionFailed(string message);
