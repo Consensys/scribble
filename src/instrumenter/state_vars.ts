@@ -146,9 +146,11 @@ export function* getAssignments(node: ASTNode): Iterable<[LHS, RHS]> {
         }
 
         if (actuals instanceof FunctionCall) {
-            const callRets: Array<[FunctionCall, number]> = (
-                actuals.vReferencedDeclaration as FunctionDefinition
-            ).vReturnParameters.vParameters.map<[FunctionCall, number]>((decl, i) => [actuals, i]);
+            const callRets: Array<
+                [FunctionCall, number]
+            > = (actuals.vReferencedDeclaration as FunctionDefinition).vReturnParameters.vParameters.map<
+                [FunctionCall, number]
+            >((decl, i) => [actuals, i]);
             return zip(formals, callRets);
         }
 
@@ -217,7 +219,9 @@ export function* getAssignments(node: ASTNode): Iterable<[LHS, RHS]> {
                 const fieldNames =
                     candidate.fieldNames !== undefined
                         ? candidate.fieldNames
-                        : structDecl.vMembers.map((decl) => decl.name);
+                        : structDecl.vMembers
+                              .filter((decl) => !(decl.vType instanceof Mapping))
+                              .map((decl) => decl.name);
 
                 assert(fieldNames.length === candidate.vArguments.length, ``);
 
@@ -617,8 +621,7 @@ export function findStateVarUpdates(units: SourceUnit[]): StateVarUpdateDesc[] {
             return;
         }
 
-        const stateVarDecl: VariableDeclaration =
-            baseExp.vReferencedDeclaration as VariableDeclaration;
+        const stateVarDecl: VariableDeclaration = baseExp.vReferencedDeclaration as VariableDeclaration;
 
         res.push([node, stateVarDecl, path, rhs]);
     };

@@ -96,7 +96,7 @@ function addStructField(
     struct.appendChild(field);
 }
 
-function needsLocation(t: TypeNode): boolean {
+export function needsLocation(t: TypeNode): boolean {
     if (
         t instanceof ArrayType ||
         t instanceof StringType ||
@@ -110,7 +110,7 @@ function needsLocation(t: TypeNode): boolean {
     return false;
 }
 
-function addFunArg(
+export function addFunArg(
     factory: ASTNodeFactory,
     name: string,
     typ: TypeNode,
@@ -135,7 +135,7 @@ function addFunArg(
     return arg;
 }
 
-function addFunRet(
+export function addFunRet(
     factory: ASTNodeFactory,
     name: string,
     typ: TypeNode,
@@ -175,7 +175,7 @@ function makeStruct(
     return struct;
 }
 
-function addEmptyFun(
+export function addEmptyFun(
     factory: ASTNodeFactory,
     name: string,
     container: ContractDefinition | SourceUnit
@@ -198,7 +198,7 @@ function addEmptyFun(
     return fun;
 }
 
-function addStmt(
+export function addStmt(
     factory: ASTNodeFactory,
     fun: FunctionDefinition,
     arg: Statement | Expression

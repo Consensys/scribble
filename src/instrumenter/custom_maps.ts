@@ -1,9 +1,11 @@
 import {
+    ArrayType,
     ArrayTypeName,
     assert,
     Assignment,
     ASTNodeFactory,
     ContractDefinition,
+    DataLocation,
     eq,
     Expression,
     ExpressionStatement,
@@ -12,21 +14,32 @@ import {
     FunctionDefinition,
     Identifier,
     IndexAccess,
+    IntType,
     Mapping,
+    MappingType,
     MemberAccess,
+    Mutability,
+    PointerType,
     replaceNode,
     SourceUnit,
+    StateVariableVisibility,
     StructDefinition,
     TypeName,
     typeNameToTypeNode,
     UnaryOperation,
+    UserDefinedType,
     UserDefinedTypeName,
     VariableDeclaration
 } from "solc-typed-ast";
 import {
+    addEmptyFun,
+    addFunArg,
+    addFunRet,
+    addStmt,
     ConcreteDatastructurePath,
     explodeTupleAssignment,
     findStateVarUpdates,
+    needsLocation,
     single,
     StateVarRefDesc
 } from "..";
@@ -372,4 +385,127 @@ export function interposeMap(
             replaceNode(refNode, newNode);
         }
     }
+
+    // Make public state variables we are interposing on private, and generate a custom getter for them
+    for (const sVar of new Set(targets.map((t) => t[0]))) {
+        if (sVar.visibility !== StateVariableVisibility.Public) {
+            continue;
+        }
+
+        sVar.visibility = StateVariableVisibility.Default;
+        interposeGetter(instrCtx, sVar, units);
+    }
+}
+
+function interposeGetter(
+    ctx: InstrumentationContext,
+    v: VariableDeclaration,
+    units: SourceUnit[]
+): FunctionDefinition {
+    assert(v.stateVariable, ``);
+    const factory = ctx.factory;
+    const contract = v.vScope as ContractDefinition;
+    let typ = v.vType;
+
+    assert(typ !== undefined, ``);
+    const fn = addEmptyFun(factory, v.name, contract);
+    let expr: Expression = factory.makeIdentifierFor(v);
+
+    while (true) {
+        if (typ instanceof ArrayTypeName || typ instanceof Mapping) {
+            let idxT =
+                typ instanceof ArrayTypeName
+                    ? new IntType(256, false)
+                    : typeNameToTypeNode(typ.vKeyType);
+
+            if (needsLocation(idxT)) {
+                idxT = new PointerType(idxT, DataLocation.Memory);
+            }
+
+            const idxArg = addFunArg(
+                factory,
+                ctx.nameGenerator.getFresh("ARG_"),
+                idxT,
+                DataLocation.Default,
+                fn
+            );
+            expr = factory.makeIndexAccess(`<missing>`, expr, factory.makeIdentifierFor(idxArg));
+            typ = typ instanceof ArrayTypeName ? typ.vBaseType : typ.vValueType;
+            continue;
+        }
+
+        if (
+            typ instanceof UserDefinedTypeName &&
+            typ.vReferencedDeclaration instanceof StructDefinition &&
+            typ.vReferencedDeclaration.vScope instanceof ContractDefinition &&
+            ctx.isCustomMapLibrary(typ.vReferencedDeclaration.vScope)
+        ) {
+            const lib = typ.vReferencedDeclaration.vScope;
+            const getter = ctx.getCustomMapGetter(lib);
+            const idxT = getter.vParameters.vParameters[1].vType as TypeName;
+
+            const idxArg = factory.makeVariableDeclaration(
+                false,
+                false,
+                ctx.nameGenerator.getFresh("ARG_"),
+                fn.id,
+                false,
+                getter.vParameters.vParameters[1].storageLocation,
+                StateVariableVisibility.Default,
+                Mutability.Mutable,
+                "<missing>",
+                undefined,
+                idxT
+            );
+            fn.vParameters.appendChild(idxArg);
+
+            expr = factory.makeFunctionCall(
+                "<missing>",
+                FunctionCallKind.FunctionCall,
+                mkFunRef(factory, getter),
+                [expr, factory.makeIdentifierFor(idxArg)]
+            );
+
+            typ = single(getter.vReturnParameters.vParameters).vType as TypeName;
+            continue;
+        }
+
+        break;
+    }
+
+    const exprT = typeNameToTypeNode(typ);
+
+    if (exprT instanceof UserDefinedType && exprT.definition instanceof StructDefinition) {
+        throw new Error(`We don't support interposing on public state variables returning structs`);
+    }
+
+    assert(
+        !(
+            exprT instanceof ArrayType ||
+            exprT instanceof MappingType ||
+            exprT instanceof PointerType
+        ) && !needsLocation(exprT),
+        `Unsupported return type for public getter of ${v.name}: ${exprT.pp()}`
+    );
+
+    addFunRet(factory, ctx.nameGenerator.getFresh("RET_"), exprT, DataLocation.Default, fn);
+    addStmt(factory, fn, factory.makeReturn(fn.vReturnParameters.id, expr));
+
+    // Finally rename the variable itsel so it doesn't clash with the getter
+    v.name = ctx.nameGenerator.getFresh(v.name);
+    for (const unit of units) {
+        for (const ref of unit.getChildrenBySelector(
+            (n) =>
+                (n instanceof Identifier || n instanceof MemberAccess) &&
+                n.referencedDeclaration === v.id
+        )) {
+            if (ref instanceof Identifier) {
+                ref.name = v.name;
+            } else {
+                (ref as MemberAccess).memberName = v.name;
+            }
+        }
+    }
+
+    return fn;
 }

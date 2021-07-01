@@ -230,9 +230,89 @@ contract Foo {
 }
 `,
         [["x", []]]
+    ],
+    [
+        "Partial state var update",
+        `
+pragma solidity 0.8.4;
+contract Foo {
+    struct Moo {
+        mapping(uint => uint[]) x;
+        mapping(uint => uint[]) y;
+    }
+
+    Moo m;
+
+    function main() public {
+        m.y[0] = [1,2,3];
+        assert(m.y[0].length == 3);
+
+        m.x[1] = m.y[0];
+        m.x[1].push(4);
+        assert(m.x[1].length == 4 && m.x[1][3] == 4);
+
+        m.x[1].pop();
+        assert(m.x[1].length == 3);
+
+        uint[] memory a = new uint[](3);
+        a[0] = 2; a[1] = 4; a[2] = 6;
+        m.x[2] = a;
+        assert(m.x[2].length == 3 && m.x[2][2] == 6);
+    }
+}
+`,
+        [["m", ["x"]]]
+    ],
+    [
+        "Older inline initializer",
+        `
+pragma solidity 0.6.4;
+contract Foo {
+    struct Moo {
+        uint x;
+        mapping(uint => uint[]) y;
+    }
+
+    Moo m = Moo(1);
+
+    function main() public {
+        assert(m.x == 1 && m.y[0].length == 0);
+        m.y[0] = [1,2,3];
+        assert(m.y[0].length == 3);
+
+        m = Moo(2);
+        assert(m.x == 2 && m.y[0].length == 3);
+    }
+}
+`,
+        [["m", ["y"]]]
+    ],
+    [
+        "Public vars",
+        `
+pragma solidity 0.8.4;
+contract Foo {
+    enum E { A, B, C }
+    mapping (uint => uint) public x;
+    mapping (uint => mapping(uint => uint)) public y;
+    mapping (string => uint[]) public z;
+    mapping (bytes => E) public u;
+
+    function main() public {
+        x[1] = y[0][1] + x[2];
+        z["hi"] = [1,2,3];
+        u[hex"abcd"] = E.A;
+    }
+}
+`,
+        [
+            ["x", []],
+            ["y", []],
+            ["y", [null]],
+            ["z", []],
+            ["u", []]
+        ]
     ]
-    // @todo test with a state var where some parts should be interposed, and some shouldn't be interposed
-    // @todo test with a state var with a struct, containing a map, with an inline initializer
 ];
 
 describe("Interposing on a map", () => {

@@ -253,6 +253,10 @@ export class InstrumentationContext {
         [ContractDefinition, StructDefinition, Map<string, FunctionDefinition>, TypeNode, TypeNode]
     >();
 
+    isCustomMapLibrary(t: ContractDefinition): boolean {
+        return this.customMapLibrary.has(t.name);
+    }
+
     getCustomMapLibrary(keyT: TypeNode, valueT: TypeNode): ContractDefinition {
         const name = getCustomMapLibraryName(keyT, valueT);
 
