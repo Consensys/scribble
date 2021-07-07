@@ -88,7 +88,6 @@ export class TranspilingContext {
      * Current annotation being transpiled. Note this can change through the lifetime of a single TranspilingContext object.
      */
     public curAnnotation!: AnnotationMetaData;
-    public readonly encodedLoggerArgs;
 
     constructor(
         public readonly typeEnv: TypeEnv,
@@ -113,13 +112,6 @@ export class TranspilingContext {
             FunctionVisibility.Private,
             []
         );
-
-        if (instrCtx.encodedLoggerArgs != null) {
-            this.encodedLoggerArgs = this.addBinding(
-                instrCtx.encodedLoggerArgs,
-                this.factory.makeElementaryTypeName("<missing>", "bytes")
-            );
-        }
 
         const bindingsVarType = this.factory.makeUserDefinedTypeName(
             "<missing>",

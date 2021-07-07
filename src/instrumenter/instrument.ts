@@ -6,7 +6,6 @@ import {
     DataLocation,
     EventDefinition,
     Expression,
-    ExpressionStatement,
     ExternalReferenceType,
     FunctionCall,
     FunctionCallKind,
@@ -258,7 +257,7 @@ function gatherDebugIds(n: SNode, typeEnv: TypeEnv): Set<SId> {
     return new Set(debugIds.values());
 }
 
-type DebugInfo = [EventDefinition, ExpressionStatement, EmitStatement];
+type DebugInfo = [EventDefinition, EmitStatement];
 
 /**
  * Build a debug event/debug event emission statement for each of the provided `annotations`. Return
@@ -283,11 +282,6 @@ function getDebugInfo(
         evtDef = events[0];
     }
 
-    assert(
-        instrCtx.encodedLoggerArgs != null,
-        "Logger Args are not set during the debug events run"
-    );
-
     for (const annot of annotations) {
         const dbgIds = [...gatherDebugIds(annot.expression, transCtx.typeEnv)];
 
@@ -303,21 +297,6 @@ function getDebugInfo(
             if (!instrCtx.debugEventsEncoding.has(annot.id)) {
                 instrCtx.debugEventsEncoding.set(annot.id, typeList);
             }
-
-            const state = transCtx.refBinding(instrCtx.encodedLoggerArgs);
-            const stateAssignment = factory.makeExpressionStatement(
-                factory.makeAssignment(
-                    "<missing>",
-                    "=",
-                    state,
-                    factory.makeFunctionCall(
-                        "<missing>",
-                        FunctionCallKind.FunctionCall,
-                        factory.makeIdentifier("<missing>", "abi.encode", -1),
-                        evtArgs
-                    )
-                )
-            );
 
             if (evtDef == undefined) {
                 const eventId = factory.makeVariableDeclaration(
@@ -354,9 +333,6 @@ function getDebugInfo(
                     factory.makeParameterList([encodingData, eventId])
                 );
 
-                if (instrCtx.debugEventsSignature == "") {
-                    instrCtx.debugEventsSignature = evtDef.canonicalSignature;
-                }
             }
 
             // Finally construct the emit statement for the debug event.
@@ -365,12 +341,20 @@ function getDebugInfo(
                     "<missing>",
                     FunctionCallKind.FunctionCall,
                     factory.makeIdentifierFor(evtDef),
-                    [state, factory.makeLiteral("int", LiteralKind.Number, "", String(annot.id))]
+                    [
+                        factory.makeFunctionCall(
+                            "<missing>",
+                            FunctionCallKind.FunctionCall,
+                            factory.makeIdentifier("<missing>", "abi.encode", -1),
+                            evtArgs
+                        ),
+                        factory.makeLiteral("int", LiteralKind.Number, "", String(annot.id))
+                    ]
                 )
             );
 
             instrCtx.addAnnotationInstrumentation(annot, emitStmt);
-            res.push([evtDef, stateAssignment, emitStmt]);
+            res.push([evtDef, emitStmt]);
         }
     }
 
@@ -398,8 +382,7 @@ function emitAssert(
     expr: Expression,
     annotation: PropertyMetaData,
     event: EventDefinition,
-    emitStmt?: EmitStatement,
-    encoding?: ExpressionStatement
+    emitStmt?: EmitStatement
 ): Statement {
     const instrCtx = transCtx.instrCtx;
     const factory = instrCtx.factory;
@@ -449,9 +432,6 @@ function emitAssert(
 
     const ifBody: Statement[] = [userAssertFailed];
 
-    if (encoding) {
-        ifBody.push(encoding);
-    }
     if (emitStmt) {
         ifBody.push(emitStmt);
     }
@@ -562,9 +542,8 @@ export function insertAnnotations(annotations: PropertyMetaData[], ctx: Transpil
     const checkStmts: Statement[] = predicates.map(([annotation, predicate], i) => {
         const event = getAssertionFailedEvent(factory, contract);
         const dbgInfo = debugInfos[i];
-        const emitStmt = dbgInfo !== undefined ? dbgInfo[2] : undefined;
-        const encoding = dbgInfo !== undefined ? dbgInfo[1] : undefined;
-        return emitAssert(ctx, predicate, annotation, event, emitStmt, encoding);
+        const emitStmt = dbgInfo !== undefined ? dbgInfo[1] : undefined;
+        return emitAssert(ctx, predicate, annotation, event, emitStmt);
     });
 
     for (const check of checkStmts) {

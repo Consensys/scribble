@@ -10,17 +10,11 @@ contract Foo is __scribble_ReentrancyUtils {
 
     event AssertionFailedData(bytes encodingData, int eventId);
 
-    struct vars0 {
-        bytes encoded_logger_args0;
-    }
-
     struct vars1 {
-        bytes encoded_logger_args0;
         bool __scribble_check_invs_at_end;
     }
 
     struct vars2 {
-        bytes encoded_logger_args0;
         bool __scribble_check_invs_at_end;
     }
 
@@ -58,11 +52,9 @@ contract Foo is __scribble_ReentrancyUtils {
 
     /// Check only the current contract's state invariants
     function __scribble_Foo_check_state_invariants_internal() internal {
-        vars0 memory _v;
         if (!(x > 0)) {
             emit AssertionFailed("0: ");
-            _v.encoded_logger_args0 = abi.encode(x);
-            emit AssertionFailedData(_v.encoded_logger_args0, 0);
+            emit AssertionFailedData(abi.encode(x), 0);
         }
     }
 

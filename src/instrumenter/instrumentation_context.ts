@@ -72,7 +72,6 @@ export class InstrumentationContext {
     public readonly outOfContractFlagName: string;
     public readonly scratchField: string;
     public readonly checkInvsFlag: string;
-    public readonly encodedLoggerArgs: string | null;
 
     public readonly utilsContractName: string;
     private internalInvariantCheckers: Map<ContractDefinition, string> = new Map();
@@ -114,10 +113,6 @@ export class InstrumentationContext {
         return this.utilsContract.parent as SourceUnit;
     }
 
-    /**
-     * Debug events assertion's signature
-     */
-    public debugEventsSignature: string;
 
     /**
      * Map keeping track of the `TranspilingContext`s for each `FunctionDefinition`.
@@ -157,12 +152,6 @@ export class InstrumentationContext {
             "__scribble_out_of_contract",
             true
         );
-        if (debugEvents) {
-            this.encodedLoggerArgs = this.nameGenerator.getFresh("encoded_logger_args", false);
-        } else {
-            this.encodedLoggerArgs = null;
-        }
-        this.debugEventsSignature = "";
 
         this.scratchField = this.nameGenerator.getFresh("__mstore_scratch__", true);
         this.checkInvsFlag = this.nameGenerator.getFresh("__scribble_check_invs_at_end", true);

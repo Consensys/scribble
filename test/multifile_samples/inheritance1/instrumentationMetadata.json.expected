@@ -207,7 +207,6 @@
       "annotationSource": "23:25:0",
       "target": "function",
       "targetName": "foo",
-      "debugEventSignature": "",
       "message": "",
       "instrumentationRanges": [
         "589:27:0",
@@ -240,7 +239,6 @@
       "annotationSource": "41:27:2",
       "target": "contract",
       "targetName": "C",
-      "debugEventSignature": "",
       "message": "P1",
       "instrumentationRanges": [
         "2995:29:0",
@@ -268,7 +266,6 @@
       "annotationSource": "100:27:2",
       "target": "function",
       "targetName": "foo",
-      "debugEventSignature": "",
       "message": "",
       "instrumentationRanges": [
         "2514:27:0",
