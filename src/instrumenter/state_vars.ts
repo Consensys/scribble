@@ -146,11 +146,9 @@ export function* getAssignments(node: ASTNode): Iterable<[LHS, RHS]> {
         }
 
         if (actuals instanceof FunctionCall) {
-            const callRets: Array<
-                [FunctionCall, number]
-            > = (actuals.vReferencedDeclaration as FunctionDefinition).vReturnParameters.vParameters.map<
-                [FunctionCall, number]
-            >((decl, i) => [actuals, i]);
+            const callRets: Array<[FunctionCall, number]> = (
+                actuals.vReferencedDeclaration as FunctionDefinition
+            ).vReturnParameters.vParameters.map<[FunctionCall, number]>((decl, i) => [actuals, i]);
             return zip(formals, callRets);
         }
 
@@ -621,7 +619,8 @@ export function findStateVarUpdates(units: SourceUnit[]): StateVarUpdateDesc[] {
             return;
         }
 
-        const stateVarDecl: VariableDeclaration = baseExp.vReferencedDeclaration as VariableDeclaration;
+        const stateVarDecl: VariableDeclaration =
+            baseExp.vReferencedDeclaration as VariableDeclaration;
 
         res.push([node, stateVarDecl, path, rhs]);
     };
