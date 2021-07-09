@@ -85,7 +85,6 @@ describe("Maps with keys library generation", () => {
             const src = writer.write(lib);
             const newContent = content + "\n" + src;
 
-            console.error(newContent);
             const compRes = compileSourceString("foo.sol", newContent, version, []);
 
             expect(compRes.data.contracts["foo.sol"]).toBeDefined();
@@ -395,31 +394,6 @@ contract Foo {
         [["m", ["x"]]]
     ],
     [
-        "Older inline initializer",
-        `
-pragma solidity 0.6.4;
-contract Foo {
-    struct Moo {
-        uint x;
-        mapping(uint => uint[]) y;
-    }
-
-    Moo m = Moo(1);
-
-    function main() public {
-        assert(m.x == 1 && m.y[0].length == 0);
-        m.y[0] = [1,2,3];
-        assert(m.y[0].length == 3);
-
-        m = Moo(2);
-        assert(m.x == 2 && m.y[0].length == 3);
-    }
-}
-`,
-        ``,
-        [["m", ["y"]]]
-    ],
-    [
         "Public vars",
         `
 pragma solidity 0.8.4;
@@ -526,18 +500,17 @@ describe("Interposing on a map", () => {
                 instrCtx
             );
 
-            const targets: Array<
-                [VariableDeclaration, Array<string | null>]
-            > = svs.map(([svName, path]) => [
-                single(contract.vStateVariables.filter((v) => v.name == svName)),
-                path
-            ]);
+            const targets: Array<[VariableDeclaration, Array<string | null>]> = svs.map(
+                ([svName, path]) => [
+                    single(contract.vStateVariables.filter((v) => v.name == svName)),
+                    path
+                ]
+            );
 
             interposeMap(instrCtx, targets, [unit]);
 
             instrCode = writer.write(unit);
             newContent = [unit, instrCtx.utilsUnit].map((unit) => writer.write(unit)).join("\n");
-            console.error(newContent);
             const compRes = compileSourceString("foo.sol", newContent, version, []);
 
             expect(compRes.data.contracts["foo.sol"]).toBeDefined();

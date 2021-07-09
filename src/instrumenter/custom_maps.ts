@@ -41,7 +41,8 @@ import {
     findStateVarUpdates,
     needsLocation,
     single,
-    StateVarRefDesc
+    StateVarRefDesc,
+    UnsupportedConstruct
 } from "..";
 import { InstrumentationContext } from "./instrumentation_context";
 import { InstrumentationSiteType } from "./transpiling_context";
@@ -288,6 +289,14 @@ export function interposeMap(
             struct.id
         );
         replaceNode(mapT, newMapT);
+
+        if (stateVar.vValue !== undefined) {
+            throw new UnsupportedConstruct(
+                `Can't instrument state variable ${stateVar.name} containing a map, with an inline initializer.`,
+                stateVar,
+                instrCtx.files
+            );
+        }
 
         // 2. Replace all var index updates with L.set(<base>, <key>, <newVal>) or L.deleteKey(<base>, <key>)
         const curVarUpdates = allUpdates.filter(([, v]) => v === stateVar);
