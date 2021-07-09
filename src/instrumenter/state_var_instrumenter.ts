@@ -459,6 +459,7 @@ function makeWrapper(
     definingContract.appendChild(wrapperFun);
     ctx.setWrapper(definingContract, funName, wrapperFun);
     const body = wrapperFun.vBody as Block;
+    ctx.addGeneralInstrumentation(body);
 
     // Add parameters to the wrapper
     for (let i = 0; i < formalParamTs.length; i++) {
@@ -900,6 +901,7 @@ export function interposeInlineInitializer(
 
     containingContract.appendChild(wrapperFun);
     ctx.setWrapper(containingContract, wrapperName, wrapperFun);
+    ctx.addGeneralInstrumentation(wrapperFun.vBody as Block);
 
     const actualParams: Expression[] = [];
 
