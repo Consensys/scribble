@@ -1,0 +1,80 @@
+{
+    "file": "test/samples/forall_maps.instrumented.sol",
+    "steps": [
+        {
+            "act": "createUser",
+            "alias": "owner",
+            "options": {
+                "balance": 1000e18
+            }
+        },
+        {
+            "act": "deployContract",
+            "contract": "Foo",
+            "user": "owner",
+            "alias": "instance1"
+        },
+        {
+            "act": "txCall",
+            "user": "owner",
+            "contract": "instance1",
+
+            "method": "setA",
+
+            "args": {
+                "types": ["uint", "uint"],
+                "values": ["1", "2"]
+            }
+        },
+        {
+            "act": "txCall",
+            "user": "owner",
+            "contract": "instance1",
+
+            "method": "setA",
+
+            "args": {
+                "types": ["uint", "uint"],
+                "values": ["1", "1"]
+            },
+            "failure": "*"
+        },
+        {
+            "act": "txCall",
+            "user": "owner",
+            "contract": "instance1",
+
+            "method": "decA",
+
+            "args": {
+                "types": ["uint"],
+                "values": ["1"]
+            },
+            "failure": "*"
+        },
+        {
+            "act": "txCall",
+            "user": "owner",
+            "contract": "instance1",
+
+            "method": "setA",
+
+            "args": {
+                "types": ["uint", "uint"],
+                "values": ["2", "3"]
+            }
+        },
+        {
+            "act": "txCall",
+            "user": "owner",
+            "contract": "instance1",
+
+            "method": "decA",
+
+            "args": {
+                "types": ["uint"],
+                "values": ["2"]
+            }
+        }
+    ]
+}
