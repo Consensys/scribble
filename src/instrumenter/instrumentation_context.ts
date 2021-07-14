@@ -15,7 +15,7 @@ import {
     TypeNode,
     getNodeType
 } from "solc-typed-ast";
-import { assert, getSetterName, single, specializeSetter } from "..";
+import { AbsDatastructurePath, assert, dedup, getSetterName, single, specializeSetter } from "..";
 import { SUserFunctionDefinition } from "../spec-lang/ast";
 import { SemMap, TypeEnv } from "../spec-lang/tc";
 import { NameGenerator } from "../util/name_generator";
@@ -126,6 +126,10 @@ export class InstrumentationContext {
      */
     private wrapperCache = new Map<ContractDefinition, Map<string, FunctionDefinition>>();
 
+    private interposingLibraryMap = new Map<string, ContractDefinition>();
+
+    public readonly varInterposingQueue: Array<[VariableDeclaration, AbsDatastructurePath]>;
+
     constructor(
         public readonly factory: ASTNodeFactory,
         public readonly units: SourceUnit[],
@@ -142,7 +146,8 @@ export class InstrumentationContext {
         public readonly debugEventDefs: Map<number, EventDefinition>,
         public readonly outputMode: "files" | "flat" | "json",
         public readonly typeEnv: TypeEnv,
-        public readonly semMap: SemMap
+        public readonly semMap: SemMap,
+        _varInterposingQueue: Array<[VariableDeclaration, AbsDatastructurePath]>
     ) {
         this.nameGenerator = new NameGenerator(getAllNames(units));
         this.structVar = this.nameGenerator.getFresh("_v", true);
@@ -158,6 +163,11 @@ export class InstrumentationContext {
         this.scratchField = this.nameGenerator.getFresh("__mstore_scratch__", true);
         this.checkInvsFlag = this.nameGenerator.getFresh("__scribble_check_invs_at_end", true);
         this.utilsContractName = this.nameGenerator.getFresh("__scribble_ReentrancyUtils", true);
+        this.varInterposingQueue = dedup(
+            _varInterposingQueue,
+            (x: [VariableDeclaration, AbsDatastructurePath]) =>
+                `${x[0].name}_${x[1].map((x) => (x === null ? "[]" : x)).join("_")}`
+        );
     }
 
     getWrapper(contract: ContractDefinition, name: string): FunctionDefinition | undefined {
@@ -264,7 +274,7 @@ export class InstrumentationContext {
 
         if (!res) {
             const library = generateMapLibrary(
-                this.factory,
+                this,
                 keyT,
                 valueT,
                 this.utilsUnit,
@@ -333,5 +343,22 @@ export class InstrumentationContext {
         assert(setter !== undefined, ``);
 
         return setter;
+    }
+
+    setMapInterposingLibrary(
+        v: VariableDeclaration,
+        path: AbsDatastructurePath,
+        lib: ContractDefinition
+    ): void {
+        const key = `${v.id}_${path.map((x) => (x === null ? `[]` : x)).join("_")}`;
+        this.interposingLibraryMap.set(key, lib);
+    }
+
+    getMapInterposingLibrary(
+        v: VariableDeclaration,
+        path: AbsDatastructurePath
+    ): ContractDefinition | undefined {
+        const key = `${v.id}_${path.map((x) => (x === null ? `[]` : x)).join("_")}`;
+        return this.interposingLibraryMap.get(key);
     }
 }

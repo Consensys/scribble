@@ -21,14 +21,11 @@ function extractExportSymbols(units: SourceUnit[]): Map<string, ContractDefiniti
     return result;
 }
 
-function compareVars(a: VariableDeclaration, b: VariableDeclaration, ignoreNames = false): boolean {
-    return (
-        (a.name === b.name || ignoreNames) &&
-        a.typeString === b.typeString &&
-        a.stateVariable === b.stateVariable &&
-        a.visibility === b.visibility &&
-        a.storageLocation === b.storageLocation
-    );
+function compareVars(a: VariableDeclaration, b: VariableDeclaration | FunctionDefinition): boolean {
+    // In some cases we may re-write a public state var into an internal state var with a getter function
+    const bSig =
+        b instanceof VariableDeclaration ? b.getterCanonicalSignature : b.canonicalSignature;
+    return a.getterCanonicalSignature === bSig;
 }
 
 function extractAccessibleMembers(
@@ -50,9 +47,12 @@ function extractAccessibleMembers(
 function findCorrespondigVar(
     v: VariableDeclaration,
     members: Array<FunctionDefinition | VariableDeclaration>
-): VariableDeclaration | undefined {
+): VariableDeclaration | FunctionDefinition | undefined {
     for (const member of members) {
-        if (member instanceof VariableDeclaration && member.name === v.name) {
+        if (
+            (member instanceof VariableDeclaration || member instanceof FunctionDefinition) &&
+            member.name === v.name
+        ) {
             return member;
         }
     }

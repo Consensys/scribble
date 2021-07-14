@@ -28,7 +28,8 @@ export function makeInstrumentationCtx(
         new Map(),
         "flat",
         new TypeEnv(compilerVersion),
-        new Map()
+        new Map(),
+        []
     );
 
     generateUtilsContract(factory, "", "scribble_utils.sol", compilerVersion, ctx).vContracts;

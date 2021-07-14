@@ -20,6 +20,7 @@ import {
     VariableDeclaration
 } from "solc-typed-ast";
 import { generateMapLibrary, generateUtilsContract, interposeMap } from "../../src";
+import { InstrumentationContext } from "../../src/instrumenter/instrumentation_context";
 import { pp, single } from "../../src/util";
 import { toAst } from "../integration/utils";
 import { Config, executeTestSuiteInternal } from "../integration/vm";
@@ -62,14 +63,18 @@ describe("Maps with keys library generation", () => {
     const [content, testTypes] = libGenTests;
     let unit: SourceUnit;
     let ctx: ASTContext;
+    let factory: ASTNodeFactory;
     let version: string;
     let writer: ASTWriter;
+    let instrCtx: InstrumentationContext;
 
     before("", () => {
         const res = toAst("sample.sol", content);
         unit = single(res.units);
         ctx = res.reader.context;
         version = res.compilerVersion;
+        factory = new ASTNodeFactory(ctx);
+        instrCtx = makeInstrumentationCtx(res.units, factory, res.files, "log", version);
 
         writer = new ASTWriter(DefaultASTWriterMapping, new PrettyFormatter(4, 0), version);
     });
@@ -78,9 +83,8 @@ describe("Maps with keys library generation", () => {
         it(`Can generate compiling map library for ${keyT.pp()}->${
             valueArg instanceof TypeNode ? valueArg.pp() : "?"
         }`, () => {
-            const factory = new ASTNodeFactory(ctx);
             const valueT = valueArg instanceof TypeNode ? valueArg : valueArg(unit);
-            const lib = generateMapLibrary(factory, keyT, valueT, unit, version);
+            const lib = generateMapLibrary(instrCtx, keyT, valueT, unit, version);
 
             const src = writer.write(lib);
             const newContent = content + "\n" + src;

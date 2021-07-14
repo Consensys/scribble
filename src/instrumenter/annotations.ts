@@ -17,7 +17,7 @@ import {
     SUserFunctionDefinition
 } from "../spec-lang/ast";
 import { parseAnnotation, SyntaxError as ExprPEGSSyntaxError } from "../spec-lang/expr_parser";
-import { getScopeUnit } from "../util/misc";
+import { getOr, getScopeUnit } from "../util/misc";
 
 const srcLocation = require("src-location");
 
@@ -465,7 +465,9 @@ export function gatherFunctionAnnotations(
 
     let overridee: FunctionDefinition | undefined = fun;
     let scope = overridee.vScope as ContractDefinition;
-    const result: AnnotationMetaData[] = annotationMap.get(fun) as AnnotationMetaData[];
+
+    // We may have functions missing in annotationMap as map interposing adds new functions
+    const result: AnnotationMetaData[] = getOr(annotationMap, fun, []);
 
     while ((overridee = resolve(scope, overridee, true)) !== undefined) {
         result.unshift(...(annotationMap.get(overridee) as AnnotationMetaData[]));

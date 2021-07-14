@@ -32,6 +32,8 @@ describe("SemanticChecker Expression Unit Tests", () => {
                 int128 constant sV1 = -1;
                 int32[] sI32Arr;
                 uint[] arr;
+                mapping(string => uint) m1;
+                mapping(bytes => mapping(address => int8)) m2;
 
                 function pId(int8 x) public pure returns (int8) {
                     return x;
@@ -76,7 +78,18 @@ describe("SemanticChecker Expression Unit Tests", () => {
                     new BoolType(),
                     { isOld: false, isConst: false, canFail: false }
                 ],
-
+                [
+                    "forall (string memory s in m1) m1[s] > 0",
+                    ["Foo", undefined],
+                    new BoolType(),
+                    { isOld: false, isConst: false, canFail: true }
+                ],
+                [
+                    "forall (bytes memory b in m2) forall(address a in m2[b]) m2[b][a] > 0",
+                    ["Foo", undefined],
+                    new BoolType(),
+                    { isOld: false, isConst: false, canFail: true }
+                ],
                 [
                     "true",
                     ["Foo", undefined],
@@ -331,7 +344,11 @@ describe("SemanticChecker Expression Unit Tests", () => {
                     const typeEnv = new TypeEnv(compilerVersion);
                     const type = tc(parsed, ctx, typeEnv);
                     expect(eq(type, expectedType)).toEqual(true);
-                    const semInfo = sc(parsed, { isOld: false, annotation }, typeEnv);
+                    const semInfo = sc(
+                        parsed,
+                        { isOld: false, annotation, interposingQueue: [] },
+                        typeEnv
+                    );
                     Logger.debug(`[${parsed.pp()}] sem info: ${JSON.stringify(semInfo)}`);
                     expect(eq(semInfo, expectedInfo)).toEqual(true);
                 });
@@ -364,9 +381,14 @@ describe("SemanticChecker Expression Unit Tests", () => {
                     // Type-checking should succeed
                     const typeEnv = new TypeEnv(compilerVersion);
                     tc(parsed, ctx, typeEnv);
-                    expect(sc.bind(sc, parsed, { isOld: false, annotation }, typeEnv)).toThrowError(
-                        SemError as any
-                    );
+                    expect(
+                        sc.bind(
+                            sc,
+                            parsed,
+                            { isOld: false, annotation, interposingQueue: [] },
+                            typeEnv
+                        )
+                    ).toThrowError(SemError as any);
                 });
             }
         });
@@ -452,7 +474,11 @@ describe("SemanticChecker Annotation Unit Tests", () => {
                     const [ctx] = getTypeCtxAndTarget(loc, units, annotation);
                     const typeEnv = new TypeEnv(compilerVersion);
                     tcAnnotation(annotation, ctx, target, typeEnv);
-                    scAnnotation(annotation, typeEnv, new Map(), { isOld: false, annotation });
+                    scAnnotation(annotation, typeEnv, new Map(), {
+                        isOld: false,
+                        annotation,
+                        interposingQueue: []
+                    });
                 });
             }
         });
@@ -479,7 +505,8 @@ describe("SemanticChecker Annotation Unit Tests", () => {
                     expect(
                         scAnnotation.bind(scAnnotation, annotation, typeEnv, new Map(), {
                             isOld: false,
-                            annotation
+                            annotation,
+                            interposingQueue: []
                         })
                     ).toThrowError(SemError as any);
                 });

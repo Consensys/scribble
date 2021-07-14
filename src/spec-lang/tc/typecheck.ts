@@ -551,7 +551,7 @@ export function tcAnnotation(
 
         const bodyType = tc(annot.body, [...ctx, annot], typeEnv);
 
-        if (!isImplicitlyCastable(annot.body, bodyType, annot.returnType)) {
+        if (!isImplicitlyCastable(bodyType, annot.returnType)) {
             throw new SWrongType(
                 `User function ${
                     annot.name
@@ -1033,19 +1033,16 @@ export function tcUnary(expr: SUnaryOperation, ctx: STypingCtx, typeEnv: TypeEnv
 
 /**
  * Return true IFF the expression `expr` of type `type` can be implicitly casted to the type `to`.
- *
- * Note: While `expr` is not used right now, we are leaving it here, because we eventually want to check
- * that when expr is a constant int expression, it can fit in the target int type. This requires a constant
- * expression evaluator to be added to `solc-typed-ast`.
  */
-export function isImplicitlyCastable(expr: SNode, type: TypeNode, to: TypeNode): boolean {
+export function isImplicitlyCastable(type: TypeNode, to: TypeNode): boolean {
     // The two types are equal - no cast neccessary
     if (eq(type, to)) {
         return true;
     }
 
     // int literal types can be casted to int types.
-    // @todo once we get a constant expression evaluator check that `expr` fits in `to`
+    // @todo once we get a constant expression evaluator add an optional `expr`
+    // argument and check if it fits in `to`
     if (type instanceof IntLiteralType && to instanceof IntType) {
         return true;
     }
@@ -1093,11 +1090,11 @@ function unifyTypes(
     typeB: TypeNode,
     commonParent: SNode
 ): TypeNode {
-    if (isImplicitlyCastable(exprA, typeA, typeB)) {
+    if (isImplicitlyCastable(typeA, typeB)) {
         return typeB;
     }
 
-    if (isImplicitlyCastable(exprB, typeB, typeA)) {
+    if (isImplicitlyCastable(typeB, typeA)) {
         return typeA;
     }
 
@@ -1344,7 +1341,7 @@ export function tcIndexAccess(expr: SIndexAccess, ctx: STypingCtx, typeEnv: Type
         }
 
         if (toT instanceof MappingType) {
-            if (!isImplicitlyCastable(expr.index, indexT, toT.keyType)) {
+            if (!isImplicitlyCastable(indexT, toT.keyType)) {
                 throw new SWrongType(
                     `Cannot index into ${expr.base.pp()} with ${expr.index.pp()} of type ${indexT.pp()}`,
                     expr.index,
@@ -1562,7 +1559,7 @@ function matchArguments(
     for (let i = 0; i < funT.parameters.length; i++) {
         const formalT = funT.parameters[i];
 
-        if (!isImplicitlyCastable(arg[i], argTs[i], formalT)) {
+        if (!isImplicitlyCastable(argTs[i], formalT)) {
             return false;
         }
     }
@@ -1578,58 +1575,77 @@ function matchArguments(
  */
 export function tcForAll(expr: SForAll, ctx: STypingCtx, typeEnv: TypeEnv): TypeNode {
     // Call tc on iterator variable to make sure its defSite is set
-    tc(expr.iteratorVariable, ctx.concat(expr), typeEnv);
-    const startT = tc(expr.start, ctx, typeEnv);
+    const varT = tc(expr.iteratorVariable, ctx.concat(expr), typeEnv);
 
-    // A more user-friendly error for the case when a non-array was passed
-    if (expr.array !== undefined) {
-        const arrT = tc(expr.array, ctx, typeEnv);
+    // Helper function that checks that start and end are integer types, and the iter var is also
+    // an integer types. Used for the cases when expr.container is an array/fixed bytes, or when
+    // explicit start/end are provided.
+    const checkIntIterVar = (): void => {
+        const startT = expr.start ? tc(expr.start, ctx, typeEnv) : new IntLiteralType();
 
-        if (
-            !(
-                (arrT instanceof PointerType && arrT.to instanceof ArrayType) ||
-                arrT instanceof FixedBytesType
-            )
-        ) {
+        if (!(startT instanceof IntType || startT instanceof IntLiteralType)) {
             throw new SWrongType(
-                `Provided iterable ${expr.array.pp()} is not an array or fixed bytes - instead got ${arrT.pp()}.`,
-                expr.start,
+                `The expected type for start of the range is numeric and not ${startT.pp()}.`,
+                expr.start ? expr.start : expr,
                 startT
             );
         }
-    }
 
-    if (!(startT instanceof IntType || startT instanceof IntLiteralType)) {
-        throw new SWrongType(
-            `The expected type for ${expr.start.pp()} is numeric and not ${startT}.`,
-            expr.start,
-            startT
-        );
-    }
+        const endT = expr.end ? tc(expr.end, ctx, typeEnv) : new IntType(256, false);
+        if (!(endT instanceof IntType || endT instanceof IntLiteralType)) {
+            throw new SWrongType(
+                `The expected type for end of the range is numeric and not ${endT.pp()}.`,
+                expr.end ? expr.end : expr,
+                endT
+            );
+        }
 
-    const endT = tc(expr.end, ctx, typeEnv);
-    if (!(endT instanceof IntType || endT instanceof IntLiteralType)) {
-        throw new SWrongType(
-            `The expected type for ${expr.end.pp()} is numeric and not ${endT}.`,
-            expr.end,
-            endT
-        );
-    }
+        if (!isImplicitlyCastable(startT, expr.iteratorType)) {
+            throw new SWrongType(
+                `The type for ${expr.iteratorVariable.pp()} is not compatible with the start range type ${startT.pp()}.`,
+                expr.iteratorVariable,
+                expr.iteratorType
+            );
+        }
 
-    if (!isImplicitlyCastable(expr, startT, expr.iteratorType)) {
-        throw new SWrongType(
-            `The type for ${expr.start.pp()} is not castable to ${expr.iteratorType}.`,
-            expr.start,
-            startT
-        );
-    }
+        if (!isImplicitlyCastable(endT, expr.iteratorType)) {
+            throw new SWrongType(
+                `The type for ${expr.iteratorVariable.pp()} is not compatible with the end range type ${endT.pp()}.`,
+                expr.iteratorVariable,
+                expr.iteratorType
+            );
+        }
+    };
 
-    if (!isImplicitlyCastable(expr, endT, expr.iteratorType)) {
-        throw new SWrongType(
-            `The type for ${expr.end.pp()} is not castable to ${expr.iteratorType}.`,
-            expr.end,
-            endT
-        );
+    // A more user-friendly error for the case when a non-array was passed
+    if (expr.container !== undefined) {
+        const containerT = tc(expr.container, ctx, typeEnv);
+
+        if (
+            (containerT instanceof PointerType && containerT.to instanceof ArrayType) ||
+            containerT instanceof FixedBytesType
+        ) {
+            checkIntIterVar();
+        } else if (containerT instanceof PointerType && containerT.to instanceof MappingType) {
+            const keyT = containerT.to.keyType;
+            if (!isImplicitlyCastable(keyT, varT)) {
+                throw new SWrongType(
+                    `The type for the iterator variable ${
+                        expr.iteratorVariable.name
+                    } ${varT.pp()} is not castable to the mapping key type ${keyT.pp()}.`,
+                    expr.iteratorVariable,
+                    varT
+                );
+            }
+        } else {
+            throw new SWrongType(
+                `Provided iterable ${expr.container.pp()} is not an array, fixed bytes or a mapping - instead got ${containerT.pp()}.`,
+                expr.container,
+                containerT
+            );
+        }
+    } else {
+        checkIntIterVar();
     }
 
     const exprT = tc(expr.expression, ctx.concat(expr), typeEnv);

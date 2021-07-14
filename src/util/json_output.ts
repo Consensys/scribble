@@ -172,10 +172,12 @@ function generateSrcMap2SrcMap(
     for (const node of ctx.generalInstrumentationNodes) {
         const nodeSrc = newSrcMap.get(node);
 
-        assert(
-            nodeSrc !== undefined,
-            `Missing new source for general instrumentation node ${pp(node)}`
-        );
+        if (nodeSrc === undefined) {
+            assert(
+                nodeSrc !== undefined,
+                `Missing new source for general instrumentation node ${pp(node)}`
+            );
+        }
 
         const instrFileIdx = getInstrFileIdx(node, ctx.outputMode, instrSourceList);
         otherInstrumentation.push(`${nodeSrc[0]}:${nodeSrc[1]}:${instrFileIdx}`);

@@ -32,7 +32,13 @@ import {
     UserDefinedTypeName,
     VariableDeclaration
 } from "solc-typed-ast";
-import { findAliasedStateVars, findStateVarUpdates, UnsupportedConstruct } from "..";
+import {
+    AbsDatastructurePath,
+    findAliasedStateVars,
+    findStateVarUpdates,
+    interposeMap,
+    UnsupportedConstruct
+} from "..";
 import { print, rewriteImports } from "../ast_to_source_printer";
 import {
     PropertyMetaData,
@@ -226,6 +232,10 @@ function instrumentFiles(
     const stateVarsWithAnnot: VariableDeclaration[] = [];
 
     const changedSourceUnits: SourceUnit[] = [];
+
+    if (ctx.varInterposingQueue.length > 0) {
+        interposeMap(ctx, ctx.varInterposingQueue, units);
+    }
 
     for (const unit of units) {
         let changed = false;
@@ -844,12 +854,13 @@ if ("version" in options) {
 
         const typeEnv = new TypeEnv(compilerVersionUsed);
         const semMap: SemMap = new Map();
+        let interposingQueue: Array<[VariableDeclaration, AbsDatastructurePath]>;
 
         try {
             // Type check
             tcUnits(mergedUnits, annotMap, typeEnv);
             // Semantic check
-            scUnits(mergedUnits, annotMap, typeEnv, semMap);
+            interposingQueue = scUnits(mergedUnits, annotMap, typeEnv, semMap);
         } catch (err) {
             if (err instanceof STypeError || err instanceof SemError) {
                 const annotation = err.annotationMetaData;
@@ -912,7 +923,8 @@ if ("version" in options) {
             new Map(),
             outputMode,
             typeEnv,
-            semMap
+            semMap,
+            interposingQueue
         );
 
         const utilsUnit = makeUtilsUnit(utilsOutputDir, factory, compilerVersionUsed, instrCtx);

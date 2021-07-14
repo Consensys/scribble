@@ -34,6 +34,7 @@ import {
     variableDeclarationToTypeNode
 } from "solc-typed-ast";
 import { ConcreteDatastructurePath, single, transpileType } from "..";
+import { InstrumentationContext } from "./instrumentation_context";
 
 export type StateVarRefDesc = [Expression, VariableDeclaration, ConcreteDatastructurePath];
 
@@ -136,12 +137,13 @@ export function addFunArg(
 }
 
 export function addFunRet(
-    factory: ASTNodeFactory,
+    ctx: InstrumentationContext,
     name: string,
     typ: TypeNode,
     location: DataLocation,
     fun: FunctionDefinition
 ): VariableDeclaration {
+    const factory = ctx.factory;
     const arg = factory.makeVariableDeclaration(
         false,
         false,
@@ -157,6 +159,7 @@ export function addFunRet(
     );
 
     fun.vReturnParameters.appendChild(arg);
+    ctx.addGeneralInstrumentation(arg);
     return arg;
 }
 
@@ -176,16 +179,18 @@ function makeStruct(
 }
 
 export function addEmptyFun(
-    factory: ASTNodeFactory,
+    ctx: InstrumentationContext,
     name: string,
+    visiblity: FunctionVisibility,
     container: ContractDefinition | SourceUnit
 ): FunctionDefinition {
+    const factory = ctx.factory;
     const fun = factory.makeFunctionDefinition(
         container.id,
         FunctionKind.Function,
         name,
         false,
-        FunctionVisibility.Public,
+        visiblity,
         FunctionStateMutability.NonPayable,
         false,
         factory.makeParameterList([]),
@@ -195,6 +200,8 @@ export function addEmptyFun(
         factory.makeBlock([])
     );
     container.appendChild(fun);
+
+    ctx.addGeneralInstrumentation(fun.vBody as Block);
     return fun;
 }
 
@@ -253,7 +260,7 @@ function mkVarDecl(
 }
 
 function makeIncDecFun(
-    factory: ASTNodeFactory,
+    ctx: InstrumentationContext,
     keyT: TypeNode,
     valueT: TypeNode,
     struct: StructDefinition,
@@ -261,8 +268,9 @@ function makeIncDecFun(
     operator: "++" | "--",
     prefix: boolean
 ): FunctionDefinition {
+    const factory = ctx.factory;
     const name = (operator == "++" ? "inc" : "dec") + (prefix ? "_pre" : "");
-    const fun = addEmptyFun(factory, name, lib);
+    const fun = addEmptyFun(ctx, name, FunctionVisibility.Internal, lib);
 
     const m = addFunArg(
         factory,
@@ -280,7 +288,7 @@ function makeIncDecFun(
     );
 
     const RET = addFunRet(
-        factory,
+        ctx,
         "RET",
         valueT,
         needsLocation(valueT) ? DataLocation.Storage : DataLocation.Default,
@@ -332,13 +340,14 @@ function getLoc(t: TypeNode, defLoc: DataLocation): DataLocation {
 }
 
 function makeGetFun(
-    factory: ASTNodeFactory,
+    ctx: InstrumentationContext,
     keyT: TypeNode,
     valueT: TypeNode,
     struct: StructDefinition,
     lib: ContractDefinition
 ): FunctionDefinition {
-    const fun = addEmptyFun(factory, "get", lib);
+    const factory = ctx.factory;
+    const fun = addEmptyFun(ctx, "get", FunctionVisibility.Internal, lib);
 
     const m = addFunArg(
         factory,
@@ -348,7 +357,7 @@ function makeGetFun(
         fun
     );
     const key = addFunArg(factory, "key", keyT, getLoc(keyT, DataLocation.Memory), fun);
-    addFunRet(factory, "", valueT, getLoc(valueT, DataLocation.Storage), fun);
+    addFunRet(ctx, "", valueT, getLoc(valueT, DataLocation.Storage), fun);
 
     // return m.innerM[key];
     addStmt(
@@ -368,13 +377,15 @@ function makeGetFun(
 }
 
 function makeSetFun(
-    factory: ASTNodeFactory,
+    ctx: InstrumentationContext,
     keyT: TypeNode,
     valueT: TypeNode,
     struct: StructDefinition,
     lib: ContractDefinition
 ): FunctionDefinition {
-    const fun = addEmptyFun(factory, "set", lib);
+    const factory = ctx.factory;
+    const fun = addEmptyFun(ctx, "set", FunctionVisibility.Internal, lib);
+    ctx.addGeneralInstrumentation(fun.vBody as Block);
 
     const m = addFunArg(
         factory,
@@ -386,7 +397,7 @@ function makeSetFun(
     const key = addFunArg(factory, "key", keyT, getLoc(keyT, DataLocation.Memory), fun);
     const val = addFunArg(factory, "val", valueT, getLoc(valueT, DataLocation.Memory), fun);
 
-    addFunRet(factory, "", valueT, getLoc(valueT, DataLocation.Storage), fun);
+    addFunRet(ctx, "", valueT, getLoc(valueT, DataLocation.Storage), fun);
 
     const mkInnerM = () => mkStructFieldAcc(factory, factory.makeIdentifierFor(m), struct, 0);
     const mkKeys = () => mkStructFieldAcc(factory, factory.makeIdentifierFor(m), struct, 1);
@@ -513,13 +524,15 @@ function makeSetFun(
 }
 
 function makeDeleteFun(
-    factory: ASTNodeFactory,
+    ctx: InstrumentationContext,
     keyT: TypeNode,
     valueT: TypeNode,
     struct: StructDefinition,
     lib: ContractDefinition
 ): FunctionDefinition {
-    const fun = addEmptyFun(factory, "deleteKey", lib);
+    const factory = ctx.factory;
+    const fun = addEmptyFun(ctx, "deleteKey", FunctionVisibility.Internal, lib);
+    ctx.addGeneralInstrumentation(fun.vBody as Block);
 
     const m = addFunArg(
         factory,
@@ -682,13 +695,14 @@ function typeContainsMap(t: TypeNode, compilerVersion: string): boolean {
 }
 
 export function generateMapLibrary(
-    factory: ASTNodeFactory,
+    ctx: InstrumentationContext,
     keyT: TypeNode,
     valueT: TypeNode,
     container: SourceUnit,
     compilerVersion: string
 ): ContractDefinition {
     const libName = getCustomMapLibraryName(keyT, valueT);
+    const factory = ctx.factory;
 
     const lib = factory.makeContractDefinition(
         libName,
@@ -703,20 +717,20 @@ export function generateMapLibrary(
 
     const struct = makeStruct(factory, keyT, valueT, lib);
     lib.appendChild(struct);
-    makeGetFun(factory, keyT, valueT, struct, lib);
+    makeGetFun(ctx, keyT, valueT, struct, lib);
 
     // For value types containing maps its not possible to re-assign or delete indices
     if (!typeContainsMap(valueT, compilerVersion)) {
-        makeSetFun(factory, keyT, valueT, struct, lib);
-        makeDeleteFun(factory, keyT, valueT, struct, lib);
+        makeSetFun(ctx, keyT, valueT, struct, lib);
+        makeDeleteFun(ctx, keyT, valueT, struct, lib);
     }
 
     // For numeric types emit helpers for ++,--, {+,-,*,/,**,%,<<,>>}=
     if (valueT instanceof IntType) {
-        makeIncDecFun(factory, keyT, valueT, struct, lib, "++", true);
-        makeIncDecFun(factory, keyT, valueT, struct, lib, "++", false);
-        makeIncDecFun(factory, keyT, valueT, struct, lib, "--", true);
-        makeIncDecFun(factory, keyT, valueT, struct, lib, "--", false);
+        makeIncDecFun(ctx, keyT, valueT, struct, lib, "++", true);
+        makeIncDecFun(ctx, keyT, valueT, struct, lib, "++", false);
+        makeIncDecFun(ctx, keyT, valueT, struct, lib, "--", true);
+        makeIncDecFun(ctx, keyT, valueT, struct, lib, "--", false);
     }
 
     return lib;

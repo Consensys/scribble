@@ -17,7 +17,9 @@ import {
     SourceUnit,
     StructuredDocumentation,
     TupleExpression,
-    UnaryOperation
+    TypeName,
+    UnaryOperation,
+    VariableDeclaration
 } from "solc-typed-ast";
 import {
     assert,
@@ -331,6 +333,7 @@ describe("Src2src map test", () => {
                             // 5) Empty ParamterLists (especiall in return params) may be removed
                             // 6) OverrideSpecifiers are moved on interposition
                             // 7) .push() and .pop() callees that are interposed
+                            // 8) Mapping type names inside of state variables
                             if (
                                 !(
                                     (
@@ -345,7 +348,15 @@ describe("Src2src map test", () => {
                                         (node instanceof MemberAccess &&
                                             ["push", "pop"].includes(node.memberName)) ||
                                         (node.parent instanceof MemberAccess &&
-                                            ["push", "pop"].includes(node.parent.memberName))
+                                            ["push", "pop"].includes(node.parent.memberName)) ||
+                                        (node instanceof TypeName &&
+                                            node.getClosestParentByType(VariableDeclaration) !==
+                                                undefined &&
+                                            (
+                                                node.getClosestParentByType(
+                                                    VariableDeclaration
+                                                ) as VariableDeclaration
+                                            ).stateVariable)
                                     ) /* Override specifiers are moved on interposition */
                                 )
                             ) {

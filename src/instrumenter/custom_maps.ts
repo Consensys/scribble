@@ -3,7 +3,6 @@ import {
     ArrayTypeName,
     assert,
     Assignment,
-    ASTNodeFactory,
     ContractDefinition,
     DataLocation,
     eq,
@@ -12,6 +11,7 @@ import {
     FunctionCall,
     FunctionCallKind,
     FunctionDefinition,
+    FunctionVisibility,
     Identifier,
     IndexAccess,
     IntType,
@@ -47,7 +47,7 @@ import {
 import { InstrumentationContext } from "./instrumentation_context";
 import { InstrumentationSiteType } from "./transpiling_context";
 
-type DatastructurePath = Array<null | string>;
+export type AbsDatastructurePath = Array<null | string>;
 
 /**
  * Given a TypeName `typ` and a `DatastructurePath` `path`, find the part of `typ` that corresponds to `path`.
@@ -58,7 +58,7 @@ type DatastructurePath = Array<null | string>;
  * @param idx
  * @returns
  */
-function lookupPathInType(typ: TypeName, path: DatastructurePath, idx = 0): TypeName {
+function lookupPathInType(typ: TypeName, path: AbsDatastructurePath, idx = 0): TypeName {
     if (idx === path.length) {
         return typ;
     }
@@ -108,7 +108,7 @@ function lookupPathInType(typ: TypeName, path: DatastructurePath, idx = 0): Type
     return lookupPathInType(field.vType, path, idx + 1);
 }
 
-function pathMatch(a: DatastructurePath, b: ConcreteDatastructurePath): boolean {
+function pathMatch(a: AbsDatastructurePath, b: ConcreteDatastructurePath): boolean {
     if (a.length + 1 !== b.length) {
         return false;
     }
@@ -134,13 +134,16 @@ function splitExpr(e: Expression): [Expression, Expression] {
     return [e.vBaseExpression, e.vIndexExpression];
 }
 
-function mkFunRef(factory: ASTNodeFactory, fn: FunctionDefinition): MemberAccess {
-    return factory.makeMemberAccess(
+function mkLibraryFunRef(ctx: InstrumentationContext, fn: FunctionDefinition): MemberAccess {
+    const factory = ctx.factory;
+    const ref = factory.makeMemberAccess(
         "<missing>",
         factory.makeIdentifierFor(fn.vScope as ContractDefinition),
         fn.name,
         fn.id
     );
+    ctx.addGeneralInstrumentation(ref);
+    return ref;
 }
 
 function replaceAssignmentHelper(
@@ -155,11 +158,13 @@ function replaceAssignmentHelper(
     const newNode = factory.makeFunctionCall(
         "<missing>",
         FunctionCallKind.FunctionCall,
-        mkFunRef(factory, instrCtx.getCustomMapSetter(lib, newVal)),
+        mkLibraryFunRef(instrCtx, instrCtx.getCustomMapSetter(lib, newVal)),
         [base, index, newVal]
     );
 
     replaceNode(assignment, newNode);
+    // Make sure that the setter call maps to the original assignment node
+    newNode.src = assignment.src;
 }
 
 /**
@@ -172,7 +177,7 @@ function replaceAssignmentHelper(
  */
 function getStateVarRefDesc(
     ref: Identifier | MemberAccess,
-    path: DatastructurePath
+    path: AbsDatastructurePath
 ): StateVarRefDesc | undefined {
     assert(
         ref.vReferencedDeclaration instanceof VariableDeclaration &&
@@ -215,7 +220,7 @@ function getStateVarRefDesc(
 export function findStateVarReferences(
     units: SourceUnit[],
     stateVar: VariableDeclaration,
-    path: DatastructurePath
+    path: AbsDatastructurePath
 ): StateVarRefDesc[] {
     const res: StateVarRefDesc[] = [];
 
@@ -253,11 +258,15 @@ export function findStateVarReferences(
  */
 export function interposeMap(
     instrCtx: InstrumentationContext,
-    targets: Array<[VariableDeclaration, DatastructurePath]>,
+    targets: Array<[VariableDeclaration, AbsDatastructurePath]>,
     units: SourceUnit[]
 ): void {
     const allUpdates = findStateVarUpdates(units);
 
+    // Sort in order of decreasing datastructure path length. This way if we are
+    // interposing on both maps in `mapping(uint => mapping(uint => uint))` We
+    // will first interpose on the inner `mapping(uint=>uint)` and then on the
+    // outer map.
     targets.sort((a, b) => (a[1].length > b[1].length ? -1 : a[1].length == b[1].length ? 0 : 1));
 
     const mapTs = targets.map(([stateVar, path]) =>
@@ -281,6 +290,7 @@ export function interposeMap(
         // 0. Generate custom library implementation
         const lib = instrCtx.getCustomMapLibrary(keyT, valueT);
         const struct = instrCtx.getCustomMapStruct(lib);
+        instrCtx.setMapInterposingLibrary(stateVar, path, lib);
 
         // 1. Replace the type of `T` in the `stateVar` declaration with `L.S`
         const newMapT = factory.makeUserDefinedTypeName(
@@ -339,7 +349,10 @@ export function interposeMap(
 
                 if (updateNode.operator === "delete") {
                     assert(updateNode.parent instanceof ExpressionStatement, ``);
-                    const deleteKeyF = mkFunRef(factory, instrCtx.getCustomMapDeleteKey(lib));
+                    const deleteKeyF = mkLibraryFunRef(
+                        instrCtx,
+                        instrCtx.getCustomMapDeleteKey(lib)
+                    );
 
                     const newNode = factory.makeFunctionCall(
                         "<missing>",
@@ -348,10 +361,12 @@ export function interposeMap(
                         [base, index]
                     );
                     replaceNode(updateNode, newNode);
+                    // Make sure the delete call maps to the original node
+                    newNode.src = updateNode.src;
                 } else {
                     assert(updateNode.operator === "++" || updateNode.operator == "--", ``);
-                    const incDecF = mkFunRef(
-                        factory,
+                    const incDecF = mkLibraryFunRef(
+                        instrCtx,
                         instrCtx.getCustomMapIncDec(lib, updateNode.operator, updateNode.prefix)
                     );
 
@@ -362,6 +377,8 @@ export function interposeMap(
                         [base, index]
                     );
                     replaceNode(updateNode, newNode);
+                    // Make sure the unary op call maps to the original node
+                    newNode.src = updateNode.src;
                 }
             } else {
                 /**
@@ -383,7 +400,7 @@ export function interposeMap(
         // replace the occuring references with calls to `L.get()`
         for (const [refNode] of findStateVarReferences(units, stateVar, path)) {
             const [base, index] = splitExpr(refNode);
-            const getterF = mkFunRef(factory, instrCtx.getCustomMapGetter(lib));
+            const getterF = mkLibraryFunRef(instrCtx, instrCtx.getCustomMapGetter(lib));
             const newNode = factory.makeFunctionCall(
                 "<misisng>",
                 FunctionCallKind.FunctionCall,
@@ -392,6 +409,8 @@ export function interposeMap(
             );
 
             replaceNode(refNode, newNode);
+            // Make sure the getter call maps to the original node
+            newNode.src = refNode.src;
         }
     }
 
@@ -417,7 +436,7 @@ function interposeGetter(
     let typ = v.vType;
 
     assert(typ !== undefined, ``);
-    const fn = addEmptyFun(factory, v.name, contract);
+    const fn = addEmptyFun(ctx, v.name, FunctionVisibility.Public, contract);
     let expr: Expression = factory.makeIdentifierFor(v);
 
     while (true) {
@@ -471,7 +490,7 @@ function interposeGetter(
             expr = factory.makeFunctionCall(
                 "<missing>",
                 FunctionCallKind.FunctionCall,
-                mkFunRef(factory, getter),
+                mkLibraryFunRef(ctx, getter),
                 [expr, factory.makeIdentifierFor(idxArg)]
             );
 
@@ -497,7 +516,7 @@ function interposeGetter(
         `Unsupported return type for public getter of ${v.name}: ${exprT.pp()}`
     );
 
-    addFunRet(factory, ctx.nameGenerator.getFresh("RET_"), exprT, DataLocation.Default, fn);
+    addFunRet(ctx, ctx.nameGenerator.getFresh("RET_"), exprT, DataLocation.Default, fn);
     addStmt(factory, fn, factory.makeReturn(fn.vReturnParameters.id, expr));
 
     // Finally rename the variable itsel so it doesn't clash with the getter

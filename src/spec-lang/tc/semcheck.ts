@@ -1,11 +1,14 @@
 import {
+    assert,
     FunctionStateMutability,
     FunctionType,
+    MappingType,
+    PointerType,
     SourceUnit,
     TypeNameType,
     VariableDeclaration
 } from "solc-typed-ast";
-import { AnnotationMap, AnnotationMetaData } from "../..";
+import { AbsDatastructurePath, AnnotationMap, AnnotationMetaData } from "../..";
 import { single } from "../../util";
 import {
     Range,
@@ -50,9 +53,10 @@ export interface SemInfo {
 
 export type SemMap = Map<SNode, SemInfo>;
 
-export interface SemCtx {
+interface SemCtx {
     isOld: boolean;
     annotation: SAnnotation;
+    interposingQueue: Array<[VariableDeclaration, AbsDatastructurePath]>;
 }
 
 export class SemError extends Error {
@@ -71,12 +75,14 @@ export function scUnits(
     annotMap: AnnotationMap,
     typeEnv: TypeEnv,
     semMap: SemMap = new Map()
-): void {
+): Array<[VariableDeclaration, AbsDatastructurePath]> {
+    const interposingQueue: Array<[VariableDeclaration, AbsDatastructurePath]> = [];
     const scHelper = (annotationMD: AnnotationMetaData): void => {
         try {
             scAnnotation(annotationMD.parsedAnnot, typeEnv, semMap, {
                 isOld: false,
-                annotation: annotationMD.parsedAnnot
+                annotation: annotationMD.parsedAnnot,
+                interposingQueue
             });
         } catch (e) {
             // Add the annotation metadata to the exception for pretty-printing
@@ -110,6 +116,8 @@ export function scUnits(
             }
         }
     }
+
+    return interposingQueue;
 }
 
 export function scAnnotation(
@@ -291,7 +299,11 @@ export function scUnary(
 
     return sc(
         expr.subexp,
-        { isOld: expr.op === "old", annotation: ctx.annotation },
+        {
+            isOld: expr.op === "old",
+            annotation: ctx.annotation,
+            interposingQueue: ctx.interposingQueue
+        },
         typeEnv,
         semMap
     );
@@ -430,6 +442,39 @@ export function scFunctionCall(
     throw new Error(`Internal error: NYI semcheck for ${expr.pp()}`);
 }
 
+type ConcreteDatastructureSPath = Array<string | SNode>;
+
+export function decomposeStateVarRef(
+    e: SNode
+): [VariableDeclaration | undefined, ConcreteDatastructureSPath] {
+    const path: ConcreteDatastructureSPath = [];
+    while (true) {
+        if (e instanceof SMemberAccess) {
+            path.push(e.member);
+            e = e.base;
+            continue;
+        }
+
+        if (e instanceof SIndexAccess) {
+            path.push(e.index);
+            e = e.base;
+            continue;
+        }
+
+        break;
+    }
+
+    assert(e instanceof SId, ``);
+    path.reverse();
+
+    // Normal state variable reference by name
+    if (e.defSite instanceof VariableDeclaration && e.defSite.stateVariable) {
+        return [e.defSite, path];
+    }
+
+    return [undefined, path];
+}
+
 /**
  * For Any expression of form old(e1) in `forall(type t in range) e(t)`
  * throw an error if the expression depends on t.
@@ -437,10 +482,39 @@ export function scFunctionCall(
 export function scForAll(expr: SForAll, ctx: SemCtx, typeEnv: TypeEnv, semMap: SemMap): SemInfo {
     const exprSemInfo = sc(expr.expression, ctx, typeEnv, semMap);
     const itrSemInfo = sc(expr.iteratorVariable, ctx, typeEnv, semMap);
-    const startSemInfo = sc(expr.start, ctx, typeEnv, semMap);
-    const endSemInfo = sc(expr.end, ctx, typeEnv, semMap);
-    const canFail =
-        exprSemInfo.canFail || itrSemInfo.canFail || startSemInfo.canFail || endSemInfo.canFail;
+    const startSemInfo = expr.start ? sc(expr.start, ctx, typeEnv, semMap) : undefined;
+    const endSemInfo = expr.end ? sc(expr.end, ctx, typeEnv, semMap) : undefined;
+    const containerSemInfo = expr.container ? sc(expr.container, ctx, typeEnv, semMap) : undefined;
+
+    let canFail = exprSemInfo.canFail || itrSemInfo.canFail;
+
+    if (startSemInfo) {
+        canFail ||= startSemInfo.canFail;
+    }
+
+    if (endSemInfo) {
+        canFail ||= endSemInfo.canFail;
+    }
+
+    if (containerSemInfo) {
+        canFail ||= containerSemInfo.canFail;
+    }
+
+    // We dont support forall expressions over maps, where the container is a local pointer var
+    if (expr.container !== undefined) {
+        const containerT = typeEnv.typeOf(expr.container);
+        if (containerT instanceof PointerType && containerT.to instanceof MappingType) {
+            const [sVar, path] = decomposeStateVarRef(expr.container);
+            if (sVar === undefined) {
+                throw new SemError(
+                    `Don't support forall over a map pointer ${expr.container.pp()}`,
+                    expr.container
+                );
+            }
+
+            ctx.interposingQueue.push([sVar, path.map((x) => (x instanceof SNode ? null : x))]);
+        }
+    }
 
     if (!ctx.isOld) {
         expr.expression.walk((node) => {

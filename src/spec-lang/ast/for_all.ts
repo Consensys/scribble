@@ -1,6 +1,5 @@
-import { SNode, Range, SId, SNumber, SMemberAccess } from ".";
-import { IntType } from "solc-typed-ast";
-import bigInt from "big-integer";
+import { SNode, Range, SId } from ".";
+import { TypeNode } from "solc-typed-ast";
 import { assert } from "../../util";
 
 /**
@@ -11,38 +10,38 @@ import { assert } from "../../util";
  */
 export class SForAll extends SNode {
     /* Type of the iteration variable */
-    public readonly iteratorType: IntType;
+    public readonly iteratorType: TypeNode;
 
     /* Name of the iteration variable */
     public readonly iteratorVariable: SId;
 
     /* start range */
-    public readonly start: SNode;
+    public readonly start?: SNode;
 
     /*  End range */
-    public readonly end: SNode;
+    public readonly end?: SNode;
 
     /* condition on  which forall is applied */
     public readonly expression: SNode;
 
-    /* Array on which iterator iterates */
-    public readonly array?: SNode;
+    /* CONTAINER on which iterator iterates */
+    public readonly container?: SNode;
 
     constructor(
-        iteratorType: IntType,
+        iteratorType: TypeNode,
         iteratorVariable: SId,
         expression: SNode,
         start?: SNode,
         end?: SNode,
-        array?: SId,
+        container?: SId,
         src?: Range
     ) {
         super(src);
         this.iteratorType = iteratorType;
         this.iteratorVariable = iteratorVariable;
-        this.array = array;
+        this.container = container;
 
-        if (array === undefined) {
+        if (container === undefined) {
             assert(
                 start !== undefined && end !== undefined,
                 `When array is not passed in, must specify start and end for forall`
@@ -54,19 +53,21 @@ export class SForAll extends SNode {
                 start === undefined && end === undefined,
                 `Can't specify both an array and start or end for forall.`
             );
-            this.start = new SNumber(bigInt(0), 10);
-            this.end = new SMemberAccess(array, "length");
+            // this.start = new SNumber(bigInt(0), 10);
+            // this.end = new SMemberAccess(container, "length");
         }
 
         this.expression = expression;
-        this.array = array;
+        this.container = container;
     }
 
     pp(): string {
-        if (this.array === undefined) {
-            return `(forall(${this.iteratorType.pp()} ${this.iteratorVariable.pp()} in ${this.start.pp()}...${this.end.pp()} ${this.expression.pp()}`;
+        if (this.container === undefined) {
+            return `(forall(${this.iteratorType.pp()} ${this.iteratorVariable.pp()} in ${(
+                this.start as SNode
+            ).pp()}...${(this.end as SNode).pp()} ${this.expression.pp()}`;
         } else {
-            return `(forall(${this.iteratorType.pp()} ${this.iteratorVariable.pp()} in ${this.array.pp()}) ${this.expression.pp()}`;
+            return `(forall(${this.iteratorType.pp()} ${this.iteratorVariable.pp()} in ${this.container.pp()}) ${this.expression.pp()}`;
         }
     }
 
@@ -77,7 +78,7 @@ export class SForAll extends SNode {
             this.expression,
             this.start,
             this.end,
-            this.array
+            this.container
         ];
     }
 }
