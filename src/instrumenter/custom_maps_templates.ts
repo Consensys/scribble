@@ -15,6 +15,7 @@ import {
     FunctionKind,
     FunctionStateMutability,
     FunctionVisibility,
+    IfStatement,
     IntType,
     LiteralKind,
     MappingType,
@@ -33,10 +34,8 @@ import {
     VariableDeclarationStatement,
     variableDeclarationToTypeNode
 } from "solc-typed-ast";
-import { ConcreteDatastructurePath, single, transpileType } from "..";
+import { single, transpileType } from "..";
 import { InstrumentationContext } from "./instrumentation_context";
-
-export type StateVarRefDesc = [Expression, VariableDeclaration, ConcreteDatastructurePath];
 
 function getTypeDesc(typ: TypeNode): string {
     if (
@@ -207,11 +206,13 @@ export function addEmptyFun(
 
 export function addStmt(
     factory: ASTNodeFactory,
-    fun: FunctionDefinition,
+    loc: FunctionDefinition | Block,
     arg: Statement | Expression
-): void {
-    const body = fun.vBody as Block;
-    body.appendChild(arg instanceof Statement ? arg : factory.makeExpressionStatement(arg));
+): Statement {
+    const body = loc instanceof FunctionDefinition ? (loc.vBody as Block) : loc;
+    const stmt = arg instanceof Statement ? arg : factory.makeExpressionStatement(arg);
+    body.appendChild(stmt);
+    return stmt;
 }
 
 function mkStructFieldAcc(
@@ -339,15 +340,47 @@ function getLoc(t: TypeNode, defLoc: DataLocation): DataLocation {
     return needsLocation(t) ? defLoc : DataLocation.Default;
 }
 
+function addLocalVar(
+    factory: ASTNodeFactory,
+    name: string,
+    type: TypeName,
+    loc: DataLocation,
+    fn: FunctionDefinition,
+    block: Block,
+    initialVal?: Expression
+): VariableDeclaration {
+    const decl = factory.makeVariableDeclaration(
+        false,
+        false,
+        name,
+        fn.id,
+        false,
+        loc,
+        StateVariableVisibility.Default,
+        Mutability.Mutable,
+        "<missing>",
+        undefined,
+        type
+    );
+    addStmt(
+        factory,
+        fn,
+        factory.makeVariableDeclarationStatement(initialVal ? [decl.id] : [], [decl], initialVal)
+    );
+
+    return decl;
+}
+
 function makeGetFun(
     ctx: InstrumentationContext,
     keyT: TypeNode,
     valueT: TypeNode,
     struct: StructDefinition,
-    lib: ContractDefinition
+    lib: ContractDefinition,
+    lhs: boolean
 ): FunctionDefinition {
     const factory = ctx.factory;
-    const fun = addEmptyFun(ctx, "get", FunctionVisibility.Internal, lib);
+    const fun = addEmptyFun(ctx, lhs ? "get_lhs" : "get", FunctionVisibility.Internal, lib);
 
     const m = addFunArg(
         factory,
@@ -357,7 +390,82 @@ function makeGetFun(
         fun
     );
     const key = addFunArg(factory, "key", keyT, getLoc(keyT, DataLocation.Memory), fun);
+
+    const mkKeys = () => mkStructFieldAcc(factory, factory.makeIdentifierFor(m), struct, 1);
+    const mkKeysLen = () => factory.makeMemberAccess("<missing>", mkKeys(), "length", -1);
+    const mkKeysPush = () => factory.makeMemberAccess("<missing>", mkKeys(), "push", -1);
+    const mkKeyIdxM = () => mkStructFieldAcc(factory, factory.makeIdentifierFor(m), struct, 2);
+
     addFunRet(ctx, "", valueT, getLoc(valueT, DataLocation.Storage), fun);
+
+    // When indexes appear on the LHS of assignments we need to update the keys array as well
+    if (lhs) {
+        // uint idx = m.keyIdxM[key];
+        const idx = addLocalVar(
+            factory,
+            "idx",
+            factory.makeElementaryTypeName("<missing>", "uint"),
+            DataLocation.Default,
+            fun,
+            fun.vBody as Block,
+            factory.makeIndexAccess("<missing>", mkKeyIdxM(), factory.makeIdentifierFor(key))
+        );
+        // if (idx == 0) {
+        const ifNoIdxStmt = addStmt(
+            factory,
+            fun,
+            factory.makeIfStatement(
+                factory.makeBinaryOperation(
+                    "<missing>",
+                    "==",
+                    factory.makeIdentifierFor(idx),
+                    factory.makeLiteral("<missing>", LiteralKind.Number, "", "0")
+                ),
+                factory.makeBlock([])
+            )
+        ) as IfStatement;
+        //     if (m.keys.length == 0) {
+        const ifFirstKeyStmt = addStmt(
+            factory,
+            ifNoIdxStmt.vTrueBody as Block,
+            factory.makeIfStatement(
+                factory.makeBinaryOperation(
+                    "<missing>",
+                    "==",
+                    mkKeysLen(),
+                    factory.makeLiteral("<missing>", LiteralKind.Number, "", "0")
+                ),
+                factory.makeBlock([])
+            )
+        ) as IfStatement;
+        //         m.keys.push();
+        addStmt(
+            factory,
+            ifFirstKeyStmt.vTrueBody as Block,
+            factory.makeFunctionCall("<missing>", FunctionCallKind.FunctionCall, mkKeysPush(), [])
+        );
+        //     }
+        //     m.keyIdxM[key] = m.keys.length;
+        addStmt(
+            factory,
+            ifNoIdxStmt.vTrueBody as Block,
+            factory.makeAssignment(
+                "<missing>",
+                "=",
+                factory.makeIndexAccess("<missing>", mkKeyIdxM(), factory.makeIdentifierFor(key)),
+                mkKeysLen()
+            )
+        );
+        //     m.keys.push(key);
+        addStmt(
+            factory,
+            ifNoIdxStmt.vTrueBody as Block,
+            factory.makeFunctionCall("<missing>", FunctionCallKind.FunctionCall, mkKeysPush(), [
+                factory.makeIdentifierFor(key)
+            ])
+        );
+        // }
+    }
 
     // return m.innerM[key];
     addStmt(
@@ -717,7 +825,8 @@ export function generateMapLibrary(
 
     const struct = makeStruct(factory, keyT, valueT, lib);
     lib.appendChild(struct);
-    makeGetFun(ctx, keyT, valueT, struct, lib);
+    makeGetFun(ctx, keyT, valueT, struct, lib, true);
+    makeGetFun(ctx, keyT, valueT, struct, lib, false);
 
     // For value types containing maps its not possible to re-assign or delete indices
     if (!typeContainsMap(valueT, compilerVersion)) {

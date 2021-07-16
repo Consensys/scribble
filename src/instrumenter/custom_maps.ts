@@ -3,11 +3,13 @@ import {
     ArrayTypeName,
     assert,
     Assignment,
+    ASTNode,
     ContractDefinition,
     DataLocation,
     eq,
     Expression,
     ExpressionStatement,
+    ExternalReferenceType,
     FunctionCall,
     FunctionCallKind,
     FunctionDefinition,
@@ -24,6 +26,7 @@ import {
     SourceUnit,
     StateVariableVisibility,
     StructDefinition,
+    TupleExpression,
     TypeName,
     typeNameToTypeNode,
     UnaryOperation,
@@ -41,13 +44,13 @@ import {
     findStateVarUpdates,
     needsLocation,
     single,
-    StateVarRefDesc,
     UnsupportedConstruct
 } from "..";
 import { InstrumentationContext } from "./instrumentation_context";
 import { InstrumentationSiteType } from "./transpiling_context";
 
 export type AbsDatastructurePath = Array<null | string>;
+export type StateVarRefDesc = [Expression, VariableDeclaration, ConcreteDatastructurePath, boolean];
 
 /**
  * Given a TypeName `typ` and a `DatastructurePath` `path`, find the part of `typ` that corresponds to `path`.
@@ -167,61 +170,7 @@ function replaceAssignmentHelper(
     newNode.src = assignment.src;
 }
 
-/**
- * Given a reference ot a state var `ref`, and a datasturcture path `path`, see if
- * `ref` is the base of an `IndexAccess` that accesses an index INSIDE the part of the state
- * var pointed to by `path`.
- * @param ref
- * @param path
- * @returns
- */
-function getStateVarRefDesc(
-    ref: Identifier | MemberAccess,
-    path: AbsDatastructurePath
-): StateVarRefDesc | undefined {
-    assert(
-        ref.vReferencedDeclaration instanceof VariableDeclaration &&
-            ref.vReferencedDeclaration.stateVariable,
-        ""
-    );
-
-    const stateVar = ref.vReferencedDeclaration;
-    const concretePath: ConcreteDatastructurePath = [];
-    let expr: Expression = ref;
-
-    for (let i = 0; i < path.length; i++) {
-        const el = path[i];
-        const pt = expr.parent;
-
-        if (el === null) {
-            if (!(pt instanceof IndexAccess && expr === pt.vBaseExpression)) {
-                return undefined;
-            }
-
-            assert(pt.vIndexExpression !== undefined, ``);
-            concretePath.push(pt.vIndexExpression);
-        } else {
-            if (!(pt instanceof MemberAccess && pt.memberName === el)) {
-                return undefined;
-            }
-            concretePath.push(pt.memberName);
-        }
-
-        expr = pt;
-    }
-
-    if (!(expr.parent instanceof IndexAccess && expr === expr.parent.vBaseExpression)) {
-        return undefined;
-    }
-
-    return [expr.parent, stateVar, concretePath];
-}
-
-export function findStateVarReferences(
-    units: SourceUnit[],
-    stateVar: VariableDeclaration,
-    path: AbsDatastructurePath
-): StateVarRefDesc[] {
+export function findAllStateVarReferences(units: SourceUnit[]): StateVarRefDesc[] {
     const res: StateVarRefDesc[] = [];
 
     for (const unit of units) {
@@ -229,17 +178,115 @@ export function findStateVarReferences(
             (nd) =>
                 (nd instanceof Identifier || nd instanceof MemberAccess) &&
                 nd.vReferencedDeclaration instanceof VariableDeclaration &&
-                nd.vReferencedDeclaration === stateVar
+                nd.vReferencedDeclaration.stateVariable
         )) {
-            const refDesc = getStateVarRefDesc(ref, path);
+            let expr: Expression = ref;
+            const isRValueInLValue = isAccessRValueInLValue(ref);
+            const stateVar = ref.vReferencedDeclaration as VariableDeclaration;
+            const path: ConcreteDatastructurePath = [];
 
-            if (refDesc) {
-                res.push(refDesc);
+            while (true) {
+                res.push([
+                    expr,
+                    stateVar,
+                    [...path] as ConcreteDatastructurePath,
+                    isRValueInLValue
+                ]);
+                const pt = expr.parent;
+
+                if (
+                    !(
+                        (pt instanceof IndexAccess && expr === pt.vBaseExpression) ||
+                        pt instanceof MemberAccess
+                    )
+                ) {
+                    break;
+                }
+
+                path.push(
+                    pt instanceof IndexAccess ? (pt.vIndexExpression as Expression) : pt.memberName
+                );
+
+                expr = pt;
             }
         }
     }
 
     return res;
+}
+
+/**
+ * Returns true if the IndexAccess `node` (e.g. base[key]) is such that its part of
+ * an update, and the update happesn to same part of `base[key]`, but not the whole `base[key]`.
+ *
+ * Here are several examples where `base[key]` should be true:
+ *
+ * base[key][key1] = val;
+ * (base[key][key3], foo) = bar();
+ * base[key].boo++;
+ *
+ * And several examples where it should return false:
+ *
+ * base[key] = val; // update is to the whole part
+ * delete base[key]; // we don't count updates as deletions in this case
+ * base[key]--;
+ *
+ * @param node
+ */
+function isAccessRValueInLValue(node: Expression): boolean {
+    let ref: Expression = node;
+
+    // Not a part of `base[key]` is selected
+    if (!(ref.parent instanceof MemberAccess || ref.parent instanceof IndexAccess)) {
+        return false;
+    }
+
+    while (true) {
+        const pt: ASTNode | undefined = ref.parent;
+
+        if (pt instanceof MemberAccess) {
+            ref = pt;
+            continue;
+        }
+
+        if (pt instanceof IndexAccess) {
+            // `base[key]` is part of some index expression and thus not re-assigned. Eg. `foo[base[key][key1]] = 1`
+            if (ref !== pt.vBaseExpression) {
+                return false;
+            }
+            ref = pt;
+            continue;
+        }
+
+        if (pt instanceof TupleExpression) {
+            // Inline arrays can appear only on the RHS
+            if (pt.isInlineArray) {
+                return false;
+            }
+
+            ref = pt;
+            continue;
+        }
+
+        if (pt instanceof Assignment) {
+            return ref === pt.vLeftHandSide;
+        }
+
+        if (pt instanceof UnaryOperation) {
+            return (ref === pt.vSubExpression && pt.operator === "++") || pt.operator === "--";
+        }
+
+        if (pt instanceof FunctionCall) {
+            return (
+                ref === pt.vExpression && [
+                    pt.vFunctionName === "push" || pt.vFunctionName === "pop"
+                ] &&
+                pt.vFunctionCallType === ExternalReferenceType.Builtin
+            );
+        }
+
+        return false;
+    }
 }
 
 /**
@@ -262,6 +309,8 @@ export function interposeMap(
     units: SourceUnit[]
 ): void {
     const allUpdates = findStateVarUpdates(units);
+    const allRefs = findAllStateVarReferences(units);
+    const allRefsMap = new Map<Expression, StateVarRefDesc>(allRefs.map((x) => [x[0], x]));
 
     // Sort in order of decreasing datastructure path length. This way if we are
     // interposing on both maps in `mapping(uint => mapping(uint => uint))` We
@@ -326,6 +375,7 @@ export function interposeMap(
                 // Simple non-tuple case
                 if (lhsPath.length === 0) {
                     replaceAssignmentHelper(instrCtx, assignment, lib);
+                    allRefsMap.delete(assignment.vLeftHandSide);
                 } else {
                     // Tuple assignment case.
                     // @todo Do we need a new instrumentation type here?
@@ -341,6 +391,7 @@ export function interposeMap(
                     )) {
                         if (eq(tuplePath, lhsPath)) {
                             replaceAssignmentHelper(instrCtx, tempAssignment, lib);
+                            allRefsMap.delete(tempAssignment.vLeftHandSide);
                         }
                     }
                 }
@@ -361,6 +412,7 @@ export function interposeMap(
                         [base, index]
                     );
                     replaceNode(updateNode, newNode);
+                    allRefsMap.delete(updateNode.vSubExpression);
                     // Make sure the delete call maps to the original node
                     newNode.src = updateNode.src;
                 } else {
@@ -377,6 +429,7 @@ export function interposeMap(
                         [base, index]
                     );
                     replaceNode(updateNode, newNode);
+                    allRefsMap.delete(updateNode.vSubExpression);
                     // Make sure the unary op call maps to the original node
                     newNode.src = updateNode.src;
                 }
@@ -393,14 +446,31 @@ export function interposeMap(
                 );
             }
         }
+    }
 
-        // 3. Replace all index accesses `<base>[<key>]` on `T` with `L.get(<base>, <key>)`
-        // All remaining references to the state var (and its part) that occur on
-        // the LHS of some assignments have been handled in step 2. Therefore we can
-        // replace the occuring references with calls to `L.get()`
-        for (const [refNode] of findStateVarReferences(units, stateVar, path)) {
+    // 3. Replace all index accesses `<base>[<key>]` on `T` with `L.get(<base>, <key>)`
+    // Note: This has to be done after the assignment for ALL targets are processed, so that
+    // we can accumulate the set of all access that appear on the LHS of an update.
+    for (let i = 0; i < targets.length; i++) {
+        const stateVar = targets[i][0];
+        const path = targets[i][1];
+
+        // Get the custom library implementation
+        const lib = instrCtx.getMapInterposingLibrary(stateVar, path);
+        assert(lib !== undefined, `Target ${stateVar.name} should already have a library`);
+
+        for (const [refNode, refVar, refPath, isRvalueInLValue] of allRefsMap.values()) {
+            if (
+                !(refVar === stateVar && pathMatch(path, refPath) && refNode instanceof IndexAccess)
+            ) {
+                continue;
+            }
+
             const [base, index] = splitExpr(refNode);
-            const getterF = mkLibraryFunRef(instrCtx, instrCtx.getCustomMapGetter(lib));
+            const getterF = mkLibraryFunRef(
+                instrCtx,
+                instrCtx.getCustomMapGetter(lib, isRvalueInLValue)
+            );
             const newNode = factory.makeFunctionCall(
                 "<misisng>",
                 FunctionCallKind.FunctionCall,
@@ -469,7 +539,7 @@ function interposeGetter(
             ctx.isCustomMapLibrary(typ.vReferencedDeclaration.vScope)
         ) {
             const lib = typ.vReferencedDeclaration.vScope;
-            const getter = ctx.getCustomMapGetter(lib);
+            const getter = ctx.getCustomMapGetter(lib, false);
             const idxT = getter.vParameters.vParameters[1].vType as TypeName;
 
             const idxArg = factory.makeVariableDeclaration(

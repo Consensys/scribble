@@ -295,10 +295,10 @@ export class InstrumentationContext {
         return res[1];
     }
 
-    getCustomMapGetter(library: ContractDefinition): FunctionDefinition {
+    getCustomMapGetter(library: ContractDefinition, lhs: boolean): FunctionDefinition {
         const res = this.customMapLibrary.get(library.name);
         assert(res !== undefined, ``);
-        const getter = res[2].get("get");
+        const getter = res[2].get(lhs ? "get_lhs" : "get");
         assert(getter !== undefined, ``);
 
         return getter;

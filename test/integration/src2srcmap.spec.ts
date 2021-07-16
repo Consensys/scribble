@@ -10,6 +10,7 @@ import {
     FunctionDefinition,
     Identifier,
     ImportDirective,
+    IndexAccess,
     MemberAccess,
     OverrideSpecifier,
     ParameterList,
@@ -250,6 +251,10 @@ describe("Src2src map test", () => {
                                             `Only ++/--/delete may be interposed for state vars`
                                         );
                                         for (const child of node.vSubExpression.getChildren(true)) {
+                                            coveredOriginalNodes.add(child);
+                                        }
+                                    } else if (node instanceof IndexAccess) {
+                                        for (const child of node.getChildren(true)) {
                                             coveredOriginalNodes.add(child);
                                         }
                                     } else {

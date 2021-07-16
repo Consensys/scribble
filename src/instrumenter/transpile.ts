@@ -291,7 +291,7 @@ function transpileIndexAccess(expr: SIndexAccess, ctx: TranspilingContext): Expr
         );
 
         if (interposeLib !== undefined) {
-            const getter = instrCtx.getCustomMapGetter(interposeLib);
+            const getter = instrCtx.getCustomMapGetter(interposeLib, false);
 
             return factory.makeFunctionCall(
                 "<missing>",
