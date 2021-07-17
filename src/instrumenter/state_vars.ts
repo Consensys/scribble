@@ -531,7 +531,15 @@ export function decomposeLHS(
 
     if (e instanceof FunctionCall && e.vFunctionName === "push") {
         throw new Error(
-            `Scribble doesn't support instrument assignments where the LHS is a push(). Problematic LHS: ${print(
+            `Scribble doesn't support instrumenting assignments where the LHS is a push(). Problematic LHS: ${print(
+                originalExp
+            )}`
+        );
+    }
+
+    if (e instanceof Assignment) {
+        throw new Error(
+            `Scribble doesn't support instrumenting assignments where the LHS is an assignment itself. Problematic LHS: ${print(
                 originalExp
             )}`
         );

@@ -169,6 +169,327 @@
             },
 
             "failure": "*"
+        },
+        {
+            "act": "txCall",
+            "user": "owner",
+            "contract": "instance1",
+
+            "method": "pushF",
+
+            "args": {
+                "types": [],
+                "values": []
+            }
+        },
+        {
+            "act": "txCall",
+            "user": "owner",
+            "contract": "instance1",
+
+            "method": "setF",
+
+            "args": {
+                "types": ["uint", "uint", "uint"],
+                "values": ["0", "0", "1"]
+            }
+        },
+        {
+            "act": "txCall",
+            "user": "owner",
+            "contract": "instance1",
+
+            "method": "setF",
+
+            "args": {
+                "types": ["uint", "uint", "uint"],
+                "values": ["0", "1", "0"]
+            }
+        },
+        {
+            "act": "txCall",
+            "user": "owner",
+            "contract": "instance1",
+
+            "method": "setF",
+
+            "args": {
+                "types": ["uint", "uint", "uint"],
+                "values": ["0", "0", "0"]
+            },
+            "failure": "*"
+        },
+        {
+            "act": "txCall",
+            "user": "owner",
+            "contract": "instance1",
+
+            "method": "pushF",
+
+            "args": {
+                "types": [],
+                "values": []
+            }
+        },
+        {
+            "act": "txCall",
+            "user": "owner",
+            "contract": "instance1",
+
+            "method": "setF",
+
+            "args": {
+                "types": ["uint", "uint", "uint"],
+                "values": ["1", "0", "0"]
+            },
+            "failure": "*"
+        },
+        {
+            "act": "txCall",
+            "user": "owner",
+            "contract": "instance1",
+
+            "method": "pushG",
+
+            "args": {
+                "types": [],
+                "values": []
+            }
+        },
+        {
+            "act": "txCall",
+            "user": "owner",
+            "contract": "instance1",
+
+            "method": "pushG",
+
+            "args": {
+                "types": [],
+                "values": []
+            }
+        },
+        {
+            "act": "txCall",
+            "user": "owner",
+            "contract": "instance1",
+
+            "method": "setG",
+
+            "args": {
+                "types": ["uint", "uint", "uint"],
+                "values": ["0", "0", "2"]
+            }
+        },
+        {
+            "act": "txCall",
+            "user": "owner",
+            "contract": "instance1",
+
+            "method": "setG",
+
+            "args": {
+                "types": ["uint", "uint", "uint"],
+                "values": ["0", "0", "0"]
+            },
+            "failure": "*"
+        },
+        {
+            "act": "txCall",
+            "user": "owner",
+            "contract": "instance1",
+
+            "method": "setG",
+
+            "args": {
+                "types": ["uint", "uint", "uint"],
+                "values": ["1", "10", "0"]
+            },
+            "failure": "*"
+        },
+        {
+            "act": "txCall",
+            "user": "owner",
+            "contract": "instance1",
+
+            "method": "setG",
+
+            "args": {
+                "types": ["uint", "uint", "uint"],
+                "values": ["1", "10", "1"]
+            }
+        },
+        {
+            "act": "txCall",
+            "user": "owner",
+            "contract": "instance1",
+
+            "method": "setH",
+
+            "args": {
+                "types": ["string", "uint8", "int8"],
+                "values": ["abc", "0", "1"]
+            }
+        },
+        {
+            "act": "txCall",
+            "user": "owner",
+            "contract": "instance1",
+
+            "method": "setH",
+
+            "args": {
+                "types": ["string", "uint8", "int8"],
+                "values": ["abc", "1", "0"]
+            }
+        },
+        {
+            "act": "txCall",
+            "user": "owner",
+            "contract": "instance1",
+
+            "method": "setH",
+
+            "args": {
+                "types": ["string", "uint8", "int8"],
+                "values": ["abc", "0", "0"]
+            },
+            "failure": "*"
+        },
+        {
+            "act": "txCall",
+            "user": "owner",
+            "contract": "instance1",
+
+            "method": "setI",
+
+            "args": {
+                "types": ["string", "uint8", "int8"],
+                "values": ["ghi", "2", "1"]
+            }
+        },
+        {
+            "act": "txCall",
+            "user": "owner",
+            "contract": "instance1",
+
+            "method": "setI",
+
+            "args": {
+                "types": ["string", "uint8", "int"],
+                "values": ["def", "1", "0"]
+            },
+            "failure": "*"
+        },
+        {
+            "act": "txCall",
+            "user": "owner",
+            "contract": "instance1",
+
+            "method": "setI",
+
+            "args": {
+                "types": ["string", "uint8", "int8"],
+                "values": ["ghi", "2", "0"]
+            },
+            "failure": "*"
+        },
+        {
+            "act": "txCall",
+            "user": "owner",
+            "contract": "instance1",
+
+            "method": "setI",
+
+            "args": {
+                "types": ["string", "uint8", "int8"],
+                "values": ["eft", "5", "10"]
+            }
+        },
+        {
+            "act": "txCall",
+            "user": "owner",
+            "contract": "instance1",
+
+            "method": "addSA",
+
+            "args": {
+                "types": [],
+                "values": []
+            }
+        },
+        {
+            "act": "txCall",
+            "user": "owner",
+            "contract": "instance1",
+
+            "method": "addSA",
+
+            "args": {
+                "types": [],
+                "values": []
+            }
+        },
+        {
+            "act": "txCall",
+            "user": "owner",
+            "contract": "instance1",
+
+            "method": "setJ",
+
+            "args": {
+                "types": ["uint", "string", "uint"],
+                "values": ["0", "abc", "1"]
+            }
+        },
+        {
+            "act": "txCall",
+            "user": "owner",
+            "contract": "instance1",
+
+            "method": "setJ",
+
+            "args": {
+                "types": ["uint", "string", "uint"],
+                "values": ["0", "def", "0"]
+            },
+            "failure": "*"
+        },
+        {
+            "act": "txCall",
+            "user": "owner",
+            "contract": "instance1",
+
+            "method": "setJ",
+
+            "args": {
+                "types": ["uint", "string", "uint"],
+                "values": ["1", "def", "1"]
+            }
+        },
+        {
+            "act": "txCall",
+            "user": "owner",
+            "contract": "instance1",
+
+            "method": "setJ2",
+
+            "args": {
+                "types": ["uint", "string", "uint"],
+                "values": ["1", "xyz", "1"]
+            }
+        },
+        {
+            "act": "txCall",
+            "user": "owner",
+            "contract": "instance1",
+
+            "method": "setJ2",
+
+            "args": {
+                "types": ["uint", "string", "uint"],
+                "values": ["1", "abc", "0"]
+            },
+            "failure": "*"
         }
     ]
 }

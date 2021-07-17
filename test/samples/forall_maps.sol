@@ -38,4 +38,68 @@ contract Foo {
     function setE(uint k, uint[] memory v) public {
         e[k] = v;
     }
+
+    // Array of maps, array forall only
+    mapping (uint => uint)[] f;
+
+    function pushF() public {
+        f.push();
+    }
+    /// #if_succeeds forall (uint i in f) f[i][0] > 0;
+    function setF(uint i, uint j, uint v) public {
+        f[i][j] = v;
+    }
+
+    // Array of maps, map forall only
+    mapping (uint => uint)[] g;
+
+    function pushG() public {
+        g.push();
+    }
+
+    /// #if_succeeds forall (uint k in g[i]) g[i][k] > 0;
+    function setG(uint i, uint j, uint v) public {
+        g[i][j] = v;
+    }
+
+    // Nested map first map only
+    mapping (string => mapping(uint8 => int8)) h;
+
+    /// #if_succeeds forall (string memory s in h) h[s][0] > 0;
+    function setH(string memory s, uint8 k, int8 v) public {
+        h[s][k] = v;
+    }
+
+    // Nested map last map only
+    mapping (string => mapping(uint8 => int8)) i;
+
+    /// #if_succeeds forall (uint8 x in i[s]) i[s][x] > 0;
+    function setI(string memory s, uint8 k, int8 v) public {
+        i[s][k] = v;
+    }
+
+    struct SA {
+        mapping(string=>uint) m;
+        uint cnt;
+    }
+
+    struct SB {
+        SA[] sas;
+    }
+
+    SB j;
+
+    function addSA() public {
+        j.sas.push();
+    }
+
+    /// #if_succeeds forall (string memory s in j.sas[saI].m) j.sas[saI].m[s] > 0;
+    function setJ(uint saI, string memory x, uint v) public {
+        j.sas[saI].m[x] = v;
+    }
+
+    /// #if_succeeds forall(uint i in j.sas) forall (string memory s in j.sas[i].m) j.sas[i].m[s] > 0;
+    function setJ2(uint saI, string memory x, uint v) public {
+        j.sas[saI].m[x] = v;
+    }
 }

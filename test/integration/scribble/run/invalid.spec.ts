@@ -29,7 +29,7 @@ describe(`Command "scribble <filename>" is failing as expected`, () => {
         ],
         [
             ["test/samples/invalid/if_updated_push_ref.invalid.sol"],
-            /.*Error: Scribble doesn't support instrument assignments where the LHS is a push\(\). Problematic LHS: a.push\(\)/m
+            /.*Error: Scribble doesn't support instrumenting assignments where the LHS is a push\(\). Problematic LHS: a.push\(\)/m
         ],
         [
             ["test/samples/if_assigned_complex.sol", "--debug-events"],

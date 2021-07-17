@@ -3,6 +3,15 @@ pragma solidity 0.8.4;
 contract Foo {
     event AssertionFailed(string message);
 
+    struct SA {
+        string_to_uint256.S m;
+        uint cnt;
+    }
+
+    struct SB {
+        SA[] sas;
+    }
+
     struct vars0 {
         uint256 i0;
         uint256 k0;
@@ -36,11 +45,53 @@ contract Foo {
         bool forall_5;
     }
 
+    struct vars5 {
+        uint256 i6;
+        bool forall_6;
+    }
+
+    struct vars6 {
+        uint256 i7;
+        uint256 k4;
+        bool forall_7;
+    }
+
+    struct vars7 {
+        uint256 i8;
+        string s2;
+        bool forall_8;
+    }
+
+    struct vars8 {
+        uint256 i9;
+        uint8 x0;
+        bool forall_9;
+    }
+
+    struct vars9 {
+        uint256 i10;
+        string s3;
+        bool forall_10;
+    }
+
+    struct vars10 {
+        uint256 i11;
+        bool forall_11;
+        uint256 i12;
+        string s4;
+        bool forall_12;
+    }
+
     uint256_to_uint256.S internal a;
     string_to_int16.S c0;
     string internal sS;
-    string_to_uint8_to_int8_S_108.S internal d;
+    string_to_uint8_to_int8_S_613.S internal d;
     uint256_to_uint256_arr.S internal e;
+    mapping(uint => uint)[] internal f;
+    uint256_to_uint256.S[] internal g;
+    string_to_mapping_uint8_to_int8.S internal h;
+    mapping(string => uint8_to_int8.S) internal i;
+    SB internal j;
 
     function setA(uint key, uint val) public {
         vars0 memory _v;
@@ -113,9 +164,9 @@ contract Foo {
             for (_v.i3 = 1; _v.i3 < d.keys.length; _v.i3++) {
                 _v.s1 = d.keys[_v.i3];
                 _v.forall_4 = true;
-                for (_v.i4 = 1; _v.i4 < string_to_uint8_to_int8_S_108.get(d, _v.s1).keys.length; _v.i4++) {
-                    _v.k2 = string_to_uint8_to_int8_S_108.get(d, _v.s1).keys[_v.i4];
-                    _v.forall_4 = uint8_to_int8.get(string_to_uint8_to_int8_S_108.get(d, _v.s1), _v.k2) > 0;
+                for (_v.i4 = 1; _v.i4 < string_to_uint8_to_int8_S_613.get(d, _v.s1).keys.length; _v.i4++) {
+                    _v.k2 = string_to_uint8_to_int8_S_613.get(d, _v.s1).keys[_v.i4];
+                    _v.forall_4 = uint8_to_int8.get(string_to_uint8_to_int8_S_613.get(d, _v.s1), _v.k2) > 0;
                     if (!_v.forall_4) break;
                 }
                 _v.forall_3 = _v.forall_4;
@@ -129,7 +180,7 @@ contract Foo {
     }
 
     function _original_Foo_setD(string memory s, uint8 k, int8 v) private {
-        uint8_to_int8.set(string_to_uint8_to_int8_S_108.get_lhs(d, s), k, v);
+        uint8_to_int8.set(string_to_uint8_to_int8_S_613.get_lhs(d, s), k, v);
     }
 
     function setE(uint k, uint[] memory v) public {
@@ -153,6 +204,148 @@ contract Foo {
         uint256_to_uint256_arr.set(e, k, v);
     }
 
+    function pushF() public {
+        f.push();
+    }
+
+    function setF(uint i, uint j, uint v) public {
+        vars5 memory _v;
+        _original_Foo_setF(i, j, v);
+        unchecked {
+            _v.forall_6 = true;
+            for (_v.i6 = 0; _v.i6 < f.length; _v.i6++) {
+                _v.forall_6 = f[_v.i6][0] > 0;
+                if (!_v.forall_6) break;
+            }
+            if (!(_v.forall_6)) {
+                emit AssertionFailed("5: ");
+                assert(false);
+            }
+        }
+    }
+
+    function _original_Foo_setF(uint i, uint j, uint v) private {
+        f[i][j] = v;
+    }
+
+    function pushG() public {
+        g.push();
+    }
+
+    function setG(uint i, uint j, uint v) public {
+        vars6 memory _v;
+        _original_Foo_setG(i, j, v);
+        unchecked {
+            _v.forall_7 = true;
+            for (_v.i7 = 1; _v.i7 < g[i].keys.length; _v.i7++) {
+                _v.k4 = g[i].keys[_v.i7];
+                _v.forall_7 = uint256_to_uint256.get(g[i], _v.k4) > 0;
+                if (!_v.forall_7) break;
+            }
+            if (!(_v.forall_7)) {
+                emit AssertionFailed("6: ");
+                assert(false);
+            }
+        }
+    }
+
+    function _original_Foo_setG(uint i, uint j, uint v) private {
+        uint256_to_uint256.set(g[i], j, v);
+    }
+
+    function setH(string memory s, uint8 k, int8 v) public {
+        vars7 memory _v;
+        _original_Foo_setH(s, k, v);
+        unchecked {
+            _v.forall_8 = true;
+            for (_v.i8 = 1; _v.i8 < h.keys.length; _v.i8++) {
+                _v.s2 = h.keys[_v.i8];
+                _v.forall_8 = string_to_mapping_uint8_to_int8.get(h, _v.s2)[0] > 0;
+                if (!_v.forall_8) break;
+            }
+            if (!(_v.forall_8)) {
+                emit AssertionFailed("7: ");
+                assert(false);
+            }
+        }
+    }
+
+    function _original_Foo_setH(string memory s, uint8 k, int8 v) private {
+        string_to_mapping_uint8_to_int8.get_lhs(h, s)[k] = v;
+    }
+
+    function setI(string memory s, uint8 k, int8 v) public {
+        vars8 memory _v;
+        _original_Foo_setI(s, k, v);
+        unchecked {
+            _v.forall_9 = true;
+            for (_v.i9 = 1; _v.i9 < i[s].keys.length; _v.i9++) {
+                _v.x0 = i[s].keys[_v.i9];
+                _v.forall_9 = uint8_to_int8.get(i[s], _v.x0) > 0;
+                if (!_v.forall_9) break;
+            }
+            if (!(_v.forall_9)) {
+                emit AssertionFailed("8: ");
+                assert(false);
+            }
+        }
+    }
+
+    function _original_Foo_setI(string memory s, uint8 k, int8 v) private {
+        uint8_to_int8.set(i[s], k, v);
+    }
+
+    function addSA() public {
+        j.sas.push();
+    }
+
+    function setJ(uint saI, string memory x, uint v) public {
+        vars9 memory _v;
+        _original_Foo_setJ(saI, x, v);
+        unchecked {
+            _v.forall_10 = true;
+            for (_v.i10 = 1; _v.i10 < j.sas[saI].m.keys.length; _v.i10++) {
+                _v.s3 = j.sas[saI].m.keys[_v.i10];
+                _v.forall_10 = string_to_uint256.get(j.sas[saI].m, _v.s3) > 0;
+                if (!_v.forall_10) break;
+            }
+            if (!(_v.forall_10)) {
+                emit AssertionFailed("9: ");
+                assert(false);
+            }
+        }
+    }
+
+    function _original_Foo_setJ(uint saI, string memory x, uint v) private {
+        string_to_uint256.set(j.sas[saI].m, x, v);
+    }
+
+    function setJ2(uint saI, string memory x, uint v) public {
+        vars10 memory _v;
+        _original_Foo_setJ2(saI, x, v);
+        unchecked {
+            _v.forall_11 = true;
+            for (_v.i11 = 0; _v.i11 < j.sas.length; _v.i11++) {
+                _v.forall_12 = true;
+                for (_v.i12 = 1; _v.i12 < j.sas[_v.i11].m.keys.length; _v.i12++) {
+                    _v.s4 = j.sas[_v.i11].m.keys[_v.i12];
+                    _v.forall_12 = string_to_uint256.get(j.sas[_v.i11].m, _v.s4) > 0;
+                    if (!_v.forall_12) break;
+                }
+                _v.forall_11 = _v.forall_12;
+                if (!_v.forall_11) break;
+            }
+            if (!(_v.forall_11)) {
+                emit AssertionFailed("10: ");
+                assert(false);
+            }
+        }
+    }
+
+    function _original_Foo_setJ2(uint saI, string memory x, uint v) private {
+        string_to_uint256.set(j.sas[saI].m, x, v);
+    }
+
     function c(string memory ARG_0) public returns (int16 RET_0) {
         return string_to_int16.get(c0, ARG_0);
     }
@@ -160,6 +353,73 @@ contract Foo {
 /// Utility contract holding a stack counter
 contract __scribble_ReentrancyUtils {
     bool __scribble_out_of_contract = true;
+}
+
+library string_to_uint256 {
+    struct S {
+        mapping(string => uint256) innerM;
+        string[] keys;
+        mapping(string => uint256) keyIdxM;
+    }
+
+    function get_lhs(S storage m, string memory key) internal returns (uint256) {
+        uint idx = m.keyIdxM[key];
+        if (idx == 0) {
+            if (m.keys.length == 0) {
+                m.keys.push();
+            }
+            m.keyIdxM[key] = m.keys.length;
+            m.keys.push(key);
+        }
+        return m.innerM[key];
+    }
+
+    function get(S storage m, string memory key) internal returns (uint256) {
+        return m.innerM[key];
+    }
+
+    function set(S storage m, string memory key, uint256 val) internal returns (uint256) {
+        m.innerM[key] = val;
+        uint256 idx = m.keyIdxM[key];
+        if (idx > 0) return m.innerM[key];
+        if (m.keys.length == 0) {
+            m.keys.push();
+        }
+        m.keyIdxM[key] = m.keys.length;
+        m.keys.push(key);
+        return m.innerM[key];
+    }
+
+    function deleteKey(S storage m, string memory key) internal {
+        delete m.innerM[key];
+        uint256 idx = m.keyIdxM[key];
+        if (idx == 0) return;
+        if (idx != (m.keys.length - 1)) {
+            string storage lastKey = m.keys[m.keys.length - 1];
+            m.keys[idx] = lastKey;
+            m.keyIdxM[lastKey] = idx;
+        }
+        m.keys.pop();
+        delete m.keyIdxM[key];
+    }
+
+    function inc_pre(S storage m, string memory key) internal returns (uint256 RET) {
+        return set(m, key, m.innerM[key] + 1);
+    }
+
+    function inc(S storage m, string memory key) internal returns (uint256 RET) {
+        RET = m.innerM[key];
+        set(m, key, m.innerM[key] + 1);
+    }
+
+    function dec_pre(S storage m, string memory key) internal returns (uint256 RET) {
+        return set(m, key, m.innerM[key] - 1);
+    }
+
+    function dec(S storage m, string memory key) internal returns (uint256 RET) {
+        RET = m.innerM[key];
+        set(m, key, m.innerM[key] - 1);
+    }
 }
 
 library uint8_to_int8 {
@@ -363,7 +623,7 @@ library string_to_int16 {
     }
 }
 
-library string_to_uint8_to_int8_S_108 {
+library string_to_uint8_to_int8_S_613 {
     struct S {
         mapping(string => uint8_to_int8.S) innerM;
         string[] keys;
@@ -433,5 +693,29 @@ library uint256_to_uint256_arr {
         }
         m.keys.pop();
         delete m.keyIdxM[key];
+    }
+}
+
+library string_to_mapping_uint8_to_int8 {
+    struct S {
+        mapping(string => mapping(uint8 => int8)) innerM;
+        string[] keys;
+        mapping(string => uint256) keyIdxM;
+    }
+
+    function get_lhs(S storage m, string memory key) internal returns (mapping(uint8 => int8) storage) {
+        uint idx = m.keyIdxM[key];
+        if (idx == 0) {
+            if (m.keys.length == 0) {
+                m.keys.push();
+            }
+            m.keyIdxM[key] = m.keys.length;
+            m.keys.push(key);
+        }
+        return m.innerM[key];
+    }
+
+    function get(S storage m, string memory key) internal returns (mapping(uint8 => int8) storage) {
+        return m.innerM[key];
     }
 }
