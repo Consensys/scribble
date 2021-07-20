@@ -273,7 +273,7 @@ library string_to_int16 {
     }
 }
 
-library string_to_uint8_to_int8_S_613 {
+library string_to_uint8_to_int8_S_619 {
     struct S {
         mapping(string => uint8_to_int8.S) innerM;
         string[] keys;
@@ -369,9 +369,7 @@ library string_to_mapping_uint8_to_int8 {
         return m.innerM[key];
     }
 }
-contract Foo {
-    event AssertionFailed(string message);
-
+contract Base {
     struct SA {
         string_to_uint256.S m;
         uint cnt;
@@ -380,6 +378,24 @@ contract Foo {
     struct SB {
         SA[] sas;
     }
+
+    uint256_to_uint256.S internal a;
+    string_to_int16.S c0;
+    string internal sS;
+    string_to_uint8_to_int8_S_619.S internal d;
+    uint256_to_uint256_arr.S internal e;
+    mapping(uint => uint)[] internal f;
+    uint256_to_uint256.S[] internal g;
+    string_to_mapping_uint8_to_int8.S internal h;
+    mapping(string => uint8_to_int8.S) internal i;
+    SB internal j;
+
+    function c(string memory ARG_0) public returns (int16 RET_0) {
+        return string_to_int16.get(c0, ARG_0);
+    }
+}
+contract Foo is Base {
+    event AssertionFailed(string message);
 
     struct vars0 {
         uint256 i0;
@@ -450,17 +466,6 @@ contract Foo {
         string s4;
         bool forall_12;
     }
-
-    uint256_to_uint256.S internal a;
-    string_to_int16.S c0;
-    string internal sS;
-    string_to_uint8_to_int8_S_613.S internal d;
-    uint256_to_uint256_arr.S internal e;
-    mapping(uint => uint)[] internal f;
-    uint256_to_uint256.S[] internal g;
-    string_to_mapping_uint8_to_int8.S internal h;
-    mapping(string => uint8_to_int8.S) internal i;
-    SB internal j;
 
     function setA(uint key, uint val) public {
         vars0 memory _v;
@@ -533,9 +538,9 @@ contract Foo {
             for (_v.i3 = 1; _v.i3 < d.keys.length; _v.i3++) {
                 _v.s1 = d.keys[_v.i3];
                 _v.forall_4 = true;
-                for (_v.i4 = 1; _v.i4 < string_to_uint8_to_int8_S_613.get(d, _v.s1).keys.length; _v.i4++) {
-                    _v.k2 = string_to_uint8_to_int8_S_613.get(d, _v.s1).keys[_v.i4];
-                    _v.forall_4 = uint8_to_int8.get(string_to_uint8_to_int8_S_613.get(d, _v.s1), _v.k2) > 0;
+                for (_v.i4 = 1; _v.i4 < string_to_uint8_to_int8_S_619.get(d, _v.s1).keys.length; _v.i4++) {
+                    _v.k2 = string_to_uint8_to_int8_S_619.get(d, _v.s1).keys[_v.i4];
+                    _v.forall_4 = uint8_to_int8.get(string_to_uint8_to_int8_S_619.get(d, _v.s1), _v.k2) > 0;
                     if (!_v.forall_4) break;
                 }
                 _v.forall_3 = _v.forall_4;
@@ -549,7 +554,7 @@ contract Foo {
     }
 
     function _original_Foo_setD(string memory s, uint8 k, int8 v) private {
-        uint8_to_int8.set(string_to_uint8_to_int8_S_613.get_lhs(d, s), k, v);
+        uint8_to_int8.set(string_to_uint8_to_int8_S_619.get_lhs(d, s), k, v);
     }
 
     function setE(uint k, uint[] memory v) public {
@@ -713,9 +718,5 @@ contract Foo {
 
     function _original_Foo_setJ2(uint saI, string memory x, uint v) private {
         string_to_uint256.set(j.sas[saI].m, x, v);
-    }
-
-    function c(string memory ARG_0) public returns (int16 RET_0) {
-        return string_to_int16.get(c0, ARG_0);
     }
 }

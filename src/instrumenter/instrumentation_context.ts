@@ -1,3 +1,4 @@
+import { dirname, relative } from "path";
 import {
     ASTNodeFactory,
     ContractDefinition,
@@ -13,9 +14,20 @@ import {
     Expression,
     Statement,
     TypeNode,
-    getNodeType
+    getNodeType,
+    SrcRangeMap
 } from "solc-typed-ast";
-import { AbsDatastructurePath, assert, dedup, getSetterName, single, specializeSetter } from "..";
+import {
+    AbsDatastructurePath,
+    assert,
+    dedup,
+    findAliasedStateVars,
+    getSetterName,
+    single,
+    specializeSetter,
+    UnsupportedConstruct
+} from "..";
+import { print } from "../ast_to_source_printer";
 import { SUserFunctionDefinition } from "../spec-lang/ast";
 import { SemMap, TypeEnv } from "../spec-lang/tc";
 import { NameGenerator } from "../util/name_generator";
@@ -130,6 +142,10 @@ export class InstrumentationContext {
 
     public readonly varInterposingQueue: Array<[VariableDeclaration, AbsDatastructurePath]>;
 
+    private unitsNeedingUtils = new Set<SourceUnit>();
+    private _originalContents: Map<SourceUnit, string>;
+    private _aliasedStateVars: Map<VariableDeclaration, ASTNode>;
+
     constructor(
         public readonly factory: ASTNodeFactory,
         public readonly units: SourceUnit[],
@@ -168,6 +184,9 @@ export class InstrumentationContext {
             (x: [VariableDeclaration, AbsDatastructurePath]) =>
                 `${x[0].name}_${x[1].map((x) => (x === null ? "[]" : x)).join("_")}`
         );
+
+        this._originalContents = this.printUnits(units, new Map());
+        this._aliasedStateVars = findAliasedStateVars(units);
     }
 
     getWrapper(contract: ContractDefinition, name: string): FunctionDefinition | undefined {
@@ -255,6 +274,20 @@ export class InstrumentationContext {
     finalize(): void {
         for (const transCtx of this.transCtxMap.values()) {
             transCtx.finalize();
+        }
+
+        for (const unit of this.unitsNeedingUtils) {
+            const path = relative(dirname(unit.absolutePath), this.utilsUnit.absolutePath);
+            unit.appendChild(
+                this.factory.makeImportDirective(
+                    `./${path}`,
+                    this.utilsUnit.absolutePath,
+                    "",
+                    [],
+                    unit.id,
+                    this.utilsUnit.id
+                )
+            );
         }
     }
 
@@ -360,5 +393,55 @@ export class InstrumentationContext {
     ): ContractDefinition | undefined {
         const key = `${v.id}_${path.map((x) => (x === null ? `[]` : x)).join("_")}`;
         return this.interposingLibraryMap.get(key);
+    }
+
+    /**
+     * Mark the given SourceUnit `unit` as needing an import from the utils module in files
+     * instrumentation mode.
+     */
+    needsUtils(unit: SourceUnit): void {
+        this.unitsNeedingUtils.add(unit);
+    }
+
+    /**
+     * Return the list of SourceUnits that were changed by instrumentation.
+     * @todo We currently compute this by printing the files before and after
+     * and comparing the contents. This is simple, but inefficient. It would be better
+     * to either diff the ASTs themselves, or to keep a generation counter somewhere inside
+     * the AST.
+     */
+    get changedUnits(): SourceUnit[] {
+        const newContents = this.printUnits(this.units, new Map());
+        const res: SourceUnit[] = [];
+
+        for (const [unit, newUnitCont] of newContents.entries()) {
+            const oldUnitCont = this._originalContents.get(unit);
+            if (oldUnitCont !== newUnitCont) {
+                res.push(unit);
+            }
+        }
+
+        return res;
+    }
+
+    getAliasingNode(v: VariableDeclaration): ASTNode | undefined {
+        return this._aliasedStateVars.get(v);
+    }
+
+    crashIfAliased(varDef: VariableDeclaration): void {
+        const potentialAliasing = this.getAliasingNode(varDef);
+        if (potentialAliasing !== undefined) {
+            throw new UnsupportedConstruct(
+                `Cannot instrument state var ${(varDef.parent as ContractDefinition).name}.${
+                    varDef.name
+                } as it may be aliased by a storage pointer`,
+                potentialAliasing,
+                this.files
+            );
+        }
+    }
+
+    printUnits(units: SourceUnit[], srcMap: SrcRangeMap): Map<SourceUnit, string> {
+        return print(units, this.compilerVersion, srcMap);
     }
 }

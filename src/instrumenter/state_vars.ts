@@ -44,7 +44,11 @@ export type RHS = Expression | [Expression, number];
  */
 function* getAssignmentComponents(lhs: Expression, rhs: Expression): Iterable<[LHS, RHS]> {
     if (lhs instanceof TupleExpression) {
-        if (rhs instanceof TupleExpression) {
+        if (lhs.vOriginalComponents.length === 1 && !lhs.isInlineArray) {
+            if (lhs.vOriginalComponents[0] !== null) {
+                yield* getAssignmentComponents(lhs.vOriginalComponents[0], rhs);
+            }
+        } else if (rhs instanceof TupleExpression) {
             assert(lhs.vOriginalComponents.length === rhs.vOriginalComponents.length, ``);
             for (let i = 0; i < lhs.vOriginalComponents.length; i++) {
                 const lhsComp = lhs.vOriginalComponents[i];

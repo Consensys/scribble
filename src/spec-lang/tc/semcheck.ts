@@ -500,7 +500,8 @@ export function scForAll(expr: SForAll, ctx: SemCtx, typeEnv: TypeEnv, semMap: S
         canFail ||= containerSemInfo.canFail;
     }
 
-    // We dont support forall expressions over maps, where the container is a local pointer var
+    // We dont support forall expressions over maps, where the container is a local pointer var, or
+    // where the container is a state var that is aliased elsewhere
     if (expr.container !== undefined) {
         const containerT = typeEnv.typeOf(expr.container);
         if (containerT instanceof PointerType && containerT.to instanceof MappingType) {

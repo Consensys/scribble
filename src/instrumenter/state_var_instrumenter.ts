@@ -1077,7 +1077,6 @@ function stateVarUpdateNode2Str(node: StateVarUpdateNode): string {
 export function instrumentStateVars(
     ctx: InstrumentationContext,
     allAnnotations: AnnotationMap,
-    aliasedStateVars: Map<VariableDeclaration, ASTNode>,
     stateVarUpdates: StateVarUpdateDesc[]
 ): void {
     // First select only the state var annotations.
@@ -1089,15 +1088,7 @@ export function instrumentStateVars(
 
     // First check if any of the annotated vars is aliased - if so throw an error
     for (const varDef of stateVarAnnots.keys()) {
-        if (aliasedStateVars.has(varDef)) {
-            throw new UnsupportedConstruct(
-                `Cannot instrument state var ${(varDef.parent as ContractDefinition).name}.${
-                    varDef.name
-                } as it may be aliased by a storage pointer`,
-                aliasedStateVars.get(varDef) as ASTNode,
-                ctx.files
-            );
-        }
+        ctx.crashIfAliased(varDef);
     }
 
     // A single instrumented location can contain multiple variables to

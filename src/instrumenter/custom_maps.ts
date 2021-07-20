@@ -333,6 +333,8 @@ export function interposeMap(
             `Referenced state var (part) must be mapping, not ${mapT.constructor.name}`
         );
 
+        instrCtx.needsUtils((stateVar.vScope as ContractDefinition).vScope);
+
         const keyT = typeNameToTypeNode(mapT.vKeyType);
         const valueT = typeNameToTypeNode(mapT.vValueType);
 
@@ -411,6 +413,7 @@ export function interposeMap(
                         deleteKeyF,
                         [base, index]
                     );
+
                     replaceNode(updateNode, newNode);
                     allRefsMap.delete(updateNode.vSubExpression);
                     // Make sure the delete call maps to the original node
@@ -428,6 +431,7 @@ export function interposeMap(
                         incDecF,
                         [base, index]
                     );
+
                     replaceNode(updateNode, newNode);
                     allRefsMap.delete(updateNode.vSubExpression);
                     // Make sure the unary op call maps to the original node

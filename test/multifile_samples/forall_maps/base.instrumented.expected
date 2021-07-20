@@ -1,0 +1,29 @@
+pragma solidity 0.8.4;
+
+import "./__scribble_ReentrancyUtils.sol";
+
+contract Base {
+    struct SA {
+        string_to_uint256.S m;
+        uint cnt;
+    }
+
+    struct SB {
+        SA[] sas;
+    }
+
+    uint256_to_uint256.S internal a;
+    string_to_int16.S c0;
+    string internal sS;
+    string_to_uint8_to_int8_S_619.S internal d;
+    uint256_to_uint256_arr.S internal e;
+    mapping(uint => uint)[] internal f;
+    uint256_to_uint256.S[] internal g;
+    string_to_mapping_uint8_to_int8.S internal h;
+    mapping(string => uint8_to_int8.S) internal i;
+    SB internal j;
+
+    function c(string memory ARG_0) public returns (int16 RET_0) {
+        return string_to_int16.get(c0, ARG_0);
+    }
+}

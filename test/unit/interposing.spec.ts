@@ -34,9 +34,8 @@ function print(units: SourceUnit[], contents: string[], version: string): Map<So
     const factory = new ASTNodeFactory(context);
 
     units.forEach((unit) => rewriteImports(unit, contentMap, factory));
-    const verMap: Map<SourceUnit, string> = new Map(units.map((unit) => [unit, version]));
 
-    return printUnits(units, verMap, new Map());
+    return printUnits(units, version, new Map());
 }
 
 describe("Function interposing Unit Tests", () => {
