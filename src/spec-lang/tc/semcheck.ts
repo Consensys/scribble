@@ -388,15 +388,30 @@ export function scFunctionCall(
     semMap: SemMap
 ): SemInfo {
     const callee = expr.callee;
-    const calleeT = typeEnv.typeOf(callee);
+
     // First check the arguments
-    expr.args.forEach((arg) => sc(arg, ctx, typeEnv, semMap));
+    const argsInfo: SemInfo[] = expr.args.map((arg) => sc(arg, ctx, typeEnv, semMap));
 
     // Compute whether all args are constant
-    const allArgsConst = expr.args
-        .map((arg) => (semMap.get(arg) as SemInfo).isConst)
-        .reduce((a, b) => a && b, true);
+    const allArgsConst = argsInfo.map((argInfo) => argInfo.isConst).reduce((a, b) => a && b, true);
 
+    if (callee instanceof SId && callee.name === "sum" && callee.defSite === "builtin_fun") {
+        const arg = expr.args[0];
+        const argT = typeEnv.typeOf(arg);
+
+        if (argT instanceof PointerType && argT.to instanceof MappingType) {
+            const [sVar, path] = decomposeStateVarRef(arg);
+            if (sVar === undefined) {
+                throw new SemError(`Don't support forall over a map pointer ${arg.pp()}`, arg);
+            }
+
+            ctx.interposingQueue.push([sVar, path.map((x) => (x instanceof SNode ? null : x))]);
+        }
+
+        return { isOld: ctx.isOld, isConst: allArgsConst, canFail: argsInfo[0].canFail };
+    }
+
+    const calleeT = typeEnv.typeOf(callee);
     // Primitive cast
     if (calleeT instanceof TypeNameType) {
         return { isOld: ctx.isOld, isConst: allArgsConst, canFail: true };

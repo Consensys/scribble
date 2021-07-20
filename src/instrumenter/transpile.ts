@@ -39,6 +39,7 @@ import {
 import {
     addStmt,
     AnnotationMetaData,
+    mkStructFieldAcc,
     PropertyMetaData,
     single,
     UserFunctionDefinitionMetaData
@@ -391,6 +392,30 @@ function transpileConditional(expr: SConditional, ctx: TranspilingContext): Expr
  */
 function transpileFunctionCall(expr: SFunctionCall, ctx: TranspilingContext): Expression {
     const factory = ctx.factory;
+
+    if (
+        expr.callee instanceof SId &&
+        expr.callee.name === "sum" &&
+        expr.callee.defSite === "builtin_fun"
+    ) {
+        const arg = single(expr.args);
+        const [sVar, path] = decomposeStateVarRef(arg);
+        assert(
+            sVar !== undefined,
+            `sum argument should be a state var(or a part of it), not ${arg.pp()}`
+        );
+
+        const lib = ctx.instrCtx.getMapInterposingLibrary(
+            sVar,
+            path.map((el) => (el instanceof SNode ? null : el))
+        );
+
+        assert(lib !== undefined, `State var ${sVar.name} should already be interposed`);
+
+        const struct = ctx.instrCtx.getCustomMapStruct(lib);
+        return mkStructFieldAcc(factory, transpile(arg, ctx), struct, "sum");
+    }
+
     const calleeT = ctx.typeEnv.typeOf(expr.callee);
 
     let callee: Expression;

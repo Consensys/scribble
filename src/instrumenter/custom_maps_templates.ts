@@ -171,6 +171,10 @@ function makeStruct(
     addStructField(factory, "keys", new ArrayType(keyT), struct);
     addStructField(factory, "keyIdxM", new MappingType(keyT, new IntType(256, false)), struct);
 
+    if (valueT instanceof IntType) {
+        addStructField(factory, "sum", new IntType(256, valueT.signed), struct);
+    }
+
     return struct;
 }
 
@@ -212,13 +216,16 @@ export function addStmt(
     return stmt;
 }
 
-function mkStructFieldAcc(
+export function mkStructFieldAcc(
     factory: ASTNodeFactory,
     base: Expression,
     struct: StructDefinition,
-    idx: number
+    idxArg: number | string
 ): MemberAccess {
-    const field = struct.vMembers[idx];
+    const field =
+        typeof idxArg === "number"
+            ? struct.vMembers[idxArg]
+            : single(struct.vMembers.filter((field) => field.name === idxArg));
     return factory.makeMemberAccess("<missing>", base, field.name, field.id);
 }
 
@@ -294,6 +301,8 @@ function makeIncDecFun(
     );
 
     const mkInnerM = () => mkStructFieldAcc(factory, factory.makeIdentifierFor(m), struct, 0);
+    const mkSum = () => mkStructFieldAcc(factory, factory.makeIdentifierFor(m), struct, 3);
+
     const curVal = factory.makeIndexAccess("<missing>", mkInnerM(), factory.makeIdentifierFor(key));
     const newVal = factory.makeBinaryOperation(
         "<missing>",
@@ -325,6 +334,8 @@ function makeIncDecFun(
         );
         addStmt(factory, fun, update);
     }
+
+    addStmt(factory, fun, factory.makeUnaryOperation("<missing>", false, operator, mkSum()));
 
     return fun;
 }
@@ -698,6 +709,28 @@ function makeSetFun(
     const mkKeysLen = () => factory.makeMemberAccess("<missing>", mkKeys(), "length", -1);
     const mkKeysPush = () => factory.makeMemberAccess("<missing>", mkKeys(), "push", -1);
     const mkKeyIdxM = () => mkStructFieldAcc(factory, factory.makeIdentifierFor(m), struct, 2);
+    const mkSum = () => mkStructFieldAcc(factory, factory.makeIdentifierFor(m), struct, 3);
+
+    if (valueT instanceof IntType) {
+        // TODO: There is risk of overflow/underflow here
+        // m.sum += val;
+        addStmt(
+            factory,
+            fun,
+            factory.makeAssignment("<missing>", "+=", mkSum(), factory.makeIdentifierFor(val))
+        );
+        // m.sum -= m.innerM[key];
+        addStmt(
+            factory,
+            fun,
+            factory.makeAssignment(
+                "<missing>",
+                "-=",
+                mkSum(),
+                factory.makeIndexAccess("<missing>", mkInnerM(), factory.makeIdentifierFor(key))
+            )
+        );
+    }
 
     //m.innerM[key] = val;
     addStmt(
@@ -840,6 +873,21 @@ function makeDeleteFun(
         factory.makeExpressionStatement(
             factory.makeUnaryOperation("<missing>", true, "delete", exp)
         );
+    const mkSum = () => mkStructFieldAcc(factory, factory.makeIdentifierFor(m), struct, 3);
+
+    if (valueT instanceof IntType) {
+        // m.sum -= m.innerM[key];
+        addStmt(
+            factory,
+            fun,
+            factory.makeAssignment(
+                "<missing>",
+                "-=",
+                mkSum(),
+                factory.makeIndexAccess("<missing>", mkInnerM(), factory.makeIdentifierFor(key))
+            )
+        );
+    }
 
     // delete m.innerM[key];
     addStmt(

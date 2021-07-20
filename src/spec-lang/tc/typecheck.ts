@@ -1663,6 +1663,41 @@ export function tcForAll(expr: SForAll, ctx: STypingCtx, typeEnv: TypeEnv): Type
 export function tcFunctionCall(expr: SFunctionCall, ctx: STypingCtx, typeEnv: TypeEnv): TypeNode {
     const callee = expr.callee;
 
+    if (callee instanceof SId && callee.name === "sum") {
+        callee.defSite = "builtin_fun";
+
+        if (expr.args.length !== 1) {
+            throw new SExprCountMismatch(
+                `Calls to sum expect a single argument, not ${expr.args.length} in ${expr.pp()}`,
+                expr
+            );
+        }
+
+        const argT = tc(expr.args[0], ctx, typeEnv);
+
+        if (!(argT instanceof PointerType)) {
+            throw new SWrongType(
+                `sum expects a numeric array or map to numbers, not ${argT.pp()} in ${expr.pp()}`,
+                expr,
+                argT
+            );
+        }
+
+        if (argT.to instanceof MappingType && argT.to.valueType instanceof IntType) {
+            return argT.to.valueType;
+        }
+
+        if (argT.to instanceof ArrayType && argT.to.elementT instanceof IntType) {
+            return argT.to.elementT;
+        }
+
+        throw new SWrongType(
+            `sum expects a numeric array or map to numbers, not ${argT.pp()} in ${expr.pp()}`,
+            expr,
+            argT
+        );
+    }
+
     /**
      * There are 4 semantic cases for a function call:
      *  - callee is a type (type cast). calleeT is either a SBuiltinTypeNameType or SUserDefinedTypeNameType
