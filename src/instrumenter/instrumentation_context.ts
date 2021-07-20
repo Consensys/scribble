@@ -14,7 +14,6 @@ import {
     Expression,
     Statement,
     TypeNode,
-    getNodeType,
     SrcRangeMap
 } from "solc-typed-ast";
 import {
@@ -341,12 +340,11 @@ export class InstrumentationContext {
         return this.getCustomMapFun(library, lhs ? "get_lhs" : "get");
     }
 
-    getCustomMapSetter(library: ContractDefinition, newVal: Expression): FunctionDefinition {
+    getCustomMapSetter(library: ContractDefinition, newValT: TypeNode): FunctionDefinition {
         const res = this.customMapLibrary.get(library.name);
         assert(res !== undefined, ``);
         const [lib, , funs, , valueT] = res;
 
-        const newValT = getNodeType(newVal, this.compilerVersion);
         const setterName = getSetterName(valueT, newValT);
         let setter = funs.get(setterName);
 

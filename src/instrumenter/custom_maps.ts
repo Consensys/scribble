@@ -14,6 +14,7 @@ import {
     FunctionCallKind,
     FunctionDefinition,
     FunctionVisibility,
+    getNodeType,
     Identifier,
     IndexAccess,
     IntType,
@@ -29,6 +30,7 @@ import {
     TupleExpression,
     TypeName,
     typeNameToTypeNode,
+    TypeNode,
     UnaryOperation,
     UserDefinedType,
     UserDefinedTypeName,
@@ -144,13 +146,26 @@ function replaceAssignmentHelper(
     lib: ContractDefinition
 ): void {
     const factory = instrCtx.factory;
-    const newVal = assignment.vRightHandSide;
+    let newVal = assignment.vRightHandSide;
     const [base, index] = splitExpr(assignment.vLeftHandSide);
+    const newValT: TypeNode = getNodeType(newVal, instrCtx.compilerVersion);
+
+    if (assignment.operator !== "=") {
+        const getter = instrCtx.getCustomMapGetter(lib, false);
+        const oldVal = factory.makeFunctionCall(
+            "<missing>",
+            FunctionCallKind.FunctionCall,
+            mkLibraryFunRef(instrCtx, getter),
+            [base, index]
+        );
+        const op = assignment.operator.slice(0, -1);
+        newVal = factory.makeBinaryOperation("<missing>", op, oldVal, newVal);
+    }
 
     const newNode = factory.makeFunctionCall(
         "<missing>",
         FunctionCallKind.FunctionCall,
-        mkLibraryFunRef(instrCtx, instrCtx.getCustomMapSetter(lib, newVal)),
+        mkLibraryFunRef(instrCtx, instrCtx.getCustomMapSetter(lib, newValT)),
         [base, index, newVal]
     );
 
