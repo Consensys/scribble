@@ -58,11 +58,6 @@ export type StateVarRefDesc = [Expression, VariableDeclaration, ConcreteDatastru
 /**
  * Given a TypeName `typ` and a `DatastructurePath` `path`, find the part of `typ` that corresponds to `path`.
  * `idx` is used internaly in the recursion to keep track of where we are in the path.
- *
- * @param typ
- * @param path
- * @param idx
- * @returns
  */
 function lookupPathInType(typ: TypeName, path: AbsDatastructurePath, idx = 0): TypeName {
     if (idx === path.length) {
@@ -303,9 +298,6 @@ function isAccessRValueInLValue(node: Expression): boolean {
  * 1. Replace the type of `T` in the `stateVar` declaration with `L.S`.
  * 2. Replace all var index updates with L.set(<base>, <key>, <newVal>) or L.deleteKey(<base>, <key>)
  * 3. Replace all index accesses `<base>[<key>]` on `T` with `L.get(<base>, <key>)`
- *
- * @param stateVar
- * @param path
  */
 export function interposeMap(
     instrCtx: InstrumentationContext,

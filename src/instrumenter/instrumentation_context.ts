@@ -79,6 +79,14 @@ function getAllNames(units: SourceUnit[]): Set<string> {
     return nameSet;
 }
 
+type CustomMapLibraryMD = [
+    ContractDefinition,
+    StructDefinition,
+    Map<string, FunctionDefinition>,
+    TypeNode,
+    TypeNode
+];
+
 export class InstrumentationContext {
     public readonly nameGenerator: NameGenerator;
     public readonly structVar: string;
@@ -290,10 +298,7 @@ export class InstrumentationContext {
         }
     }
 
-    private customMapLibrary = new Map<
-        string,
-        [ContractDefinition, StructDefinition, Map<string, FunctionDefinition>, TypeNode, TypeNode]
-    >();
+    private customMapLibrary = new Map<string, CustomMapLibraryMD>();
 
     isCustomMapLibrary(t: ContractDefinition): boolean {
         return this.customMapLibrary.has(t.name);
@@ -323,15 +328,18 @@ export class InstrumentationContext {
 
     getCustomMapStruct(library: ContractDefinition): StructDefinition {
         const res = this.customMapLibrary.get(library.name);
-        assert(res !== undefined, ``);
+        assert(res !== undefined, `Missing metadata for custom map library ${library.name}`);
         return res[1];
     }
 
     private getCustomMapFun(library: ContractDefinition, funName: string): FunctionDefinition {
         const res = this.customMapLibrary.get(library.name);
-        assert(res !== undefined, ``);
+        assert(res !== undefined, `Missing metadata for custom map library ${library.name}`);
         const getter = res[2].get(funName);
-        assert(getter !== undefined, ``);
+        assert(
+            getter !== undefined,
+            `Missing function ${funName} for custom map library ${library.name}`
+        );
 
         return getter;
     }
@@ -342,7 +350,7 @@ export class InstrumentationContext {
 
     getCustomMapSetter(library: ContractDefinition, newValT: TypeNode): FunctionDefinition {
         const res = this.customMapLibrary.get(library.name);
-        assert(res !== undefined, ``);
+        assert(res !== undefined, `Missing metadata for custom map library ${library.name}`);
         const [lib, , funs, , valueT] = res;
 
         const setterName = getSetterName(valueT, newValT);

@@ -857,8 +857,6 @@ export function explodeTupleAssignment(
  * Special care needs to be taken for any indexing sub-expressions appearing inside the LHS expressions - those need to be computed before
  * the assignment to preserve evaluation order.
  *
- * @param ctx
- * @param updateNode
  * @param stateVars - state variables whose update we want to interpose on.
  */
 export function interposeTupleAssignment(

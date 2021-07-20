@@ -289,7 +289,7 @@ function makeIncDecFun(
         fun
     );
 
-    const RET = addFunRet(
+    const ret = addFunRet(
         ctx,
         "RET",
         valueT,
@@ -323,7 +323,7 @@ function makeIncDecFun(
             factory.makeAssignment(
                 "<missing>",
                 "=",
-                factory.makeIdentifierFor(RET),
+                factory.makeIdentifierFor(ret),
                 factory.makeIndexAccess("<missing>", mkInnerM(), factory.makeIdentifierFor(key))
             )
         );
