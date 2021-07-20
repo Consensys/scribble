@@ -12,7 +12,7 @@ library string_to_uint256 {
         mapping(string => uint256) keyIdxM;
     }
 
-    function get_lhs(S storage m, string memory key) internal returns (uint256) {
+    function addKey(S storage m, string memory key) private {
         uint idx = m.keyIdxM[key];
         if (idx == 0) {
             if (m.keys.length == 0) {
@@ -21,6 +21,22 @@ library string_to_uint256 {
             m.keyIdxM[key] = m.keys.length;
             m.keys.push(key);
         }
+    }
+
+    function removeKey(S storage m, string memory key) private {
+        uint256 idx = m.keyIdxM[key];
+        if (idx == 0) return;
+        if (idx != (m.keys.length - 1)) {
+            string storage lastKey = m.keys[m.keys.length - 1];
+            m.keys[idx] = lastKey;
+            m.keyIdxM[lastKey] = idx;
+        }
+        m.keys.pop();
+        delete m.keyIdxM[key];
+    }
+
+    function get_lhs(S storage m, string memory key) internal returns (uint256) {
+        addKey(m, key);
         return m.innerM[key];
     }
 
@@ -42,15 +58,7 @@ library string_to_uint256 {
 
     function deleteKey(S storage m, string memory key) internal {
         delete m.innerM[key];
-        uint256 idx = m.keyIdxM[key];
-        if (idx == 0) return;
-        if (idx != (m.keys.length - 1)) {
-            string storage lastKey = m.keys[m.keys.length - 1];
-            m.keys[idx] = lastKey;
-            m.keyIdxM[lastKey] = idx;
-        }
-        m.keys.pop();
-        delete m.keyIdxM[key];
+        removeKey(m, key);
     }
 
     function inc_pre(S storage m, string memory key) internal returns (uint256 RET) {
@@ -79,7 +87,7 @@ library uint8_to_int8 {
         mapping(uint8 => uint256) keyIdxM;
     }
 
-    function get_lhs(S storage m, uint8 key) internal returns (int8) {
+    function addKey(S storage m, uint8 key) private {
         uint idx = m.keyIdxM[key];
         if (idx == 0) {
             if (m.keys.length == 0) {
@@ -88,6 +96,22 @@ library uint8_to_int8 {
             m.keyIdxM[key] = m.keys.length;
             m.keys.push(key);
         }
+    }
+
+    function removeKey(S storage m, uint8 key) private {
+        uint256 idx = m.keyIdxM[key];
+        if (idx == 0) return;
+        if (idx != (m.keys.length - 1)) {
+            uint8 lastKey = m.keys[m.keys.length - 1];
+            m.keys[idx] = lastKey;
+            m.keyIdxM[lastKey] = idx;
+        }
+        m.keys.pop();
+        delete m.keyIdxM[key];
+    }
+
+    function get_lhs(S storage m, uint8 key) internal returns (int8) {
+        addKey(m, key);
         return m.innerM[key];
     }
 
@@ -109,15 +133,7 @@ library uint8_to_int8 {
 
     function deleteKey(S storage m, uint8 key) internal {
         delete m.innerM[key];
-        uint256 idx = m.keyIdxM[key];
-        if (idx == 0) return;
-        if (idx != (m.keys.length - 1)) {
-            uint8 lastKey = m.keys[m.keys.length - 1];
-            m.keys[idx] = lastKey;
-            m.keyIdxM[lastKey] = idx;
-        }
-        m.keys.pop();
-        delete m.keyIdxM[key];
+        removeKey(m, key);
     }
 
     function inc_pre(S storage m, uint8 key) internal returns (int8 RET) {
@@ -146,7 +162,7 @@ library uint256_to_uint256 {
         mapping(uint256 => uint256) keyIdxM;
     }
 
-    function get_lhs(S storage m, uint256 key) internal returns (uint256) {
+    function addKey(S storage m, uint256 key) private {
         uint idx = m.keyIdxM[key];
         if (idx == 0) {
             if (m.keys.length == 0) {
@@ -155,6 +171,22 @@ library uint256_to_uint256 {
             m.keyIdxM[key] = m.keys.length;
             m.keys.push(key);
         }
+    }
+
+    function removeKey(S storage m, uint256 key) private {
+        uint256 idx = m.keyIdxM[key];
+        if (idx == 0) return;
+        if (idx != (m.keys.length - 1)) {
+            uint256 lastKey = m.keys[m.keys.length - 1];
+            m.keys[idx] = lastKey;
+            m.keyIdxM[lastKey] = idx;
+        }
+        m.keys.pop();
+        delete m.keyIdxM[key];
+    }
+
+    function get_lhs(S storage m, uint256 key) internal returns (uint256) {
+        addKey(m, key);
         return m.innerM[key];
     }
 
@@ -176,15 +208,7 @@ library uint256_to_uint256 {
 
     function deleteKey(S storage m, uint256 key) internal {
         delete m.innerM[key];
-        uint256 idx = m.keyIdxM[key];
-        if (idx == 0) return;
-        if (idx != (m.keys.length - 1)) {
-            uint256 lastKey = m.keys[m.keys.length - 1];
-            m.keys[idx] = lastKey;
-            m.keyIdxM[lastKey] = idx;
-        }
-        m.keys.pop();
-        delete m.keyIdxM[key];
+        removeKey(m, key);
     }
 
     function inc_pre(S storage m, uint256 key) internal returns (uint256 RET) {
@@ -213,7 +237,7 @@ library string_to_int16 {
         mapping(string => uint256) keyIdxM;
     }
 
-    function get_lhs(S storage m, string memory key) internal returns (int16) {
+    function addKey(S storage m, string memory key) private {
         uint idx = m.keyIdxM[key];
         if (idx == 0) {
             if (m.keys.length == 0) {
@@ -222,6 +246,22 @@ library string_to_int16 {
             m.keyIdxM[key] = m.keys.length;
             m.keys.push(key);
         }
+    }
+
+    function removeKey(S storage m, string memory key) private {
+        uint256 idx = m.keyIdxM[key];
+        if (idx == 0) return;
+        if (idx != (m.keys.length - 1)) {
+            string storage lastKey = m.keys[m.keys.length - 1];
+            m.keys[idx] = lastKey;
+            m.keyIdxM[lastKey] = idx;
+        }
+        m.keys.pop();
+        delete m.keyIdxM[key];
+    }
+
+    function get_lhs(S storage m, string memory key) internal returns (int16) {
+        addKey(m, key);
         return m.innerM[key];
     }
 
@@ -243,15 +283,7 @@ library string_to_int16 {
 
     function deleteKey(S storage m, string memory key) internal {
         delete m.innerM[key];
-        uint256 idx = m.keyIdxM[key];
-        if (idx == 0) return;
-        if (idx != (m.keys.length - 1)) {
-            string storage lastKey = m.keys[m.keys.length - 1];
-            m.keys[idx] = lastKey;
-            m.keyIdxM[lastKey] = idx;
-        }
-        m.keys.pop();
-        delete m.keyIdxM[key];
+        removeKey(m, key);
     }
 
     function inc_pre(S storage m, string memory key) internal returns (int16 RET) {
@@ -273,14 +305,14 @@ library string_to_int16 {
     }
 }
 
-library string_to_uint8_to_int8_S_613 {
+library string_to_uint8_to_int8_S_639 {
     struct S {
         mapping(string => uint8_to_int8.S) innerM;
         string[] keys;
         mapping(string => uint256) keyIdxM;
     }
 
-    function get_lhs(S storage m, string memory key) internal returns (uint8_to_int8.S storage) {
+    function addKey(S storage m, string memory key) private {
         uint idx = m.keyIdxM[key];
         if (idx == 0) {
             if (m.keys.length == 0) {
@@ -289,6 +321,22 @@ library string_to_uint8_to_int8_S_613 {
             m.keyIdxM[key] = m.keys.length;
             m.keys.push(key);
         }
+    }
+
+    function removeKey(S storage m, string memory key) private {
+        uint256 idx = m.keyIdxM[key];
+        if (idx == 0) return;
+        if (idx != (m.keys.length - 1)) {
+            string storage lastKey = m.keys[m.keys.length - 1];
+            m.keys[idx] = lastKey;
+            m.keyIdxM[lastKey] = idx;
+        }
+        m.keys.pop();
+        delete m.keyIdxM[key];
+    }
+
+    function get_lhs(S storage m, string memory key) internal returns (uint8_to_int8.S storage) {
+        addKey(m, key);
         return m.innerM[key];
     }
 
@@ -304,7 +352,7 @@ library uint256_to_uint256_arr {
         mapping(uint256 => uint256) keyIdxM;
     }
 
-    function get_lhs(S storage m, uint256 key) internal returns (uint256[] storage) {
+    function addKey(S storage m, uint256 key) private {
         uint idx = m.keyIdxM[key];
         if (idx == 0) {
             if (m.keys.length == 0) {
@@ -313,6 +361,22 @@ library uint256_to_uint256_arr {
             m.keyIdxM[key] = m.keys.length;
             m.keys.push(key);
         }
+    }
+
+    function removeKey(S storage m, uint256 key) private {
+        uint256 idx = m.keyIdxM[key];
+        if (idx == 0) return;
+        if (idx != (m.keys.length - 1)) {
+            uint256 lastKey = m.keys[m.keys.length - 1];
+            m.keys[idx] = lastKey;
+            m.keyIdxM[lastKey] = idx;
+        }
+        m.keys.pop();
+        delete m.keyIdxM[key];
+    }
+
+    function get_lhs(S storage m, uint256 key) internal returns (uint256[] storage) {
+        addKey(m, key);
         return m.innerM[key];
     }
 
@@ -334,15 +398,7 @@ library uint256_to_uint256_arr {
 
     function deleteKey(S storage m, uint256 key) internal {
         delete m.innerM[key];
-        uint256 idx = m.keyIdxM[key];
-        if (idx == 0) return;
-        if (idx != (m.keys.length - 1)) {
-            uint256 lastKey = m.keys[m.keys.length - 1];
-            m.keys[idx] = lastKey;
-            m.keyIdxM[lastKey] = idx;
-        }
-        m.keys.pop();
-        delete m.keyIdxM[key];
+        removeKey(m, key);
     }
 }
 
@@ -353,7 +409,7 @@ library string_to_mapping_uint8_to_int8 {
         mapping(string => uint256) keyIdxM;
     }
 
-    function get_lhs(S storage m, string memory key) internal returns (mapping(uint8 => int8) storage) {
+    function addKey(S storage m, string memory key) private {
         uint idx = m.keyIdxM[key];
         if (idx == 0) {
             if (m.keys.length == 0) {
@@ -362,6 +418,22 @@ library string_to_mapping_uint8_to_int8 {
             m.keyIdxM[key] = m.keys.length;
             m.keys.push(key);
         }
+    }
+
+    function removeKey(S storage m, string memory key) private {
+        uint256 idx = m.keyIdxM[key];
+        if (idx == 0) return;
+        if (idx != (m.keys.length - 1)) {
+            string storage lastKey = m.keys[m.keys.length - 1];
+            m.keys[idx] = lastKey;
+            m.keyIdxM[lastKey] = idx;
+        }
+        m.keys.pop();
+        delete m.keyIdxM[key];
+    }
+
+    function get_lhs(S storage m, string memory key) internal returns (mapping(uint8 => int8) storage) {
+        addKey(m, key);
         return m.innerM[key];
     }
 
@@ -454,7 +526,7 @@ contract Foo {
     uint256_to_uint256.S internal a;
     string_to_int16.S c0;
     string internal sS;
-    string_to_uint8_to_int8_S_613.S internal d;
+    string_to_uint8_to_int8_S_639.S internal d;
     uint256_to_uint256_arr.S internal e;
     mapping(uint => uint)[] internal f;
     uint256_to_uint256.S[] internal g;
@@ -533,9 +605,9 @@ contract Foo {
             for (_v.i3 = 1; _v.i3 < d.keys.length; _v.i3++) {
                 _v.s1 = d.keys[_v.i3];
                 _v.forall_4 = true;
-                for (_v.i4 = 1; _v.i4 < string_to_uint8_to_int8_S_613.get(d, _v.s1).keys.length; _v.i4++) {
-                    _v.k2 = string_to_uint8_to_int8_S_613.get(d, _v.s1).keys[_v.i4];
-                    _v.forall_4 = uint8_to_int8.get(string_to_uint8_to_int8_S_613.get(d, _v.s1), _v.k2) > 0;
+                for (_v.i4 = 1; _v.i4 < string_to_uint8_to_int8_S_639.get(d, _v.s1).keys.length; _v.i4++) {
+                    _v.k2 = string_to_uint8_to_int8_S_639.get(d, _v.s1).keys[_v.i4];
+                    _v.forall_4 = uint8_to_int8.get(string_to_uint8_to_int8_S_639.get(d, _v.s1), _v.k2) > 0;
                     if (!_v.forall_4) break;
                 }
                 _v.forall_3 = _v.forall_4;
@@ -549,7 +621,7 @@ contract Foo {
     }
 
     function _original_Foo_setD(string memory s, uint8 k, int8 v) private {
-        uint8_to_int8.set(string_to_uint8_to_int8_S_613.get_lhs(d, s), k, v);
+        uint8_to_int8.set(string_to_uint8_to_int8_S_639.get_lhs(d, s), k, v);
     }
 
     function setE(uint k, uint[] memory v) public {

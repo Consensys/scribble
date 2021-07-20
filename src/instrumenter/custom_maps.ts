@@ -42,6 +42,7 @@ import {
     ConcreteDatastructurePath,
     explodeTupleAssignment,
     findStateVarUpdates,
+    mkLibraryFunRef,
     needsLocation,
     single,
     UnsupportedConstruct
@@ -135,18 +136,6 @@ function pathMatch(a: AbsDatastructurePath, b: ConcreteDatastructurePath): boole
 function splitExpr(e: Expression): [Expression, Expression] {
     assert(e instanceof IndexAccess && e.vIndexExpression !== undefined, ``);
     return [e.vBaseExpression, e.vIndexExpression];
-}
-
-function mkLibraryFunRef(ctx: InstrumentationContext, fn: FunctionDefinition): MemberAccess {
-    const factory = ctx.factory;
-    const ref = factory.makeMemberAccess(
-        "<missing>",
-        factory.makeIdentifierFor(fn.vScope as ContractDefinition),
-        fn.name,
-        fn.id
-    );
-    ctx.addGeneralInstrumentation(ref);
-    return ref;
 }
 
 function replaceAssignmentHelper(

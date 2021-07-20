@@ -328,13 +328,17 @@ export class InstrumentationContext {
         return res[1];
     }
 
-    getCustomMapGetter(library: ContractDefinition, lhs: boolean): FunctionDefinition {
+    private getCustomMapFun(library: ContractDefinition, funName: string): FunctionDefinition {
         const res = this.customMapLibrary.get(library.name);
         assert(res !== undefined, ``);
-        const getter = res[2].get(lhs ? "get_lhs" : "get");
+        const getter = res[2].get(funName);
         assert(getter !== undefined, ``);
 
         return getter;
+    }
+
+    getCustomMapGetter(library: ContractDefinition, lhs: boolean): FunctionDefinition {
+        return this.getCustomMapFun(library, lhs ? "get_lhs" : "get");
     }
 
     getCustomMapSetter(library: ContractDefinition, newVal: Expression): FunctionDefinition {
@@ -360,22 +364,12 @@ export class InstrumentationContext {
         operator: "++" | "--",
         prefix: boolean
     ): FunctionDefinition {
-        const res = this.customMapLibrary.get(library.name);
-        assert(res !== undefined, ``);
         const funName = (operator == "++" ? "inc" : "dec") + (prefix ? "_pre" : "");
-        const setter = res[2].get(funName);
-        assert(setter !== undefined, ``);
-
-        return setter;
+        return this.getCustomMapFun(library, funName);
     }
 
     getCustomMapDeleteKey(library: ContractDefinition): FunctionDefinition {
-        const res = this.customMapLibrary.get(library.name);
-        assert(res !== undefined, ``);
-        const setter = res[2].get("deleteKey");
-        assert(setter !== undefined, ``);
-
-        return setter;
+        return this.getCustomMapFun(library, "deleteKey");
     }
 
     setMapInterposingLibrary(
