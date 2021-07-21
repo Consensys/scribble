@@ -67,24 +67,20 @@ library uint256_to_uint256 {
 
     function inc_pre(S storage m, uint256 key) internal returns (uint256 RET) {
         return set(m, key, m.innerM[key] + 1);
-        m.sum++;
     }
 
     function inc(S storage m, uint256 key) internal returns (uint256 RET) {
         RET = m.innerM[key];
         set(m, key, m.innerM[key] + 1);
-        m.sum++;
     }
 
     function dec_pre(S storage m, uint256 key) internal returns (uint256 RET) {
         return set(m, key, m.innerM[key] - 1);
-        m.sum--;
     }
 
     function dec(S storage m, uint256 key) internal returns (uint256 RET) {
         RET = m.innerM[key];
         set(m, key, m.innerM[key] - 1);
-        m.sum--;
     }
 }
 contract Foo {
@@ -94,6 +90,10 @@ contract Foo {
 
     constructor() {
         uint256_to_uint256.set(a, 0, 10);
+    }
+
+    function get(uint k) public returns (uint) {
+        return uint256_to_uint256.get(a, k);
     }
 
     function set(uint k, uint v) public {
@@ -108,5 +108,33 @@ contract Foo {
 
     function _original_Foo_set(uint k, uint v) private {
         uint256_to_uint256.set(a, k, v);
+    }
+
+    function inc(uint k) public {
+        _original_Foo_inc(k);
+        unchecked {
+            if (!((a.sum > 10) && (a.sum < 20))) {
+                emit AssertionFailed("1: ");
+                assert(false);
+            }
+        }
+    }
+
+    function _original_Foo_inc(uint k) private {
+        uint256_to_uint256.inc(a, k);
+    }
+
+    function dec(uint k) public {
+        _original_Foo_dec(k);
+        unchecked {
+            if (!((a.sum > 10) && (a.sum < 20))) {
+                emit AssertionFailed("2: ");
+                assert(false);
+            }
+        }
+    }
+
+    function _original_Foo_dec(uint k) private {
+        uint256_to_uint256.dec(a, k);
     }
 }

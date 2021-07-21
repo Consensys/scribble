@@ -301,7 +301,6 @@ function makeIncDecFun(
     );
 
     const mkInnerM = () => mkStructFieldAcc(factory, factory.makeIdentifierFor(m), struct, 0);
-    const mkSum = () => mkStructFieldAcc(factory, factory.makeIdentifierFor(m), struct, 3);
 
     const curVal = factory.makeIndexAccess("<missing>", mkInnerM(), factory.makeIdentifierFor(key));
     const newVal = factory.makeBinaryOperation(
@@ -334,8 +333,6 @@ function makeIncDecFun(
         );
         addStmt(factory, fun, update);
     }
-
-    addStmt(factory, fun, factory.makeUnaryOperation("<missing>", false, operator, mkSum()));
 
     return fun;
 }
