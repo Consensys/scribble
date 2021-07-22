@@ -53,8 +53,6 @@ export class SForAll extends SNode {
                 start === undefined && end === undefined,
                 `Can't specify both an array and start or end for forall.`
             );
-            // this.start = new SNumber(bigInt(0), 10);
-            // this.end = new SMemberAccess(container, "length");
         }
 
         this.expression = expression;
@@ -66,9 +64,9 @@ export class SForAll extends SNode {
             return `(forall(${this.iteratorType.pp()} ${this.iteratorVariable.pp()} in ${(
                 this.start as SNode
             ).pp()}...${(this.end as SNode).pp()} ${this.expression.pp()}`;
-        } else {
-            return `(forall(${this.iteratorType.pp()} ${this.iteratorVariable.pp()} in ${this.container.pp()}) ${this.expression.pp()}`;
         }
+
+        return `(forall(${this.iteratorType.pp()} ${this.iteratorVariable.pp()} in ${this.container.pp()}) ${this.expression.pp()}`;
     }
 
     getFields(): any[] {

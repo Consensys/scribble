@@ -152,6 +152,7 @@ export class InstrumentationContext {
     private unitsNeedingUtils = new Set<SourceUnit>();
     private _originalContents: Map<SourceUnit, string>;
     private _aliasedStateVars: Map<VariableDeclaration, ASTNode>;
+    private customMapLibrary = new Map<string, CustomMapLibraryMD>();
 
     constructor(
         public readonly factory: ASTNodeFactory,
@@ -189,7 +190,7 @@ export class InstrumentationContext {
         this.varInterposingQueue = dedup(
             _varInterposingQueue,
             (x: [VariableDeclaration, AbsDatastructurePath]) =>
-                `${x[0].name}_${x[1].map((x) => (x === null ? "[]" : x)).join("_")}`
+                `${x[0].name}_${x[1].map((y) => (y === null ? "[]" : y)).join("_")}`
         );
 
         this._originalContents = this.printUnits(units, new Map());
@@ -297,8 +298,6 @@ export class InstrumentationContext {
             );
         }
     }
-
-    private customMapLibrary = new Map<string, CustomMapLibraryMD>();
 
     isCustomMapLibrary(t: ContractDefinition): boolean {
         return this.customMapLibrary.has(t.name);

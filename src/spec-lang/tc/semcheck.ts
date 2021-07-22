@@ -464,7 +464,10 @@ export function decomposeStateVarRef(
         break;
     }
 
-    assert(e instanceof SId, ``);
+    assert(
+        e instanceof SId,
+        `Unexpected node after decomposing a state var ref: ${e.constructor.name}`
+    );
     path.reverse();
 
     // Normal state variable reference by name

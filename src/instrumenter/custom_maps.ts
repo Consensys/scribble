@@ -86,7 +86,10 @@ function lookupPathInType(typ: TypeName, path: AbsDatastructurePath, idx = 0): T
             const valueT = single(
                 typ.vReferencedDeclaration.vMembers.filter((field) => field.name === "innerM")
             ).vType;
-            assert(valueT instanceof Mapping, ``);
+            assert(
+                valueT instanceof Mapping,
+                `Expected struct ${typ.path ? typ.path.name : typ.name} to contain field innerM`
+            );
 
             return lookupPathInType(valueT.vValueType, path, idx + 1);
         }
@@ -104,7 +107,7 @@ function lookupPathInType(typ: TypeName, path: AbsDatastructurePath, idx = 0): T
         `No field matching element path ${el} in struct ${typ.vReferencedDeclaration.name}`
     );
 
-    assert(field.vType !== undefined, ``);
+    assert(field.vType !== undefined, `Expected field ${field.name} to have a type`);
 
     return lookupPathInType(field.vType, path, idx + 1);
 }
@@ -126,12 +129,18 @@ function pathMatch(a: AbsDatastructurePath, b: ConcreteDatastructurePath): boole
         return false;
     }
 
-    assert(b[a.length] instanceof Expression, ``);
+    assert(
+        b[a.length] instanceof Expression,
+        `Expected last element in path to be an index expression, not ${b[a.length]}`
+    );
     return true;
 }
 
 function splitExpr(e: Expression): [Expression, Expression] {
-    assert(e instanceof IndexAccess && e.vIndexExpression !== undefined, ``);
+    assert(
+        e instanceof IndexAccess && e.vIndexExpression !== undefined,
+        `splitExpr expects an index access, not ${e.constructor.name}`
+    );
     return [e.vBaseExpression, e.vIndexExpression];
 }
 
@@ -216,7 +225,7 @@ export function findAllStateVarReferences(units: SourceUnit[]): StateVarRefDesc[
 
 /**
  * Returns true if the IndexAccess `node` (e.g. base[key]) is such that its part of
- * an update, and the update happesn to same part of `base[key]`, but not the whole `base[key]`.
+ * an update, and the update happens to same part of `base[key]`, but not the whole `base[key]`.
  *
  * Here are several examples where `base[key]` should be true:
  *
@@ -229,8 +238,6 @@ export function findAllStateVarReferences(units: SourceUnit[]): StateVarRefDesc[
  * base[key] = val; // update is to the whole part
  * delete base[key]; // we don't count updates as deletions in this case
  * base[key]--;
- *
- * @param node
  */
 function isAccessRValueInLValue(node: Expression): boolean {
     let ref: Expression = node;
@@ -277,9 +284,8 @@ function isAccessRValueInLValue(node: Expression): boolean {
 
         if (pt instanceof FunctionCall) {
             return (
-                ref === pt.vExpression && [
-                    pt.vFunctionName === "push" || pt.vFunctionName === "pop"
-                ] &&
+                ref === pt.vExpression &&
+                (pt.vFunctionName === "push" || pt.vFunctionName === "pop") &&
                 pt.vFunctionCallType === ExternalReferenceType.Builtin
             );
         }
@@ -312,7 +318,7 @@ export function interposeMap(
     // interposing on both maps in `mapping(uint => mapping(uint => uint))` We
     // will first interpose on the inner `mapping(uint=>uint)` and then on the
     // outer map.
-    targets.sort((a, b) => (a[1].length > b[1].length ? -1 : a[1].length == b[1].length ? 0 : 1));
+    targets.sort((a, b) => b[1].length - a[1].length);
 
     const mapTs = targets.map(([stateVar, path]) =>
         lookupPathInType(stateVar.vType as TypeName, path)
@@ -320,8 +326,7 @@ export function interposeMap(
     const factory = instrCtx.factory;
 
     for (let i = 0; i < targets.length; i++) {
-        const stateVar = targets[i][0];
-        const path = targets[i][1];
+        const [stateVar, path] = targets[i];
         const mapT = mapTs[i];
 
         assert(
@@ -397,7 +402,10 @@ export function interposeMap(
                 const [base, index] = splitExpr(updateNode.vSubExpression);
 
                 if (updateNode.operator === "delete") {
-                    assert(updateNode.parent instanceof ExpressionStatement, ``);
+                    assert(
+                        updateNode.parent instanceof ExpressionStatement,
+                        `delete operator can only be used as a statement`
+                    );
                     const deleteKeyF = mkLibraryFunRef(
                         instrCtx,
                         instrCtx.getCustomMapDeleteKey(lib)
@@ -415,7 +423,10 @@ export function interposeMap(
                     // Make sure the delete call maps to the original node
                     newNode.src = updateNode.src;
                 } else {
-                    assert(updateNode.operator === "++" || updateNode.operator == "--", ``);
+                    assert(
+                        updateNode.operator === "++" || updateNode.operator == "--",
+                        `Expected ++/-- operator, not ${updateNode.operator}`
+                    );
                     const incDecF = mkLibraryFunRef(
                         instrCtx,
                         instrCtx.getCustomMapIncDec(lib, updateNode.operator, updateNode.prefix)
@@ -452,8 +463,7 @@ export function interposeMap(
     // Note: This has to be done after the assignment for ALL targets are processed, so that
     // we can accumulate the set of all access that appear on the LHS of an update.
     for (let i = 0; i < targets.length; i++) {
-        const stateVar = targets[i][0];
-        const path = targets[i][1];
+        const [stateVar, path] = targets[i];
 
         // Get the custom library implementation
         const lib = instrCtx.getMapInterposingLibrary(stateVar, path);
@@ -500,12 +510,12 @@ function interposeGetter(
     v: VariableDeclaration,
     units: SourceUnit[]
 ): FunctionDefinition {
-    assert(v.stateVariable, ``);
+    assert(v.stateVariable, `interposeGetter exects a state variable, not ${v.name}`);
     const factory = ctx.factory;
     const contract = v.vScope as ContractDefinition;
     let typ = v.vType;
 
-    assert(typ !== undefined, ``);
+    assert(typ !== undefined, `State var ${v.name} is missing a type`);
     const fn = addEmptyFun(ctx, v.name, FunctionVisibility.Public, contract);
     let expr: Expression = factory.makeIdentifierFor(v);
 
@@ -589,7 +599,7 @@ function interposeGetter(
     addFunRet(ctx, ctx.nameGenerator.getFresh("RET_"), exprT, DataLocation.Default, fn);
     addStmt(factory, fn, factory.makeReturn(fn.vReturnParameters.id, expr));
 
-    // Finally rename the variable itsel so it doesn't clash with the getter
+    // Finally rename the variable itself so it doesn't clash with the getter
     v.name = ctx.nameGenerator.getFresh(v.name);
     for (const unit of units) {
         for (const ref of unit.getChildrenBySelector(

@@ -36,7 +36,13 @@ import {
     UserDefinedType,
     VariableDeclaration
 } from "solc-typed-ast";
-import { AnnotationMetaData, PropertyMetaData, single, UserFunctionDefinitionMetaData } from "..";
+import {
+    addStmt,
+    AnnotationMetaData,
+    PropertyMetaData,
+    single,
+    UserFunctionDefinitionMetaData
+} from "..";
 import {
     SAddressLiteral,
     SBinaryOperation,
@@ -519,7 +525,7 @@ function makeForLoop(
         factory.makeUnaryOperation("<missing>", false, "++", ctx.refBinding(iterVarName))
     );
 
-    const body: Block = factory.makeBlock([]);
+    const body = factory.makeBlock([]);
 
     // Build and insert a for-loop with empty body
     return factory.makeForStatement(body, initStmt, iterCond, incStmt);
@@ -577,17 +583,18 @@ function transpileForAll(expr: SForAll, ctx: TranspilingContext): Expression {
             );
 
             ctx.addBinding(iterVarName, transpileType(expr.iteratorType, ctx.factory));
-            (forStmt.vBody as Block).appendChild(
-                factory.makeExpressionStatement(
-                    factory.makeAssignment(
-                        "<missing>",
-                        "=",
-                        ctx.refBinding(iterVarName),
-                        factory.makeIndexAccess(
-                            "<mising>",
-                            factory.copy(keys),
-                            ctx.refBinding(internalCounter)
-                        )
+
+            addStmt(
+                factory,
+                forStmt.vBody as Block,
+                factory.makeAssignment(
+                    "<missing>",
+                    "=",
+                    ctx.refBinding(iterVarName),
+                    factory.makeIndexAccess(
+                        "<mising>",
+                        factory.copy(keys),
+                        ctx.refBinding(internalCounter)
                     )
                 )
             );

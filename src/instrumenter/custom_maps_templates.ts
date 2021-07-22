@@ -98,17 +98,13 @@ function addStructField(
 }
 
 export function needsLocation(t: TypeNode): boolean {
-    if (
+    return (
         t instanceof ArrayType ||
         t instanceof StringType ||
         t instanceof BytesType ||
         t instanceof MappingType ||
         (t instanceof UserDefinedType && t.definition instanceof StructDefinition)
-    ) {
-        return true;
-    }
-
-    return false;
+    );
 }
 
 export function addFunArg(
@@ -801,11 +797,9 @@ function makeSetFun(
     addStmt(
         factory,
         fun,
-        factory.makeExpressionStatement(
-            factory.makeFunctionCall("<missing>", FunctionCallKind.FunctionCall, mkKeysPush(), [
-                factory.makeIdentifierFor(key)
-            ])
-        )
+        factory.makeFunctionCall("<missing>", FunctionCallKind.FunctionCall, mkKeysPush(), [
+            factory.makeIdentifierFor(key)
+        ])
     );
 
     // return m.innerM[key];
