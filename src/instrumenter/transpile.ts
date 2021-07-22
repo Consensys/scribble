@@ -45,6 +45,7 @@ import {
     UserFunctionDefinitionMetaData
 } from "..";
 import {
+    BuiltinFunctions,
     SAddressLiteral,
     SBinaryOperation,
     SBooleanLiteral,
@@ -63,7 +64,13 @@ import {
     SUnaryOperation,
     SUserFunctionDefinition
 } from "../spec-lang/ast";
-import { BuiltinSymbols, decomposeStateVarRef, SemInfo, StateVarScope } from "../spec-lang/tc";
+import {
+    BuiltinSymbols,
+    decomposeStateVarRef,
+    SemInfo,
+    StateVarScope,
+    unwrapOld
+} from "../spec-lang/tc";
 import { FunctionSetType } from "../spec-lang/tc/internal_types";
 import { TranspilingContext } from "./transpiling_context";
 
@@ -395,7 +402,7 @@ function transpileFunctionCall(expr: SFunctionCall, ctx: TranspilingContext): Ex
 
     if (
         expr.callee instanceof SId &&
-        expr.callee.name === "sum" &&
+        expr.callee.name === BuiltinFunctions.unchecked_sum &&
         expr.callee.defSite === "builtin_fun"
     ) {
         const arg = single(expr.args);
@@ -585,11 +592,12 @@ function transpileForAll(expr: SForAll, ctx: TranspilingContext): Expression {
         // Forall over a map
         if (containerT instanceof PointerType && containerT.to instanceof MappingType) {
             const internalCounter = ctx.instrCtx.nameGenerator.getFresh("i");
-            const [sVar, path] = decomposeStateVarRef(expr.container);
+            const container = unwrapOld(expr.container);
+            const [sVar, path] = decomposeStateVarRef(container);
 
             assert(sVar !== undefined, `Unexpected undefined state var in ${expr.container.pp()}`);
 
-            const astContainer = transpile(expr.container, ctx);
+            const astContainer = transpile(container, ctx);
             const lib = ctx.instrCtx.getMapInterposingLibrary(
                 sVar,
                 path.map((x) => (x instanceof SNode ? null : x))

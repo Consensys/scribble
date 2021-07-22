@@ -22,8 +22,11 @@ import {
     dedup,
     findAliasedStateVars,
     getSetterName,
+    makeDeleteFun,
+    makeGetFun,
+    makeIncDecFun,
+    makeSetFun,
     single,
-    specializeSetter,
     UnsupportedConstruct
 } from "..";
 import { print } from "../ast_to_source_printer";
@@ -309,13 +312,7 @@ export class InstrumentationContext {
         let res = this.customMapLibrary.get(name);
 
         if (!res) {
-            const library = generateMapLibrary(
-                this,
-                keyT,
-                valueT,
-                this.utilsUnit,
-                this.compilerVersion
-            );
+            const library = generateMapLibrary(this, keyT, valueT, this.utilsUnit);
             const struct = single(library.vStructs);
             const funcs = new Map(library.vFunctions.map((fn) => [fn.name, fn]));
             res = [library, struct, funcs, keyT, valueT];
@@ -325,56 +322,70 @@ export class InstrumentationContext {
         return res[0];
     }
 
-    getCustomMapStruct(library: ContractDefinition): StructDefinition {
-        const res = this.customMapLibrary.get(library.name);
+    private getCustomMapLibMD(library: ContractDefinition): CustomMapLibraryMD {
+        const res: CustomMapLibraryMD | undefined = this.customMapLibrary.get(library.name);
         assert(res !== undefined, `Missing metadata for custom map library ${library.name}`);
+        return res;
+    }
+
+    getCustomMapStruct(library: ContractDefinition): StructDefinition {
+        const res = this.getCustomMapLibMD(library);
         return res[1];
     }
 
-    private getCustomMapFun(library: ContractDefinition, funName: string): FunctionDefinition {
-        const res = this.customMapLibrary.get(library.name);
-        assert(res !== undefined, `Missing metadata for custom map library ${library.name}`);
-        const getter = res[2].get(funName);
-        assert(
-            getter !== undefined,
-            `Missing function ${funName} for custom map library ${library.name}`
-        );
+    private getOrMakeCustomMapFun(
+        library: ContractDefinition,
+        funName: string,
+        maker: (md: CustomMapLibraryMD) => FunctionDefinition
+    ): FunctionDefinition {
+        const res = this.getCustomMapLibMD(library);
+        const funs = res[2];
+        let fun = funs.get(funName);
 
-        return getter;
+        if (fun === undefined) {
+            fun = maker(res);
+            funs.set(funName, fun);
+        }
+
+        return fun;
     }
 
     getCustomMapGetter(library: ContractDefinition, lhs: boolean): FunctionDefinition {
-        return this.getCustomMapFun(library, lhs ? "get_lhs" : "get");
+        const name = lhs ? "get_lhs" : "get";
+        return this.getOrMakeCustomMapFun(library, name, ([lib, struct, , keyT, valueT]) =>
+            makeGetFun(this, keyT, valueT, struct, lib, lhs)
+        );
     }
 
     getCustomMapSetter(library: ContractDefinition, newValT: TypeNode): FunctionDefinition {
-        const res = this.customMapLibrary.get(library.name);
-        assert(res !== undefined, `Missing metadata for custom map library ${library.name}`);
-        const [lib, , funs, , valueT] = res;
+        const [, , , , formalValueT] = this.getCustomMapLibMD(library);
+        const name = getSetterName(formalValueT, newValT);
 
-        const setterName = getSetterName(valueT, newValT);
-        let setter = funs.get(setterName);
-
-        if (setter === undefined) {
-            setter = specializeSetter(this.factory, funs.get("set") as FunctionDefinition, newValT);
-            lib.appendChild(setter);
-            funs.set(setterName, setter);
-        }
-
-        return setter;
+        return this.getOrMakeCustomMapFun(library, name, ([lib, struct, , keyT]) =>
+            makeSetFun(this, keyT, formalValueT, struct, lib, newValT)
+        );
     }
 
     getCustomMapIncDec(
         library: ContractDefinition,
         operator: "++" | "--",
-        prefix: boolean
+        prefix: boolean,
+        unchecked: boolean
     ): FunctionDefinition {
-        const funName = (operator == "++" ? "inc" : "dec") + (prefix ? "_pre" : "");
-        return this.getCustomMapFun(library, funName);
+        const funName =
+            (operator == "++" ? "inc" : "dec") +
+            (prefix ? "_pre" : "") +
+            (unchecked ? "_unch" : "");
+
+        return this.getOrMakeCustomMapFun(library, funName, ([lib, struct, , keyT, valueT]) =>
+            makeIncDecFun(this, keyT, valueT, struct, lib, operator, prefix, unchecked)
+        );
     }
 
     getCustomMapDeleteKey(library: ContractDefinition): FunctionDefinition {
-        return this.getCustomMapFun(library, "deleteKey");
+        return this.getOrMakeCustomMapFun(library, "deleteKey", ([lib, struct, , keyT, valueT]) =>
+            makeDeleteFun(this, keyT, valueT, struct, lib)
+        );
     }
 
     setMapInterposingLibrary(

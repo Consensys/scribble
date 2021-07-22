@@ -490,6 +490,68 @@
                 "values": ["1", "abc", "0"]
             },
             "failure": "*"
+        },
+        {
+            "act": "txCall",
+            "user": "owner",
+            "contract": "instance1",
+
+            "method": "setK",
+
+            "args": {
+                "types": ["uint", "uint"],
+                "values": ["1", "0"]
+            }
+        },
+        {
+            "act": "txCall",
+            "user": "owner",
+            "contract": "instance1",
+
+            "method": "setK1",
+
+            "args": {
+                "types": ["uint", "uint"],
+                "values": ["1", "1"]
+            },
+            "failure": "*"
+        },
+        {
+            "act": "txCall",
+            "user": "owner",
+            "contract": "instance1",
+
+            "method": "setK",
+
+            "args": {
+                "types": ["uint", "uint"],
+                "values": ["1", "1"]
+            }
+        },
+        {
+            "act": "txCall",
+            "user": "owner",
+            "contract": "instance1",
+
+            "method": "setK1",
+
+            "args": {
+                "types": ["uint", "uint"],
+                "values": ["1", "0"]
+            }
+        },
+        {
+            "act": "txCall",
+            "user": "owner",
+            "contract": "instance1",
+
+            "method": "setK1",
+
+            "args": {
+                "types": ["uint", "uint"],
+                "values": ["1", "1"]
+            },
+            "failure": "*"
         }
     ]
 }

@@ -25,15 +25,16 @@ import {
     PointerType,
     SourceUnit,
     Statement,
+    StatementWithChildren,
     StateVariableVisibility,
     StringType,
     StructDefinition,
     TypeName,
     TypeNode,
+    UncheckedBlock,
     UserDefinedType,
     VariableDeclaration,
-    VariableDeclarationStatement,
-    variableDeclarationToTypeNode
+    VariableDeclarationStatement
 } from "solc-typed-ast";
 import { single, transpileType } from "..";
 import { InstrumentationContext } from "./instrumentation_context";
@@ -208,10 +209,13 @@ export function addEmptyFun(
 export function addStmt(
     factory: ASTNodeFactory,
     loc: FunctionDefinition | Block,
-    arg: Statement | Expression
+    arg: Statement | StatementWithChildren<any> | Expression
 ): Statement {
     const body = loc instanceof FunctionDefinition ? (loc.vBody as Block) : loc;
-    const stmt = arg instanceof Statement ? arg : factory.makeExpressionStatement(arg);
+    const stmt =
+        arg instanceof Statement || arg instanceof StatementWithChildren
+            ? arg
+            : factory.makeExpressionStatement(arg);
     body.appendChild(stmt);
     return stmt;
 }
@@ -264,17 +268,19 @@ function mkVarDecl(
     return [decl, stmt];
 }
 
-function makeIncDecFun(
+export function makeIncDecFun(
     ctx: InstrumentationContext,
     keyT: TypeNode,
     valueT: TypeNode,
     struct: StructDefinition,
     lib: ContractDefinition,
     operator: "++" | "--",
-    prefix: boolean
+    prefix: boolean,
+    unchecked: boolean
 ): FunctionDefinition {
     const factory = ctx.factory;
-    const name = (operator == "++" ? "inc" : "dec") + (prefix ? "_pre" : "");
+    const name =
+        (operator == "++" ? "inc" : "dec") + (prefix ? "_pre" : "") + (unchecked ? "_unch" : "");
     const fun = addEmptyFun(ctx, name, FunctionVisibility.Internal, lib);
 
     const m = addFunArg(
@@ -300,6 +306,13 @@ function makeIncDecFun(
         fun
     );
 
+    let body: Block | UncheckedBlock;
+    if (unchecked) {
+        body = addStmt(factory, fun, factory.makeUncheckedBlock([])) as UncheckedBlock;
+    } else {
+        body = fun.vBody as Block;
+    }
+
     const mkInnerM = () => mkStructFieldAcc(factory, factory.makeIdentifierFor(m), struct, 0);
 
     const curVal = factory.makeIndexAccess("<missing>", mkInnerM(), factory.makeIdentifierFor(key));
@@ -319,11 +332,11 @@ function makeIncDecFun(
     );
 
     if (prefix) {
-        addStmt(factory, fun, factory.makeReturn(fun.vReturnParameters.id, update));
+        addStmt(factory, body, factory.makeReturn(fun.vReturnParameters.id, update));
     } else {
         addStmt(
             factory,
-            fun,
+            body,
             factory.makeAssignment(
                 "<missing>",
                 "=",
@@ -331,7 +344,7 @@ function makeIncDecFun(
                 factory.makeIndexAccess("<missing>", mkInnerM(), factory.makeIdentifierFor(key))
             )
         );
-        addStmt(factory, fun, update);
+        addStmt(factory, body, update);
     }
 
     return fun;
@@ -624,7 +637,7 @@ export function mkLibraryFunRef(
     return ref;
 }
 
-function makeGetFun(
+export function makeGetFun(
     ctx: InstrumentationContext,
     keyT: TypeNode,
     valueT: TypeNode,
@@ -678,15 +691,20 @@ function makeGetFun(
     return fun;
 }
 
-function makeSetFun(
+export function makeSetFun(
     ctx: InstrumentationContext,
     keyT: TypeNode,
     valueT: TypeNode,
     struct: StructDefinition,
-    lib: ContractDefinition
+    lib: ContractDefinition,
+    newValT: TypeNode
 ): FunctionDefinition {
     const factory = ctx.factory;
-    const fun = addEmptyFun(ctx, "set", FunctionVisibility.Internal, lib);
+
+    const specializedValueT = setterNeedsSpecialization(valueT, newValT) ? newValT : valueT;
+    const name = getSetterName(valueT, newValT);
+
+    const fun = addEmptyFun(ctx, name, FunctionVisibility.Internal, lib);
     ctx.addGeneralInstrumentation(fun.vBody as Block);
 
     const m = addFunArg(
@@ -697,7 +715,13 @@ function makeSetFun(
         fun
     );
     const key = addFunArg(factory, "key", keyT, getLoc(keyT, DataLocation.Memory), fun);
-    const val = addFunArg(factory, "val", valueT, getLoc(valueT, DataLocation.Memory), fun);
+    const val = addFunArg(
+        factory,
+        "val",
+        specializedValueT,
+        getLoc(specializedValueT, DataLocation.Memory),
+        fun
+    );
 
     addFunRet(ctx, "", valueT, getLoc(valueT, DataLocation.Storage), fun);
 
@@ -710,23 +734,22 @@ function makeSetFun(
 
     if (valueT instanceof IntType) {
         // TODO: There is risk of overflow/underflow here
-        // m.sum += val;
-        addStmt(
-            factory,
-            fun,
-            factory.makeAssignment("<missing>", "+=", mkSum(), factory.makeIdentifierFor(val))
-        );
-        // m.sum -= m.innerM[key];
-        addStmt(
-            factory,
-            fun,
-            factory.makeAssignment(
-                "<missing>",
-                "-=",
-                mkSum(),
-                factory.makeIndexAccess("<missing>", mkInnerM(), factory.makeIdentifierFor(key))
+        const block = factory.makeUncheckedBlock([
+            // m.sum += val;
+            factory.makeExpressionStatement(
+                factory.makeAssignment("<missing>", "+=", mkSum(), factory.makeIdentifierFor(val))
+            ),
+            // m.sum -= m.innerM[key];
+            factory.makeExpressionStatement(
+                factory.makeAssignment(
+                    "<missing>",
+                    "-=",
+                    mkSum(),
+                    factory.makeIndexAccess("<missing>", mkInnerM(), factory.makeIdentifierFor(key))
+                )
             )
-        );
+        ]);
+        addStmt(factory, fun, block);
     }
 
     //m.innerM[key] = val;
@@ -845,7 +868,7 @@ function makeSetFun(
     return fun;
 }
 
-function makeDeleteFun(
+export function makeDeleteFun(
     ctx: InstrumentationContext,
     keyT: TypeNode,
     valueT: TypeNode,
@@ -908,37 +931,11 @@ function makeDeleteFun(
     return fun;
 }
 
-function typeContainsMap(t: TypeNode, compilerVersion: string): boolean {
-    if (t instanceof MappingType) {
-        return true;
-    }
-
-    if (t instanceof ArrayType) {
-        return typeContainsMap(t.elementT, compilerVersion);
-    }
-
-    if (t instanceof UserDefinedType && t.definition instanceof StructDefinition) {
-        for (const field of t.definition.vMembers) {
-            const fieldT = variableDeclarationToTypeNode(field);
-            if (typeContainsMap(fieldT, compilerVersion)) {
-                return true;
-            }
-        }
-    }
-
-    if (t instanceof PointerType) {
-        return typeContainsMap(t.to, compilerVersion);
-    }
-
-    return false;
-}
-
 export function generateMapLibrary(
     ctx: InstrumentationContext,
     keyT: TypeNode,
     valueT: TypeNode,
-    container: SourceUnit,
-    compilerVersion: string
+    container: SourceUnit
 ): ContractDefinition {
     const libName = getCustomMapLibraryName(keyT, valueT);
     const factory = ctx.factory;
@@ -959,27 +956,15 @@ export function generateMapLibrary(
 
     makeAddKeyFun(ctx, keyT, struct, lib);
     makeRemoveKeyFun(ctx, keyT, struct, lib);
-    makeGetFun(ctx, keyT, valueT, struct, lib, true);
-    makeGetFun(ctx, keyT, valueT, struct, lib, false);
 
-    // For value types containing maps its not possible to re-assign or delete indices
-    if (!typeContainsMap(valueT, compilerVersion)) {
-        makeSetFun(ctx, keyT, valueT, struct, lib);
-        makeDeleteFun(ctx, keyT, valueT, struct, lib);
-    }
-
-    // For numeric types emit helpers for ++,--, {+,-,*,/,**,%,<<,>>}=
-    if (valueT instanceof IntType) {
-        makeIncDecFun(ctx, keyT, valueT, struct, lib, "++", true);
-        makeIncDecFun(ctx, keyT, valueT, struct, lib, "++", false);
-        makeIncDecFun(ctx, keyT, valueT, struct, lib, "--", true);
-        makeIncDecFun(ctx, keyT, valueT, struct, lib, "--", false);
-    }
-
+    // All get,set,delete, inc and dec functions are generated on demand(see InstrumentationContext for details)
     return lib;
 }
 
-function setterNeedsSpecialization(formalT: TypeNode, newValT: TypeNode): boolean {
+export function setterNeedsSpecialization(
+    formalT: TypeNode,
+    newValT: TypeNode
+): newValT is PointerType {
     if (!(formalT instanceof ArrayType)) {
         return false;
     }
@@ -994,17 +979,4 @@ function setterNeedsSpecialization(formalT: TypeNode, newValT: TypeNode): boolea
 
 export function getSetterName(formalT: TypeNode, newValT: TypeNode): string {
     return `set${setterNeedsSpecialization(formalT, newValT) ? `_${getTypeDesc(newValT)}` : ""}`;
-}
-
-export function specializeSetter(
-    factory: ASTNodeFactory,
-    fn: FunctionDefinition,
-    newValT: TypeNode
-): FunctionDefinition {
-    const specializedFn = factory.copy(fn);
-
-    specializedFn.name += "_" + getTypeDesc(newValT);
-    specializedFn.vParameters.vParameters[2].vType = transpileType(newValT, factory);
-
-    return specializedFn;
 }

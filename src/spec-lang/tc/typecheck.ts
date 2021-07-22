@@ -42,6 +42,7 @@ import { Logger } from "../../logger";
 import { assert, last, pp, single, topoSort } from "../../util";
 import { eq } from "../../util/struct_equality";
 import {
+    BuiltinFunctions,
     DatastructurePath,
     Range,
     SAddressLiteral,
@@ -1663,7 +1664,7 @@ export function tcForAll(expr: SForAll, ctx: STypingCtx, typeEnv: TypeEnv): Type
 export function tcFunctionCall(expr: SFunctionCall, ctx: STypingCtx, typeEnv: TypeEnv): TypeNode {
     const callee = expr.callee;
 
-    if (callee instanceof SId && callee.name === "sum") {
+    if (callee instanceof SId && callee.name === BuiltinFunctions.unchecked_sum) {
         callee.defSite = "builtin_fun";
 
         if (expr.args.length !== 1) {
@@ -1684,11 +1685,11 @@ export function tcFunctionCall(expr: SFunctionCall, ctx: STypingCtx, typeEnv: Ty
         }
 
         if (argT.to instanceof MappingType && argT.to.valueType instanceof IntType) {
-            return argT.to.valueType;
+            return new IntType(256, argT.to.valueType.signed);
         }
 
         if (argT.to instanceof ArrayType && argT.to.elementT instanceof IntType) {
-            return argT.to.elementT;
+            return new IntType(256, argT.to.elementT.signed);
         }
 
         throw new SWrongType(

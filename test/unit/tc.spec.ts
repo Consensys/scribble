@@ -533,7 +533,8 @@ describe("TypeChecker Expression Unit Tests", () => {
                     "$result",
                     ["Foo", "idPair"],
                     new TupleType([new IntType(256, false), new IntType(256, false)])
-                ]
+                ],
+                ["unchecked_sum(sM)", ["Foo", undefined], new IntType(256, true)]
             ]
         ],
         [
@@ -658,7 +659,9 @@ describe("TypeChecker Expression Unit Tests", () => {
                 ["tx.any", ["Foo", undefined]],
                 ["$result", ["Foo", undefined]],
                 ["$result", ["Foo", "noReturn"]],
-                ["forall (string x in 0...100) x > 0", ["Foo", undefined]]
+                ["forall (string x in 0...100) x > 0", ["Foo", undefined]],
+                ["forall (uint x in sV) x > 0", ["Foo", undefined]],
+                ["unchecked_sum(sV)", ["Foo", undefined]]
             ]
         ],
         [
