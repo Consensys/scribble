@@ -735,10 +735,6 @@ export function makeSetFun(
     if (valueT instanceof IntType) {
         // TODO: There is risk of overflow/underflow here
         const block = factory.makeUncheckedBlock([
-            // m.sum += val;
-            factory.makeExpressionStatement(
-                factory.makeAssignment("<missing>", "+=", mkSum(), factory.makeIdentifierFor(val))
-            ),
             // m.sum -= m.innerM[key];
             factory.makeExpressionStatement(
                 factory.makeAssignment(
@@ -747,6 +743,10 @@ export function makeSetFun(
                     mkSum(),
                     factory.makeIndexAccess("<missing>", mkInnerM(), factory.makeIdentifierFor(key))
                 )
+            ),
+            // m.sum += val;
+            factory.makeExpressionStatement(
+                factory.makeAssignment("<missing>", "+=", mkSum(), factory.makeIdentifierFor(val))
             )
         ]);
         addStmt(factory, fun, block);
