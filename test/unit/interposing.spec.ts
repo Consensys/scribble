@@ -1612,7 +1612,7 @@ contract Child is Foo {
                     const container = node.getClosestParentByType(
                         FunctionDefinition
                     ) as FunctionDefinition;
-                    const transCtx = ctx.getTranspilingCtx(
+                    const transCtx = ctx.transCtxMap.get(
                         container,
                         InstrumentationSiteType.StateVarUpdated
                     );

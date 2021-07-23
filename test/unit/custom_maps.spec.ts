@@ -87,19 +87,19 @@ describe("Maps with keys library generation", () => {
         }`, () => {
             const valueT = valueArg instanceof TypeNode ? valueArg : valueArg(unit);
 
-            const lib = instrCtx.getCustomMapLibrary(keyT, valueT);
-            instrCtx.getCustomMapGetter(lib, true);
-            instrCtx.getCustomMapGetter(lib, false);
-            instrCtx.getCustomMapSetter(
+            const lib = instrCtx.typesToLibraryMap.get(keyT, valueT);
+            instrCtx.libToMapGetterMap.get(lib, true);
+            instrCtx.libToMapGetterMap.get(lib, false);
+            instrCtx.libToMapSetterMap.get(
                 lib,
                 valueT instanceof ArrayType ? new PointerType(valueT, DataLocation.Memory) : valueT
             );
-            instrCtx.getCustomMapDeleteKey(lib);
+            instrCtx.libToDeleteFunMap.get(lib);
             if (valueT instanceof IntType) {
-                instrCtx.getCustomMapIncDec(lib, "++", false, false);
-                instrCtx.getCustomMapIncDec(lib, "++", true, true);
-                instrCtx.getCustomMapIncDec(lib, "--", false, true);
-                instrCtx.getCustomMapIncDec(lib, "--", true, false);
+                instrCtx.libToMapIncDecMap.get(lib, "++", false, false);
+                instrCtx.libToMapIncDecMap.get(lib, "++", true, true);
+                instrCtx.libToMapIncDecMap.get(lib, "--", false, true);
+                instrCtx.libToMapIncDecMap.get(lib, "--", true, false);
             }
 
             const src = writer.write(lib);

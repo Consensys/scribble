@@ -14,20 +14,21 @@ import {
     Expression,
     Statement,
     TypeNode,
-    SrcRangeMap
+    SrcRangeMap,
+    assert
 } from "solc-typed-ast";
 import {
     AbsDatastructurePath,
-    assert,
+    StructMap,
+    FactoryMap,
     dedup,
     findAliasedStateVars,
-    getSetterName,
     makeDeleteFun,
     makeGetFun,
     makeIncDecFun,
     makeSetFun,
-    single,
-    UnsupportedConstruct
+    UnsupportedConstruct,
+    getSetterName
 } from "..";
 import { print } from "../ast_to_source_printer";
 import { SUserFunctionDefinition } from "../spec-lang/ast";
@@ -36,7 +37,7 @@ import { NameGenerator } from "../util/name_generator";
 import { AnnotationMetaData, AnnotationFilterOptions } from "./annotations";
 import { CallGraph } from "./callgraph";
 import { CHA } from "./cha";
-import { generateMapLibrary, getCustomMapLibraryName } from "./custom_maps_templates";
+import { generateMapLibrary } from "./custom_maps_templates";
 import { InstrumentationSiteType, TranspilingContext } from "./transpiling_context";
 
 /**
@@ -82,13 +83,139 @@ function getAllNames(units: SourceUnit[]): Set<string> {
     return nameSet;
 }
 
-type CustomMapLibraryMD = [
-    ContractDefinition,
-    StructDefinition,
-    Map<string, FunctionDefinition>,
-    TypeNode,
-    TypeNode
-];
+// Helper classes for various caches used in InstrumentationContext
+class WrapperCache extends StructMap<[ContractDefinition, string], string, FunctionDefinition> {
+    protected getName(contract: ContractDefinition, name: string): string {
+        return `${contract.id}_${name}`;
+    }
+}
+
+abstract class ContextFactoryMap<A extends any[], B extends string | number, C> extends FactoryMap<
+    A,
+    B,
+    C
+> {
+    constructor(protected ctx: InstrumentationContext) {
+        super();
+    }
+}
+
+class TranspilingContextCache extends ContextFactoryMap<
+    [FunctionDefinition, InstrumentationSiteType],
+    number,
+    TranspilingContext
+> {
+    protected getName(fun: FunctionDefinition): number {
+        return fun.id;
+    }
+
+    protected makeNew(fun: FunctionDefinition, type: InstrumentationSiteType): TranspilingContext {
+        return new TranspilingContext(this.ctx.typeEnv, this.ctx.semMap, fun, this.ctx, type);
+    }
+}
+
+class VarToLibraryMap extends StructMap<
+    [VariableDeclaration, AbsDatastructurePath],
+    string,
+    ContractDefinition
+> {
+    protected getName(v: VariableDeclaration, path: AbsDatastructurePath): string {
+        return `${v.id}_${path.map((x) => (x === null ? `[]` : x)).join("_")}`;
+    }
+}
+
+class TypesToLibraryMap extends ContextFactoryMap<
+    [TypeNode, TypeNode],
+    string,
+    ContractDefinition
+> {
+    private _inverseMap = new Map<ContractDefinition, [TypeNode, TypeNode]>();
+
+    protected getName(keyT: TypeNode, valueT: TypeNode): string {
+        return `${keyT.pp()}_to_${valueT.pp()}`;
+    }
+
+    protected makeNew(keyT: TypeNode, valueT: TypeNode): ContractDefinition {
+        const res = generateMapLibrary(this.ctx, keyT, valueT, this.ctx.utilsUnit);
+        this._inverseMap.set(res, [keyT, valueT]);
+        return res;
+    }
+
+    public isLib(contract: ContractDefinition): boolean {
+        return this._inverseMap.has(contract);
+    }
+
+    public getKVTypes(lib: ContractDefinition): [TypeNode, TypeNode] {
+        const res = this._inverseMap.get(lib);
+        assert(res !== undefined, `Missing key/value types for library ${lib.name}`);
+        return res;
+    }
+}
+
+class MapGetterMap extends ContextFactoryMap<
+    [ContractDefinition, boolean],
+    string,
+    FunctionDefinition
+> {
+    protected getName(lib: ContractDefinition, lhs: boolean): string {
+        return `${lib.id}_${lhs}`;
+    }
+    protected makeNew(lib: ContractDefinition, lhs: boolean): FunctionDefinition {
+        const [keyT, valueT] = this.ctx.typesToLibraryMap.getKVTypes(lib);
+        return makeGetFun(this.ctx, keyT, valueT, lib, lhs);
+    }
+}
+
+class MapSetterMap extends ContextFactoryMap<
+    [ContractDefinition, TypeNode],
+    string,
+    FunctionDefinition
+> {
+    protected getName(lib: ContractDefinition, newValT: TypeNode): string {
+        const [, valueT] = this.ctx.typesToLibraryMap.getKVTypes(lib);
+        return `${lib.id}_${getSetterName(valueT, newValT)}`;
+    }
+    protected makeNew(lib: ContractDefinition, newValT: TypeNode): FunctionDefinition {
+        const [keyT, valueT] = this.ctx.typesToLibraryMap.getKVTypes(lib);
+        return makeSetFun(this.ctx, keyT, valueT, lib, newValT);
+    }
+}
+
+class MapIncDecMap extends ContextFactoryMap<
+    [ContractDefinition, "++" | "--", boolean, boolean],
+    string,
+    FunctionDefinition
+> {
+    protected getName(
+        lib: ContractDefinition,
+        operator: "++" | "--",
+        prefix: boolean,
+        unchecked: boolean
+    ): string {
+        return `${lib.id}_${operator}_${prefix}_${unchecked}`;
+    }
+
+    protected makeNew(
+        lib: ContractDefinition,
+        operator: "++" | "--",
+        prefix: boolean,
+        unchecked: boolean
+    ): FunctionDefinition {
+        const [keyT, valueT] = this.ctx.typesToLibraryMap.getKVTypes(lib);
+        return makeIncDecFun(this.ctx, keyT, valueT, lib, operator, prefix, unchecked);
+    }
+}
+
+class MapDeleteFunMap extends ContextFactoryMap<[ContractDefinition], number, FunctionDefinition> {
+    protected getName(lib: ContractDefinition): number {
+        return lib.id;
+    }
+
+    protected makeNew(lib: ContractDefinition): FunctionDefinition {
+        const [keyT, valueT] = this.ctx.typesToLibraryMap.getKVTypes(lib);
+        return makeDeleteFun(this.ctx, keyT, valueT, lib);
+    }
+}
 
 export class InstrumentationContext {
     public readonly nameGenerator: NameGenerator;
@@ -138,24 +265,48 @@ export class InstrumentationContext {
         return this.utilsContract.parent as SourceUnit;
     }
 
-    /**
-     * Map keeping track of the `TranspilingContext`s for each `FunctionDefinition`.
-     */
-    private transCtxMap = new Map<FunctionDefinition, TranspilingContext>();
-    /**
-     * 2-level Map keeping track of the wrappers functions generated for each contract.
-     * The inner map is a mapping from wrapper names to their definition.
-     */
-    private wrapperCache = new Map<ContractDefinition, Map<string, FunctionDefinition>>();
-
-    private interposingLibraryMap = new Map<string, ContractDefinition>();
-
     public readonly varInterposingQueue: Array<[VariableDeclaration, AbsDatastructurePath]>;
 
     private unitsNeedingUtils = new Set<SourceUnit>();
     private _originalContents: Map<SourceUnit, string>;
     private _aliasedStateVars: Map<VariableDeclaration, ASTNode>;
-    private customMapLibrary = new Map<string, CustomMapLibraryMD>();
+
+    /**
+     * Various Caches
+     */
+
+    /**
+     * Map keeping track of the `TranspilingContext`s for each `FunctionDefinition`.
+     */
+    public readonly transCtxMap = new TranspilingContextCache(this);
+    /**
+     * Cache keeping track of wrappers functions generated for each contract.
+     */
+    public readonly wrapperCache = new WrapperCache();
+    /**
+     * Map keeping track of the custom map library generated for a specific state var (or part thereof)
+     */
+    public readonly sVarToLibraryMap = new VarToLibraryMap();
+    /**
+     * Map factory keeping track of the custom map library generated for a specific state var (or part thereof)
+     */
+    public readonly typesToLibraryMap = new TypesToLibraryMap(this);
+    /**
+     * Map factory keeping track of getter functions generated for a given custom map library
+     */
+    public readonly libToMapGetterMap = new MapGetterMap(this);
+    /**
+     * Map factory keeping track of getter functions generated for a given custom map library
+     */
+    public readonly libToMapSetterMap = new MapSetterMap(this);
+    /**
+     * Map factory keeping track of increment/decrement functions generated for a given custom map library
+     */
+    public readonly libToMapIncDecMap = new MapIncDecMap(this);
+    /**
+     * Map factory keeping track of delete key functions generated for a given custom map library
+     */
+    public readonly libToDeleteFunMap = new MapDeleteFunMap(this);
 
     constructor(
         public readonly factory: ASTNodeFactory,
@@ -198,40 +349,6 @@ export class InstrumentationContext {
 
         this._originalContents = this.printUnits(units, new Map());
         this._aliasedStateVars = findAliasedStateVars(units);
-    }
-
-    getWrapper(contract: ContractDefinition, name: string): FunctionDefinition | undefined {
-        const m = this.wrapperCache.get(contract);
-        if (m === undefined) {
-            return undefined;
-        }
-
-        return m.get(name);
-    }
-
-    setWrapper(contract: ContractDefinition, name: string, wrapper: FunctionDefinition): void {
-        let m = this.wrapperCache.get(contract);
-        if (m === undefined) {
-            m = new Map();
-            this.wrapperCache.set(contract, m);
-        }
-
-        assert(!m.has(name), `Wrapper ${name} in ${contract.name} already defined.`);
-        m.set(name, wrapper);
-    }
-
-    getTranspilingCtx(
-        container: FunctionDefinition,
-        type: InstrumentationSiteType
-    ): TranspilingContext {
-        if (!this.transCtxMap.has(container)) {
-            this.transCtxMap.set(
-                container,
-                new TranspilingContext(this.typeEnv, this.semMap, container, this, type)
-            );
-        }
-
-        return this.transCtxMap.get(container) as TranspilingContext;
     }
 
     getInternalInvariantCheckerName(contract: ContractDefinition): string {
@@ -300,109 +417,6 @@ export class InstrumentationContext {
                 )
             );
         }
-    }
-
-    isCustomMapLibrary(t: ContractDefinition): boolean {
-        return this.customMapLibrary.has(t.name);
-    }
-
-    getCustomMapLibrary(keyT: TypeNode, valueT: TypeNode): ContractDefinition {
-        const name = getCustomMapLibraryName(keyT, valueT);
-
-        let res = this.customMapLibrary.get(name);
-
-        if (!res) {
-            const library = generateMapLibrary(this, keyT, valueT, this.utilsUnit);
-            const struct = single(library.vStructs);
-            const funcs = new Map(library.vFunctions.map((fn) => [fn.name, fn]));
-            res = [library, struct, funcs, keyT, valueT];
-            this.customMapLibrary.set(name, res);
-        }
-
-        return res[0];
-    }
-
-    private getCustomMapLibMD(library: ContractDefinition): CustomMapLibraryMD {
-        const res: CustomMapLibraryMD | undefined = this.customMapLibrary.get(library.name);
-        assert(res !== undefined, `Missing metadata for custom map library ${library.name}`);
-        return res;
-    }
-
-    getCustomMapStruct(library: ContractDefinition): StructDefinition {
-        const res = this.getCustomMapLibMD(library);
-        return res[1];
-    }
-
-    private getOrMakeCustomMapFun(
-        library: ContractDefinition,
-        funName: string,
-        maker: (md: CustomMapLibraryMD) => FunctionDefinition
-    ): FunctionDefinition {
-        const res = this.getCustomMapLibMD(library);
-        const funs = res[2];
-        let fun = funs.get(funName);
-
-        if (fun === undefined) {
-            fun = maker(res);
-            funs.set(funName, fun);
-        }
-
-        return fun;
-    }
-
-    getCustomMapGetter(library: ContractDefinition, lhs: boolean): FunctionDefinition {
-        const name = lhs ? "get_lhs" : "get";
-        return this.getOrMakeCustomMapFun(library, name, ([lib, struct, , keyT, valueT]) =>
-            makeGetFun(this, keyT, valueT, struct, lib, lhs)
-        );
-    }
-
-    getCustomMapSetter(library: ContractDefinition, newValT: TypeNode): FunctionDefinition {
-        const [, , , , formalValueT] = this.getCustomMapLibMD(library);
-        const name = getSetterName(formalValueT, newValT);
-
-        return this.getOrMakeCustomMapFun(library, name, ([lib, struct, , keyT]) =>
-            makeSetFun(this, keyT, formalValueT, struct, lib, newValT)
-        );
-    }
-
-    getCustomMapIncDec(
-        library: ContractDefinition,
-        operator: "++" | "--",
-        prefix: boolean,
-        unchecked: boolean
-    ): FunctionDefinition {
-        const funName =
-            (operator == "++" ? "inc" : "dec") +
-            (prefix ? "_pre" : "") +
-            (unchecked ? "_unch" : "");
-
-        return this.getOrMakeCustomMapFun(library, funName, ([lib, struct, , keyT, valueT]) =>
-            makeIncDecFun(this, keyT, valueT, struct, lib, operator, prefix, unchecked)
-        );
-    }
-
-    getCustomMapDeleteKey(library: ContractDefinition): FunctionDefinition {
-        return this.getOrMakeCustomMapFun(library, "deleteKey", ([lib, struct, , keyT, valueT]) =>
-            makeDeleteFun(this, keyT, valueT, struct, lib)
-        );
-    }
-
-    setMapInterposingLibrary(
-        v: VariableDeclaration,
-        path: AbsDatastructurePath,
-        lib: ContractDefinition
-    ): void {
-        const key = `${v.id}_${path.map((x) => (x === null ? `[]` : x)).join("_")}`;
-        this.interposingLibraryMap.set(key, lib);
-    }
-
-    getMapInterposingLibrary(
-        v: VariableDeclaration,
-        path: AbsDatastructurePath
-    ): ContractDefinition | undefined {
-        const key = `${v.id}_${path.map((x) => (x === null ? `[]` : x)).join("_")}`;
-        return this.interposingLibraryMap.get(key);
     }
 
     /**

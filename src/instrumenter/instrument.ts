@@ -34,7 +34,8 @@ import {
     BytesType,
     IntType,
     BoolType,
-    AddressType
+    AddressType,
+    ArrayType
 } from "solc-typed-ast";
 import { SId, SLet, SNode, AnnotationType } from "../spec-lang/ast";
 import { StateVarScope, SemMap, TypeEnv } from "../spec-lang/tc";
@@ -60,7 +61,12 @@ import { InstrumentationSiteType, TranspilingContext } from "./transpiling_conte
 
 import { gte } from "semver";
 import {
+    addEmptyFun,
+    addFunArg,
+    addFunRet,
+    addStmt,
     filterByType,
+    getTypeDesc,
     transpile,
     transpileAnnotation,
     transpileFunVarDecl,
@@ -654,7 +660,7 @@ export class ContractInstrumenter {
                 body = userFun.vBody as Block;
             }
 
-            const transCtx = ctx.getTranspilingCtx(
+            const transCtx = ctx.transCtxMap.get(
                 userFun,
                 InstrumentationSiteType.UserDefinedFunction
             );
@@ -719,7 +725,7 @@ export class ContractInstrumenter {
             )
         );
 
-        const transCtx = ctx.getTranspilingCtx(checker, InstrumentationSiteType.ContractInvariant);
+        const transCtx = ctx.transCtxMap.get(checker, InstrumentationSiteType.ContractInvariant);
         insertAnnotations(annotations, transCtx);
         contract.appendChild(checker);
 
@@ -997,7 +1003,7 @@ export class FunctionInstrumenter {
         );
 
         const stub = interpose(fn, ctx);
-        const transCtx = ctx.getTranspilingCtx(stub, InstrumentationSiteType.FunctionAnnotation);
+        const transCtx = ctx.transCtxMap.get(stub, InstrumentationSiteType.FunctionAnnotation);
         insertAnnotations(annotations, transCtx);
 
         // We only need to check state invariants on functions that are:
@@ -1164,4 +1170,77 @@ export function getOrAddConstructor(
     contract.appendChild(emptyConstructor);
 
     return emptyConstructor;
+}
+
+/**
+ * Given an array type arrT (actually, poitner to array type) and a container, build a function that computes the
+ * sum over an array of type `arrT` and add it to `container`
+ * @param ctx
+ * @param container
+ * @param arrT
+ * @returns
+ */
+export function makeArraySumFun(
+    ctx: InstrumentationContext,
+    container: ContractDefinition | SourceUnit,
+    arrT: PointerType
+): FunctionDefinition {
+    assert(
+        arrT.to instanceof ArrayType,
+        `makeArraySumFun expects pointer to array not ${arrT.pp()}`
+    );
+    const factory = ctx.factory;
+    const name = `sum_arr_${getTypeDesc(arrT)}`;
+    const fun = addEmptyFun(ctx, name, FunctionVisibility.Internal, container);
+    const arr = addFunArg(factory, "arr", arrT, arrT.location, fun);
+    const ret = addFunRet(ctx, "ret", arrT, arrT.location, fun);
+    const idx = factory.makeVariableDeclaration(
+        false,
+        false,
+        "idx",
+        (fun.vBody as Block).id, //note: This id might not be valid, but it shouldn't matter much here
+        false,
+        DataLocation.Default,
+        StateVariableVisibility.Default,
+        Mutability.Mutable,
+        "<missing>",
+        undefined,
+        factory.makeElementaryTypeName("<missing>", "uint256")
+    );
+
+    const loop = addStmt(
+        factory,
+        fun,
+        factory.makeForStatement(
+            factory.makeExpressionStatement(
+                factory.makeAssignment(
+                    "<missing>",
+                    "+=",
+                    factory.makeIdentifierFor(ret),
+                    factory.makeIndexAccess(
+                        "<missing>",
+                        factory.makeIdentifierFor(arr),
+                        factory.makeIdentifierFor(idx)
+                    )
+                )
+            ),
+            factory.makeVariableDeclarationStatement(
+                [idx.id],
+                [idx],
+                factory.makeLiteral("<missing>", LiteralKind.Number, "", "0")
+            ),
+            factory.makeBinaryOperation(
+                "<mising>",
+                "<",
+                factory.makeIdentifierFor(idx),
+                factory.makeMemberAccess("<missing>", factory.makeIdentifierFor(arr), "length", -1)
+            ),
+            factory.makeExpressionStatement(
+                factory.makeUnaryOperation("<missing>", false, "++", factory.makeIdentifierFor(idx))
+            )
+        )
+    );
+
+    addStmt(factory, fun, loop);
+    return fun;
 }

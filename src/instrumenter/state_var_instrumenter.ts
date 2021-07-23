@@ -403,7 +403,7 @@ function makeWrapper(
     const funName = getWrapperName(updateNode, varDecl, path, additionalArgs, ctx.compilerVersion);
 
     // Check if we have already built a wrapper for this variable/path/update type. Otherwise build one now.
-    const cached = ctx.getWrapper(definingContract, funName);
+    const cached = ctx.wrapperCache.get(definingContract, funName);
     if (cached !== undefined) {
         return cached;
     }
@@ -457,7 +457,7 @@ function makeWrapper(
     );
 
     definingContract.appendChild(wrapperFun);
-    ctx.setWrapper(definingContract, funName, wrapperFun);
+    ctx.wrapperCache.set(wrapperFun, definingContract, funName);
     const body = wrapperFun.vBody as Block;
     ctx.addGeneralInstrumentation(body);
 
@@ -904,7 +904,7 @@ export function interposeInlineInitializer(
     const wrapperName = getWrapperName(updateNode, updateNode, [], [], ctx.compilerVersion);
 
     assert(
-        ctx.getWrapper(containingContract, wrapperName) === undefined,
+        !ctx.wrapperCache.has(containingContract, wrapperName),
         `inline wrappers should be defined only once`
     );
 
@@ -924,7 +924,7 @@ export function interposeInlineInitializer(
     );
 
     containingContract.appendChild(wrapperFun);
-    ctx.setWrapper(containingContract, wrapperName, wrapperFun);
+    ctx.wrapperCache.set(wrapperFun, containingContract, wrapperName);
     ctx.addGeneralInstrumentation(wrapperFun.vBody as Block);
 
     const actualParams: Expression[] = [];
@@ -1170,7 +1170,7 @@ export function instrumentStateVars(
 
         if (node instanceof Assignment && node.vLeftHandSide instanceof TupleExpression) {
             const varsOfInterest = new Set(locs.map((loc) => loc[1]));
-            const transCtx = ctx.getTranspilingCtx(
+            const transCtx = ctx.transCtxMap.get(
                 containingFun,
                 InstrumentationSiteType.StateVarUpdated
             );
@@ -1199,7 +1199,7 @@ export function instrumentStateVars(
         const relevantAnnotats = annotMap.get(updateLocKey) as PropertyMetaData[];
         assert(relevantAnnotats !== undefined, ``);
 
-        const transCtx = ctx.getTranspilingCtx(wrapper, InstrumentationSiteType.StateVarUpdated);
+        const transCtx = ctx.transCtxMap.get(wrapper, InstrumentationSiteType.StateVarUpdated);
         insertAnnotations(relevantAnnotats, transCtx);
     }
 

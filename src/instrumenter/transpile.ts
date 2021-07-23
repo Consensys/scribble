@@ -299,13 +299,13 @@ function transpileIndexAccess(expr: SIndexAccess, ctx: TranspilingContext): Expr
     // transpile it as a call to the proper getter
     const [sVar, path] = decomposeStateVarRef(expr);
     if (sVar !== undefined) {
-        const interposeLib = instrCtx.getMapInterposingLibrary(
+        const interposeLib = instrCtx.sVarToLibraryMap.get(
             sVar,
             path.slice(0, -1).map((x) => (x instanceof SNode ? null : x))
         );
 
         if (interposeLib !== undefined) {
-            const getter = instrCtx.getCustomMapGetter(interposeLib, false);
+            const getter = instrCtx.libToMapGetterMap.get(interposeLib, false);
 
             return factory.makeFunctionCall(
                 "<missing>",
@@ -412,14 +412,14 @@ function transpileFunctionCall(expr: SFunctionCall, ctx: TranspilingContext): Ex
             `sum argument should be a state var(or a part of it), not ${arg.pp()}`
         );
 
-        const lib = ctx.instrCtx.getMapInterposingLibrary(
+        const lib = ctx.instrCtx.sVarToLibraryMap.get(
             sVar,
             path.map((el) => (el instanceof SNode ? null : el))
         );
 
         assert(lib !== undefined, `State var ${sVar.name} should already be interposed`);
 
-        const struct = ctx.instrCtx.getCustomMapStruct(lib);
+        const struct = single(lib.vStructs);
         return mkStructFieldAcc(factory, transpile(arg, ctx), struct, "sum");
     }
 
@@ -598,12 +598,12 @@ function transpileForAll(expr: SForAll, ctx: TranspilingContext): Expression {
             assert(sVar !== undefined, `Unexpected undefined state var in ${expr.container.pp()}`);
 
             const astContainer = transpile(container, ctx);
-            const lib = ctx.instrCtx.getMapInterposingLibrary(
+            const lib = ctx.instrCtx.sVarToLibraryMap.get(
                 sVar,
                 path.map((x) => (x instanceof SNode ? null : x))
             );
             assert(lib !== undefined, `Unexpected missing library for map ${sVar.name}`);
-            const struct = ctx.instrCtx.getCustomMapStruct(lib);
+            const struct = single(lib.vStructs);
             const keys = makeMemberAccess(factory, astContainer, struct, "keys");
             const len = factory.makeMemberAccess("<missing>", keys, "length", -1);
 
