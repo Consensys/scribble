@@ -78,11 +78,15 @@ class User {
 /**
  * @see https://github.com/b-mueller/sabre/blob/master/lib/compiler.js#L222-L229
  */
-function compileSource(fileName: string, contents?: string): ContractBytecodeMap {
+function compileSource(
+    fileName: string,
+    contents?: string,
+    version: string = LatestCompilerVersion
+): ContractBytecodeMap {
     let data: any;
 
     if (contents) {
-        data = compileSourceString(fileName, contents, LatestCompilerVersion, []).data;
+        data = compileSourceString(fileName, contents, version, []).data;
     } else {
         data = compileSol(fileName, "auto", []).data;
     }
@@ -517,14 +521,14 @@ export function executeTestSuite(fileName: string, config: Config): void {
  * Internal version of executeTestSuite that may be called from another mocha test.
  * @todo remove code duplication with executeTestSuite
  */
-export function executeTestSuiteInternal(fileName: string, config: Config): void {
+export function executeTestSuiteInternal(fileName: string, config: Config, version: string): void {
     const sample = config.file;
 
     const env = {} as Environment;
 
     env.vm = new VM();
     env.aliases = new Map<string, any>();
-    env.contracts = compileSource(sample, config.contents);
+    env.contracts = compileSource(sample, config.contents, version);
 
     for (const step of config.steps) {
         const processor = processors.get(step.act);

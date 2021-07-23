@@ -501,12 +501,13 @@ describe("Interposing on a map", () => {
     for (const [name, sample, expectedInstrCode, svs] of interposingTests) {
         let instrCode: string;
         let newContent: string;
+        let version: string;
 
         it(`Code compiles after interposing on ${pp(svs)} in sample ${name}`, () => {
             const res = toAst(name, sample);
             const unit = single(res.units);
             const ctx = res.reader.context;
-            const version = res.compilerVersion;
+            version = res.compilerVersion;
             const factory = new ASTNodeFactory(ctx);
             const instrCtx = makeInstrumentationCtx(
                 [unit],
@@ -579,7 +580,7 @@ describe("Interposing on a map", () => {
                 ]
             };
 
-            executeTestSuiteInternal("foo.json", cfg);
+            executeTestSuiteInternal("foo.json", cfg, version);
         });
     }
 });
