@@ -332,7 +332,6 @@ function getDebugInfo(
                     `AssertionFailedData`,
                     factory.makeParameterList([encodingData, eventId])
                 );
-
             }
 
             // Finally construct the emit statement for the debug event.

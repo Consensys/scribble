@@ -113,7 +113,6 @@ export class InstrumentationContext {
         return this.utilsContract.parent as SourceUnit;
     }
 
-
     /**
      * Map keeping track of the `TranspilingContext`s for each `FunctionDefinition`.
      */
