@@ -281,6 +281,42 @@ describe("SemanticChecker Expression Unit Tests", () => {
                     ["Foo", "add"],
                     new IntType(64, false),
                     { isOld: false, isConst: false, canFail: false }
+                ],
+                [
+                    "unchecked_sum(m1)",
+                    ["Foo", undefined],
+                    new IntType(256, false),
+                    { isOld: false, isConst: false, canFail: false }
+                ],
+                [
+                    "unchecked_sum(old(m1))",
+                    ["Foo", "add"],
+                    new IntType(256, false),
+                    { isOld: true, isConst: false, canFail: false }
+                ],
+                [
+                    "old(unchecked_sum(m1))",
+                    ["Foo", "add"],
+                    new IntType(256, false),
+                    { isOld: true, isConst: false, canFail: false }
+                ],
+                [
+                    "forall (string memory s in m1) m1[s] > 0",
+                    ["Foo", "add"],
+                    new BoolType(),
+                    { isOld: false, isConst: false, canFail: true }
+                ],
+                [
+                    "old(forall (string memory s in m1) m1[s] > 0)",
+                    ["Foo", "add"],
+                    new BoolType(),
+                    { isOld: true, isConst: false, canFail: true }
+                ],
+                [
+                    "forall (string memory s in old(m1)) old(m1[s] > 0)",
+                    ["Foo", "add"],
+                    new BoolType(),
+                    { isOld: true, isConst: false, canFail: true }
                 ]
             ]
         ]
@@ -296,6 +332,7 @@ describe("SemanticChecker Expression Unit Tests", () => {
                 int128 constant sV1 = -1;
                 int32 sI32Arr;
                 uint[] arr;
+                mapping(uint => uint) m;
 
                 function vId() public returns (uint) {
                     return sV;
@@ -308,6 +345,7 @@ describe("SemanticChecker Expression Unit Tests", () => {
             [
                 ["forall(uint x in 1...10) arr[x] > 10 + old(x*sV+100)", ["Foo", "add"]],
                 ["forall(uint x in 1...10) arr[0] > 10 + old(x)", ["Foo", "add"]],
+                ["forall(uint x in 1...old(y)) old(x > 0)", ["Foo", "add"]],
                 ["old(old(x))", ["Foo", "add"]],
                 ["let x := y in old(x)", ["Foo", "add"]],
                 ["let x := y in let z := old(1) in old(x+z)", ["Foo", "add"]],

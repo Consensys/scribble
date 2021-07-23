@@ -42,6 +42,7 @@ import { Logger } from "../../logger";
 import { assert, last, pp, single, topoSort } from "../../util";
 import { eq } from "../../util/struct_equality";
 import {
+    BuiltinFunctions,
     DatastructurePath,
     Range,
     SAddressLiteral,
@@ -1662,6 +1663,41 @@ export function tcForAll(expr: SForAll, ctx: STypingCtx, typeEnv: TypeEnv): Type
 
 export function tcFunctionCall(expr: SFunctionCall, ctx: STypingCtx, typeEnv: TypeEnv): TypeNode {
     const callee = expr.callee;
+
+    if (callee instanceof SId && callee.name === BuiltinFunctions.unchecked_sum) {
+        callee.defSite = "builtin_fun";
+
+        if (expr.args.length !== 1) {
+            throw new SExprCountMismatch(
+                `Calls to sum expect a single argument, not ${expr.args.length} in ${expr.pp()}`,
+                expr
+            );
+        }
+
+        const argT = tc(expr.args[0], ctx, typeEnv);
+
+        if (!(argT instanceof PointerType)) {
+            throw new SWrongType(
+                `sum expects a numeric array or map to numbers, not ${argT.pp()} in ${expr.pp()}`,
+                expr,
+                argT
+            );
+        }
+
+        if (argT.to instanceof MappingType && argT.to.valueType instanceof IntType) {
+            return new IntType(256, argT.to.valueType.signed);
+        }
+
+        if (argT.to instanceof ArrayType && argT.to.elementT instanceof IntType) {
+            return new IntType(256, argT.to.elementT.signed);
+        }
+
+        throw new SWrongType(
+            `sum expects a numeric array or map to numbers, not ${argT.pp()} in ${expr.pp()}`,
+            expr,
+            argT
+        );
+    }
 
     /**
      * There are 4 semantic cases for a function call:

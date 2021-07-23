@@ -31,7 +31,8 @@ import {
     SAnnotation,
     SProperty,
     SUserFunctionDefinition,
-    AnnotationType
+    AnnotationType,
+    BuiltinFunctions
 } from "../ast";
 import { FunctionSetType } from "./internal_types";
 import { TypeEnv } from "./typeenv";
@@ -388,15 +389,35 @@ export function scFunctionCall(
     semMap: SemMap
 ): SemInfo {
     const callee = expr.callee;
-    const calleeT = typeEnv.typeOf(callee);
+
     // First check the arguments
-    expr.args.forEach((arg) => sc(arg, ctx, typeEnv, semMap));
+    const argsInfo: SemInfo[] = expr.args.map((arg) => sc(arg, ctx, typeEnv, semMap));
 
     // Compute whether all args are constant
-    const allArgsConst = expr.args
-        .map((arg) => (semMap.get(arg) as SemInfo).isConst)
-        .reduce((a, b) => a && b, true);
+    const allArgsConst = argsInfo.map((argInfo) => argInfo.isConst).reduce((a, b) => a && b, true);
 
+    if (
+        callee instanceof SId &&
+        callee.name === BuiltinFunctions.unchecked_sum &&
+        callee.defSite === "builtin_fun"
+    ) {
+        const arg = expr.args[0];
+        const argT = typeEnv.typeOf(arg);
+        const isOld = ctx.isOld || argsInfo[0].isOld;
+
+        if (argT instanceof PointerType && argT.to instanceof MappingType) {
+            const [sVar, path] = decomposeStateVarRef(unwrapOld(arg));
+            if (sVar === undefined) {
+                throw new SemError(`Don't support forall over a map pointer ${arg.pp()}`, arg);
+            }
+
+            ctx.interposingQueue.push([sVar, path.map((x) => (x instanceof SNode ? null : x))]);
+        }
+
+        return { isOld: isOld, isConst: allArgsConst, canFail: argsInfo[0].canFail };
+    }
+
+    const calleeT = typeEnv.typeOf(callee);
     // Primitive cast
     if (calleeT instanceof TypeNameType) {
         return { isOld: ctx.isOld, isConst: allArgsConst, canFail: true };
@@ -444,10 +465,20 @@ export function scFunctionCall(
 
 type ConcreteDatastructureSPath = Array<string | SNode>;
 
+export function unwrapOld(e: SNode): SNode {
+    // Skip any old wrappers
+    while (e instanceof SUnaryOperation && e.op === "old") {
+        e = e.subexp;
+    }
+
+    return e;
+}
+
 export function decomposeStateVarRef(
     e: SNode
 ): [VariableDeclaration | undefined, ConcreteDatastructureSPath] {
     const path: ConcreteDatastructureSPath = [];
+
     while (true) {
         if (e instanceof SMemberAccess) {
             path.push(e.member);
@@ -503,12 +534,22 @@ export function scForAll(expr: SForAll, ctx: SemCtx, typeEnv: TypeEnv, semMap: S
         canFail ||= containerSemInfo.canFail;
     }
 
+    const rangeIsOld =
+        (containerSemInfo !== undefined && containerSemInfo.isOld) ||
+        (startSemInfo !== undefined &&
+            endSemInfo !== undefined &&
+            startSemInfo.isOld &&
+            endSemInfo.isOld);
+
+    // We treat `forall (x in old(exp1)) old(exp2)` same as `old(forall (x in exp1) exp2)`
+    const isOld = ctx.isOld || (rangeIsOld && exprSemInfo.isOld);
+
     // We dont support forall expressions over maps, where the container is a local pointer var, or
     // where the container is a state var that is aliased elsewhere
     if (expr.container !== undefined) {
         const containerT = typeEnv.typeOf(expr.container);
         if (containerT instanceof PointerType && containerT.to instanceof MappingType) {
-            const [sVar, path] = decomposeStateVarRef(expr.container);
+            const [sVar, path] = decomposeStateVarRef(unwrapOld(expr.container));
             if (sVar === undefined) {
                 throw new SemError(
                     `Don't support forall over a map pointer ${expr.container.pp()}`,
@@ -520,7 +561,7 @@ export function scForAll(expr: SForAll, ctx: SemCtx, typeEnv: TypeEnv, semMap: S
         }
     }
 
-    if (!ctx.isOld) {
+    if (!isOld) {
         expr.expression.walk((node) => {
             if (node instanceof SId && semMap.get(node)?.isOld && node.defSite === expr) {
                 throw new SemError(
@@ -532,7 +573,7 @@ export function scForAll(expr: SForAll, ctx: SemCtx, typeEnv: TypeEnv, semMap: S
     }
 
     return {
-        isOld: ctx.isOld,
+        isOld: isOld,
         isConst: exprSemInfo.isConst,
         canFail: canFail
     };

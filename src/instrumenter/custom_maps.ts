@@ -32,6 +32,7 @@ import {
     typeNameToTypeNode,
     TypeNode,
     UnaryOperation,
+    UncheckedBlock,
     UserDefinedType,
     UserDefinedTypeName,
     VariableDeclaration
@@ -427,9 +428,16 @@ export function interposeMap(
                         updateNode.operator === "++" || updateNode.operator == "--",
                         `Expected ++/-- operator, not ${updateNode.operator}`
                     );
+                    const isUnchecked =
+                        updateNode.getClosestParentByType(UncheckedBlock) !== undefined;
                     const incDecF = mkLibraryFunRef(
                         instrCtx,
-                        instrCtx.getCustomMapIncDec(lib, updateNode.operator, updateNode.prefix)
+                        instrCtx.getCustomMapIncDec(
+                            lib,
+                            updateNode.operator,
+                            updateNode.prefix,
+                            isUnchecked
+                        )
                     );
 
                     const newNode = factory.makeFunctionCall(

@@ -102,4 +102,14 @@ contract Foo {
     function setJ2(uint saI, string memory x, uint v) public {
         j.sas[saI].m[x] = v;
     }
+
+    mapping (uint => uint) k;
+    function setK(uint i, uint v) public {
+        k[i] = v;
+    }
+
+    /// #if_succeeds forall(uint i in old(k)) old(k[i] > 0);
+    function setK1(uint i, uint v) public {
+        k[i] = v;
+    }
 }

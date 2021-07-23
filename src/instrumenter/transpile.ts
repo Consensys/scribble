@@ -39,11 +39,13 @@ import {
 import {
     addStmt,
     AnnotationMetaData,
+    mkStructFieldAcc,
     PropertyMetaData,
     single,
     UserFunctionDefinitionMetaData
 } from "..";
 import {
+    BuiltinFunctions,
     SAddressLiteral,
     SBinaryOperation,
     SBooleanLiteral,
@@ -62,7 +64,13 @@ import {
     SUnaryOperation,
     SUserFunctionDefinition
 } from "../spec-lang/ast";
-import { BuiltinSymbols, decomposeStateVarRef, SemInfo, StateVarScope } from "../spec-lang/tc";
+import {
+    BuiltinSymbols,
+    decomposeStateVarRef,
+    SemInfo,
+    StateVarScope,
+    unwrapOld
+} from "../spec-lang/tc";
 import { FunctionSetType } from "../spec-lang/tc/internal_types";
 import { TranspilingContext } from "./transpiling_context";
 
@@ -391,6 +399,30 @@ function transpileConditional(expr: SConditional, ctx: TranspilingContext): Expr
  */
 function transpileFunctionCall(expr: SFunctionCall, ctx: TranspilingContext): Expression {
     const factory = ctx.factory;
+
+    if (
+        expr.callee instanceof SId &&
+        expr.callee.name === BuiltinFunctions.unchecked_sum &&
+        expr.callee.defSite === "builtin_fun"
+    ) {
+        const arg = single(expr.args);
+        const [sVar, path] = decomposeStateVarRef(arg);
+        assert(
+            sVar !== undefined,
+            `sum argument should be a state var(or a part of it), not ${arg.pp()}`
+        );
+
+        const lib = ctx.instrCtx.getMapInterposingLibrary(
+            sVar,
+            path.map((el) => (el instanceof SNode ? null : el))
+        );
+
+        assert(lib !== undefined, `State var ${sVar.name} should already be interposed`);
+
+        const struct = ctx.instrCtx.getCustomMapStruct(lib);
+        return mkStructFieldAcc(factory, transpile(arg, ctx), struct, "sum");
+    }
+
     const calleeT = ctx.typeEnv.typeOf(expr.callee);
 
     let callee: Expression;
@@ -560,11 +592,12 @@ function transpileForAll(expr: SForAll, ctx: TranspilingContext): Expression {
         // Forall over a map
         if (containerT instanceof PointerType && containerT.to instanceof MappingType) {
             const internalCounter = ctx.instrCtx.nameGenerator.getFresh("i");
-            const [sVar, path] = decomposeStateVarRef(expr.container);
+            const container = unwrapOld(expr.container);
+            const [sVar, path] = decomposeStateVarRef(container);
 
             assert(sVar !== undefined, `Unexpected undefined state var in ${expr.container.pp()}`);
 
-            const astContainer = transpile(expr.container, ctx);
+            const astContainer = transpile(container, ctx);
             const lib = ctx.instrCtx.getMapInterposingLibrary(
                 sVar,
                 path.map((x) => (x instanceof SNode ? null : x))
