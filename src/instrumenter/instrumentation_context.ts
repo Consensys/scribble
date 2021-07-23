@@ -15,7 +15,10 @@ import {
     Statement,
     TypeNode,
     SrcRangeMap,
-    assert
+    assert,
+    DataLocation,
+    ArrayType,
+    ContractKind
 } from "solc-typed-ast";
 import {
     AbsDatastructurePath,
@@ -28,7 +31,8 @@ import {
     makeIncDecFun,
     makeSetFun,
     UnsupportedConstruct,
-    getSetterName
+    getSetterName,
+    makeArraySumFun
 } from "..";
 import { print } from "../ast_to_source_printer";
 import { SUserFunctionDefinition } from "../spec-lang/ast";
@@ -217,6 +221,20 @@ class MapDeleteFunMap extends ContextFactoryMap<[ContractDefinition], number, Fu
     }
 }
 
+class ArraySumFunMap extends ContextFactoryMap<
+    [ArrayType, DataLocation],
+    string,
+    FunctionDefinition
+> {
+    protected getName(arrT: ArrayType, loc: DataLocation): string {
+        return `${arrT.pp()}_${loc}`;
+    }
+
+    protected makeNew(arrT: ArrayType, loc: DataLocation): FunctionDefinition {
+        return makeArraySumFun(this.ctx, this.ctx.arrSumLibrary, arrT, loc);
+    }
+}
+
 export class InstrumentationContext {
     public readonly nameGenerator: NameGenerator;
     public readonly structVar: string;
@@ -270,10 +288,7 @@ export class InstrumentationContext {
     private unitsNeedingUtils = new Set<SourceUnit>();
     private _originalContents: Map<SourceUnit, string>;
     private _aliasedStateVars: Map<VariableDeclaration, ASTNode>;
-
-    /**
-     * Various Caches
-     */
+    private _arrSumLibrary?: ContractDefinition;
 
     /**
      * Map keeping track of the `TranspilingContext`s for each `FunctionDefinition`.
@@ -307,6 +322,10 @@ export class InstrumentationContext {
      * Map factory keeping track of delete key functions generated for a given custom map library
      */
     public readonly libToDeleteFunMap = new MapDeleteFunMap(this);
+    /**
+     * Map factory keeping track of array sum functions generated for a given array type and location
+     */
+    public readonly arraySumFunMap = new ArraySumFunMap(this);
 
     constructor(
         public readonly factory: ASTNodeFactory,
@@ -467,5 +486,23 @@ export class InstrumentationContext {
 
     printUnits(units: SourceUnit[], srcMap: SrcRangeMap): Map<SourceUnit, string> {
         return print(units, this.compilerVersion, srcMap);
+    }
+
+    get arrSumLibrary(): ContractDefinition {
+        if (this._arrSumLibrary === undefined) {
+            const utilsUnit = this.utilsUnit;
+            this._arrSumLibrary = this.factory.makeContractDefinition(
+                "arr_sum_funs",
+                utilsUnit.id,
+                ContractKind.Library,
+                false,
+                true,
+                [],
+                []
+            );
+            this.utilsUnit.appendChild(this._arrSumLibrary);
+        }
+
+        return this._arrSumLibrary;
     }
 }

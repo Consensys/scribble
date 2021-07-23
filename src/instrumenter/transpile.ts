@@ -39,6 +39,7 @@ import {
 import {
     addStmt,
     AnnotationMetaData,
+    mkLibraryFunRef,
     mkStructFieldAcc,
     PropertyMetaData,
     single,
@@ -406,21 +407,41 @@ function transpileFunctionCall(expr: SFunctionCall, ctx: TranspilingContext): Ex
         expr.callee.defSite === "builtin_fun"
     ) {
         const arg = single(expr.args);
-        const [sVar, path] = decomposeStateVarRef(arg);
+        const argT = ctx.typeEnv.typeOf(arg);
+
+        assert(argT instanceof PointerType, `sum expects a pointer to array/map, not ${argT.pp()}`);
+
+        if (argT.to instanceof MappingType) {
+            const [sVar, path] = decomposeStateVarRef(arg);
+            assert(
+                sVar !== undefined,
+                `sum argument should be a state var(or a part of it), not ${arg.pp()}`
+            );
+
+            const lib = ctx.instrCtx.sVarToLibraryMap.get(
+                sVar,
+                path.map((el) => (el instanceof SNode ? null : el))
+            );
+
+            assert(lib !== undefined, `State var ${sVar.name} should already be interposed`);
+
+            const struct = single(lib.vStructs);
+            return mkStructFieldAcc(factory, transpile(arg, ctx), struct, "sum");
+        }
+
         assert(
-            sVar !== undefined,
-            `sum argument should be a state var(or a part of it), not ${arg.pp()}`
+            argT.to instanceof ArrayType,
+            `sum expects a pointer to array/map, not ${argT.pp()}`
         );
 
-        const lib = ctx.instrCtx.sVarToLibraryMap.get(
-            sVar,
-            path.map((el) => (el instanceof SNode ? null : el))
+        const sumFun = ctx.instrCtx.arraySumFunMap.get(argT.to, argT.location);
+        ctx.instrCtx.needsUtils((ctx.container.vScope as ContractDefinition).vScope);
+        return factory.makeFunctionCall(
+            "<missing>",
+            FunctionCallKind.FunctionCall,
+            mkLibraryFunRef(ctx.instrCtx, sumFun),
+            [transpile(arg, ctx)]
         );
-
-        assert(lib !== undefined, `State var ${sVar.name} should already be interposed`);
-
-        const struct = single(lib.vStructs);
-        return mkStructFieldAcc(factory, transpile(arg, ctx), struct, "sum");
     }
 
     const calleeT = ctx.typeEnv.typeOf(expr.callee);

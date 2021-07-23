@@ -55,7 +55,8 @@ describe("Multiple-file project instrumentation", () => {
             ["main.sol", "imp1.sol", "imp2.sol", "imp3.sol"],
             "0.5.0"
         ],
-        ["test/multifile_samples/forall_maps", ["child.sol", "base.sol"], "0.8.4"]
+        ["test/multifile_samples/forall_maps", ["child.sol", "base.sol"], "0.8.4"],
+        ["test/multifile_samples/arr_sum", ["main.sol"], "0.8.4"]
     ];
 
     for (const [dirName, solFiles, version] of samples) {

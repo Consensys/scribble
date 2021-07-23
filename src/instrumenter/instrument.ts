@@ -1183,17 +1183,23 @@ export function getOrAddConstructor(
 export function makeArraySumFun(
     ctx: InstrumentationContext,
     container: ContractDefinition | SourceUnit,
-    arrT: PointerType
+    arrT: ArrayType,
+    loc: DataLocation
 ): FunctionDefinition {
-    assert(
-        arrT.to instanceof ArrayType,
-        `makeArraySumFun expects pointer to array not ${arrT.pp()}`
-    );
     const factory = ctx.factory;
-    const name = `sum_arr_${getTypeDesc(arrT)}`;
+
+    assert(
+        arrT.elementT instanceof IntType,
+        `makeArraySum expects a numeric array type not ${arrT.pp()}`
+    );
+
+    const name = `sum_arr_${getTypeDesc(arrT)}_${loc}`;
+    const sumT = new IntType(256, arrT.elementT.signed);
+
     const fun = addEmptyFun(ctx, name, FunctionVisibility.Internal, container);
-    const arr = addFunArg(factory, "arr", arrT, arrT.location, fun);
-    const ret = addFunRet(ctx, "ret", arrT, arrT.location, fun);
+    const arr = addFunArg(factory, "arr", arrT, loc, fun);
+    const ret = addFunRet(ctx, "ret", sumT, DataLocation.Default, fun);
+
     const idx = factory.makeVariableDeclaration(
         false,
         false,
@@ -1208,7 +1214,7 @@ export function makeArraySumFun(
         factory.makeElementaryTypeName("<missing>", "uint256")
     );
 
-    const loop = addStmt(
+    addStmt(
         factory,
         fun,
         factory.makeForStatement(
@@ -1241,6 +1247,5 @@ export function makeArraySumFun(
         )
     );
 
-    addStmt(factory, fun, loop);
     return fun;
 }

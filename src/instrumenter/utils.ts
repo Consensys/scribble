@@ -26,7 +26,8 @@ import {
     DataLocation,
     Mutability,
     StateVariableVisibility,
-    VariableDeclaration
+    VariableDeclaration,
+    Identifier
 } from "solc-typed-ast";
 import { single, transpileType } from "..";
 import { InstrumentationContext } from "./instrumentation_context";
@@ -279,4 +280,24 @@ export function getTypeDesc(typ: TypeNode): string {
     }
 
     throw new Error(`Unknown type ${typ.pp()} in getTypeDesc`);
+}
+
+export function mkLibraryFunRef(
+    ctx: InstrumentationContext,
+    fn: FunctionDefinition
+): MemberAccess | Identifier {
+    const factory = ctx.factory;
+    let ref: MemberAccess | Identifier;
+    if (fn.visibility === FunctionVisibility.Private) {
+        ref = factory.makeIdentifierFor(fn);
+    } else {
+        ref = factory.makeMemberAccess(
+            "<missing>",
+            factory.makeIdentifierFor(fn.vScope as ContractDefinition),
+            fn.name,
+            fn.id
+        );
+    }
+    ctx.addGeneralInstrumentation(ref);
+    return ref;
 }

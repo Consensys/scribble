@@ -11,7 +11,6 @@ import {
     FunctionCallKind,
     FunctionDefinition,
     FunctionVisibility,
-    Identifier,
     IfStatement,
     IntType,
     LiteralKind,
@@ -38,6 +37,7 @@ import {
     addStmt,
     addStructField,
     getTypeDesc,
+    mkLibraryFunRef,
     mkStructFieldAcc,
     single,
     transpileType
@@ -456,26 +456,6 @@ function makeAddKeyFun(
     // }
 
     return fun;
-}
-
-export function mkLibraryFunRef(
-    ctx: InstrumentationContext,
-    fn: FunctionDefinition
-): MemberAccess | Identifier {
-    const factory = ctx.factory;
-    let ref: MemberAccess | Identifier;
-    if (fn.visibility === FunctionVisibility.Private) {
-        ref = factory.makeIdentifierFor(fn);
-    } else {
-        ref = factory.makeMemberAccess(
-            "<missing>",
-            factory.makeIdentifierFor(fn.vScope as ContractDefinition),
-            fn.name,
-            fn.id
-        );
-    }
-    ctx.addGeneralInstrumentation(ref);
-    return ref;
 }
 
 export function makeGetFun(
