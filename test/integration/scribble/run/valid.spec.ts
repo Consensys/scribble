@@ -10,7 +10,8 @@ describe(`Command "scribble <filename>" is working properly`, () => {
     );
 
     const argMap: Map<string, string[]> = new Map([
-        ["contract_pos.sol", ["--debug-events", "--no-assert"]]
+        ["contract_pos.sol", ["--debug-events", "--no-assert"]],
+        ["contract_multi_arg_debug.sol", ["--debug-events", "--no-assert"]]
     ]);
 
     it(`Instrumented source samples are present in ${samplesDir}`, () => {
