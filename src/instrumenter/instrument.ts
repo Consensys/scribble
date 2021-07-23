@@ -55,7 +55,6 @@ import {
 } from "./annotations";
 import { walk } from "../spec-lang/walk";
 import { interpose, interposeCall } from "./interpose";
-import { dirname, relative } from "path";
 import { InstrumentationContext } from "./instrumentation_context";
 import { InstrumentationSiteType, TranspilingContext } from "./transpiling_context";
 
@@ -602,23 +601,7 @@ export class ContractInstrumenter {
             this.instrumentConstructor(ctx, contract, generalInvChecker);
             this.replaceExternalCallSites(ctx, contract, generalInvChecker);
 
-            const utilsUnit = ctx.utilsContract.vScope;
-            if (!this.hasImport(contract.vScope, utilsUnit)) {
-                const path = relative(
-                    dirname(contract.vScope.absolutePath),
-                    utilsUnit.absolutePath
-                );
-                contract.vScope.appendChild(
-                    ctx.factory.makeImportDirective(
-                        `./${path}`,
-                        utilsUnit.absolutePath,
-                        "",
-                        [],
-                        contract.vScope.id,
-                        utilsUnit.id
-                    )
-                );
-            }
+            ctx.needsUtils(contract.vScope);
         }
     }
 
@@ -640,12 +623,6 @@ export class ContractInstrumenter {
         } else {
             contract.appendChild(inhSpec);
         }
-    }
-
-    private hasImport(unit: SourceUnit, imported: SourceUnit): boolean {
-        return (
-            unit.vImportDirectives.filter((importD) => importD.vSourceUnit === imported).length > 0
-        );
     }
 
     /**

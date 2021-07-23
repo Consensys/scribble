@@ -1,0 +1,37 @@
+import { SourceUnit, ASTNodeFactory } from "solc-typed-ast";
+import { generateUtilsContract } from "../../src";
+import { getCallGraph } from "../../src/instrumenter/callgraph";
+import { getCHA } from "../../src/instrumenter/cha";
+import { InstrumentationContext } from "../../src/instrumenter/instrumentation_context";
+import { TypeEnv } from "../../src/spec-lang/tc";
+
+export function makeInstrumentationCtx(
+    sources: SourceUnit[],
+    factory: ASTNodeFactory,
+    files: Map<string, string>,
+    assertionMode: "log" | "mstore",
+    compilerVersion: string
+): InstrumentationContext {
+    const ctx = new InstrumentationContext(
+        factory,
+        sources,
+        assertionMode,
+        true,
+        getCallGraph(sources),
+        getCHA(sources),
+        {},
+        [],
+        new Map(),
+        files,
+        compilerVersion,
+        false,
+        new Map(),
+        "flat",
+        new TypeEnv(compilerVersion),
+        new Map(),
+        []
+    );
+
+    generateUtilsContract(factory, "", "scribble_utils.sol", compilerVersion, ctx).vContracts;
+    return ctx;
+}

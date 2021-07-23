@@ -10,6 +10,7 @@ import {
     FunctionDefinition,
     Identifier,
     ImportDirective,
+    IndexAccess,
     MemberAccess,
     OverrideSpecifier,
     ParameterList,
@@ -17,6 +18,7 @@ import {
     SourceUnit,
     StructuredDocumentation,
     TupleExpression,
+    TypeName,
     UnaryOperation
 } from "solc-typed-ast";
 import {
@@ -250,6 +252,10 @@ describe("Src2src map test", () => {
                                         for (const child of node.vSubExpression.getChildren(true)) {
                                             coveredOriginalNodes.add(child);
                                         }
+                                    } else if (node instanceof IndexAccess) {
+                                        for (const child of node.getChildren(true)) {
+                                            coveredOriginalNodes.add(child);
+                                        }
                                     } else {
                                         assert(
                                             false,
@@ -331,6 +337,7 @@ describe("Src2src map test", () => {
                             // 5) Empty ParamterLists (especiall in return params) may be removed
                             // 6) OverrideSpecifiers are moved on interposition
                             // 7) .push() and .pop() callees that are interposed
+                            // 8) Mapping type names inside of state variables and some struct definitions that get re-written during map interposition
                             if (
                                 !(
                                     (
@@ -345,7 +352,8 @@ describe("Src2src map test", () => {
                                         (node instanceof MemberAccess &&
                                             ["push", "pop"].includes(node.memberName)) ||
                                         (node.parent instanceof MemberAccess &&
-                                            ["push", "pop"].includes(node.parent.memberName))
+                                            ["push", "pop"].includes(node.parent.memberName)) ||
+                                        node instanceof TypeName
                                     ) /* Override specifiers are moved on interposition */
                                 )
                             ) {

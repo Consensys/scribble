@@ -32,8 +32,8 @@ import {
     UserDefinedTypeName,
     VariableDeclaration
 } from "solc-typed-ast";
-import { findAliasedStateVars, findStateVarUpdates, UnsupportedConstruct } from "..";
-import { print, rewriteImports } from "../ast_to_source_printer";
+import { AbsDatastructurePath, findStateVarUpdates, interposeMap, UnsupportedConstruct } from "..";
+import { rewriteImports } from "../ast_to_source_printer";
 import {
     PropertyMetaData,
     SyntaxError,
@@ -217,7 +217,7 @@ function instrumentFiles(
     ctx: InstrumentationContext,
     annotMap: AnnotationMap,
     contractsNeedingInstr: Set<ContractDefinition>
-): [SourceUnit[], SourceUnit[]] {
+) {
     const units = ctx.units;
 
     const worklist: Array<
@@ -225,11 +225,11 @@ function instrumentFiles(
     > = [];
     const stateVarsWithAnnot: VariableDeclaration[] = [];
 
-    const changedSourceUnits: SourceUnit[] = [];
+    if (ctx.varInterposingQueue.length > 0) {
+        interposeMap(ctx, ctx.varInterposingQueue, units);
+    }
 
     for (const unit of units) {
-        let changed = false;
-
         const contents = ctx.files.get(unit.sourceEntryKey);
 
         assert(contents !== undefined, `Missing source for ${unit.absolutePath}`);
@@ -249,7 +249,6 @@ function instrumentFiles(
 
             if (needsStateInvariantInstr || userFuns.length > 0) {
                 worklist.push([contract, undefined, contractAnnot]);
-                changed = true;
                 assert(
                     ![ContractKind.Library, ContractKind.Interface].includes(contract.kind),
                     `Shouldn't be instrumenting ${contract.kind} ${contract.name} with contract invs`
@@ -298,15 +297,9 @@ function instrumentFiles(
                         contract.kind === ContractKind.Contract &&
                         fun.kind === FunctionKind.Function)
                 ) {
-                    changed = true;
-
                     worklist.push([contract, fun, annotations]);
                 }
             }
-        }
-
-        if (changed) {
-            changedSourceUnits.push(unit);
         }
     }
 
@@ -333,22 +326,12 @@ function instrumentFiles(
     }
 
     if (stateVarsWithAnnot.length > 0) {
-        const aliasedStateVars = findAliasedStateVars(ctx.units);
         const stateVarUpdates = findStateVarUpdates(ctx.units);
 
-        instrumentStateVars(ctx, annotMap, aliasedStateVars, stateVarUpdates);
+        instrumentStateVars(ctx, annotMap, stateVarUpdates);
     }
 
     ctx.finalize();
-    return [units, changedSourceUnits];
-}
-
-function printUnits(
-    all: SourceUnit[],
-    version: Map<SourceUnit, string>,
-    srcMap: SrcRangeMap
-): Map<SourceUnit, string> {
-    return print(all, version, srcMap);
 }
 
 type TopLevelDef = ContractDefinition | StructDefinition | EnumDefinition;
@@ -844,12 +827,13 @@ if ("version" in options) {
 
         const typeEnv = new TypeEnv(compilerVersionUsed);
         const semMap: SemMap = new Map();
+        let interposingQueue: Array<[VariableDeclaration, AbsDatastructurePath]>;
 
         try {
             // Type check
             tcUnits(mergedUnits, annotMap, typeEnv);
             // Semantic check
-            scUnits(mergedUnits, annotMap, typeEnv, semMap);
+            interposingQueue = scUnits(mergedUnits, annotMap, typeEnv, semMap);
         } catch (err) {
             if (err instanceof STypeError || err instanceof SemError) {
                 const annotation = err.annotationMetaData;
@@ -912,16 +896,19 @@ if ("version" in options) {
             new Map(),
             outputMode,
             typeEnv,
-            semMap
+            semMap,
+            interposingQueue
         );
 
         const utilsUnit = makeUtilsUnit(utilsOutputDir, factory, compilerVersionUsed, instrCtx);
 
-        let allUnits: SourceUnit[];
-        let changedUnits: SourceUnit[];
-
         try {
-            [allUnits, changedUnits] = instrumentFiles(instrCtx, annotMap, contractsNeedingInstr);
+            // Check that none of the map state vars to be overwritten is aliased
+            for (const [sVar] of interposingQueue) {
+                instrCtx.crashIfAliased(sVar);
+            }
+
+            instrumentFiles(instrCtx, annotMap, contractsNeedingInstr);
         } catch (e) {
             if (e instanceof UnsupportedConstruct) {
                 prettyError(e.name, e.message, e.unit, e.range);
@@ -929,11 +916,10 @@ if ("version" in options) {
             throw e;
         }
 
-        allUnits.push(utilsUnit);
+        const allUnits: SourceUnit[] = [...instrCtx.units];
+        const changedUnits: SourceUnit[] = [...instrCtx.changedUnits];
 
-        const versionMap: Map<SourceUnit, string> = new Map(
-            mergedUnits.map((u) => [u, compilerVersionUsed])
-        );
+        allUnits.push(utilsUnit);
 
         // Next we re-write the imports. We want to do this here, as the imports are need by the topo sort
         allUnits.forEach((sourceUnit) => {
@@ -970,9 +956,8 @@ if ("version" in options) {
             sortedUnits[0].appendChild(factory.makePragmaDirective(["solidity", version]));
 
             // 5. Now print the stripped files
-            const newContents: Map<SourceUnit, string> = printUnits(
+            const newContents: Map<SourceUnit, string> = instrCtx.printUnits(
                 sortedUnits,
-                versionMap,
                 newSrcMap
             );
 
@@ -1058,7 +1043,7 @@ if ("version" in options) {
             // In files mode we need to write out every change file, and opitonally swap them in-place.
 
             // 1. Write out files
-            const newContents = printUnits(allUnits.concat(utilsUnit), versionMap, newSrcMap);
+            const newContents = instrCtx.printUnits(allUnits.concat(utilsUnit), newSrcMap);
 
             // 2. For all changed files write out a `.instrumented` version of the file.
             for (const unit of changedUnits) {

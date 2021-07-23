@@ -533,7 +533,8 @@ describe("TypeChecker Expression Unit Tests", () => {
                     "$result",
                     ["Foo", "idPair"],
                     new TupleType([new IntType(256, false), new IntType(256, false)])
-                ]
+                ],
+                ["unchecked_sum(sM)", ["Foo", undefined], new IntType(256, true)]
             ]
         ],
         [
@@ -657,7 +658,10 @@ describe("TypeChecker Expression Unit Tests", () => {
                 ["msg.any", ["Foo", undefined]],
                 ["tx.any", ["Foo", undefined]],
                 ["$result", ["Foo", undefined]],
-                ["$result", ["Foo", "noReturn"]]
+                ["$result", ["Foo", "noReturn"]],
+                ["forall (string x in 0...100) x > 0", ["Foo", undefined]],
+                ["forall (uint x in sV) x > 0", ["Foo", undefined]],
+                ["unchecked_sum(sV)", ["Foo", undefined]]
             ]
         ],
         [
@@ -910,6 +914,36 @@ describe("TypeChecker Annotation Tests", () => {
                     ["Base", "plus"],
                     undefined,
                     true
+                ],
+                [
+                    "if_succeeds forall(uint256 i in a+b...a*b) arr[i] > 0;",
+                    ["Base", "plus"],
+                    undefined,
+                    true
+                ],
+                [
+                    "invariant forall(bytes memory b in m1) m1[b] > 0;",
+                    ["Unrelated", undefined],
+                    undefined,
+                    true
+                ],
+                [
+                    "invariant forall(address a in m3) m3[a].sArr.arr.length > 0;",
+                    ["Unrelated", undefined],
+                    undefined,
+                    true
+                ],
+                [
+                    "invariant forall(address a in m2) forall(bytes storage b in m2[a]) m2[a][b];",
+                    ["Unrelated", undefined],
+                    undefined,
+                    true
+                ],
+                [
+                    "invariant forall(string memory s in m4) m4[s];",
+                    ["Unrelated", undefined],
+                    undefined,
+                    true
                 ]
             ]
         ]
@@ -984,7 +1018,9 @@ describe("TypeChecker Annotation Tests", () => {
                 ["if_succeeds forall(uint i in 1...arr) arr[i] > 0;", ["Base", "plus"]],
                 ["if_succeeds forall(uint i in 1...10) i+10;", ["Base", "plus"]],
                 ["if_succeeds forall(uint i in a) true;", ["Base", "plus"]],
-                ["if_succeeds forall(uint8 i in a...b) arr[i] > 0;", ["Base", "plus"]]
+                ["if_succeeds forall(uint8 i in a...b) arr[i] > 0;", ["Base", "plus"]],
+                ["invariant forall(uint8 i in m1) true;", ["Unrelated", undefined]],
+                ["invariant forall(bytes memory i in m1) true;", ["Unrelated", undefined]]
             ]
         ]
     ];

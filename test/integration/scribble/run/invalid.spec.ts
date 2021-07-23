@@ -29,7 +29,7 @@ describe(`Command "scribble <filename>" is failing as expected`, () => {
         ],
         [
             ["test/samples/invalid/if_updated_push_ref.invalid.sol"],
-            /.*Error: Scribble doesn't support instrument assignments where the LHS is a push\(\). Problematic LHS: a.push\(\)/m
+            /.*Error: Scribble doesn't support instrumenting assignments where the LHS is a push\(\). Problematic LHS: a.push\(\)/m
         ],
         [
             ["test/samples/if_assigned_complex.sol", "--debug-events"],
@@ -42,6 +42,14 @@ describe(`Command "scribble <filename>" is failing as expected`, () => {
         [
             ["test/samples/invalid/if_updated_aliasing2.invalid.sol"],
             /^test\/samples\/invalid\/if_updated_aliasing2.invalid.sol:7:2 Error: Cannot instrument state var BadAliasing.a as it may be aliased by a storage pointer/m
+        ],
+        [
+            ["test/samples/invalid/forall_maps_aliasing1.invalid.sol"],
+            /^test\/samples\/invalid\/forall_maps_aliasing1.invalid.sol:7:2 Error: Cannot instrument state var BadAliasing.a as it may be aliased by a storage pointer/m
+        ],
+        [
+            ["test/samples/invalid/forall_maps_aliasing2.invalid.sol"],
+            /^test\/samples\/invalid\/forall_maps_aliasing2.invalid.sol:12:2 Error: Cannot instrument state var BadAliasing.s as it may be aliased by a storage pointer/m
         ]
     ];
 

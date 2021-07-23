@@ -143,13 +143,10 @@ function getWriter(targetCompilerVersion: string): ASTWriter {
  */
 export function print(
     sourceUnits: SourceUnit[],
-    versionMap: Map<SourceUnit, string>,
+    compilerVersion: string,
     srcMap: SrcRangeMap
 ): Map<SourceUnit, string> {
     return new Map(
-        sourceUnits.map((unit) => [
-            unit,
-            getWriter(versionMap.get(unit) as string).write(unit, srcMap)
-        ])
+        sourceUnits.map((unit) => [unit, getWriter(compilerVersion).write(unit, srcMap)])
     );
 }

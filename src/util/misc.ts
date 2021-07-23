@@ -148,16 +148,17 @@ export function getScopeUnit(
  * Given an array `arr` return a new array with all the elements of
  * `arr` but without duplicates. Elements are compared with the `===`.
  */
-export function dedup<T>(arr: T[]): T[] {
+export function dedup<T, U>(arr: T[], keyF?: (x: T) => U): T[] {
     const res: T[] = [];
-    const seen = new Set<T>();
+    const seen = new Set();
 
     for (const el of arr) {
-        if (seen.has(el)) {
+        const key = keyF ? keyF(el) : el;
+        if (seen.has(key)) {
             continue;
         }
 
-        seen.add(el);
+        seen.add(key);
         res.push(el);
     }
 

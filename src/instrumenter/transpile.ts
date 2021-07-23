@@ -1,3 +1,4 @@
+import bigInt from "big-integer";
 import {
     AddressType,
     ArrayType,
@@ -12,6 +13,7 @@ import {
     EnumDefinition,
     Expression,
     FixedBytesType,
+    ForStatement,
     FunctionCallKind,
     FunctionDefinition,
     FunctionType,
@@ -20,6 +22,8 @@ import {
     IntLiteralType,
     IntType,
     LiteralKind,
+    MappingType,
+    MemberAccess,
     Mutability,
     PointerType,
     StateVariableVisibility,
@@ -32,8 +36,16 @@ import {
     UserDefinedType,
     VariableDeclaration
 } from "solc-typed-ast";
-import { AnnotationMetaData, PropertyMetaData, single, UserFunctionDefinitionMetaData } from "..";
 import {
+    addStmt,
+    AnnotationMetaData,
+    mkStructFieldAcc,
+    PropertyMetaData,
+    single,
+    UserFunctionDefinitionMetaData
+} from "..";
+import {
+    BuiltinFunctions,
     SAddressLiteral,
     SBinaryOperation,
     SBooleanLiteral,
@@ -52,7 +64,13 @@ import {
     SUnaryOperation,
     SUserFunctionDefinition
 } from "../spec-lang/ast";
-import { BuiltinSymbols, SemInfo, StateVarScope } from "../spec-lang/tc";
+import {
+    BuiltinSymbols,
+    decomposeStateVarRef,
+    SemInfo,
+    StateVarScope,
+    unwrapOld
+} from "../spec-lang/tc";
 import { FunctionSetType } from "../spec-lang/tc/internal_types";
 import { TranspilingContext } from "./transpiling_context";
 
@@ -97,6 +115,19 @@ export function transpileType(type: TypeNode, factory: ASTNodeFactory): TypeName
         );
     }
 
+    if (type instanceof MappingType) {
+        const keyT =
+            type.keyType instanceof AddressType && type.keyType.payable
+                ? new AddressType(false)
+                : type.keyType;
+
+        return factory.makeMapping(
+            "<missing>",
+            transpileType(keyT, factory),
+            transpileType(type.valueType, factory)
+        );
+    }
+
     throw new Error(`NYI emitting spec type ${type.pp()}`);
 }
 
@@ -121,8 +152,10 @@ function transpileId(expr: SId, ctx: TranspilingContext): Expression {
     // Normal solidity variable - function argument, return, state variable or global constant.
     if (expr.defSite instanceof VariableDeclaration) {
         if (expr.name !== expr.defSite.name) {
-            throw new Error(
-                `Internal error: variable id ${expr.pp()} has different name from underlying variabl ${expr.defSite.print()}`
+            assert(
+                expr.defSite.stateVariable,
+                `Internal error: variable id ${expr.pp()} has different name from underlying variable ${expr.defSite.print()}` +
+                    `Variable renaming only allowed for public state vars with maps`
             );
         }
 
@@ -243,6 +276,7 @@ function transpileResult(expr: SResult, ctx: TranspilingContext): Expression {
  */
 function transpileIndexAccess(expr: SIndexAccess, ctx: TranspilingContext): Expression {
     const factory = ctx.factory;
+    const instrCtx = ctx.instrCtx;
     const base = transpile(expr.base, ctx);
     const index = transpile(expr.index, ctx);
 
@@ -260,6 +294,34 @@ function transpileIndexAccess(expr: SIndexAccess, ctx: TranspilingContext): Expr
         }`
     );
 
+    // Some maps inside state vars may have been re-writen as structs with library
+    // accessors. If this index access is to such a map, then we need to
+    // transpile it as a call to the proper getter
+    const [sVar, path] = decomposeStateVarRef(expr);
+    if (sVar !== undefined) {
+        const interposeLib = instrCtx.getMapInterposingLibrary(
+            sVar,
+            path.slice(0, -1).map((x) => (x instanceof SNode ? null : x))
+        );
+
+        if (interposeLib !== undefined) {
+            const getter = instrCtx.getCustomMapGetter(interposeLib, false);
+
+            return factory.makeFunctionCall(
+                "<missing>",
+                FunctionCallKind.FunctionCall,
+                factory.makeMemberAccess(
+                    "<missing>",
+                    factory.makeIdentifierFor(interposeLib),
+                    getter.name,
+                    getter.id
+                ),
+                [base, index]
+            );
+        }
+    }
+
+    // Otherwise transpile this as a normal index access
     return factory.makeIndexAccess("<missing>", base, index);
 }
 
@@ -337,6 +399,30 @@ function transpileConditional(expr: SConditional, ctx: TranspilingContext): Expr
  */
 function transpileFunctionCall(expr: SFunctionCall, ctx: TranspilingContext): Expression {
     const factory = ctx.factory;
+
+    if (
+        expr.callee instanceof SId &&
+        expr.callee.name === BuiltinFunctions.unchecked_sum &&
+        expr.callee.defSite === "builtin_fun"
+    ) {
+        const arg = single(expr.args);
+        const [sVar, path] = decomposeStateVarRef(arg);
+        assert(
+            sVar !== undefined,
+            `sum argument should be a state var(or a part of it), not ${arg.pp()}`
+        );
+
+        const lib = ctx.instrCtx.getMapInterposingLibrary(
+            sVar,
+            path.map((el) => (el instanceof SNode ? null : el))
+        );
+
+        assert(lib !== undefined, `State var ${sVar.name} should already be interposed`);
+
+        const struct = ctx.instrCtx.getCustomMapStruct(lib);
+        return mkStructFieldAcc(factory, transpile(arg, ctx), struct, "sum");
+    }
+
     const calleeT = ctx.typeEnv.typeOf(expr.callee);
 
     let callee: Expression;
@@ -443,6 +529,50 @@ function transpileLet(expr: SLet, ctx: TranspilingContext): Expression {
     return ctx.refBinding(letVarName);
 }
 
+function makeForLoop(
+    ctx: TranspilingContext,
+    iterVarName: string,
+    iterVarType: TypeNode,
+    start: SNode,
+    end: SNode | Expression
+): ForStatement {
+    const factory = ctx.factory;
+
+    ctx.addBinding(iterVarName, transpileType(iterVarType, ctx.factory));
+    // Iteration variable initialization statmenet
+    const initStmt = factory.makeExpressionStatement(
+        factory.makeAssignment("<missing>", "=", ctx.refBinding(iterVarName), transpile(start, ctx))
+    );
+
+    // Loop condition
+    const iterCond = factory.makeBinaryOperation(
+        "<missing>",
+        "<",
+        ctx.refBinding(iterVarName),
+        end instanceof Expression ? end : transpile(end, ctx)
+    );
+
+    // Iteration variable increment
+    const incStmt = factory.makeExpressionStatement(
+        factory.makeUnaryOperation("<missing>", false, "++", ctx.refBinding(iterVarName))
+    );
+
+    const body = factory.makeBlock([]);
+
+    // Build and insert a for-loop with empty body
+    return factory.makeForStatement(body, initStmt, iterCond, incStmt);
+}
+
+function makeMemberAccess(
+    factory: ASTNodeFactory,
+    base: Expression,
+    type: StructDefinition,
+    name: string
+): MemberAccess {
+    const field = single(type.vMembers.filter((x) => x.name === name));
+    return factory.makeMemberAccess("<missing>", base, name, field.id);
+}
+
 /**
  * Transpile the `SForAll` statement `expr`. Note that this will generate and insert a loop
  * in `ctx.container`.
@@ -450,12 +580,79 @@ function transpileLet(expr: SLet, ctx: TranspilingContext): Expression {
 function transpileForAll(expr: SForAll, ctx: TranspilingContext): Expression {
     const factory = ctx.factory;
     const isOld = (ctx.semInfo.get(expr) as SemInfo).isOld;
+    const typeEnv = ctx.typeEnv;
+    let forStmt: ForStatement;
 
-    // Add temp bindings for iterator variable and result var
     const iterVarName = ctx.getForAllIterVar(expr);
     const resultVarName = ctx.getForAllVar(expr);
 
-    ctx.addBinding(iterVarName, transpileType(expr.iteratorType, ctx.factory));
+    if (expr.container !== undefined) {
+        const containerT = typeEnv.typeOf(expr.container);
+
+        // Forall over a map
+        if (containerT instanceof PointerType && containerT.to instanceof MappingType) {
+            const internalCounter = ctx.instrCtx.nameGenerator.getFresh("i");
+            const container = unwrapOld(expr.container);
+            const [sVar, path] = decomposeStateVarRef(container);
+
+            assert(sVar !== undefined, `Unexpected undefined state var in ${expr.container.pp()}`);
+
+            const astContainer = transpile(container, ctx);
+            const lib = ctx.instrCtx.getMapInterposingLibrary(
+                sVar,
+                path.map((x) => (x instanceof SNode ? null : x))
+            );
+            assert(lib !== undefined, `Unexpected missing library for map ${sVar.name}`);
+            const struct = ctx.instrCtx.getCustomMapStruct(lib);
+            const keys = makeMemberAccess(factory, astContainer, struct, "keys");
+            const len = factory.makeMemberAccess("<missing>", keys, "length", -1);
+
+            forStmt = makeForLoop(
+                ctx,
+                internalCounter,
+                new IntType(256, false),
+                new SNumber(bigInt(1), 10),
+                len
+            );
+
+            ctx.addBinding(iterVarName, transpileType(expr.iteratorType, ctx.factory));
+
+            addStmt(
+                factory,
+                forStmt.vBody as Block,
+                factory.makeAssignment(
+                    "<missing>",
+                    "=",
+                    ctx.refBinding(iterVarName),
+                    factory.makeIndexAccess(
+                        "<mising>",
+                        factory.copy(keys),
+                        ctx.refBinding(internalCounter)
+                    )
+                )
+            );
+        } else {
+            // Forall over array
+            const astContainer = transpile(expr.container, ctx);
+            forStmt = makeForLoop(
+                ctx,
+                iterVarName,
+                expr.iteratorType,
+                new SNumber(bigInt(0), 10),
+                factory.makeMemberAccess("<missing>", astContainer, "length", -1)
+            );
+        }
+    } else {
+        // Forall over numeric range
+        forStmt = makeForLoop(
+            ctx,
+            iterVarName,
+            expr.iteratorType,
+            expr.start as SNode,
+            expr.end as SNode
+        );
+    }
+
     ctx.addBinding(resultVarName, transpileType(new BoolType(), ctx.factory));
 
     // Initialize result of forall to true (so `forall (uint x in [0, 0)) false` is true).
@@ -470,33 +667,10 @@ function transpileForAll(expr: SForAll, ctx: TranspilingContext): Expression {
         true
     );
 
-    // Iteration variable initialization statmenet
-    const initStmt = factory.makeExpressionStatement(
-        factory.makeAssignment(
-            "<missing>",
-            "=",
-            ctx.refBinding(iterVarName),
-            transpile(expr.start, ctx)
-        )
-    );
+    const body: Block = forStmt.vBody as Block;
 
-    // Loop condition
-    const iterCond = factory.makeBinaryOperation(
-        "<missing>",
-        "<",
-        ctx.refBinding(iterVarName),
-        transpile(expr.end, ctx)
-    );
-
-    // Iteration variable increment
-    const incStmt = factory.makeExpressionStatement(
-        factory.makeUnaryOperation("<missing>", false, "++", ctx.refBinding(iterVarName))
-    );
-
-    const body: Block = factory.makeBlock([]);
-
-    // Build and insert a for-loop with empty body
-    ctx.insertStatement(factory.makeForStatement(body, initStmt, iterCond, incStmt), isOld, true);
+    // Insert the created for-loop with empty body
+    ctx.insertStatement(forStmt, isOld, true);
 
     // Transpile the predicate expression in the empty body of the newly inserted for-loop
     ctx.pushMarker([body, "end"], isOld);

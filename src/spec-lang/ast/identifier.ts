@@ -16,7 +16,8 @@ export type IdDefSite =
     | "function_name"
     | "type_name"
     | "this"
-    | SUserFunctionDefinition;
+    | SUserFunctionDefinition
+    | "builtin_fun";
 
 export class SId extends SNode {
     public readonly name: string;
