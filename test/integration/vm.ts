@@ -1,4 +1,4 @@
-import { compileSol } from "solc-typed-ast";
+import { compileSol, compileSourceString, LatestCompilerVersion } from "solc-typed-ast";
 import BN from "bn.js";
 import crypto from "crypto";
 import Account from "ethereumjs-account";
@@ -45,6 +45,7 @@ export interface Step {
 
 export interface Config {
     file: string;
+    contents?: string;
     steps: Step[];
 }
 
@@ -77,8 +78,18 @@ class User {
 /**
  * @see https://github.com/b-mueller/sabre/blob/master/lib/compiler.js#L222-L229
  */
-function complieSource(fileName: string): ContractBytecodeMap {
-    const { data } = compileSol(fileName, "auto", []);
+function compileSource(
+    fileName: string,
+    contents?: string,
+    version: string = LatestCompilerVersion
+): ContractBytecodeMap {
+    let data: any;
+
+    if (contents) {
+        data = compileSourceString(fileName, contents, version, []).data;
+    } else {
+        data = compileSol(fileName, "auto", []).data;
+    }
 
     const result = new Map<string, Buffer>();
 
@@ -491,7 +502,7 @@ export function executeTestSuite(fileName: string, config: Config): void {
         before(() => {
             env.vm = new VM();
             env.aliases = new Map<string, any>();
-            env.contracts = complieSource(sample);
+            env.contracts = compileSource(sample, config.contents);
         });
 
         for (const step of config.steps) {
@@ -504,4 +515,28 @@ export function executeTestSuite(fileName: string, config: Config): void {
             processor(env, step);
         }
     });
+}
+
+/**
+ * Internal version of executeTestSuite that may be called from another mocha test.
+ * @todo remove code duplication with executeTestSuite
+ */
+export function executeTestSuiteInternal(fileName: string, config: Config, version: string): void {
+    const sample = config.file;
+
+    const env = {} as Environment;
+
+    env.vm = new VM();
+    env.aliases = new Map<string, any>();
+    env.contracts = compileSource(sample, config.contents, version);
+
+    for (const step of config.steps) {
+        const processor = processors.get(step.act);
+
+        if (processor === undefined) {
+            throw new Error(`Unsupported step "${step.act}"`);
+        }
+
+        processor(env, step);
+    }
 }

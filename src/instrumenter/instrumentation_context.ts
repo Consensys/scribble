@@ -1,3 +1,4 @@
+import { dirname, relative } from "path";
 import {
     ASTNodeFactory,
     ContractDefinition,
@@ -11,15 +12,28 @@ import {
     ImportDirective,
     ASTNode,
     Expression,
-    Statement
+    Statement,
+    TypeNode,
+    SrcRangeMap
 } from "solc-typed-ast";
-import { assert } from "..";
+import {
+    AbsDatastructurePath,
+    assert,
+    dedup,
+    findAliasedStateVars,
+    getSetterName,
+    single,
+    specializeSetter,
+    UnsupportedConstruct
+} from "..";
+import { print } from "../ast_to_source_printer";
 import { SUserFunctionDefinition } from "../spec-lang/ast";
 import { SemMap, TypeEnv } from "../spec-lang/tc";
 import { NameGenerator } from "../util/name_generator";
 import { AnnotationMetaData, AnnotationFilterOptions } from "./annotations";
 import { CallGraph } from "./callgraph";
 import { CHA } from "./cha";
+import { generateMapLibrary, getCustomMapLibraryName } from "./custom_maps_templates";
 import { InstrumentationSiteType, TranspilingContext } from "./transpiling_context";
 
 /**
@@ -64,6 +78,14 @@ function getAllNames(units: SourceUnit[]): Set<string> {
     }
     return nameSet;
 }
+
+type CustomMapLibraryMD = [
+    ContractDefinition,
+    StructDefinition,
+    Map<string, FunctionDefinition>,
+    TypeNode,
+    TypeNode
+];
 
 export class InstrumentationContext {
     public readonly nameGenerator: NameGenerator;
@@ -123,6 +145,15 @@ export class InstrumentationContext {
      */
     private wrapperCache = new Map<ContractDefinition, Map<string, FunctionDefinition>>();
 
+    private interposingLibraryMap = new Map<string, ContractDefinition>();
+
+    public readonly varInterposingQueue: Array<[VariableDeclaration, AbsDatastructurePath]>;
+
+    private unitsNeedingUtils = new Set<SourceUnit>();
+    private _originalContents: Map<SourceUnit, string>;
+    private _aliasedStateVars: Map<VariableDeclaration, ASTNode>;
+    private customMapLibrary = new Map<string, CustomMapLibraryMD>();
+
     constructor(
         public readonly factory: ASTNodeFactory,
         public readonly units: SourceUnit[],
@@ -139,7 +170,8 @@ export class InstrumentationContext {
         public readonly debugEventDefs: Map<number, EventDefinition>,
         public readonly outputMode: "files" | "flat" | "json",
         public readonly typeEnv: TypeEnv,
-        public readonly semMap: SemMap
+        public readonly semMap: SemMap,
+        _varInterposingQueue: Array<[VariableDeclaration, AbsDatastructurePath]>
     ) {
         this.nameGenerator = new NameGenerator(getAllNames(units));
         this.structVar = this.nameGenerator.getFresh("_v", true);
@@ -155,6 +187,14 @@ export class InstrumentationContext {
         this.scratchField = this.nameGenerator.getFresh("__mstore_scratch__", true);
         this.checkInvsFlag = this.nameGenerator.getFresh("__scribble_check_invs_at_end", true);
         this.utilsContractName = this.nameGenerator.getFresh("__scribble_ReentrancyUtils", true);
+        this.varInterposingQueue = dedup(
+            _varInterposingQueue,
+            (x: [VariableDeclaration, AbsDatastructurePath]) =>
+                `${x[0].name}_${x[1].map((y) => (y === null ? "[]" : y)).join("_")}`
+        );
+
+        this._originalContents = this.printUnits(units, new Map());
+        this._aliasedStateVars = findAliasedStateVars(units);
     }
 
     getWrapper(contract: ContractDefinition, name: string): FunctionDefinition | undefined {
@@ -243,5 +283,164 @@ export class InstrumentationContext {
         for (const transCtx of this.transCtxMap.values()) {
             transCtx.finalize();
         }
+
+        for (const unit of this.unitsNeedingUtils) {
+            const path = relative(dirname(unit.absolutePath), this.utilsUnit.absolutePath);
+            unit.appendChild(
+                this.factory.makeImportDirective(
+                    `./${path}`,
+                    this.utilsUnit.absolutePath,
+                    "",
+                    [],
+                    unit.id,
+                    this.utilsUnit.id
+                )
+            );
+        }
+    }
+
+    isCustomMapLibrary(t: ContractDefinition): boolean {
+        return this.customMapLibrary.has(t.name);
+    }
+
+    getCustomMapLibrary(keyT: TypeNode, valueT: TypeNode): ContractDefinition {
+        const name = getCustomMapLibraryName(keyT, valueT);
+
+        let res = this.customMapLibrary.get(name);
+
+        if (!res) {
+            const library = generateMapLibrary(
+                this,
+                keyT,
+                valueT,
+                this.utilsUnit,
+                this.compilerVersion
+            );
+            const struct = single(library.vStructs);
+            const funcs = new Map(library.vFunctions.map((fn) => [fn.name, fn]));
+            res = [library, struct, funcs, keyT, valueT];
+            this.customMapLibrary.set(name, res);
+        }
+
+        return res[0];
+    }
+
+    getCustomMapStruct(library: ContractDefinition): StructDefinition {
+        const res = this.customMapLibrary.get(library.name);
+        assert(res !== undefined, `Missing metadata for custom map library ${library.name}`);
+        return res[1];
+    }
+
+    private getCustomMapFun(library: ContractDefinition, funName: string): FunctionDefinition {
+        const res = this.customMapLibrary.get(library.name);
+        assert(res !== undefined, `Missing metadata for custom map library ${library.name}`);
+        const getter = res[2].get(funName);
+        assert(
+            getter !== undefined,
+            `Missing function ${funName} for custom map library ${library.name}`
+        );
+
+        return getter;
+    }
+
+    getCustomMapGetter(library: ContractDefinition, lhs: boolean): FunctionDefinition {
+        return this.getCustomMapFun(library, lhs ? "get_lhs" : "get");
+    }
+
+    getCustomMapSetter(library: ContractDefinition, newValT: TypeNode): FunctionDefinition {
+        const res = this.customMapLibrary.get(library.name);
+        assert(res !== undefined, `Missing metadata for custom map library ${library.name}`);
+        const [lib, , funs, , valueT] = res;
+
+        const setterName = getSetterName(valueT, newValT);
+        let setter = funs.get(setterName);
+
+        if (setter === undefined) {
+            setter = specializeSetter(this.factory, funs.get("set") as FunctionDefinition, newValT);
+            lib.appendChild(setter);
+            funs.set(setterName, setter);
+        }
+
+        return setter;
+    }
+
+    getCustomMapIncDec(
+        library: ContractDefinition,
+        operator: "++" | "--",
+        prefix: boolean
+    ): FunctionDefinition {
+        const funName = (operator == "++" ? "inc" : "dec") + (prefix ? "_pre" : "");
+        return this.getCustomMapFun(library, funName);
+    }
+
+    getCustomMapDeleteKey(library: ContractDefinition): FunctionDefinition {
+        return this.getCustomMapFun(library, "deleteKey");
+    }
+
+    setMapInterposingLibrary(
+        v: VariableDeclaration,
+        path: AbsDatastructurePath,
+        lib: ContractDefinition
+    ): void {
+        const key = `${v.id}_${path.map((x) => (x === null ? `[]` : x)).join("_")}`;
+        this.interposingLibraryMap.set(key, lib);
+    }
+
+    getMapInterposingLibrary(
+        v: VariableDeclaration,
+        path: AbsDatastructurePath
+    ): ContractDefinition | undefined {
+        const key = `${v.id}_${path.map((x) => (x === null ? `[]` : x)).join("_")}`;
+        return this.interposingLibraryMap.get(key);
+    }
+
+    /**
+     * Mark the given SourceUnit `unit` as needing an import from the utils module in files
+     * instrumentation mode.
+     */
+    needsUtils(unit: SourceUnit): void {
+        this.unitsNeedingUtils.add(unit);
+    }
+
+    /**
+     * Return the list of SourceUnits that were changed by instrumentation.
+     * @todo We currently compute this by printing the files before and after
+     * and comparing the contents. This is simple, but inefficient. It would be better
+     * to either diff the ASTs themselves, or to keep a generation counter somewhere inside
+     * the AST.
+     */
+    get changedUnits(): SourceUnit[] {
+        const newContents = this.printUnits(this.units, new Map());
+        const res: SourceUnit[] = [];
+
+        for (const [unit, newUnitCont] of newContents.entries()) {
+            const oldUnitCont = this._originalContents.get(unit);
+            if (oldUnitCont !== newUnitCont) {
+                res.push(unit);
+            }
+        }
+
+        return res;
+    }
+
+    getAliasingNode(v: VariableDeclaration): ASTNode | undefined {
+        return this._aliasedStateVars.get(v);
+    }
+
+    crashIfAliased(varDef: VariableDeclaration): void {
+        const potentialAliasing = this.getAliasingNode(varDef);
+        if (potentialAliasing !== undefined) {
+            throw new UnsupportedConstruct(
+                `Cannot instrument state var ${(varDef.parent as ContractDefinition).name}.${
+                    varDef.name
+                } as it may be aliased by a storage pointer`,
+                potentialAliasing,
+                this.files
+            );
+        }
+    }
+
+    printUnits(units: SourceUnit[], srcMap: SrcRangeMap): Map<SourceUnit, string> {
+        return print(units, this.compilerVersion, srcMap);
     }
 }

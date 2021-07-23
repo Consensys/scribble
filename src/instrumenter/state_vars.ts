@@ -44,7 +44,11 @@ export type RHS = Expression | [Expression, number];
  */
 function* getAssignmentComponents(lhs: Expression, rhs: Expression): Iterable<[LHS, RHS]> {
     if (lhs instanceof TupleExpression) {
-        if (rhs instanceof TupleExpression) {
+        if (lhs.vOriginalComponents.length === 1 && !lhs.isInlineArray) {
+            if (lhs.vOriginalComponents[0] !== null) {
+                yield* getAssignmentComponents(lhs.vOriginalComponents[0], rhs);
+            }
+        } else if (rhs instanceof TupleExpression) {
             assert(lhs.vOriginalComponents.length === rhs.vOriginalComponents.length, ``);
             for (let i = 0; i < lhs.vOriginalComponents.length; i++) {
                 const lhsComp = lhs.vOriginalComponents[i];
@@ -217,7 +221,9 @@ export function* getAssignments(node: ASTNode): Iterable<[LHS, RHS]> {
                 const fieldNames =
                     candidate.fieldNames !== undefined
                         ? candidate.fieldNames
-                        : structDecl.vMembers.map((decl) => decl.name);
+                        : structDecl.vMembers
+                              .filter((decl) => !(decl.vType instanceof Mapping))
+                              .map((decl) => decl.name);
 
                 assert(fieldNames.length === candidate.vArguments.length, ``);
 
@@ -529,7 +535,15 @@ export function decomposeLHS(
 
     if (e instanceof FunctionCall && e.vFunctionName === "push") {
         throw new Error(
-            `Scribble doesn't support instrument assignments where the LHS is a push(). Problematic LHS: ${print(
+            `Scribble doesn't support instrumenting assignments where the LHS is a push(). Problematic LHS: ${print(
+                originalExp
+            )}`
+        );
+    }
+
+    if (e instanceof Assignment) {
+        throw new Error(
+            `Scribble doesn't support instrumenting assignments where the LHS is an assignment itself. Problematic LHS: ${print(
                 originalExp
             )}`
         );

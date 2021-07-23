@@ -127,7 +127,7 @@ export function scribble(fileName: string | string[], ...args: string[]): string
     const result = spawnSync("scribble", processArgs, {
         encoding: "utf8",
         env: scrubbedEnv,
-        maxBuffer: 4 * 1024 * 1024
+        maxBuffer: 8 * 1024 * 1024
     });
 
     if (result.stderr) {
