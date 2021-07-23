@@ -38,8 +38,8 @@ library string_to_uint256 {
 
     function set(S storage m, string memory key, uint256 val) internal returns (uint256) {
         unchecked {
-            m.sum += val;
             m.sum -= m.innerM[key];
+            m.sum += val;
         }
         m.innerM[key] = val;
         uint256 idx = m.keyIdxM[key];
@@ -90,8 +90,8 @@ library uint8_to_int8 {
 
     function set(S storage m, uint8 key, int8 val) internal returns (int8) {
         unchecked {
-            m.sum += val;
             m.sum -= m.innerM[key];
+            m.sum += val;
         }
         m.innerM[key] = val;
         uint256 idx = m.keyIdxM[key];
@@ -142,8 +142,8 @@ library uint256_to_uint256 {
 
     function set(S storage m, uint256 key, uint256 val) internal returns (uint256) {
         unchecked {
-            m.sum += val;
             m.sum -= m.innerM[key];
+            m.sum += val;
         }
         m.innerM[key] = val;
         uint256 idx = m.keyIdxM[key];
@@ -199,8 +199,8 @@ library string_to_int16 {
 
     function set(S storage m, string memory key, int16 val) internal returns (int16) {
         unchecked {
-            m.sum += val;
             m.sum -= m.innerM[key];
+            m.sum += val;
         }
         m.innerM[key] = val;
         uint256 idx = m.keyIdxM[key];
