@@ -1,4 +1,4 @@
-pragma solidity 0.8.4;
+pragma solidity 0.8.6;
 
 /// Utility contract holding a stack counter
 contract __scribble_ReentrancyUtils {
