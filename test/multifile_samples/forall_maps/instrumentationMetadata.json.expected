@@ -1015,7 +1015,12 @@
       "annotationSource": "77:41:1",
       "target": "function",
       "targetName": "setA",
-      "debugEventSignature": "",
+      "debugEventEncoding": [
+         [
+           "",
+           ""
+         ]
+      ],
       "message": "",
       "instrumentationRanges": [
         "11531:18:0",
@@ -1041,7 +1046,12 @@
       "annotationSource": "204:41:1",
       "target": "function",
       "targetName": "decA",
-      "debugEventSignature": "",
+      "debugEventEncoding": [
+         [
+           "",
+           ""
+         ]
+      ],
       "message": "",
       "instrumentationRanges": [
         "12157:18:0",
@@ -1067,7 +1077,12 @@
       "annotationSource": "317:52:1",
       "target": "function",
       "targetName": "setC",
-      "debugEventSignature": "",
+      "debugEventEncoding": [
+         [
+           "",
+           ""
+         ]
+      ],
       "message": "",
       "instrumentationRanges": [
         "12785:18:0",
@@ -1093,7 +1108,12 @@
       "annotationSource": "457:79:1",
       "target": "function",
       "targetName": "setD",
-      "debugEventSignature": "",
+      "debugEventEncoding": [
+         [
+           "",
+           ""
+         ]
+      ],
       "message": "",
       "instrumentationRanges": [
         "13442:18:0",
@@ -1123,7 +1143,12 @@
       "annotationSource": "635:49:1",
       "target": "function",
       "targetName": "setE",
-      "debugEventSignature": "",
+      "debugEventEncoding": [
+         [
+           "",
+           ""
+         ]
+      ],
       "message": "",
       "instrumentationRanges": [
         "14507:18:0",
@@ -1149,7 +1174,12 @@
       "annotationSource": "825:45:1",
       "target": "function",
       "targetName": "setF",
-      "debugEventSignature": "",
+      "debugEventEncoding": [
+         [
+           "",
+           ""
+         ]
+      ],
       "message": "",
       "instrumentationRanges": [
         "15222:18:0",
@@ -1175,7 +1205,12 @@
       "annotationSource": "1014:48:1",
       "target": "function",
       "targetName": "setG",
-      "debugEventSignature": "",
+      "debugEventEncoding": [
+         [
+           "",
+           ""
+         ]
+      ],
       "message": "",
       "instrumentationRanges": [
         "15836:18:0",
@@ -1201,7 +1236,12 @@
       "annotationSource": "1151:54:1",
       "target": "function",
       "targetName": "setH",
-      "debugEventSignature": "",
+      "debugEventEncoding": [
+         [
+           "",
+           ""
+         ]
+      ],
       "message": "",
       "instrumentationRanges": [
         "16502:18:0",
@@ -1227,7 +1267,12 @@
       "annotationSource": "1304:49:1",
       "target": "function",
       "targetName": "setI",
-      "debugEventSignature": "",
+      "debugEventEncoding": [
+         [
+           "",
+           ""
+         ]
+      ],
       "message": "",
       "instrumentationRanges": [
         "17203:18:0",
@@ -1253,7 +1298,12 @@
       "annotationSource": "1511:73:1",
       "target": "function",
       "targetName": "setJ",
-      "debugEventSignature": "",
+      "debugEventEncoding": [
+         [
+           "",
+           ""
+         ]
+      ],
       "message": "",
       "instrumentationRanges": [
         "17931:19:0",
@@ -1279,7 +1329,12 @@
       "annotationSource": "1692:93:1",
       "target": "function",
       "targetName": "setJ2",
-      "debugEventSignature": "",
+      "debugEventEncoding": [
+         [
+           "",
+           ""
+         ]
+      ],
       "message": "",
       "instrumentationRanges": [
         "18652:19:0",
