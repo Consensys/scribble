@@ -42,13 +42,7 @@ library uint256_to_int16 {
             m.sum += val;
         }
         m.innerM[key] = val;
-        uint256 idx = m.keyIdxM[key];
-        if (idx > 0) return m.innerM[key];
-        if (m.keys.length == 0) {
-            m.keys.push();
-        }
-        m.keyIdxM[key] = m.keys.length;
-        m.keys.push(key);
+        addKey(m, key);
         return m.innerM[key];
     }
 
@@ -104,13 +98,7 @@ library uint256_to_uint256 {
             m.sum += val;
         }
         m.innerM[key] = val;
-        uint256 idx = m.keyIdxM[key];
-        if (idx > 0) return m.innerM[key];
-        if (m.keys.length == 0) {
-            m.keys.push();
-        }
-        m.keyIdxM[key] = m.keys.length;
-        m.keys.push(key);
+        addKey(m, key);
         return m.innerM[key];
     }
 
@@ -166,13 +154,7 @@ library uint256_to_int8 {
             m.sum += val;
         }
         m.innerM[key] = val;
-        uint256 idx = m.keyIdxM[key];
-        if (idx > 0) return m.innerM[key];
-        if (m.keys.length == 0) {
-            m.keys.push();
-        }
-        m.keyIdxM[key] = m.keys.length;
-        m.keys.push(key);
+        addKey(m, key);
         return m.innerM[key];
     }
 

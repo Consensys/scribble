@@ -7,23 +7,33 @@ contract __scribble_ReentrancyUtils {
 
 library arr_sum_funs {
     function sum_arr_uint256_arr_storage(uint256[] storage arr) internal returns (uint256 ret) {
-        for (uint256 idx = 0; idx < arr.length; idx++) ret += arr[idx];
+        unchecked {
+            for (uint256 idx = 0; idx < arr.length; idx++) ret += arr[idx];
+        }
     }
 
     function sum_arr_int8_arr_storage(int8[] storage arr) internal returns (int256 ret) {
-        for (uint256 idx = 0; idx < arr.length; idx++) ret += arr[idx];
+        unchecked {
+            for (uint256 idx = 0; idx < arr.length; idx++) ret += arr[idx];
+        }
     }
 
     function sum_arr_int16_arr_memory(int16[] memory arr) internal returns (int256 ret) {
-        for (uint256 idx = 0; idx < arr.length; idx++) ret += arr[idx];
+        unchecked {
+            for (uint256 idx = 0; idx < arr.length; idx++) ret += arr[idx];
+        }
     }
 
     function sum_arr_int16_arr_calldata(int16[] calldata arr) internal returns (int256 ret) {
-        for (uint256 idx = 0; idx < arr.length; idx++) ret += arr[idx];
+        unchecked {
+            for (uint256 idx = 0; idx < arr.length; idx++) ret += arr[idx];
+        }
     }
 
     function sum_arr_uint256_arr_calldata(uint256[] calldata arr) internal returns (uint256 ret) {
-        for (uint256 idx = 0; idx < arr.length; idx++) ret += arr[idx];
+        unchecked {
+            for (uint256 idx = 0; idx < arr.length; idx++) ret += arr[idx];
+        }
     }
 }
 contract Foo {

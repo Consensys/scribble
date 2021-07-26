@@ -15,7 +15,7 @@ contract Base {
     uint256_to_uint256.S internal a;
     string_to_int16.S c0;
     string internal sS;
-    string_to_uint8_to_int8_S_509.S internal d;
+    string_to_uint8_to_int8_S_471.S internal d;
     uint256_to_uint256_arr.S internal e;
     mapping(uint => uint)[] internal f;
     uint256_to_uint256.S[] internal g;

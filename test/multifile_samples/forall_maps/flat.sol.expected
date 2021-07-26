@@ -42,13 +42,7 @@ library string_to_uint256 {
             m.sum += val;
         }
         m.innerM[key] = val;
-        uint256 idx = m.keyIdxM[key];
-        if (idx > 0) return m.innerM[key];
-        if (m.keys.length == 0) {
-            m.keys.push();
-        }
-        m.keyIdxM[key] = m.keys.length;
-        m.keys.push(key);
+        addKey(m, key);
         return m.innerM[key];
     }
 
@@ -94,13 +88,7 @@ library uint8_to_int8 {
             m.sum += val;
         }
         m.innerM[key] = val;
-        uint256 idx = m.keyIdxM[key];
-        if (idx > 0) return m.innerM[key];
-        if (m.keys.length == 0) {
-            m.keys.push();
-        }
-        m.keyIdxM[key] = m.keys.length;
-        m.keys.push(key);
+        addKey(m, key);
         return m.innerM[key];
     }
 
@@ -146,13 +134,7 @@ library uint256_to_uint256 {
             m.sum += val;
         }
         m.innerM[key] = val;
-        uint256 idx = m.keyIdxM[key];
-        if (idx > 0) return m.innerM[key];
-        if (m.keys.length == 0) {
-            m.keys.push();
-        }
-        m.keyIdxM[key] = m.keys.length;
-        m.keys.push(key);
+        addKey(m, key);
         return m.innerM[key];
     }
 
@@ -203,13 +185,7 @@ library string_to_int16 {
             m.sum += val;
         }
         m.innerM[key] = val;
-        uint256 idx = m.keyIdxM[key];
-        if (idx > 0) return m.innerM[key];
-        if (m.keys.length == 0) {
-            m.keys.push();
-        }
-        m.keyIdxM[key] = m.keys.length;
-        m.keys.push(key);
+        addKey(m, key);
         return m.innerM[key];
     }
 
@@ -218,7 +194,7 @@ library string_to_int16 {
     }
 }
 
-library string_to_uint8_to_int8_S_509 {
+library string_to_uint8_to_int8_S_471 {
     struct S {
         mapping(string => uint8_to_int8.S) innerM;
         string[] keys;
@@ -290,13 +266,7 @@ library uint256_to_uint256_arr {
 
     function set(S storage m, uint256 key, uint256[] memory val) internal returns (uint256[] storage) {
         m.innerM[key] = val;
-        uint256 idx = m.keyIdxM[key];
-        if (idx > 0) return m.innerM[key];
-        if (m.keys.length == 0) {
-            m.keys.push();
-        }
-        m.keyIdxM[key] = m.keys.length;
-        m.keys.push(key);
+        addKey(m, key);
         return m.innerM[key];
     }
 
@@ -357,7 +327,7 @@ contract Base {
     uint256_to_uint256.S internal a;
     string_to_int16.S c0;
     string internal sS;
-    string_to_uint8_to_int8_S_509.S internal d;
+    string_to_uint8_to_int8_S_471.S internal d;
     uint256_to_uint256_arr.S internal e;
     mapping(uint => uint)[] internal f;
     uint256_to_uint256.S[] internal g;
@@ -513,9 +483,9 @@ contract Foo is Base {
             for (_v.i3 = 1; _v.i3 < d.keys.length; _v.i3++) {
                 _v.s1 = d.keys[_v.i3];
                 _v.forall_4 = true;
-                for (_v.i4 = 1; _v.i4 < string_to_uint8_to_int8_S_509.get(d, _v.s1).keys.length; _v.i4++) {
-                    _v.k2 = string_to_uint8_to_int8_S_509.get(d, _v.s1).keys[_v.i4];
-                    _v.forall_4 = uint8_to_int8.get(string_to_uint8_to_int8_S_509.get(d, _v.s1), _v.k2) > 0;
+                for (_v.i4 = 1; _v.i4 < string_to_uint8_to_int8_S_471.get(d, _v.s1).keys.length; _v.i4++) {
+                    _v.k2 = string_to_uint8_to_int8_S_471.get(d, _v.s1).keys[_v.i4];
+                    _v.forall_4 = uint8_to_int8.get(string_to_uint8_to_int8_S_471.get(d, _v.s1), _v.k2) > 0;
                     if (!_v.forall_4) break;
                 }
                 _v.forall_3 = _v.forall_4;
@@ -529,7 +499,7 @@ contract Foo is Base {
     }
 
     function _original_Foo_setD(string memory s, uint8 k, int8 v) private {
-        uint8_to_int8.set(string_to_uint8_to_int8_S_509.get_lhs(d, s), k, v);
+        uint8_to_int8.set(string_to_uint8_to_int8_S_471.get_lhs(d, s), k, v);
     }
 
     function setE(uint k, uint[] memory v) public {

@@ -1212,6 +1212,12 @@ export function makeArraySumFun(
     const sumT = new IntType(256, arrT.elementT.signed);
 
     const fun = addEmptyFun(ctx, name, FunctionVisibility.Internal, container);
+    const body: UncheckedBlock = addStmt(
+        factory,
+        fun,
+        factory.makeUncheckedBlock([])
+    ) as UncheckedBlock;
+
     const arr = addFunArg(factory, "arr", arrT, loc, fun);
     const ret = addFunRet(ctx, "ret", sumT, DataLocation.Default, fun);
 
@@ -1231,7 +1237,7 @@ export function makeArraySumFun(
 
     addStmt(
         factory,
-        fun,
+        body,
         factory.makeForStatement(
             factory.makeExpressionStatement(
                 factory.makeAssignment(

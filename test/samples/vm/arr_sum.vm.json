@@ -202,14 +202,43 @@
 
             "args": {
                 "types": ["uint256[]"],
+                "values": [["1", "8"]]
+            }
+        },
+        {
+            "act": "txCall",
+            "user": "owner",
+            "contract": "instance1",
+
+            "method": "overflowCheck",
+
+            "args": {
+                "types": ["uint256[]"],
+                "values": [
+                    [
+                        "115792089237316195423570985008687907853269984665640564039457584007913129639934",
+                        "1"
+                    ]
+                ]
+            },
+            "failure": "*"
+        },
+        {
+            "act": "txCall",
+            "user": "owner",
+            "contract": "instance1",
+
+            "method": "overflowCheck",
+
+            "args": {
+                "types": ["uint256[]"],
                 "values": [
                     [
                         "115792089237316195423570985008687907853269984665640564039457584007913129639935",
                         "1"
                     ]
                 ]
-            },
-            "failure": "*"
+            }
         }
     ]
 }

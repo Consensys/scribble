@@ -547,10 +547,6 @@ export function makeSetFun(
     addFunRet(ctx, "", valueT, getLoc(valueT, DataLocation.Storage), fun);
 
     const mkInnerM = () => mkStructFieldAcc(factory, factory.makeIdentifierFor(m), struct, 0);
-    const mkKeys = () => mkStructFieldAcc(factory, factory.makeIdentifierFor(m), struct, 1);
-    const mkKeysLen = () => factory.makeMemberAccess("<missing>", mkKeys(), "length", -1);
-    const mkKeysPush = () => factory.makeMemberAccess("<missing>", mkKeys(), "push", -1);
-    const mkKeyIdxM = () => mkStructFieldAcc(factory, factory.makeIdentifierFor(m), struct, 2);
     const mkSum = () => mkStructFieldAcc(factory, factory.makeIdentifierFor(m), struct, 3);
 
     if (valueT instanceof IntType) {
@@ -585,95 +581,17 @@ export function makeSetFun(
         )
     );
 
-    //uint idx = m.keyIdxM[key];
-    const idx = factory.makeVariableDeclaration(
-        false,
-        false,
-        "idx",
-        fun.id,
-        false,
-        DataLocation.Default,
-        StateVariableVisibility.Default,
-        Mutability.Mutable,
-        "<missing>",
-        undefined,
-        factory.makeElementaryTypeName("<missing>", "uint256")
-    );
-
+    // addKey(m, key);
+    const addKey = single(lib.vFunctions.filter((fun) => fun.name === "addKey"));
     addStmt(
         factory,
         fun,
-        factory.makeVariableDeclarationStatement(
-            [idx.id],
-            [idx],
-            factory.makeIndexAccess("<missing>", mkKeyIdxM(), factory.makeIdentifierFor(key))
-        )
-    );
-
-    //if (idx > 0) {
-    //    return;
-    //}
-    addStmt(
-        factory,
-        fun,
-        factory.makeIfStatement(
-            factory.makeBinaryOperation(
-                "<missing>",
-                ">",
-                factory.makeIdentifierFor(idx),
-                factory.makeLiteral("<missing>", LiteralKind.Number, "", "0")
-            ),
-            factory.makeReturn(
-                fun.vReturnParameters.id,
-                factory.makeIndexAccess("<missing>", mkInnerM(), factory.makeIdentifierFor(key))
-            )
-        )
-    );
-
-    //if (m.keys.length == 0) {
-    //    m.keys.push();
-    //}
-    addStmt(
-        factory,
-        fun,
-        factory.makeIfStatement(
-            factory.makeBinaryOperation(
-                "<missing>",
-                "==",
-                mkKeysLen(),
-                factory.makeLiteral("<missing>", LiteralKind.Number, "", "0")
-            ),
-            factory.makeBlock([
-                factory.makeExpressionStatement(
-                    factory.makeFunctionCall(
-                        "<missing>",
-                        FunctionCallKind.FunctionCall,
-                        mkKeysPush(),
-                        []
-                    )
-                )
-            ])
-        )
-    );
-
-    //m.keyIdxM[key] = m.keys.length;
-    addStmt(
-        factory,
-        fun,
-        factory.makeAssignment(
+        factory.makeFunctionCall(
             "<missing>",
-            "=",
-            factory.makeIndexAccess("<missing>", mkKeyIdxM(), factory.makeIdentifierFor(key)),
-            mkKeysLen()
+            FunctionCallKind.FunctionCall,
+            mkLibraryFunRef(ctx, addKey),
+            [factory.makeIdentifierFor(m), factory.makeIdentifierFor(key)]
         )
-    );
-    //m.keys.push(key);
-    addStmt(
-        factory,
-        fun,
-        factory.makeFunctionCall("<missing>", FunctionCallKind.FunctionCall, mkKeysPush(), [
-            factory.makeIdentifierFor(key)
-        ])
     );
 
     // return m.innerM[key];
