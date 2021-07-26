@@ -8,7 +8,7 @@ contract __scribble_ReentrancyUtils {
 contract Foo is __scribble_ReentrancyUtils {
     event AssertionFailed(string message);
 
-    event AssertionFailedData(bytes encodingData, int eventId);
+    event AssertionFailedData(int eventId, bytes encodingData);
 
     uint internal a = 2;
     uint internal b = 101;
@@ -23,7 +23,7 @@ contract Foo is __scribble_ReentrancyUtils {
         unchecked {
             if (!(b == ((a + c) - 1))) {
                 emit AssertionFailed("0: ");
-                emit AssertionFailedData(abi.encode(b, a, c), 0);
+                emit AssertionFailedData(0, abi.encode(b, a, c));
             }
         }
     }

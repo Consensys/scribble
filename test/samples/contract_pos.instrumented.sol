@@ -8,7 +8,7 @@ contract __scribble_ReentrancyUtils {
 contract Foo is __scribble_ReentrancyUtils {
     event AssertionFailed(string message);
 
-    event AssertionFailedData(bytes encodingData, int eventId);
+    event AssertionFailedData(int eventId, bytes encodingData);
 
     struct vars1 {
         bool __scribble_check_invs_at_end;
@@ -54,7 +54,7 @@ contract Foo is __scribble_ReentrancyUtils {
     function __scribble_Foo_check_state_invariants_internal() internal {
         if (!(x > 0)) {
             emit AssertionFailed("0: ");
-            emit AssertionFailedData(abi.encode(x), 0);
+            emit AssertionFailedData(0, abi.encode(x));
         }
     }
 

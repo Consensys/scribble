@@ -273,12 +273,46 @@ function getDebugInfo(
     const factory = transCtx.factory;
     const instrCtx = transCtx.instrCtx;
 
-    assert(transCtx.container.vScope instanceof ContractDefinition, ``);
-
-    const events = resolveByName(transCtx.container.vScope, EventDefinition, "AssertionFailedData");
+    const events = resolveByName(transCtx.contract, EventDefinition, "AssertionFailedData");
     let evtDef = undefined;
     if (events.length > 0) {
         evtDef = events[0];
+    }
+
+    if (evtDef == undefined) {
+        const eventId = factory.makeVariableDeclaration(
+            false,
+            false,
+            "eventId",
+            transCtx.container.id,
+            false,
+            DataLocation.Default,
+            StateVariableVisibility.Default,
+            Mutability.Mutable,
+            "int",
+            undefined,
+            factory.makeElementaryTypeName("<missing>", "int")
+        );
+
+        const encodingData = factory.makeVariableDeclaration(
+            false,
+            false,
+            "encodingData",
+            transCtx.container.id,
+            false,
+            DataLocation.Default,
+            StateVariableVisibility.Default,
+            Mutability.Mutable,
+            "bytes",
+            undefined,
+            factory.makeElementaryTypeName("<missing>", "bytes")
+        );
+
+        evtDef = factory.makeEventDefinition(
+            false,
+            `AssertionFailedData`,
+            factory.makeParameterList([eventId, encodingData])
+        );
     }
 
     for (const annot of annotations) {
@@ -290,47 +324,14 @@ function getDebugInfo(
             const evtArgs = dbgIds.map((v) => transpile(v, transCtx));
             const typeList: Array<[string, string]> = dbgIds.map((v) => {
                 const vType = transCtx.typeEnv.typeOf(v);
+                // Note: This works only for primitive types. If we ever allow more complex types, the builtin
+                // `pp()` function for those may differ from the typeString that solc expects.
                 const typeString = vType instanceof PointerType ? vType.to.pp() : vType.pp();
                 return [v.name, typeString];
             });
+
             if (!instrCtx.debugEventsEncoding.has(annot.id)) {
                 instrCtx.debugEventsEncoding.set(annot.id, typeList);
-            }
-
-            if (evtDef == undefined) {
-                const eventId = factory.makeVariableDeclaration(
-                    false,
-                    false,
-                    "eventId",
-                    -1,
-                    false,
-                    DataLocation.Default,
-                    StateVariableVisibility.Default,
-                    Mutability.Mutable,
-                    "int",
-                    undefined,
-                    factory.makeElementaryTypeName("<missing>", "int")
-                );
-
-                const encodingData = factory.makeVariableDeclaration(
-                    false,
-                    false,
-                    "encodingData",
-                    -1,
-                    false,
-                    DataLocation.Default,
-                    StateVariableVisibility.Default,
-                    Mutability.Mutable,
-                    "bytes",
-                    undefined,
-                    factory.makeElementaryTypeName("<missing>", "bytes")
-                );
-
-                evtDef = factory.makeEventDefinition(
-                    false,
-                    `AssertionFailedData`,
-                    factory.makeParameterList([encodingData, eventId])
-                );
             }
 
             // Finally construct the emit statement for the debug event.
@@ -340,13 +341,13 @@ function getDebugInfo(
                     FunctionCallKind.FunctionCall,
                     factory.makeIdentifierFor(evtDef),
                     [
+                        factory.makeLiteral("int", LiteralKind.Number, "", String(annot.id)),
                         factory.makeFunctionCall(
                             "<missing>",
                             FunctionCallKind.FunctionCall,
                             factory.makeIdentifier("<missing>", "abi.encode", -1),
                             evtArgs
-                        ),
-                        factory.makeLiteral("int", LiteralKind.Number, "", String(annot.id))
+                        )
                     ]
                 )
             );

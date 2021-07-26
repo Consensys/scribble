@@ -89,6 +89,8 @@ export class TranspilingContext {
      */
     public curAnnotation!: AnnotationMetaData;
 
+    public readonly contract: ContractDefinition;
+
     constructor(
         public readonly typeEnv: TypeEnv,
         public readonly semInfo: SemMap,
@@ -103,6 +105,7 @@ export class TranspilingContext {
             `Can't put instrumentation into free functions.`
         );
 
+        this.contract = contract;
         const structName = instrCtx.nameGenerator.getFresh("vars");
         const canonicalStructName = `${contract.name}.${structName}`;
         this.bindingsStructDef = this.factory.makeStructDefinition(
