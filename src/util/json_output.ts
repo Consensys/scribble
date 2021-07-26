@@ -25,7 +25,7 @@ interface PropertyDesc {
     annotationSource: string;
     target: TargetType;
     targetName: string;
-    debugEventSignature: string;
+    debugEventEncoding: Array<[string, string]>;
     message: string;
     instrumentationRanges: string[];
     checkRanges: string[];
@@ -234,8 +234,10 @@ function generatePropertyMap(
         const unit = contract.vScope;
         const predRange = annotation.predicateFileLoc;
         const annotationRange = annotation.annotationFileRange;
-        const debugEvent = ctx.debugEventDefs.get(annotation.id);
-        const signature = debugEvent !== undefined ? debugEvent.canonicalSignature : "";
+
+        const encodingData = ctx.debugEventsEncoding.get(annotation.id);
+        const encoding: Array<[string, string]> =
+            encodingData !== undefined ? encodingData : [["", ""]];
 
         const newUnitIdx = originalSourceList.indexOf(unit.absolutePath);
         const propertySource = rangeToSrc(predRange, newUnitIdx);
@@ -300,7 +302,7 @@ function generatePropertyMap(
             annotationSource,
             target: targetType,
             targetName,
-            debugEventSignature: signature,
+            debugEventEncoding: encoding,
             message: annotation.message,
             instrumentationRanges,
             checkRanges,

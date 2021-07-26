@@ -360,7 +360,10 @@ function processLogs(aliases: AliasMap, tasks: any[], logs: LogEntry[]): void {
                 expect(actual).toEqual(expected);
             } else {
                 const expected = expectations[v];
-                const actual = values[v] instanceof BN ? values[v].toString() : values[v];
+                let actual = values[v] instanceof BN ? values[v].toString() : values[v];
+                if (actual instanceof Buffer) {
+                    actual = actual.toJSON().data;
+                }
 
                 expect(actual).toEqual(expected);
             }

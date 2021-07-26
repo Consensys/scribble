@@ -59,13 +59,7 @@ import { InstrumentationContext } from "./instrumentation_context";
 import { InstrumentationSiteType, TranspilingContext } from "./transpiling_context";
 
 import { gte } from "semver";
-import {
-    filterByType,
-    transpile,
-    transpileAnnotation,
-    transpileFunVarDecl,
-    transpileType
-} from "..";
+import { filterByType, transpile, transpileAnnotation, transpileFunVarDecl } from "..";
 
 export type SBinding = [string | string[], TypeNode, SNode, boolean];
 export type SBindings = SBinding[];
@@ -210,12 +204,12 @@ export function generateUtilsContract(
  */
 function gatherDebugIds(n: SNode, typeEnv: TypeEnv): Set<SId> {
     const debugIds: Map<string, SId> = new Map();
+
     const selectId = (id: SId): void => {
         // Only want let-bindings and variable identifiers
         if (!(id.defSite instanceof Array || id.defSite instanceof VariableDeclaration)) {
             return;
         }
-
         let key: string;
 
         if (id.defSite instanceof VariableDeclaration) {
@@ -279,48 +273,66 @@ function getDebugInfo(
     const factory = transCtx.factory;
     const instrCtx = transCtx.instrCtx;
 
+    const events = resolveByName(transCtx.contract, EventDefinition, "AssertionFailedData");
+    let evtDef = undefined;
+    if (events.length > 0) {
+        evtDef = events[0];
+    }
+
+    if (evtDef == undefined) {
+        const eventId = factory.makeVariableDeclaration(
+            false,
+            false,
+            "eventId",
+            transCtx.container.id,
+            false,
+            DataLocation.Default,
+            StateVariableVisibility.Default,
+            Mutability.Mutable,
+            "int",
+            undefined,
+            factory.makeElementaryTypeName("<missing>", "int")
+        );
+
+        const encodingData = factory.makeVariableDeclaration(
+            false,
+            false,
+            "encodingData",
+            transCtx.container.id,
+            false,
+            DataLocation.Default,
+            StateVariableVisibility.Default,
+            Mutability.Mutable,
+            "bytes",
+            undefined,
+            factory.makeElementaryTypeName("<missing>", "bytes")
+        );
+
+        evtDef = factory.makeEventDefinition(
+            false,
+            `AssertionFailedData`,
+            factory.makeParameterList([eventId, encodingData])
+        );
+    }
+
     for (const annot of annotations) {
         const dbgIds = [...gatherDebugIds(annot.expression, transCtx.typeEnv)];
 
         if (dbgIds.length == 0) {
             res.push(undefined);
         } else {
-            // Next construct the parameters for the event
-            const evtParams = dbgIds.map((v) => {
+            const evtArgs = dbgIds.map((v) => transpile(v, transCtx));
+            const typeList: Array<[string, string]> = dbgIds.map((v) => {
                 const vType = transCtx.typeEnv.typeOf(v);
-                const type = transpileType(vType, transCtx.factory);
+                // Note: This works only for primitive types. If we ever allow more complex types, the builtin
+                // `pp()` function for those may differ from the typeString that solc expects.
                 const typeString = vType instanceof PointerType ? vType.to.pp() : vType.pp();
-
-                return factory.makeVariableDeclaration(
-                    false,
-                    false,
-                    v.name,
-                    -1,
-                    false,
-                    DataLocation.Default,
-                    StateVariableVisibility.Default,
-                    Mutability.Mutable,
-                    typeString,
-                    undefined,
-                    type
-                );
+                return [v.name, typeString];
             });
 
-            // Get or construct the event definition
-            let evtDef: EventDefinition;
-            if (!instrCtx.debugEventDefs.has(annot.id)) {
-                evtDef = factory.makeEventDefinition(
-                    true,
-                    `P${annot.id}Fail`,
-                    factory.makeParameterList(evtParams)
-                );
-
-                instrCtx.debugEventDefs.set(annot.id, evtDef);
-            } else {
-                evtDef = instrCtx.debugEventDefs.get(annot.id) as EventDefinition;
+            if (!instrCtx.debugEventsEncoding.has(annot.id)) {
+                instrCtx.debugEventsEncoding.set(annot.id, typeList);
             }
-
-            const evtArgs = dbgIds.map((v) => transpile(v, transCtx));
 
             // Finally construct the emit statement for the debug event.
             const emitStmt = factory.makeEmitStatement(
@@ -328,12 +340,19 @@ function getDebugInfo(
                     "<missing>",
                     FunctionCallKind.FunctionCall,
                     factory.makeIdentifierFor(evtDef),
-                    evtArgs
+                    [
+                        factory.makeLiteral("int", LiteralKind.Number, "", String(annot.id)),
+                        factory.makeFunctionCall(
+                            "<missing>",
+                            FunctionCallKind.FunctionCall,
+                            factory.makeIdentifier("<missing>", "abi.encode", -1),
+                            evtArgs
+                        )
+                    ]
                 )
             );
 
             instrCtx.addAnnotationInstrumentation(annot, emitStmt);
-
             res.push([evtDef, emitStmt]);
         }
     }

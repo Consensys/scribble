@@ -155,11 +155,16 @@
       "annotationSource": "31:28:0",
       "target": "contract",
       "targetName": "Base",
-      "debugEventSignature": "",
       "message": "P0",
       "instrumentationRanges": [
         "473:29:0",
         "445:95:0"
+      ],
+      "debugEventEncoding": [
+         [
+           "",
+           ""
+         ]
       ],
       "checkRanges": [
         "449:8:0"
@@ -177,12 +182,17 @@
       "annotationSource": "94:40:1",
       "target": "function",
       "targetName": "add",
-      "debugEventSignature": "",
       "message": "P1",
       "instrumentationRanges": [
         "1253:12:0",
         "1350:29:0",
         "1308:109:0"
+      ],
+      "debugEventEncoding": [
+        [
+           "",
+           ""
+        ]
       ],
       "checkRanges": [
         "1312:22:0"
@@ -200,12 +210,17 @@
       "annotationSource": "94:39:2",
       "target": "function",
       "targetName": "double",
-      "debugEventSignature": "",
       "message": "P2",
       "instrumentationRanges": [
         "2561:12:0",
         "2660:29:0",
         "2618:109:0"
+      ],
+      "debugEventEncoding": [
+         [
+           "",
+           ""
+         ]
       ],
       "checkRanges": [
         "2622:22:0"
