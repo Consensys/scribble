@@ -340,7 +340,7 @@ export class InstrumentationContext {
         public readonly files: Map<string, string>,
         public readonly compilerVersion: string,
         public readonly debugEvents: boolean,
-        public readonly debugEventDefs: Map<number, EventDefinition>,
+        public readonly debugEventsEncoding: Map<number, Array<[string, string]>>,
         public readonly outputMode: "files" | "flat" | "json",
         public readonly typeEnv: TypeEnv,
         public readonly semMap: SemMap,
