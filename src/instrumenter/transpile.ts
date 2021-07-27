@@ -39,6 +39,7 @@ import {
 import {
     addStmt,
     AnnotationMetaData,
+    mkLibraryFunRef,
     mkStructFieldAcc,
     PropertyMetaData,
     single,
@@ -299,13 +300,13 @@ function transpileIndexAccess(expr: SIndexAccess, ctx: TranspilingContext): Expr
     // transpile it as a call to the proper getter
     const [sVar, path] = decomposeStateVarRef(expr);
     if (sVar !== undefined) {
-        const interposeLib = instrCtx.getMapInterposingLibrary(
+        const interposeLib = instrCtx.sVarToLibraryMap.get(
             sVar,
             path.slice(0, -1).map((x) => (x instanceof SNode ? null : x))
         );
 
         if (interposeLib !== undefined) {
-            const getter = instrCtx.getCustomMapGetter(interposeLib, false);
+            const getter = instrCtx.libToMapGetterMap.get(interposeLib, false);
 
             return factory.makeFunctionCall(
                 "<missing>",
@@ -406,21 +407,41 @@ function transpileFunctionCall(expr: SFunctionCall, ctx: TranspilingContext): Ex
         expr.callee.defSite === "builtin_fun"
     ) {
         const arg = single(expr.args);
-        const [sVar, path] = decomposeStateVarRef(arg);
+        const argT = ctx.typeEnv.typeOf(arg);
+
+        assert(argT instanceof PointerType, `sum expects a pointer to array/map, not ${argT.pp()}`);
+
+        if (argT.to instanceof MappingType) {
+            const [sVar, path] = decomposeStateVarRef(arg);
+            assert(
+                sVar !== undefined,
+                `sum argument should be a state var(or a part of it), not ${arg.pp()}`
+            );
+
+            const lib = ctx.instrCtx.sVarToLibraryMap.get(
+                sVar,
+                path.map((el) => (el instanceof SNode ? null : el))
+            );
+
+            assert(lib !== undefined, `State var ${sVar.name} should already be interposed`);
+
+            const struct = single(lib.vStructs);
+            return mkStructFieldAcc(factory, transpile(arg, ctx), struct, "sum");
+        }
+
         assert(
-            sVar !== undefined,
-            `sum argument should be a state var(or a part of it), not ${arg.pp()}`
+            argT.to instanceof ArrayType,
+            `sum expects a pointer to array/map, not ${argT.pp()}`
         );
 
-        const lib = ctx.instrCtx.getMapInterposingLibrary(
-            sVar,
-            path.map((el) => (el instanceof SNode ? null : el))
+        const sumFun = ctx.instrCtx.arraySumFunMap.get(argT.to, argT.location);
+        ctx.instrCtx.needsUtils((ctx.container.vScope as ContractDefinition).vScope);
+        return factory.makeFunctionCall(
+            "<missing>",
+            FunctionCallKind.FunctionCall,
+            mkLibraryFunRef(ctx.instrCtx, sumFun),
+            [transpile(arg, ctx)]
         );
-
-        assert(lib !== undefined, `State var ${sVar.name} should already be interposed`);
-
-        const struct = ctx.instrCtx.getCustomMapStruct(lib);
-        return mkStructFieldAcc(factory, transpile(arg, ctx), struct, "sum");
     }
 
     const calleeT = ctx.typeEnv.typeOf(expr.callee);
@@ -598,12 +619,12 @@ function transpileForAll(expr: SForAll, ctx: TranspilingContext): Expression {
             assert(sVar !== undefined, `Unexpected undefined state var in ${expr.container.pp()}`);
 
             const astContainer = transpile(container, ctx);
-            const lib = ctx.instrCtx.getMapInterposingLibrary(
+            const lib = ctx.instrCtx.sVarToLibraryMap.get(
                 sVar,
                 path.map((x) => (x instanceof SNode ? null : x))
             );
             assert(lib !== undefined, `Unexpected missing library for map ${sVar.name}`);
-            const struct = ctx.instrCtx.getCustomMapStruct(lib);
+            const struct = single(lib.vStructs);
             const keys = makeMemberAccess(factory, astContainer, struct, "keys");
             const len = factory.makeMemberAccess("<missing>", keys, "length", -1);
 

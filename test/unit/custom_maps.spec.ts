@@ -87,19 +87,19 @@ describe("Maps with keys library generation", () => {
         }`, () => {
             const valueT = valueArg instanceof TypeNode ? valueArg : valueArg(unit);
 
-            const lib = instrCtx.getCustomMapLibrary(keyT, valueT);
-            instrCtx.getCustomMapGetter(lib, true);
-            instrCtx.getCustomMapGetter(lib, false);
-            instrCtx.getCustomMapSetter(
+            const lib = instrCtx.typesToLibraryMap.get(keyT, valueT);
+            instrCtx.libToMapGetterMap.get(lib, true);
+            instrCtx.libToMapGetterMap.get(lib, false);
+            instrCtx.libToMapSetterMap.get(
                 lib,
                 valueT instanceof ArrayType ? new PointerType(valueT, DataLocation.Memory) : valueT
             );
-            instrCtx.getCustomMapDeleteKey(lib);
+            instrCtx.libToDeleteFunMap.get(lib);
             if (valueT instanceof IntType) {
-                instrCtx.getCustomMapIncDec(lib, "++", false, false);
-                instrCtx.getCustomMapIncDec(lib, "++", true, true);
-                instrCtx.getCustomMapIncDec(lib, "--", false, true);
-                instrCtx.getCustomMapIncDec(lib, "--", true, false);
+                instrCtx.libToMapIncDecMap.get(lib, "++", false, false);
+                instrCtx.libToMapIncDecMap.get(lib, "++", true, true);
+                instrCtx.libToMapIncDecMap.get(lib, "--", false, true);
+                instrCtx.libToMapIncDecMap.get(lib, "--", true, false);
             }
 
             const src = writer.write(lib);
@@ -303,7 +303,7 @@ contract Foo {
 contract Foo {
     mapping(uint => address_to_bool.S) internal x;
     uint256_to_mapping_bool_to_string.S internal y;
-    uint256_to_int8_to_uint256_S_392.S internal z;
+    uint256_to_int8_to_uint256_S_354.S internal z;
     uint256_to_uint256.S internal w;
 
     function main() public {
@@ -313,11 +313,11 @@ contract Foo {
         uint256_to_mapping_bool_to_string.get_lhs(y, 1)[false] = "hi";
         uint256_to_mapping_bool_to_string.get_lhs(y, 2)[true] = uint256_to_mapping_bool_to_string.get(y, 1)[false];
         assert(keccak256(bytes(uint256_to_mapping_bool_to_string.get(y, 2)[true])) == keccak256(bytes("hi")));
-        int8_to_uint256.set(uint256_to_int8_to_uint256_S_392.get_lhs(z, 0), 1, 1);
-        int8_to_uint256.set(uint256_to_int8_to_uint256_S_392.get_lhs(z, int8_to_uint256.get(uint256_to_int8_to_uint256_S_392.get(z, 0), 1)), 2, 2);
-        assert(int8_to_uint256.get(uint256_to_int8_to_uint256_S_392.get(z, 1), 2) == 2);
-        int8_to_uint256.set(uint256_to_int8_to_uint256_S_392.get_lhs(z, uint256_to_uint256.set(w, 0, uint256_to_uint256.get(w, 1) + 3)), int8(uint8(uint256_to_uint256.get(w, 2))), 42);
-        assert((uint256_to_uint256.get(w, 0) == 3) && (int8_to_uint256.get(uint256_to_int8_to_uint256_S_392.get(z, 3), 0) == 42));
+        int8_to_uint256.set(uint256_to_int8_to_uint256_S_354.get_lhs(z, 0), 1, 1);
+        int8_to_uint256.set(uint256_to_int8_to_uint256_S_354.get_lhs(z, int8_to_uint256.get(uint256_to_int8_to_uint256_S_354.get(z, 0), 1)), 2, 2);
+        assert(int8_to_uint256.get(uint256_to_int8_to_uint256_S_354.get(z, 1), 2) == 2);
+        int8_to_uint256.set(uint256_to_int8_to_uint256_S_354.get_lhs(z, uint256_to_uint256.set(w, 0, uint256_to_uint256.get(w, 1) + 3)), int8(uint8(uint256_to_uint256.get(w, 2))), 42);
+        assert((uint256_to_uint256.get(w, 0) == 3) && (int8_to_uint256.get(uint256_to_int8_to_uint256_S_354.get(z, 3), 0) == 42));
     }
 }`,
         [

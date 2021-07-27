@@ -1,10 +1,8 @@
 import {
-    AddressType,
     ArrayType,
     assert,
     ASTNodeFactory,
     Block,
-    BoolType,
     BytesType,
     ContractDefinition,
     ContractKind,
@@ -12,10 +10,7 @@ import {
     Expression,
     FunctionCallKind,
     FunctionDefinition,
-    FunctionKind,
-    FunctionStateMutability,
     FunctionVisibility,
-    Identifier,
     IfStatement,
     IntType,
     LiteralKind,
@@ -25,7 +20,6 @@ import {
     PointerType,
     SourceUnit,
     Statement,
-    StatementWithChildren,
     StateVariableVisibility,
     StringType,
     StructDefinition,
@@ -36,67 +30,19 @@ import {
     VariableDeclaration,
     VariableDeclarationStatement
 } from "solc-typed-ast";
-import { single, transpileType } from "..";
+import {
+    addEmptyFun,
+    addFunArg,
+    addFunRet,
+    addStmt,
+    addStructField,
+    getTypeDesc,
+    mkLibraryFunRef,
+    mkStructFieldAcc,
+    single,
+    transpileType
+} from "..";
 import { InstrumentationContext } from "./instrumentation_context";
-
-function getTypeDesc(typ: TypeNode): string {
-    if (
-        typ instanceof IntType ||
-        typ instanceof StringType ||
-        typ instanceof BytesType ||
-        typ instanceof BoolType
-    ) {
-        return typ.pp();
-    }
-
-    if (typ instanceof AddressType) {
-        return "address" + (typ.payable ? "_payable" : "");
-    }
-
-    if (typ instanceof ArrayType) {
-        return `${getTypeDesc(typ.elementT)}_arr` + (typ.size !== undefined ? `_${typ.size}` : "");
-    }
-
-    if (typ instanceof UserDefinedType) {
-        return `${typ.name.replace(".", "_")}_${typ.definition.id}`;
-    }
-
-    if (typ instanceof MappingType) {
-        return `mapping_${getTypeDesc(typ.keyType)}_to_${getTypeDesc(typ.valueType)}`;
-    }
-
-    if (typ instanceof PointerType) {
-        return getTypeDesc(typ.to);
-    }
-
-    throw new Error(`Unknown type ${typ.pp()} in getTypeDesc`);
-}
-
-export function getCustomMapLibraryName(keyT: TypeNode, valueT: TypeNode): string {
-    return `${getTypeDesc(keyT)}_to_${getTypeDesc(valueT)}`;
-}
-
-function addStructField(
-    factory: ASTNodeFactory,
-    name: string,
-    typ: TypeNode,
-    struct: StructDefinition
-): void {
-    const field = factory.makeVariableDeclaration(
-        false,
-        false,
-        name,
-        struct.id,
-        false,
-        DataLocation.Default,
-        StateVariableVisibility.Default,
-        Mutability.Mutable,
-        "<missing>",
-        undefined,
-        transpileType(typ, factory)
-    );
-    struct.appendChild(field);
-}
 
 export function needsLocation(t: TypeNode): boolean {
     return (
@@ -106,58 +52,6 @@ export function needsLocation(t: TypeNode): boolean {
         t instanceof MappingType ||
         (t instanceof UserDefinedType && t.definition instanceof StructDefinition)
     );
-}
-
-export function addFunArg(
-    factory: ASTNodeFactory,
-    name: string,
-    typ: TypeNode,
-    location: DataLocation,
-    fun: FunctionDefinition
-): VariableDeclaration {
-    const arg = factory.makeVariableDeclaration(
-        false,
-        false,
-        name,
-        fun.id,
-        false,
-        location,
-        StateVariableVisibility.Default,
-        Mutability.Mutable,
-        "<missing>",
-        undefined,
-        transpileType(typ, factory)
-    );
-
-    fun.vParameters.appendChild(arg);
-    return arg;
-}
-
-export function addFunRet(
-    ctx: InstrumentationContext,
-    name: string,
-    typ: TypeNode,
-    location: DataLocation,
-    fun: FunctionDefinition
-): VariableDeclaration {
-    const factory = ctx.factory;
-    const arg = factory.makeVariableDeclaration(
-        false,
-        false,
-        name,
-        fun.id,
-        false,
-        location,
-        StateVariableVisibility.Default,
-        Mutability.Mutable,
-        "<missing>",
-        undefined,
-        transpileType(typ, factory)
-    );
-
-    fun.vReturnParameters.appendChild(arg);
-    ctx.addGeneralInstrumentation(arg);
-    return arg;
 }
 
 function makeStruct(
@@ -177,60 +71,6 @@ function makeStruct(
     }
 
     return struct;
-}
-
-export function addEmptyFun(
-    ctx: InstrumentationContext,
-    name: string,
-    visiblity: FunctionVisibility,
-    container: ContractDefinition | SourceUnit
-): FunctionDefinition {
-    const factory = ctx.factory;
-    const fun = factory.makeFunctionDefinition(
-        container.id,
-        FunctionKind.Function,
-        name,
-        false,
-        visiblity,
-        FunctionStateMutability.NonPayable,
-        false,
-        factory.makeParameterList([]),
-        factory.makeParameterList([]),
-        [],
-        undefined,
-        factory.makeBlock([])
-    );
-    container.appendChild(fun);
-
-    ctx.addGeneralInstrumentation(fun.vBody as Block);
-    return fun;
-}
-
-export function addStmt(
-    factory: ASTNodeFactory,
-    loc: FunctionDefinition | Block,
-    arg: Statement | StatementWithChildren<any> | Expression
-): Statement {
-    const body = loc instanceof FunctionDefinition ? (loc.vBody as Block) : loc;
-    const stmt =
-        arg instanceof Statement || arg instanceof StatementWithChildren
-            ? arg
-            : factory.makeExpressionStatement(arg);
-    body.appendChild(stmt);
-    return stmt;
-}
-
-export function mkStructFieldAcc(
-    factory: ASTNodeFactory,
-    base: Expression,
-    struct: StructDefinition,
-    idxArg: number | string
-): MemberAccess {
-    const field =
-        typeof idxArg === "number"
-            ? struct.vMembers[idxArg]
-            : single(struct.vMembers.filter((field) => field.name === idxArg));
-    return factory.makeMemberAccess("<missing>", base, field.name, field.id);
 }
 
 function mkInnerM(
@@ -272,13 +112,14 @@ export function makeIncDecFun(
     ctx: InstrumentationContext,
     keyT: TypeNode,
     valueT: TypeNode,
-    struct: StructDefinition,
     lib: ContractDefinition,
     operator: "++" | "--",
     prefix: boolean,
     unchecked: boolean
 ): FunctionDefinition {
     const factory = ctx.factory;
+    const struct = single(lib.vStructs);
+
     const name =
         (operator == "++" ? "inc" : "dec") + (prefix ? "_pre" : "") + (unchecked ? "_unch" : "");
     const fun = addEmptyFun(ctx, name, FunctionVisibility.Internal, lib);
@@ -617,36 +458,16 @@ function makeAddKeyFun(
     return fun;
 }
 
-export function mkLibraryFunRef(
-    ctx: InstrumentationContext,
-    fn: FunctionDefinition
-): MemberAccess | Identifier {
-    const factory = ctx.factory;
-    let ref: MemberAccess | Identifier;
-    if (fn.visibility === FunctionVisibility.Private) {
-        ref = factory.makeIdentifierFor(fn);
-    } else {
-        ref = factory.makeMemberAccess(
-            "<missing>",
-            factory.makeIdentifierFor(fn.vScope as ContractDefinition),
-            fn.name,
-            fn.id
-        );
-    }
-    ctx.addGeneralInstrumentation(ref);
-    return ref;
-}
-
 export function makeGetFun(
     ctx: InstrumentationContext,
     keyT: TypeNode,
     valueT: TypeNode,
-    struct: StructDefinition,
     lib: ContractDefinition,
     lhs: boolean
 ): FunctionDefinition {
     const factory = ctx.factory;
     const fun = addEmptyFun(ctx, lhs ? "get_lhs" : "get", FunctionVisibility.Internal, lib);
+    const struct = single(lib.vStructs);
 
     const m = addFunArg(
         factory,
@@ -695,7 +516,6 @@ export function makeSetFun(
     ctx: InstrumentationContext,
     keyT: TypeNode,
     valueT: TypeNode,
-    struct: StructDefinition,
     lib: ContractDefinition,
     newValT: TypeNode
 ): FunctionDefinition {
@@ -703,6 +523,7 @@ export function makeSetFun(
 
     const specializedValueT = setterNeedsSpecialization(valueT, newValT) ? newValT : valueT;
     const name = getSetterName(valueT, newValT);
+    const struct = single(lib.vStructs);
 
     const fun = addEmptyFun(ctx, name, FunctionVisibility.Internal, lib);
     ctx.addGeneralInstrumentation(fun.vBody as Block);
@@ -726,10 +547,6 @@ export function makeSetFun(
     addFunRet(ctx, "", valueT, getLoc(valueT, DataLocation.Storage), fun);
 
     const mkInnerM = () => mkStructFieldAcc(factory, factory.makeIdentifierFor(m), struct, 0);
-    const mkKeys = () => mkStructFieldAcc(factory, factory.makeIdentifierFor(m), struct, 1);
-    const mkKeysLen = () => factory.makeMemberAccess("<missing>", mkKeys(), "length", -1);
-    const mkKeysPush = () => factory.makeMemberAccess("<missing>", mkKeys(), "push", -1);
-    const mkKeyIdxM = () => mkStructFieldAcc(factory, factory.makeIdentifierFor(m), struct, 2);
     const mkSum = () => mkStructFieldAcc(factory, factory.makeIdentifierFor(m), struct, 3);
 
     if (valueT instanceof IntType) {
@@ -764,95 +581,17 @@ export function makeSetFun(
         )
     );
 
-    //uint idx = m.keyIdxM[key];
-    const idx = factory.makeVariableDeclaration(
-        false,
-        false,
-        "idx",
-        fun.id,
-        false,
-        DataLocation.Default,
-        StateVariableVisibility.Default,
-        Mutability.Mutable,
-        "<missing>",
-        undefined,
-        factory.makeElementaryTypeName("<missing>", "uint256")
-    );
-
+    // addKey(m, key);
+    const addKey = single(lib.vFunctions.filter((fun) => fun.name === "addKey"));
     addStmt(
         factory,
         fun,
-        factory.makeVariableDeclarationStatement(
-            [idx.id],
-            [idx],
-            factory.makeIndexAccess("<missing>", mkKeyIdxM(), factory.makeIdentifierFor(key))
-        )
-    );
-
-    //if (idx > 0) {
-    //    return;
-    //}
-    addStmt(
-        factory,
-        fun,
-        factory.makeIfStatement(
-            factory.makeBinaryOperation(
-                "<missing>",
-                ">",
-                factory.makeIdentifierFor(idx),
-                factory.makeLiteral("<missing>", LiteralKind.Number, "", "0")
-            ),
-            factory.makeReturn(
-                fun.vReturnParameters.id,
-                factory.makeIndexAccess("<missing>", mkInnerM(), factory.makeIdentifierFor(key))
-            )
-        )
-    );
-
-    //if (m.keys.length == 0) {
-    //    m.keys.push();
-    //}
-    addStmt(
-        factory,
-        fun,
-        factory.makeIfStatement(
-            factory.makeBinaryOperation(
-                "<missing>",
-                "==",
-                mkKeysLen(),
-                factory.makeLiteral("<missing>", LiteralKind.Number, "", "0")
-            ),
-            factory.makeBlock([
-                factory.makeExpressionStatement(
-                    factory.makeFunctionCall(
-                        "<missing>",
-                        FunctionCallKind.FunctionCall,
-                        mkKeysPush(),
-                        []
-                    )
-                )
-            ])
-        )
-    );
-
-    //m.keyIdxM[key] = m.keys.length;
-    addStmt(
-        factory,
-        fun,
-        factory.makeAssignment(
+        factory.makeFunctionCall(
             "<missing>",
-            "=",
-            factory.makeIndexAccess("<missing>", mkKeyIdxM(), factory.makeIdentifierFor(key)),
-            mkKeysLen()
+            FunctionCallKind.FunctionCall,
+            mkLibraryFunRef(ctx, addKey),
+            [factory.makeIdentifierFor(m), factory.makeIdentifierFor(key)]
         )
-    );
-    //m.keys.push(key);
-    addStmt(
-        factory,
-        fun,
-        factory.makeFunctionCall("<missing>", FunctionCallKind.FunctionCall, mkKeysPush(), [
-            factory.makeIdentifierFor(key)
-        ])
     );
 
     // return m.innerM[key];
@@ -872,10 +611,11 @@ export function makeDeleteFun(
     ctx: InstrumentationContext,
     keyT: TypeNode,
     valueT: TypeNode,
-    struct: StructDefinition,
     lib: ContractDefinition
 ): FunctionDefinition {
     const factory = ctx.factory;
+    const struct = single(lib.vStructs);
+
     const fun = addEmptyFun(ctx, "deleteKey", FunctionVisibility.Internal, lib);
     ctx.addGeneralInstrumentation(fun.vBody as Block);
 
@@ -937,8 +677,8 @@ export function generateMapLibrary(
     valueT: TypeNode,
     container: SourceUnit
 ): ContractDefinition {
-    const libName = getCustomMapLibraryName(keyT, valueT);
     const factory = ctx.factory;
+    const libName = `${getTypeDesc(keyT)}_to_${getTypeDesc(valueT)}`;
 
     const lib = factory.makeContractDefinition(
         libName,
@@ -961,10 +701,7 @@ export function generateMapLibrary(
     return lib;
 }
 
-export function setterNeedsSpecialization(
-    formalT: TypeNode,
-    newValT: TypeNode
-): newValT is PointerType {
+function setterNeedsSpecialization(formalT: TypeNode, newValT: TypeNode): newValT is PointerType {
     if (!(formalT instanceof ArrayType)) {
         return false;
     }

@@ -156,7 +156,7 @@ function replaceAssignmentHelper(
     const newValT: TypeNode = getNodeType(newVal, instrCtx.compilerVersion);
 
     if (assignment.operator !== "=") {
-        const getter = instrCtx.getCustomMapGetter(lib, false);
+        const getter = instrCtx.libToMapGetterMap.get(lib, false);
         const oldVal = factory.makeFunctionCall(
             "<missing>",
             FunctionCallKind.FunctionCall,
@@ -170,7 +170,7 @@ function replaceAssignmentHelper(
     const newNode = factory.makeFunctionCall(
         "<missing>",
         FunctionCallKind.FunctionCall,
-        mkLibraryFunRef(instrCtx, instrCtx.getCustomMapSetter(lib, newValT)),
+        mkLibraryFunRef(instrCtx, instrCtx.libToMapSetterMap.get(lib, newValT)),
         [base, index, newVal]
     );
 
@@ -341,9 +341,9 @@ export function interposeMap(
         const valueT = typeNameToTypeNode(mapT.vValueType);
 
         // 0. Generate custom library implementation
-        const lib = instrCtx.getCustomMapLibrary(keyT, valueT);
-        const struct = instrCtx.getCustomMapStruct(lib);
-        instrCtx.setMapInterposingLibrary(stateVar, path, lib);
+        const lib = instrCtx.typesToLibraryMap.get(keyT, valueT);
+        const struct = single(lib.vStructs);
+        instrCtx.sVarToLibraryMap.set(lib, stateVar, path);
 
         // 1. Replace the type of `T` in the `stateVar` declaration with `L.S`
         const newMapT = factory.makeUserDefinedTypeName(
@@ -384,7 +384,7 @@ export function interposeMap(
                     // Tuple assignment case.
                     // @todo Do we need a new instrumentation type here?
 
-                    const transCtx = instrCtx.getTranspilingCtx(
+                    const transCtx = instrCtx.transCtxMap.get(
                         containingFun,
                         InstrumentationSiteType.StateVarUpdated
                     );
@@ -409,7 +409,7 @@ export function interposeMap(
                     );
                     const deleteKeyF = mkLibraryFunRef(
                         instrCtx,
-                        instrCtx.getCustomMapDeleteKey(lib)
+                        instrCtx.libToDeleteFunMap.get(lib)
                     );
 
                     const newNode = factory.makeFunctionCall(
@@ -432,7 +432,7 @@ export function interposeMap(
                         updateNode.getClosestParentByType(UncheckedBlock) !== undefined;
                     const incDecF = mkLibraryFunRef(
                         instrCtx,
-                        instrCtx.getCustomMapIncDec(
+                        instrCtx.libToMapIncDecMap.get(
                             lib,
                             updateNode.operator,
                             updateNode.prefix,
@@ -474,8 +474,7 @@ export function interposeMap(
         const [stateVar, path] = targets[i];
 
         // Get the custom library implementation
-        const lib = instrCtx.getMapInterposingLibrary(stateVar, path);
-        assert(lib !== undefined, `Target ${stateVar.name} should already have a library`);
+        const lib = instrCtx.sVarToLibraryMap.mustGet(stateVar, path);
 
         for (const [refNode, refVar, refPath, isRvalueInLValue] of allRefsMap.values()) {
             if (
@@ -487,7 +486,7 @@ export function interposeMap(
             const [base, index] = splitExpr(refNode);
             const getterF = mkLibraryFunRef(
                 instrCtx,
-                instrCtx.getCustomMapGetter(lib, isRvalueInLValue)
+                instrCtx.libToMapGetterMap.get(lib, isRvalueInLValue)
             );
             const newNode = factory.makeFunctionCall(
                 "<misisng>",
@@ -554,10 +553,10 @@ function interposeGetter(
             typ instanceof UserDefinedTypeName &&
             typ.vReferencedDeclaration instanceof StructDefinition &&
             typ.vReferencedDeclaration.vScope instanceof ContractDefinition &&
-            ctx.isCustomMapLibrary(typ.vReferencedDeclaration.vScope)
+            ctx.typesToLibraryMap.isLib(typ.vReferencedDeclaration.vScope)
         ) {
             const lib = typ.vReferencedDeclaration.vScope;
-            const getter = ctx.getCustomMapGetter(lib, false);
+            const getter = ctx.libToMapGetterMap.get(lib, false);
             const idxT = getter.vParameters.vParameters[1].vType as TypeName;
 
             const idxArg = factory.makeVariableDeclaration(

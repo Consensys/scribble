@@ -534,7 +534,8 @@ describe("TypeChecker Expression Unit Tests", () => {
                     ["Foo", "idPair"],
                     new TupleType([new IntType(256, false), new IntType(256, false)])
                 ],
-                ["unchecked_sum(sM)", ["Foo", undefined], new IntType(256, true)]
+                ["unchecked_sum(sM)", ["Foo", undefined], new IntType(256, true)],
+                ["unchecked_sum(sI64Arr)", ["Foo", undefined], new IntType(256, true)]
             ]
         ],
         [
