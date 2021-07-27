@@ -32,10 +32,6 @@ describe(`Command "scribble <filename>" is failing as expected`, () => {
             /.*Error: Scribble doesn't support instrumenting assignments where the LHS is a push\(\). Problematic LHS: a.push\(\)/m
         ],
         [
-            ["test/samples/if_assigned_complex.sol", "--debug-events"],
-            /.*Error: Scribble doesn't yet support --debug-events in the presence of instrumented state vars: .*/m
-        ],
-        [
             ["test/samples/invalid/if_updated_aliasing1.invalid.sol"],
             /^test\/samples\/invalid\/if_updated_aliasing1.invalid.sol:7:2 Error: Cannot instrument state var BadAliasing.a as it may be aliased by a storage pointer/m
         ],

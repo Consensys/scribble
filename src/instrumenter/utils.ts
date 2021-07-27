@@ -174,6 +174,7 @@ export function addFunRet(
 export abstract class BaseStructMap<Args extends any[], KeyT extends string | number, ResT> {
     protected abstract getName(...args: Args): KeyT;
     protected _cache = new Map<KeyT, ResT>();
+    protected _keys = new Map<KeyT, Args>();
     protected name?: string;
 
     constructor(name?: string) {
@@ -203,8 +204,22 @@ export abstract class BaseStructMap<Args extends any[], KeyT extends string | nu
         return res;
     }
 
+    public keys(): Iterable<Args> {
+        return this._keys.values();
+    }
+
     public values(): Iterable<ResT> {
         return this._cache.values();
+    }
+
+    public entries(): Iterable<[Args, ResT]> {
+        const res: Array<[Args, ResT]> = [];
+
+        for (const [key, value] of this._cache.entries()) {
+            res.push([this._keys.get(key) as Args, value]);
+        }
+
+        return res;
     }
 }
 
@@ -214,13 +229,16 @@ export abstract class StructMap<
     ResT
 > extends BaseStructMap<Args, KeyT, ResT> {
     public set(res: ResT, ...args: Args): void {
-        this._cache.set(this.getName(...args), res);
+        const key = this.getName(...args);
+        this._cache.set(key, res);
+        this._keys.set(key, args);
     }
 
     public setExclusive(res: ResT, ...args: Args): void {
         const name = this.getName(...args);
         assert(!this._cache.has(name), `Name ${name} already appears in cache`);
         this._cache.set(name, res);
+        this._keys.set(name, args);
     }
 }
 
@@ -237,6 +255,7 @@ export abstract class FactoryMap<
         if (res === undefined) {
             res = this.makeNew(...args);
             this._cache.set(name, res);
+            this._keys.set(name, args);
         }
 
         return res;

@@ -3,6 +3,8 @@ pragma solidity 0.8.6;
 contract Base {
     event AssertionFailed(string message);
 
+    event AssertionFailedData(int eventId, bytes encodingData);
+
     struct S {
         uint[] arr;
         uint[][] arr2;
@@ -66,7 +68,7 @@ contract Base {
         unchecked {
             if (!(x >= _v.old_0)) {
                 emit AssertionFailed("0: ");
-                assert(false);
+                emit AssertionFailedData(0, abi.encode(x));
             }
         }
     }
@@ -77,11 +79,11 @@ contract Base {
         unchecked {
             if (!(arr.length > 0)) {
                 emit AssertionFailed("1: ");
-                assert(false);
+                emit AssertionFailedData(1, abi.encode(arr));
             }
             if (!((0 <= ARG0) && (ARG0 <= arr.length))) {
                 emit AssertionFailed("2: ");
-                assert(false);
+                emit AssertionFailedData(2, abi.encode(ARG0, arr));
             }
         }
     }
@@ -92,11 +94,11 @@ contract Base {
         unchecked {
             if (!(arr2.length > 0)) {
                 emit AssertionFailed("3: ");
-                assert(false);
+                emit AssertionFailedData(3, abi.encode(arr2));
             }
             if (!((0 <= ARG3) && (ARG3 <= arr2[ARG2].length))) {
                 emit AssertionFailed("5: ");
-                assert(false);
+                emit AssertionFailedData(5, abi.encode(ARG3, arr2, ARG2));
             }
         }
     }
@@ -107,11 +109,11 @@ contract Base {
         unchecked {
             if (!(arr2.length > 0)) {
                 emit AssertionFailed("3: ");
-                assert(false);
+                emit AssertionFailedData(3, abi.encode(arr2));
             }
             if (!((0 <= ARG5) && (ARG5 <= arr2.length))) {
                 emit AssertionFailed("4: ");
-                assert(false);
+                emit AssertionFailedData(4, abi.encode(ARG5, arr2));
             }
         }
     }
@@ -122,7 +124,7 @@ contract Base {
         unchecked {
             if (!((0 <= ARG7) && (ARG7 <= s.arr.length))) {
                 emit AssertionFailed("6: ");
-                assert(false);
+                emit AssertionFailedData(6, abi.encode(ARG7));
             }
         }
     }
@@ -133,7 +135,7 @@ contract Base {
         unchecked {
             if (!((0 <= ARG10) && (ARG10 <= s.arr2[ARG9].length))) {
                 emit AssertionFailed("7: ");
-                assert(false);
+                emit AssertionFailedData(7, abi.encode(ARG10, ARG9));
             }
         }
     }
@@ -143,7 +145,7 @@ contract Base {
         unchecked {
             if (!(arr.length > 0)) {
                 emit AssertionFailed("1: ");
-                assert(false);
+                emit AssertionFailedData(1, abi.encode(arr));
             }
         }
     }
@@ -153,7 +155,7 @@ contract Base {
         unchecked {
             if (!(arr2.length > 0)) {
                 emit AssertionFailed("3: ");
-                assert(false);
+                emit AssertionFailedData(3, abi.encode(arr2));
             }
         }
     }
