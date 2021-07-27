@@ -91,7 +91,7 @@ export function addStructField(
     name: string,
     typ: TypeNode,
     struct: StructDefinition
-): void {
+): VariableDeclaration {
     const field = factory.makeVariableDeclaration(
         false,
         false,
@@ -106,6 +106,7 @@ export function addStructField(
         transpileType(typ, factory)
     );
     struct.appendChild(field);
+    return field;
 }
 
 export function addFunArg(
@@ -245,9 +246,6 @@ export abstract class FactoryMap<
 /**
  * Helper function to generate valid function/variable/contract names based on
  * types.
- *
- * @param typ
- * @returns
  */
 export function getTypeDesc(typ: TypeNode): string {
     if (

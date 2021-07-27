@@ -288,6 +288,11 @@ export class InstrumentationContext {
     private unitsNeedingUtils = new Set<SourceUnit>();
     private _originalContents: Map<SourceUnit, string>;
     private _aliasedStateVars: Map<VariableDeclaration, ASTNode>;
+    /**
+     * ContractDefinition for a library containing helper functions for
+     * computing sums over arrays. If there are no annotations with sums over
+     * arrays, then this is undefined.
+     */
     private _arrSumLibrary?: ContractDefinition;
 
     /**

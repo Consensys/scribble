@@ -1190,10 +1190,6 @@ export function getOrAddConstructor(
 /**
  * Given an array type arrT (actually, poitner to array type) and a container, build a function that computes the
  * sum over an array of type `arrT` and add it to `container`
- * @param ctx
- * @param container
- * @param arrT
- * @returns
  */
 export function makeArraySumFun(
     ctx: InstrumentationContext,
