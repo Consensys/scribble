@@ -189,10 +189,6 @@ function isTypeTraceable(type: TypeNode, ctx: TranspilingContext): boolean {
  *
  * Note that special care needs to be taken for ids appearing in old contexts -
  * we need to add a new binding for them that stores their value.
- *
- * @param id
- * @param transpiledExpr
- * @param ctx
  */
 function addTracingInfo(id: SId, transpiledExpr: Expression, ctx: TranspilingContext): void {
     const typeEnv = ctx.typeEnv;
