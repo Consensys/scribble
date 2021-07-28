@@ -20,7 +20,6 @@ import {
     SourceUnit,
     Statement,
     StateVariableVisibility,
-    VariableDeclaration,
     EmitStatement,
     Literal,
     ASTNode,
@@ -28,17 +27,12 @@ import {
     TypeNode,
     FunctionType,
     getNodeType,
-    FixedBytesType,
     PointerType,
-    StringType,
-    BytesType,
     IntType,
-    BoolType,
-    AddressType,
     ArrayType
 } from "solc-typed-ast";
-import { SId, SLet, SNode, AnnotationType } from "../spec-lang/ast";
-import { StateVarScope, SemMap, TypeEnv } from "../spec-lang/tc";
+import { SNode, AnnotationType } from "../spec-lang/ast";
+import { SemMap, TypeEnv } from "../spec-lang/tc";
 import {
     assert,
     isChangingState,
@@ -54,13 +48,12 @@ import {
     PPAbleError,
     rangeToLocRange
 } from "./annotations";
-import { walk } from "../spec-lang/walk";
 import { interpose, interposeCall } from "./interpose";
 import { InstrumentationContext } from "./instrumentation_context";
 import { InstrumentationSiteType, TranspilingContext } from "./transpiling_context";
 
 import { gte } from "semver";
-import { filterByType, transpile, transpileAnnotation, transpileFunVarDecl } from "..";
+import { filterByType, transpileAnnotation, transpileFunVarDecl } from "..";
 import { addEmptyFun, addFunArg, addFunRet, addStmt, getTypeDesc } from "./utils";
 
 export type SBinding = [string | string[], TypeNode, SNode, boolean];
@@ -200,64 +193,6 @@ export function generateUtilsContract(
     return sourceUnit;
 }
 
-/**
- * Walk the given Scribble expression `n`, and build a set of all identifiers appearing inside
- * that are of interest for debugging purposes.
- */
-function gatherDebugIds(n: SNode, typeEnv: TypeEnv): Set<SId> {
-    const debugIds: Map<string, SId> = new Map();
-
-    const selectId = (id: SId): void => {
-        // Only want let-bindings and variable identifiers
-        if (!(id.defSite instanceof Array || id.defSite instanceof VariableDeclaration)) {
-            return;
-        }
-        let key: string;
-
-        if (id.defSite instanceof VariableDeclaration) {
-            key = `${id.defSite.id}`;
-        } else {
-            const t = id.defSite[0];
-            if (t instanceof StateVarScope) {
-                throw new Error(
-                    `Scribble doesn't yet support --debug-events in the presence of instrumented state vars: ${
-                        (t.target.vScope as ContractDefinition).name
-                    }.${t.target.name}`
-                );
-            }
-            key = `${t.id}_${id.defSite[1]}`;
-        }
-
-        if (debugIds.has(key)) {
-            return;
-        }
-
-        const type = typeEnv.typeOf(id);
-
-        // Only want primitive types and bytes/string
-        if (
-            !(
-                type instanceof AddressType ||
-                type instanceof BoolType ||
-                type instanceof FixedBytesType ||
-                type instanceof IntType ||
-                (type instanceof PointerType &&
-                    (type.to instanceof StringType || type.to instanceof BytesType))
-            )
-        ) {
-            return;
-        }
-
-        debugIds.set(key, id);
-    };
-    walk(n, {
-        id: (id: SId) => selectId(id),
-        let: (letN: SLet) => letN.lhs.forEach(selectId)
-    });
-
-    return new Set(debugIds.values());
-}
-
 type DebugInfo = [EventDefinition, EmitStatement];
 
 /**
@@ -318,45 +253,52 @@ function getDebugInfo(
     }
 
     for (const annot of annotations) {
-        const dbgIds = [...gatherDebugIds(annot.expression, transCtx.typeEnv)];
+        const dbgIdsMap = transCtx.dbgInfo.get(annot);
 
-        if (dbgIds.length == 0) {
-            res.push(undefined);
-        } else {
-            const evtArgs = dbgIds.map((v) => transpile(v, transCtx));
-            const typeList: Array<[string, string]> = dbgIds.map((v) => {
-                const vType = transCtx.typeEnv.typeOf(v);
-                // Note: This works only for primitive types. If we ever allow more complex types, the builtin
-                // `pp()` function for those may differ from the typeString that solc expects.
-                const typeString = vType instanceof PointerType ? vType.to.pp() : vType.pp();
-                return [v.name, typeString];
-            });
+        const evtArgs: Expression[] = [];
+        const typeList: Array<[string, string]> = [];
 
-            if (!instrCtx.debugEventsEncoding.has(annot.id)) {
-                instrCtx.debugEventsEncoding.set(annot.id, typeList);
-            }
+        // Walk over the debug id map for the current annotation and add any ids found to `evtArgs` and `typeList`.
+        for (const [[id], transpiledId] of dbgIdsMap.entries()) {
+            evtArgs.push(transpiledId);
 
-            // Finally construct the emit statement for the debug event.
-            const emitStmt = factory.makeEmitStatement(
-                factory.makeFunctionCall(
-                    "<missing>",
-                    FunctionCallKind.FunctionCall,
-                    factory.makeIdentifierFor(evtDef),
-                    [
-                        factory.makeLiteral("int", LiteralKind.Number, "", String(annot.id)),
-                        factory.makeFunctionCall(
-                            "<missing>",
-                            FunctionCallKind.FunctionCall,
-                            factory.makeIdentifier("<missing>", "abi.encode", -1),
-                            evtArgs
-                        )
-                    ]
-                )
-            );
-
-            instrCtx.addAnnotationInstrumentation(annot, emitStmt);
-            res.push([evtDef, emitStmt]);
+            const vType = transCtx.typeEnv.typeOf(id);
+            // Note: This works only for primitive types. If we ever allow more complex types, the builtin
+            // `pp()` function for those may differ from the typeString that solc expects.
+            const typeString = vType instanceof PointerType ? vType.to.pp() : vType.pp();
+            typeList.push([id.name, typeString]);
         }
+
+        // If there are no debug ids for the current annotation, there is no debug event to build
+        if (evtArgs.length == 0) {
+            res.push(undefined);
+            continue;
+        }
+
+        if (!instrCtx.debugEventsEncoding.has(annot.id)) {
+            instrCtx.debugEventsEncoding.set(annot.id, typeList);
+        }
+
+        // Finally construct the emit statement for the debug event.
+        const emitStmt = factory.makeEmitStatement(
+            factory.makeFunctionCall(
+                "<missing>",
+                FunctionCallKind.FunctionCall,
+                factory.makeIdentifierFor(evtDef),
+                [
+                    factory.makeLiteral("int", LiteralKind.Number, "", String(annot.id)),
+                    factory.makeFunctionCall(
+                        "<missing>",
+                        FunctionCallKind.FunctionCall,
+                        factory.makeIdentifier("<missing>", "abi.encode", -1),
+                        evtArgs
+                    )
+                ]
+            )
+        );
+
+        instrCtx.addAnnotationInstrumentation(annot, emitStmt);
+        res.push([evtDef, emitStmt]);
     }
 
     return res;

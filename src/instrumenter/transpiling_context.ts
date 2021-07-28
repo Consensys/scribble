@@ -17,9 +17,10 @@ import {
     UncheckedBlock,
     VariableDeclaration
 } from "solc-typed-ast";
-import { AnnotationMetaData } from "..";
+import { AnnotationMetaData, pp } from "..";
+import { StructMap, FactoryMap } from "./utils";
 import { SForAll, SId, SLet, SUnaryOperation, SUserFunctionDefinition } from "../spec-lang/ast";
-import { SemMap, TypeEnv } from "../spec-lang/tc";
+import { SemMap, StateVarScope, TypeEnv } from "../spec-lang/tc";
 import { assert, last } from "../util";
 import { InstrumentationContext } from "./instrumentation_context";
 import { makeTypeString } from "./type_string";
@@ -35,6 +36,42 @@ export type ASTMap = Map<ASTNode, ASTNode>;
 
 type PositionInBlock = "start" | "end" | ["after", Statement] | ["before", Statement];
 type Marker = [Block, PositionInBlock];
+
+function defSiteToKey(id: SId): string {
+    if (id.defSite instanceof VariableDeclaration) {
+        return `${id.defSite.id}`;
+    }
+
+    if (id.defSite instanceof Array && id.defSite[0] instanceof SLet) {
+        return `let_${id.defSite[0].id}_${id.defSite[1]}`;
+    }
+
+    if (id.defSite instanceof Array && id.defSite[0] instanceof StateVarScope) {
+        return `svar_path_binding_${id.defSite[0].annotation.id}_${id.defSite[1]}`;
+    }
+
+    if (id.defSite instanceof SForAll) {
+        return `forall_${id.defSite.id}`;
+    }
+
+    throw new Error(`NYI debug info for id ${id.name} with def site ${pp(id.defSite)}`);
+}
+
+class IdDebugMap extends StructMap<[SId], string, Expression> {
+    protected getName(id: SId): string {
+        return defSiteToKey(id);
+    }
+}
+
+class AnnotationDebugMap extends FactoryMap<[AnnotationMetaData], number, IdDebugMap> {
+    protected getName(md: AnnotationMetaData): number {
+        return md.parsedAnnot.id;
+    }
+
+    protected makeNew(): IdDebugMap {
+        return new IdDebugMap();
+    }
+}
 
 /**
  * Class containing all the context necessary to transpile
@@ -90,6 +127,8 @@ export class TranspilingContext {
     public curAnnotation!: AnnotationMetaData;
 
     public readonly contract: ContractDefinition;
+
+    public readonly dbgInfo = new AnnotationDebugMap();
 
     constructor(
         public readonly typeEnv: TypeEnv,
@@ -452,5 +491,16 @@ export class TranspilingContext {
 
         this.instrCtx.addGeneralInstrumentation(localVarStmt);
         block.insertBefore(localVarStmt, block.children[0]);
+    }
+
+    /**
+     * Get temporary var used to store the value of an id inside an old expression for debugging purposes. E.g. for this expression:
+     */
+    getDbgVar(node: SId): string {
+        const key = `<dbg ${defSiteToKey(node)}>`;
+        assert(!this.bindingMap.has(key), `getOldVar called more than once for ${node.pp()}`);
+        const res = this.instrCtx.nameGenerator.getFresh("dbg_");
+        this.bindingMap.set(key, res);
+        return res;
     }
 }

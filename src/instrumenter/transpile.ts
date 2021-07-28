@@ -1,4 +1,5 @@
 import bigInt from "big-integer";
+import { gte } from "semver";
 import {
     AddressType,
     ArrayType,
@@ -133,6 +134,95 @@ export function transpileType(type: TypeNode, factory: ASTNodeFactory): TypeName
 }
 
 /**
+ * Return true IFF the type `type` can be output in a debug event. This currently
+ * includes primitive types, strings and bytes, and arrays over these
+ */
+function isTypeTraceable(type: TypeNode, ctx: TranspilingContext): boolean {
+    // Primitive types
+    if (
+        type instanceof AddressType ||
+        type instanceof BoolType ||
+        type instanceof FixedBytesType ||
+        type instanceof IntType
+    ) {
+        return true;
+    }
+
+    // Enums
+    if (type instanceof UserDefinedType && type.definition instanceof EnumDefinition) {
+        return true;
+    }
+
+    if (type instanceof PointerType) {
+        // Strings and bytes
+        if (type.to instanceof StringType || type.to instanceof BytesType) {
+            return true;
+        }
+
+        // Arrays
+        if (type.to instanceof ArrayType) {
+            const version = ctx.instrCtx.compilerVersion;
+
+            // For solidity >=0.8.0 we can emit nested arrays in events since ABIEncoderV2 is on by default
+            if (gte(version, "0.8.0")) {
+                return isTypeTraceable(type.to.elementT, ctx);
+            }
+
+            // For older solidity skip nested arrays
+            if (type.to.elementT instanceof PointerType && type.to.elementT instanceof ArrayType) {
+                return false;
+            }
+
+            // And otherwise just make sure the elemnt type is something sane (i.e. not maps)
+            return isTypeTraceable(type.to.elementT, ctx);
+        }
+    }
+
+    return false;
+}
+
+/**
+ * Given an `SId` `id`, its corresponding transpiled form `transpiledExpr` and
+ * the current `TranspilingContext` `ctx`, if `--debug-events` are on, and this
+ * is the first time we encounter `id`, and its type is traceable (see
+ * `isTypeTraceable`) then add debugging information for `id` to `ctx`.
+ *
+ * Note that special care needs to be taken for ids appearing in old contexts -
+ * we need to add a new binding for them that stores their value.
+ */
+function addTracingInfo(id: SId, transpiledExpr: Expression, ctx: TranspilingContext): void {
+    const typeEnv = ctx.typeEnv;
+    const factory = ctx.factory;
+    const exprT = typeEnv.typeOf(id);
+    const dbgEventsOn = ctx.instrCtx.debugEvents;
+
+    if (!dbgEventsOn) {
+        return;
+    }
+
+    const idDebugMap = ctx.dbgInfo.get(ctx.curAnnotation);
+
+    if (!idDebugMap.has(id) && isTypeTraceable(exprT, ctx)) {
+        const isOld = (ctx.semInfo.get(id) as SemInfo).isOld;
+        if (isOld) {
+            const dbgBinding = ctx.getDbgVar(id);
+            ctx.addBinding(dbgBinding, transpileType(exprT, factory));
+
+            const assignment = ctx.insertAssignment(
+                ctx.refBinding(dbgBinding),
+                factory.copy(transpiledExpr),
+                true,
+                true
+            );
+            ctx.instrCtx.addAnnotationInstrumentation(ctx.curAnnotation, assignment);
+            idDebugMap.set(ctx.refBinding(dbgBinding), id);
+        } else {
+            idDebugMap.set(factory.copy(transpiledExpr), id);
+        }
+    }
+}
+
+/**
  * Transpile the `SId` `expr` in the context of `ctx.container`.
  */
 function transpileId(expr: SId, ctx: TranspilingContext): Expression {
@@ -160,17 +250,23 @@ function transpileId(expr: SId, ctx: TranspilingContext): Expression {
             );
         }
 
-        return factory.makeIdentifierFor(expr.defSite);
+        const res = factory.makeIdentifierFor(expr.defSite);
+        addTracingInfo(expr, res, ctx);
+        return res;
     }
 
     // Let-variable used inside the body
     if (expr.defSite instanceof Array && expr.defSite[0] instanceof SLet) {
-        return ctx.refBinding(ctx.getLetBinding(expr));
+        const res = ctx.refBinding(ctx.getLetBinding(expr));
+        addTracingInfo(expr, res, ctx);
+        return res;
     }
 
     // ForAll iterator var
     if (expr.defSite instanceof SForAll) {
-        return ctx.refBinding(ctx.getForAllIterVar(expr.defSite));
+        const res = ctx.refBinding(ctx.getForAllIterVar(expr.defSite));
+        addTracingInfo(expr, res, ctx);
+        return res;
     }
 
     // User function argument
@@ -199,7 +295,9 @@ function transpileId(expr: SId, ctx: TranspilingContext): Expression {
                 argIdx++;
             }
         }
-        return factory.makeIdentifierFor(ctx.container.vParameters.vParameters[argIdx]);
+        const res = factory.makeIdentifierFor(ctx.container.vParameters.vParameters[argIdx]);
+        addTracingInfo(expr, res, ctx);
+        return res;
     }
 
     // User function itself

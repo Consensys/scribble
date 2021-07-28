@@ -179,9 +179,7 @@ describe("Interface compatibility test", () => {
                     fileName = sample;
                 }
 
-                if (!(sample.includes("if_updated") || sample.includes("if_assigned"))) {
-                    args.push("--debug-events");
-                }
+                args.push("--debug-events");
 
                 const result = toAst(sample + ".log.sol", scribble(fileName, ...args));
 
