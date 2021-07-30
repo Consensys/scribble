@@ -1,3 +1,4 @@
+import { gte } from "semver";
 import {
     ArrayType,
     assert,
@@ -10,6 +11,7 @@ import {
     Expression,
     FunctionCallKind,
     FunctionDefinition,
+    FunctionStateMutability,
     FunctionVisibility,
     IfStatement,
     IntType,
@@ -467,6 +469,7 @@ export function makeGetFun(
 ): FunctionDefinition {
     const factory = ctx.factory;
     const fun = addEmptyFun(ctx, lhs ? "get_lhs" : "get", FunctionVisibility.Internal, lib);
+    fun.stateMutability = FunctionStateMutability.View;
     const struct = single(lib.vStructs);
 
     const m = addFunArg(
@@ -551,7 +554,7 @@ export function makeSetFun(
 
     if (valueT instanceof IntType) {
         // TODO: There is risk of overflow/underflow here
-        const block = factory.makeUncheckedBlock([
+        const incStmts = [
             // m.sum -= m.innerM[key];
             factory.makeExpressionStatement(
                 factory.makeAssignment(
@@ -565,8 +568,13 @@ export function makeSetFun(
             factory.makeExpressionStatement(
                 factory.makeAssignment("<missing>", "+=", mkSum(), factory.makeIdentifierFor(val))
             )
-        ]);
-        addStmt(factory, fun, block);
+        ];
+        if (gte(ctx.compilerVersion, "0.8.0")) {
+            const block = factory.makeUncheckedBlock([]);
+            addStmt(factory, fun, block);
+        } else {
+            incStmts.forEach((stmt) => addStmt(factory, fun, stmt));
+        }
     }
 
     //m.innerM[key] = val;
