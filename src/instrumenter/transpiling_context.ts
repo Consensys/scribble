@@ -1,7 +1,6 @@
 import { gte } from "semver";
 import {
     ASTNode,
-    ASTNodeFactory,
     Block,
     ContractDefinition,
     DataLocation,
@@ -17,13 +16,13 @@ import {
     UncheckedBlock,
     VariableDeclaration
 } from "solc-typed-ast";
-import { AnnotationMetaData, pp } from "..";
-import { StructMap, FactoryMap } from "./utils";
+import { AnnotationMetaData, pp, ScribbleFactory } from "..";
 import { SForAll, SId, SLet, SUnaryOperation, SUserFunctionDefinition } from "../spec-lang/ast";
 import { SemMap, StateVarScope, TypeEnv } from "../spec-lang/tc";
 import { assert, last } from "../util";
 import { InstrumentationContext } from "./instrumentation_context";
 import { makeTypeString } from "./type_string";
+import { FactoryMap, StructMap } from "./utils";
 
 export enum InstrumentationSiteType {
     FunctionAnnotation,
@@ -112,7 +111,7 @@ export class TranspilingContext {
      */
     private newMarkerStack: Marker[];
 
-    public get factory(): ASTNodeFactory {
+    public get factory(): ScribbleFactory {
         return this.instrCtx.factory;
     }
 
@@ -318,12 +317,16 @@ export class TranspilingContext {
     getLetBinding(arg: SId | [SLet, number]): string {
         const [letDecl, idx] = arg instanceof SId ? (arg.defSite as [SLet, number]) : arg;
         const key = `<let_${letDecl.id}_${idx}>`;
+
         if (!this.bindingMap.has(key)) {
             let name = arg instanceof SId ? arg.name : arg[0].lhs[idx].name;
+
             if (name === "_") {
                 name = "dummy_";
             }
+
             const fieldName = this.instrCtx.nameGenerator.getFresh(name, true);
+
             this.bindingMap.set(key, fieldName);
         }
 
@@ -332,9 +335,11 @@ export class TranspilingContext {
 
     getUserFunArg(userFun: SUserFunctionDefinition, idx: number): string {
         const key = `<uf_arg_${userFun.id}_${idx}>`;
+
         if (!this.bindingMap.has(key)) {
             const name = userFun.parameters[idx][0].name;
             const uniqueName = this.instrCtx.nameGenerator.getFresh(name, true);
+
             this.bindingMap.set(key, uniqueName);
         }
 
@@ -436,6 +441,7 @@ export class TranspilingContext {
 
         this.bindingDefMap.set(name, decl);
         this.bindingsStructDef.appendChild(decl);
+
         return decl;
     }
 
@@ -484,12 +490,16 @@ export class TranspilingContext {
         }
 
         const contract = this.container.parent;
+
         assert(contract instanceof ContractDefinition, ``);
+
         contract.appendChild(this.bindingsStructDef);
+
         const block = this.container.vBody as Block;
         const localVarStmt = this.factory.makeVariableDeclarationStatement([], [this.bindingsVar]);
 
         this.instrCtx.addGeneralInstrumentation(localVarStmt);
+
         block.insertBefore(localVarStmt, block.children[0]);
     }
 

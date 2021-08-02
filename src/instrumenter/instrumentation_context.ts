@@ -1,44 +1,44 @@
 import { dirname, relative } from "path";
 import {
-    ASTNodeFactory,
-    ContractDefinition,
-    EventDefinition,
-    FunctionDefinition,
-    SourceUnit,
-    ModifierDefinition,
-    StructDefinition,
-    EnumDefinition,
-    VariableDeclaration,
-    ImportDirective,
-    ASTNode,
-    Expression,
-    Statement,
-    TypeNode,
-    SrcRangeMap,
-    assert,
-    DataLocation,
     ArrayType,
-    ContractKind
+    assert,
+    ASTNode,
+    ContractDefinition,
+    ContractKind,
+    DataLocation,
+    EnumDefinition,
+    EventDefinition,
+    Expression,
+    FunctionDefinition,
+    ImportDirective,
+    ModifierDefinition,
+    SourceUnit,
+    SrcRangeMap,
+    Statement,
+    StructDefinition,
+    TypeNode,
+    VariableDeclaration
 } from "solc-typed-ast";
 import {
     AbsDatastructurePath,
-    StructMap,
-    FactoryMap,
     dedup,
+    FactoryMap,
     findAliasedStateVars,
+    getSetterName,
+    makeArraySumFun,
     makeDeleteFun,
     makeGetFun,
     makeIncDecFun,
     makeSetFun,
-    UnsupportedConstruct,
-    getSetterName,
-    makeArraySumFun
+    ScribbleFactory,
+    StructMap,
+    UnsupportedConstruct
 } from "..";
 import { print } from "../ast_to_source_printer";
 import { SUserFunctionDefinition } from "../spec-lang/ast";
 import { SemMap, TypeEnv } from "../spec-lang/tc";
 import { NameGenerator } from "../util/name_generator";
-import { AnnotationMetaData, AnnotationFilterOptions } from "./annotations";
+import { AnnotationFilterOptions, AnnotationMetaData } from "./annotations";
 import { CallGraph } from "./callgraph";
 import { CHA } from "./cha";
 import { generateMapLibrary } from "./custom_maps_templates";
@@ -49,7 +49,8 @@ import { InstrumentationSiteType, TranspilingContext } from "./transpiling_conte
  * @param units list of source units
  */
 function getAllNames(units: SourceUnit[]): Set<string> {
-    const nameSet: Set<string> = new Set();
+    const nameSet = new Set<string>();
+
     for (const unit of units) {
         for (const child of unit.getChildren()) {
             // Add all named declarations
@@ -84,6 +85,7 @@ function getAllNames(units: SourceUnit[]): Set<string> {
             }
         }
     }
+
     return nameSet;
 }
 
@@ -141,7 +143,9 @@ class TypesToLibraryMap extends ContextFactoryMap<
 
     protected makeNew(keyT: TypeNode, valueT: TypeNode): ContractDefinition {
         const res = generateMapLibrary(this.ctx, keyT, valueT, this.ctx.utilsUnit);
+
         this._inverseMap.set(res, [keyT, valueT]);
+
         return res;
     }
 
@@ -151,7 +155,9 @@ class TypesToLibraryMap extends ContextFactoryMap<
 
     public getKVTypes(lib: ContractDefinition): [TypeNode, TypeNode] {
         const res = this._inverseMap.get(lib);
+
         assert(res !== undefined, `Missing key/value types for library ${lib.name}`);
+
         return res;
     }
 }
@@ -164,8 +170,10 @@ class MapGetterMap extends ContextFactoryMap<
     protected getName(lib: ContractDefinition, lhs: boolean): string {
         return `${lib.id}_${lhs}`;
     }
+
     protected makeNew(lib: ContractDefinition, lhs: boolean): FunctionDefinition {
         const [keyT, valueT] = this.ctx.typesToLibraryMap.getKVTypes(lib);
+
         return makeGetFun(this.ctx, keyT, valueT, lib, lhs);
     }
 }
@@ -177,10 +185,12 @@ class MapSetterMap extends ContextFactoryMap<
 > {
     protected getName(lib: ContractDefinition, newValT: TypeNode): string {
         const [, valueT] = this.ctx.typesToLibraryMap.getKVTypes(lib);
+
         return `${lib.id}_${getSetterName(valueT, newValT)}`;
     }
     protected makeNew(lib: ContractDefinition, newValT: TypeNode): FunctionDefinition {
         const [keyT, valueT] = this.ctx.typesToLibraryMap.getKVTypes(lib);
+
         return makeSetFun(this.ctx, keyT, valueT, lib, newValT);
     }
 }
@@ -206,6 +216,7 @@ class MapIncDecMap extends ContextFactoryMap<
         unchecked: boolean
     ): FunctionDefinition {
         const [keyT, valueT] = this.ctx.typesToLibraryMap.getKVTypes(lib);
+
         return makeIncDecFun(this.ctx, keyT, valueT, lib, operator, prefix, unchecked);
     }
 }
@@ -217,6 +228,7 @@ class MapDeleteFunMap extends ContextFactoryMap<[ContractDefinition], number, Fu
 
     protected makeNew(lib: ContractDefinition): FunctionDefinition {
         const [keyT, valueT] = this.ctx.typesToLibraryMap.getKVTypes(lib);
+
         return makeDeleteFun(this.ctx, keyT, valueT, lib);
     }
 }
@@ -333,7 +345,7 @@ export class InstrumentationContext {
     public readonly arraySumFunMap = new ArraySumFunMap(this);
 
     constructor(
-        public readonly factory: ASTNodeFactory,
+        public readonly factory: ScribbleFactory,
         public readonly units: SourceUnit[],
         public readonly assertionMode: "log" | "mstore",
         public readonly addAssert: boolean,
@@ -353,10 +365,12 @@ export class InstrumentationContext {
     ) {
         this.nameGenerator = new NameGenerator(getAllNames(units));
         this.structVar = this.nameGenerator.getFresh("_v", true);
+
         this.checkStateInvsFuncName = this.nameGenerator.getFresh(
             "__scribble_check_state_invariants",
             true
         );
+
         this.outOfContractFlagName = this.nameGenerator.getFresh(
             "__scribble_out_of_contract",
             true
@@ -365,6 +379,7 @@ export class InstrumentationContext {
         this.scratchField = this.nameGenerator.getFresh("__mstore_scratch__", true);
         this.checkInvsFlag = this.nameGenerator.getFresh("__scribble_check_invs_at_end", true);
         this.utilsContractName = this.nameGenerator.getFresh("__scribble_ReentrancyUtils", true);
+
         this.varInterposingQueue = dedup(
             _varInterposingQueue,
             (x: [VariableDeclaration, AbsDatastructurePath]) =>
@@ -464,6 +479,7 @@ export class InstrumentationContext {
 
         for (const [unit, newUnitCont] of newContents.entries()) {
             const oldUnitCont = this._originalContents.get(unit);
+
             if (oldUnitCont !== newUnitCont) {
                 res.push(unit);
             }
@@ -478,6 +494,7 @@ export class InstrumentationContext {
 
     crashIfAliased(varDef: VariableDeclaration): void {
         const potentialAliasing = this.getAliasingNode(varDef);
+
         if (potentialAliasing !== undefined) {
             throw new UnsupportedConstruct(
                 `Cannot instrument state var ${(varDef.parent as ContractDefinition).name}.${
@@ -496,6 +513,7 @@ export class InstrumentationContext {
     get arrSumLibrary(): ContractDefinition {
         if (this._arrSumLibrary === undefined) {
             const utilsUnit = this.utilsUnit;
+
             this._arrSumLibrary = this.factory.makeContractDefinition(
                 "arr_sum_funs",
                 utilsUnit.id,
@@ -505,6 +523,7 @@ export class InstrumentationContext {
                 [],
                 []
             );
+
             this.utilsUnit.appendChild(this._arrSumLibrary);
         }
 

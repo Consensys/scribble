@@ -1,9 +1,13 @@
+import { gte } from "semver";
 import {
+    ArrayType,
+    ASTNode,
     ASTNodeFactory,
     Block,
     ContractDefinition,
     ContractKind,
     DataLocation,
+    EmitStatement,
     EventDefinition,
     Expression,
     ExternalReferenceType,
@@ -12,26 +16,24 @@ import {
     FunctionDefinition,
     FunctionKind,
     FunctionStateMutability,
+    FunctionType,
     FunctionVisibility,
+    getNodeType,
+    IntType,
+    Literal,
     LiteralKind,
     Mutability,
     OverrideSpecifier,
+    PointerType,
     resolveByName,
     SourceUnit,
     Statement,
     StateVariableVisibility,
-    EmitStatement,
-    Literal,
-    ASTNode,
-    UncheckedBlock,
     TypeNode,
-    FunctionType,
-    getNodeType,
-    PointerType,
-    IntType,
-    ArrayType
+    UncheckedBlock
 } from "solc-typed-ast";
-import { SNode, AnnotationType } from "../spec-lang/ast";
+import { filterByType, getTypeLocation, transpileAnnotation } from "..";
+import { AnnotationType, SNode } from "../spec-lang/ast";
 import { SemMap, TypeEnv } from "../spec-lang/tc";
 import {
     assert,
@@ -43,18 +45,15 @@ import {
 } from "../util";
 import {
     AnnotationMetaData,
-    PropertyMetaData,
-    UserFunctionDefinitionMetaData,
     PPAbleError,
-    rangeToLocRange
+    PropertyMetaData,
+    rangeToLocRange,
+    UserFunctionDefinitionMetaData
 } from "./annotations";
-import { interpose, interposeCall } from "./interpose";
 import { InstrumentationContext } from "./instrumentation_context";
+import { interpose, interposeCall } from "./interpose";
 import { InstrumentationSiteType, TranspilingContext } from "./transpiling_context";
-
-import { gte } from "semver";
-import { filterByType, transpileAnnotation, transpileFunVarDecl } from "..";
-import { addEmptyFun, addFunArg, addFunRet, addStmt, getTypeDesc } from "./utils";
+import { getTypeDesc } from "./utils";
 
 export type SBinding = [string | string[], TypeNode, SNode, boolean];
 export type SBindings = SBinding[];
@@ -74,8 +73,11 @@ export class UnsupportedConstruct extends InstrumentationError {
 
     constructor(msg: string, unsupportedNode: ASTNode, files: Map<string, string>) {
         const unit = unsupportedNode.getClosestParentByType(SourceUnit);
+
         assert(unit !== undefined, `No unit for node ${print(unsupportedNode)}`);
+
         const contents = files.get(unit.sourceEntryKey);
+
         assert(contents !== undefined, `Missing contents for ${unit.sourceEntryKey}`);
 
         const unitLoc = parseSrcTriple(unsupportedNode.src);
@@ -153,6 +155,7 @@ export function generateUtilsContract(
 ): SourceUnit {
     const exportedSymbols = new Map();
     const sourceUnit = factory.makeSourceUnit(sourceEntryKey, -1, path, exportedSymbols);
+
     sourceUnit.appendChild(factory.makePragmaDirective(["solidity", version]));
 
     const contract = factory.makeContractDefinition(
@@ -211,7 +214,9 @@ function getDebugInfo(
     const instrCtx = transCtx.instrCtx;
 
     const events = resolveByName(transCtx.contract, EventDefinition, "AssertionFailedData");
+
     let evtDef = undefined;
+
     if (events.length > 0) {
         evtDef = events[0];
     }
@@ -266,12 +271,14 @@ function getDebugInfo(
             // Note: This works only for primitive types. If we ever allow more complex types, the builtin
             // `pp()` function for those may differ from the typeString that solc expects.
             const typeString = vType instanceof PointerType ? vType.to.pp() : vType.pp();
+
             typeList.push([id.name, typeString]);
         }
 
         // If there are no debug ids for the current annotation, there is no debug event to build
         if (evtArgs.length == 0) {
             res.push(undefined);
+
             continue;
         }
 
@@ -306,6 +313,7 @@ function getDebugInfo(
 
 function getBitPattern(factory: ASTNodeFactory, id: number): Literal {
     const hexId = id.toString(16).padStart(4, "0");
+
     return factory.makeLiteral(
         "<missing>",
         LiteralKind.Number,
@@ -329,6 +337,7 @@ function emitAssert(
 ): Statement {
     const instrCtx = transCtx.instrCtx;
     const factory = instrCtx.factory;
+
     let userAssertFailed: Statement;
     let userAssertionHit: Statement | undefined;
 
@@ -408,6 +417,7 @@ function emitAssert(
 
     if (userAssertionHit) {
         instrCtx.addAnnotationInstrumentation(annotation, userAssertionHit);
+
         return factory.makeBlock([userAssertionHit, ifStmt]);
     }
 
@@ -486,6 +496,7 @@ export function insertAnnotations(annotations: PropertyMetaData[], ctx: Transpil
         const event = getAssertionFailedEvent(factory, contract);
         const dbgInfo = debugInfos[i];
         const emitStmt = dbgInfo !== undefined ? dbgInfo[1] : undefined;
+
         return emitAssert(ctx, predicate, annotation, event, emitStmt);
     });
 
@@ -559,6 +570,7 @@ export class ContractInstrumenter {
             factory.makeUserDefinedTypeName("<missing>", newBase.name, newBase.id),
             []
         );
+
         contract.linearizedBaseContracts.unshift(newBase.id);
 
         const specs = contract.vInheritanceSpecifiers;
@@ -610,9 +622,9 @@ export class ContractInstrumenter {
             // Arithmetic in Solidity >= 0.8.0 is checked by default.
             // In Scribble its unchecked.
             let body: Block | UncheckedBlock;
+
             if (gte(ctx.compilerVersion, "0.8.0")) {
-                body = factory.makeUncheckedBlock([]);
-                (userFun.vBody as Block).appendChild(body);
+                body = factory.addStmt(userFun, factory.makeUncheckedBlock([])) as UncheckedBlock;
             } else {
                 body = userFun.vBody as Block;
             }
@@ -625,20 +637,26 @@ export class ContractInstrumenter {
             for (let i = 0; i < funDef.parameters.length; i++) {
                 const [, paramType] = funDef.parameters[i];
                 const instrName = transCtx.getUserFunArg(funDef, i);
-                userFun.vParameters.appendChild(
-                    transpileFunVarDecl(instrName, paramType, transCtx)
-                );
+
+                factory.addFunArg(instrName, paramType, getTypeLocation(paramType), userFun);
             }
 
-            const retDecl = transpileFunVarDecl("", funDef.returnType, transCtx);
-            userFun.vReturnParameters.appendChild(retDecl);
-            ctx.addGeneralInstrumentation(retDecl);
+            factory.addFunRet(
+                ctx,
+                "",
+                funDef.returnType,
+                getTypeLocation(funDef.returnType),
+                userFun
+            );
 
             const result = transpileAnnotation(funDefMD, transCtx);
-            body.appendChild(factory.makeReturn(userFun.vReturnParameters.id, result));
+
+            factory.addStmt(body, factory.makeReturn(userFun.vReturnParameters.id, result));
 
             ctx.addGeneralInstrumentation(body);
+
             contract.appendChild(userFun);
+
             userFuns.push(userFun);
         }
 
@@ -774,7 +792,8 @@ export class ContractInstrumenter {
             );
 
             ctx.addGeneralInstrumentation(callInternalCheckInvs);
-            body.appendChild(callInternalCheckInvs);
+
+            factory.addStmt(body, callInternalCheckInvs);
         }
 
         return checker;
@@ -782,10 +801,6 @@ export class ContractInstrumenter {
 
     /**
      * Contract invariants need to be checked at the end of the constructor. If there is no constructor insert a default constructor.
-     *
-     * @param ctx
-     * @param contract
-     * @param generalInvChecker
      */
     private instrumentConstructor(
         ctx: InstrumentationContext,
@@ -794,31 +809,8 @@ export class ContractInstrumenter {
     ): void {
         const factory = ctx.factory;
 
-        let constructor: FunctionDefinition;
-        let body: Block;
-
-        if (contract.vConstructor === undefined) {
-            body = factory.makeBlock([]);
-            constructor = factory.makeFunctionDefinition(
-                contract.id,
-                FunctionKind.Constructor,
-                "",
-                false,
-                FunctionVisibility.Public,
-                FunctionStateMutability.NonPayable,
-                true,
-                factory.makeParameterList([]),
-                factory.makeParameterList([]),
-                [],
-                undefined,
-                body
-            );
-
-            contract.appendChild(constructor);
-        } else {
-            constructor = contract.vConstructor;
-            body = constructor.vBody as Block;
-        }
+        const constructor = factory.getOrAddConstructor(contract);
+        const body = constructor.vBody as Block;
 
         const entryGuard = factory.makeExpressionStatement(
             factory.makeAssignment(
@@ -887,7 +879,6 @@ export class ContractInstrumenter {
             }
 
             const callsiteWrapper = interposeCall(ctx, contract, callSite);
-
             const wrapperBody = callsiteWrapper.vBody as Block;
 
             wrapperBody.vStatements.splice(
@@ -926,6 +917,7 @@ export class ContractInstrumenter {
                         )
                     )
                 );
+
                 wrapperBody.appendChild(
                     factory.makeExpressionStatement(
                         factory.makeAssignment(
@@ -1030,8 +1022,7 @@ export class FunctionInstrumenter {
             stmts.push(storeEntry, enter);
         }
 
-        const before: Statement | undefined =
-            body.vStatements.length > 0 ? body.vStatements[0] : undefined;
+        const before = body.vStatements.length > 0 ? body.vStatements[0] : undefined;
 
         for (const stmt of stmts) {
             instrCtx.addGeneralInstrumentation(stmt);
@@ -1092,41 +1083,10 @@ export class FunctionInstrumenter {
 
         for (const stmt of stmts) {
             instrCtx.addGeneralInstrumentation(stmt);
+
             body.appendChild(stmt);
         }
     }
-}
-
-/**
- * Return the constructor of `contract`. If there is no constructor defined,
- * add an empty public constructor and return it.
- */
-export function getOrAddConstructor(
-    contract: ContractDefinition,
-    factory: ASTNodeFactory
-): FunctionDefinition {
-    if (contract.vConstructor !== undefined) {
-        return contract.vConstructor;
-    }
-
-    const emptyConstructor = factory.makeFunctionDefinition(
-        contract.id,
-        FunctionKind.Constructor,
-        "",
-        false,
-        FunctionVisibility.Public,
-        FunctionStateMutability.NonPayable,
-        true,
-        factory.makeParameterList([]),
-        factory.makeParameterList([]),
-        [],
-        undefined,
-        factory.makeBlock([])
-    );
-
-    contract.appendChild(emptyConstructor);
-
-    return emptyConstructor;
 }
 
 /**
@@ -1149,15 +1109,11 @@ export function makeArraySumFun(
     const name = `sum_arr_${getTypeDesc(arrT)}_${loc}`;
     const sumT = new IntType(256, arrT.elementT.signed);
 
-    const fun = addEmptyFun(ctx, name, FunctionVisibility.Internal, container);
-    const body: UncheckedBlock = addStmt(
-        factory,
-        fun,
-        factory.makeUncheckedBlock([])
-    ) as UncheckedBlock;
+    const fun = factory.addEmptyFun(ctx, name, FunctionVisibility.Internal, container);
+    const body = factory.addStmt(fun, factory.makeUncheckedBlock([])) as UncheckedBlock;
 
-    const arr = addFunArg(factory, "arr", arrT, loc, fun);
-    const ret = addFunRet(ctx, "ret", sumT, DataLocation.Default, fun);
+    const arr = factory.addFunArg("arr", arrT, loc, fun);
+    const ret = factory.addFunRet(ctx, "ret", sumT, DataLocation.Default, fun);
 
     const idx = factory.makeVariableDeclaration(
         false,
@@ -1173,8 +1129,7 @@ export function makeArraySumFun(
         factory.makeElementaryTypeName("<missing>", "uint256")
     );
 
-    addStmt(
-        factory,
+    factory.addStmt(
         body,
         factory.makeForStatement(
             factory.makeExpressionStatement(

@@ -30,18 +30,7 @@ import {
     VariableDeclaration,
     VariableDeclarationStatement
 } from "solc-typed-ast";
-import {
-    addEmptyFun,
-    addFunArg,
-    addFunRet,
-    addStmt,
-    addStructField,
-    getTypeDesc,
-    mkLibraryFunRef,
-    mkStructFieldAcc,
-    single,
-    transpileType
-} from "..";
+import { getTypeDesc, ScribbleFactory, single, transpileType } from "..";
 import { InstrumentationContext } from "./instrumentation_context";
 
 export function needsLocation(t: TypeNode): boolean {
@@ -55,30 +44,30 @@ export function needsLocation(t: TypeNode): boolean {
 }
 
 function makeStruct(
-    factory: ASTNodeFactory,
+    factory: ScribbleFactory,
     keyT: TypeNode,
     valueT: TypeNode,
     lib: ContractDefinition
 ): StructDefinition {
     const struct = factory.makeStructDefinition("S", "S", lib.id, "", []);
 
-    addStructField(factory, "innerM", new MappingType(keyT, valueT), struct);
-    addStructField(factory, "keys", new ArrayType(keyT), struct);
-    addStructField(factory, "keyIdxM", new MappingType(keyT, new IntType(256, false)), struct);
+    factory.addStructField("innerM", new MappingType(keyT, valueT), struct);
+    factory.addStructField("keys", new ArrayType(keyT), struct);
+    factory.addStructField("keyIdxM", new MappingType(keyT, new IntType(256, false)), struct);
 
     if (valueT instanceof IntType) {
-        addStructField(factory, "sum", new IntType(256, valueT.signed), struct);
+        factory.addStructField("sum", new IntType(256, valueT.signed), struct);
     }
 
     return struct;
 }
 
 function mkInnerM(
-    factory: ASTNodeFactory,
+    factory: ScribbleFactory,
     base: Expression,
     struct: StructDefinition
 ): MemberAccess {
-    return mkStructFieldAcc(factory, base, struct, 0);
+    return factory.mkStructFieldAcc(base, struct, 0);
 }
 
 function mkVarDecl(
@@ -122,39 +111,40 @@ export function makeIncDecFun(
 
     const name =
         (operator == "++" ? "inc" : "dec") + (prefix ? "_pre" : "") + (unchecked ? "_unch" : "");
-    const fun = addEmptyFun(ctx, name, FunctionVisibility.Internal, lib);
 
-    const m = addFunArg(
-        factory,
+    const fn = factory.addEmptyFun(ctx, name, FunctionVisibility.Internal, lib);
+
+    const m = factory.addFunArg(
         "m",
         new UserDefinedType(struct.name, struct),
         DataLocation.Storage,
-        fun
+        fn
     );
-    const key = addFunArg(
-        factory,
+
+    const key = factory.addFunArg(
         "key",
         keyT,
         needsLocation(keyT) ? DataLocation.Memory : DataLocation.Default,
-        fun
+        fn
     );
 
-    const ret = addFunRet(
+    const ret = factory.addFunRet(
         ctx,
         "RET",
         valueT,
         needsLocation(valueT) ? DataLocation.Storage : DataLocation.Default,
-        fun
+        fn
     );
 
     let body: Block | UncheckedBlock;
+
     if (unchecked) {
-        body = addStmt(factory, fun, factory.makeUncheckedBlock([])) as UncheckedBlock;
+        body = factory.addStmt(fn, factory.makeUncheckedBlock([])) as UncheckedBlock;
     } else {
-        body = fun.vBody as Block;
+        body = fn.vBody as Block;
     }
 
-    const mkInnerM = () => mkStructFieldAcc(factory, factory.makeIdentifierFor(m), struct, 0);
+    const mkInnerM = () => factory.mkStructFieldAcc(factory.makeIdentifierFor(m), struct, 0);
 
     const curVal = factory.makeIndexAccess("<missing>", mkInnerM(), factory.makeIdentifierFor(key));
     const newVal = factory.makeBinaryOperation(
@@ -163,6 +153,7 @@ export function makeIncDecFun(
         curVal,
         factory.makeLiteral("<missing>", LiteralKind.Number, "", "1")
     );
+
     const setter = single(lib.vFunctions.filter((f) => f.name == "set"));
 
     const update = factory.makeFunctionCall(
@@ -173,10 +164,9 @@ export function makeIncDecFun(
     );
 
     if (prefix) {
-        addStmt(factory, body, factory.makeReturn(fun.vReturnParameters.id, update));
+        factory.addStmt(body, factory.makeReturn(fn.vReturnParameters.id, update));
     } else {
-        addStmt(
-            factory,
+        factory.addStmt(
             body,
             factory.makeAssignment(
                 "<missing>",
@@ -185,10 +175,11 @@ export function makeIncDecFun(
                 factory.makeIndexAccess("<missing>", mkInnerM(), factory.makeIdentifierFor(key))
             )
         );
-        addStmt(factory, body, update);
+
+        factory.addStmt(body, update);
     }
 
-    return fun;
+    return fn;
 }
 
 function getLoc(t: TypeNode, defLoc: DataLocation): DataLocation {
@@ -200,12 +191,11 @@ function getLoc(t: TypeNode, defLoc: DataLocation): DataLocation {
 }
 
 function addLocalVar(
-    factory: ASTNodeFactory,
+    factory: ScribbleFactory,
     name: string,
     type: TypeName,
     loc: DataLocation,
     fn: FunctionDefinition,
-    block: Block,
     initialVal?: Expression
 ): VariableDeclaration {
     const decl = factory.makeVariableDeclaration(
@@ -221,8 +211,8 @@ function addLocalVar(
         undefined,
         type
     );
-    addStmt(
-        factory,
+
+    factory.addStmt(
         fn,
         factory.makeVariableDeclarationStatement(initialVal ? [decl.id] : [], [decl], initialVal)
     );
@@ -237,24 +227,25 @@ function makeRemoveKeyFun(
     lib: ContractDefinition
 ): FunctionDefinition {
     const factory = ctx.factory;
-    const fun = addEmptyFun(ctx, "removeKey", FunctionVisibility.Private, lib);
+    const fn = factory.addEmptyFun(ctx, "removeKey", FunctionVisibility.Private, lib);
 
-    const m = addFunArg(
-        factory,
+    const m = factory.addFunArg(
         "m",
         new UserDefinedType(struct.name, struct),
         DataLocation.Storage,
-        fun
+        fn
     );
-    const key = addFunArg(factory, "key", keyT, getLoc(keyT, DataLocation.Memory), fun);
 
-    const mkKeys = () => mkStructFieldAcc(factory, factory.makeIdentifierFor(m), struct, 1);
+    const key = factory.addFunArg("key", keyT, getLoc(keyT, DataLocation.Memory), fn);
+
+    const mkKeys = () => factory.mkStructFieldAcc(factory.makeIdentifierFor(m), struct, 1);
     const mkKeysLen = () => factory.makeMemberAccess("<missing>", mkKeys(), "length", -1);
-    const mkKeyIdxM = () => mkStructFieldAcc(factory, factory.makeIdentifierFor(m), struct, 2);
+    const mkKeyIdxM = () => factory.mkStructFieldAcc(factory.makeIdentifierFor(m), struct, 2);
     const mkDelete = (exp: Expression) =>
         factory.makeExpressionStatement(
             factory.makeUnaryOperation("<missing>", true, "delete", exp)
         );
+
     const mkKeysPop = () => factory.makeMemberAccess("<missing>", mkKeys(), "pop", -1);
 
     // uint idx = m.keyIdxM[key];
@@ -264,16 +255,16 @@ function makeRemoveKeyFun(
         factory.makeElementaryTypeName("<missing>", "uint256"),
         DataLocation.Default,
         factory.makeIndexAccess("<missing>", mkKeyIdxM(), factory.makeIdentifierFor(key)),
-        fun
+        fn
     );
-    addStmt(factory, fun, declStmt);
+
+    factory.addStmt(fn, declStmt);
 
     // if (idx == 0) {
     //     return;
     // }
-    addStmt(
-        factory,
-        fun,
+    factory.addStmt(
+        fn,
         factory.makeIfStatement(
             factory.makeBinaryOperation(
                 "<missing>",
@@ -281,7 +272,7 @@ function makeRemoveKeyFun(
                 factory.makeIdentifierFor(idx),
                 factory.makeLiteral("<missing>", LiteralKind.Number, "", "0")
             ),
-            factory.makeReturn(fun.vReturnParameters.id)
+            factory.makeReturn(fn.vReturnParameters.id)
         )
     );
 
@@ -315,8 +306,9 @@ function makeRemoveKeyFun(
                 factory.makeLiteral("<missing>", LiteralKind.Number, "", "1")
             )
         ),
-        fun
+        fn
     );
+
     ifBody.push(lastKeyDecl);
 
     //     m.keys[idx] = lastKey;
@@ -348,22 +340,21 @@ function makeRemoveKeyFun(
     );
 
     // }
-    addStmt(factory, fun, factory.makeIfStatement(cond, factory.makeBlock(ifBody)));
+    factory.addStmt(fn, factory.makeIfStatement(cond, factory.makeBlock(ifBody)));
 
     // m.keys.pop();
-    addStmt(
-        factory,
-        fun,
+    factory.addStmt(
+        fn,
         factory.makeFunctionCall("<missing>", FunctionCallKind.FunctionCall, mkKeysPop(), [])
     );
+
     // delete m.keyIdxM[key];
-    addStmt(
-        factory,
-        fun,
+    factory.addStmt(
+        fn,
         mkDelete(factory.makeIndexAccess("<mising>", mkKeyIdxM(), factory.makeIdentifierFor(key)))
     );
 
-    return fun;
+    return fn;
 }
 
 function makeAddKeyFun(
@@ -373,21 +364,21 @@ function makeAddKeyFun(
     lib: ContractDefinition
 ): FunctionDefinition {
     const factory = ctx.factory;
-    const fun = addEmptyFun(ctx, "addKey", FunctionVisibility.Private, lib);
+    const fn = factory.addEmptyFun(ctx, "addKey", FunctionVisibility.Private, lib);
 
-    const m = addFunArg(
-        factory,
+    const m = factory.addFunArg(
         "m",
         new UserDefinedType(struct.name, struct),
         DataLocation.Storage,
-        fun
+        fn
     );
-    const key = addFunArg(factory, "key", keyT, getLoc(keyT, DataLocation.Memory), fun);
 
-    const mkKeys = () => mkStructFieldAcc(factory, factory.makeIdentifierFor(m), struct, 1);
+    const key = factory.addFunArg("key", keyT, getLoc(keyT, DataLocation.Memory), fn);
+
+    const mkKeys = () => factory.mkStructFieldAcc(factory.makeIdentifierFor(m), struct, 1);
     const mkKeysLen = () => factory.makeMemberAccess("<missing>", mkKeys(), "length", -1);
     const mkKeysPush = () => factory.makeMemberAccess("<missing>", mkKeys(), "push", -1);
-    const mkKeyIdxM = () => mkStructFieldAcc(factory, factory.makeIdentifierFor(m), struct, 2);
+    const mkKeyIdxM = () => factory.mkStructFieldAcc(factory.makeIdentifierFor(m), struct, 2);
 
     // uint idx = m.keyIdxM[key];
     const idx = addLocalVar(
@@ -395,14 +386,13 @@ function makeAddKeyFun(
         "idx",
         factory.makeElementaryTypeName("<missing>", "uint"),
         DataLocation.Default,
-        fun,
-        fun.vBody as Block,
+        fn,
         factory.makeIndexAccess("<missing>", mkKeyIdxM(), factory.makeIdentifierFor(key))
     );
+
     // if (idx == 0) {
-    const ifNoIdxStmt = addStmt(
-        factory,
-        fun,
+    const ifNoIdxStmt = factory.addStmt(
+        fn,
         factory.makeIfStatement(
             factory.makeBinaryOperation(
                 "<missing>",
@@ -413,9 +403,9 @@ function makeAddKeyFun(
             factory.makeBlock([])
         )
     ) as IfStatement;
+
     //     if (m.keys.length == 0) {
-    const ifFirstKeyStmt = addStmt(
-        factory,
+    const ifFirstKeyStmt = factory.addStmt(
         ifNoIdxStmt.vTrueBody as Block,
         factory.makeIfStatement(
             factory.makeBinaryOperation(
@@ -427,16 +417,16 @@ function makeAddKeyFun(
             factory.makeBlock([])
         )
     ) as IfStatement;
+
     //         m.keys.push();
-    addStmt(
-        factory,
+    factory.addStmt(
         ifFirstKeyStmt.vTrueBody as Block,
         factory.makeFunctionCall("<missing>", FunctionCallKind.FunctionCall, mkKeysPush(), [])
     );
+
     //     }
     //     m.keyIdxM[key] = m.keys.length;
-    addStmt(
-        factory,
+    factory.addStmt(
         ifNoIdxStmt.vTrueBody as Block,
         factory.makeAssignment(
             "<missing>",
@@ -445,9 +435,9 @@ function makeAddKeyFun(
             mkKeysLen()
         )
     );
+
     //     m.keys.push(key);
-    addStmt(
-        factory,
+    factory.addStmt(
         ifNoIdxStmt.vTrueBody as Block,
         factory.makeFunctionCall("<missing>", FunctionCallKind.FunctionCall, mkKeysPush(), [
             factory.makeIdentifierFor(key)
@@ -455,7 +445,7 @@ function makeAddKeyFun(
     );
     // }
 
-    return fun;
+    return fn;
 }
 
 export function makeGetFun(
@@ -466,41 +456,40 @@ export function makeGetFun(
     lhs: boolean
 ): FunctionDefinition {
     const factory = ctx.factory;
-    const fun = addEmptyFun(ctx, lhs ? "get_lhs" : "get", FunctionVisibility.Internal, lib);
+    const fn = factory.addEmptyFun(ctx, lhs ? "get_lhs" : "get", FunctionVisibility.Internal, lib);
     const struct = single(lib.vStructs);
 
-    const m = addFunArg(
-        factory,
+    const m = factory.addFunArg(
         "m",
         new UserDefinedType(struct.name, struct),
         DataLocation.Storage,
-        fun
+        fn
     );
-    const key = addFunArg(factory, "key", keyT, getLoc(keyT, DataLocation.Memory), fun);
 
-    addFunRet(ctx, "", valueT, getLoc(valueT, DataLocation.Storage), fun);
+    const key = factory.addFunArg("key", keyT, getLoc(keyT, DataLocation.Memory), fn);
+
+    factory.addFunRet(ctx, "", valueT, getLoc(valueT, DataLocation.Storage), fn);
 
     // When indexes appear on the LHS of assignments we need to update the keys array as well
     if (lhs) {
         const addKey = single(lib.vFunctions.filter((fun) => fun.name === "addKey"));
-        addStmt(
-            factory,
-            fun,
+
+        factory.addStmt(
+            fn,
             factory.makeFunctionCall(
                 "<missing>",
                 FunctionCallKind.FunctionCall,
-                mkLibraryFunRef(ctx, addKey),
+                factory.mkLibraryFunRef(ctx, addKey),
                 [factory.makeIdentifierFor(m), factory.makeIdentifierFor(key)]
             )
         );
     }
 
     // return m.innerM[key];
-    addStmt(
-        factory,
-        fun,
+    factory.addStmt(
+        fn,
         factory.makeReturn(
-            fun.vReturnParameters.id,
+            fn.vReturnParameters.id,
             factory.makeIndexAccess(
                 "<missing>",
                 mkInnerM(factory, factory.makeIdentifierFor(m), struct),
@@ -509,7 +498,7 @@ export function makeGetFun(
         )
     );
 
-    return fun;
+    return fn;
 }
 
 export function makeSetFun(
@@ -525,29 +514,29 @@ export function makeSetFun(
     const name = getSetterName(valueT, newValT);
     const struct = single(lib.vStructs);
 
-    const fun = addEmptyFun(ctx, name, FunctionVisibility.Internal, lib);
-    ctx.addGeneralInstrumentation(fun.vBody as Block);
+    const fn = factory.addEmptyFun(ctx, name, FunctionVisibility.Internal, lib);
 
-    const m = addFunArg(
-        factory,
+    ctx.addGeneralInstrumentation(fn.vBody as Block);
+
+    const m = factory.addFunArg(
         "m",
         new UserDefinedType(struct.name, struct),
         DataLocation.Storage,
-        fun
+        fn
     );
-    const key = addFunArg(factory, "key", keyT, getLoc(keyT, DataLocation.Memory), fun);
-    const val = addFunArg(
-        factory,
+
+    const key = factory.addFunArg("key", keyT, getLoc(keyT, DataLocation.Memory), fn);
+    const val = factory.addFunArg(
         "val",
         specializedValueT,
         getLoc(specializedValueT, DataLocation.Memory),
-        fun
+        fn
     );
 
-    addFunRet(ctx, "", valueT, getLoc(valueT, DataLocation.Storage), fun);
+    factory.addFunRet(ctx, "", valueT, getLoc(valueT, DataLocation.Storage), fn);
 
-    const mkInnerM = () => mkStructFieldAcc(factory, factory.makeIdentifierFor(m), struct, 0);
-    const mkSum = () => mkStructFieldAcc(factory, factory.makeIdentifierFor(m), struct, 3);
+    const mkInnerM = () => factory.mkStructFieldAcc(factory.makeIdentifierFor(m), struct, 0);
+    const mkSum = () => factory.mkStructFieldAcc(factory.makeIdentifierFor(m), struct, 3);
 
     if (valueT instanceof IntType) {
         // TODO: There is risk of overflow/underflow here
@@ -566,13 +555,13 @@ export function makeSetFun(
                 factory.makeAssignment("<missing>", "+=", mkSum(), factory.makeIdentifierFor(val))
             )
         ]);
-        addStmt(factory, fun, block);
+
+        factory.addStmt(fn, block);
     }
 
     //m.innerM[key] = val;
-    addStmt(
-        factory,
-        fun,
+    factory.addStmt(
+        fn,
         factory.makeAssignment(
             "<missing>",
             "=",
@@ -583,28 +572,27 @@ export function makeSetFun(
 
     // addKey(m, key);
     const addKey = single(lib.vFunctions.filter((fun) => fun.name === "addKey"));
-    addStmt(
-        factory,
-        fun,
+
+    factory.addStmt(
+        fn,
         factory.makeFunctionCall(
             "<missing>",
             FunctionCallKind.FunctionCall,
-            mkLibraryFunRef(ctx, addKey),
+            factory.mkLibraryFunRef(ctx, addKey),
             [factory.makeIdentifierFor(m), factory.makeIdentifierFor(key)]
         )
     );
 
     // return m.innerM[key];
-    addStmt(
-        factory,
-        fun,
+    factory.addStmt(
+        fn,
         factory.makeReturn(
-            fun.vReturnParameters.id,
+            fn.vReturnParameters.id,
             factory.makeIndexAccess("<missing>", mkInnerM(), factory.makeIdentifierFor(key))
         )
     );
 
-    return fun;
+    return fn;
 }
 
 export function makeDeleteFun(
@@ -616,30 +604,30 @@ export function makeDeleteFun(
     const factory = ctx.factory;
     const struct = single(lib.vStructs);
 
-    const fun = addEmptyFun(ctx, "deleteKey", FunctionVisibility.Internal, lib);
-    ctx.addGeneralInstrumentation(fun.vBody as Block);
+    const fn = factory.addEmptyFun(ctx, "deleteKey", FunctionVisibility.Internal, lib);
 
-    const m = addFunArg(
-        factory,
+    ctx.addGeneralInstrumentation(fn.vBody as Block);
+
+    const m = factory.addFunArg(
         "m",
         new UserDefinedType(struct.name, struct),
         DataLocation.Storage,
-        fun
+        fn
     );
-    const key = addFunArg(factory, "key", keyT, getLoc(keyT, DataLocation.Memory), fun);
 
-    const mkInnerM = () => mkStructFieldAcc(factory, factory.makeIdentifierFor(m), struct, 0);
+    const key = factory.addFunArg("key", keyT, getLoc(keyT, DataLocation.Memory), fn);
+
+    const mkInnerM = () => factory.mkStructFieldAcc(factory.makeIdentifierFor(m), struct, 0);
     const mkDelete = (exp: Expression) =>
         factory.makeExpressionStatement(
             factory.makeUnaryOperation("<missing>", true, "delete", exp)
         );
-    const mkSum = () => mkStructFieldAcc(factory, factory.makeIdentifierFor(m), struct, 3);
+    const mkSum = () => factory.mkStructFieldAcc(factory.makeIdentifierFor(m), struct, 3);
 
     if (valueT instanceof IntType) {
         // m.sum -= m.innerM[key];
-        addStmt(
-            factory,
-            fun,
+        factory.addStmt(
+            fn,
             factory.makeAssignment(
                 "<missing>",
                 "-=",
@@ -650,25 +638,24 @@ export function makeDeleteFun(
     }
 
     // delete m.innerM[key];
-    addStmt(
-        factory,
-        fun,
+    factory.addStmt(
+        fn,
         mkDelete(factory.makeIndexAccess("<missing>", mkInnerM(), factory.makeIdentifierFor(key)))
     );
 
     const removeKey = single(lib.vFunctions.filter((fun) => fun.name === "removeKey"));
-    addStmt(
-        factory,
-        fun,
+
+    factory.addStmt(
+        fn,
         factory.makeFunctionCall(
             "<missing>",
             FunctionCallKind.FunctionCall,
-            mkLibraryFunRef(ctx, removeKey),
+            factory.mkLibraryFunRef(ctx, removeKey),
             [factory.makeIdentifierFor(m), factory.makeIdentifierFor(key)]
         )
     );
 
-    return fun;
+    return fn;
 }
 
 export function generateMapLibrary(
@@ -689,9 +676,11 @@ export function generateMapLibrary(
         [],
         []
     );
+
     container.appendChild(lib);
 
     const struct = makeStruct(factory, keyT, valueT, lib);
+
     lib.appendChild(struct);
 
     makeAddKeyFun(ctx, keyT, struct, lib);

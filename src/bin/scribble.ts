@@ -1,6 +1,6 @@
 #!/usr/bin/env node
 import fse from "fs-extra";
-import { dirname, relative, join } from "path";
+import { dirname, join, relative } from "path";
 import {
     ASTContext,
     ASTNode,
@@ -32,19 +32,25 @@ import {
     UserDefinedTypeName,
     VariableDeclaration
 } from "solc-typed-ast";
-import { AbsDatastructurePath, findStateVarUpdates, interposeMap, UnsupportedConstruct } from "..";
+import {
+    AbsDatastructurePath,
+    findStateVarUpdates,
+    interposeMap,
+    ScribbleFactory,
+    UnsupportedConstruct
+} from "..";
 import { rewriteImports } from "../ast_to_source_printer";
 import {
+    AnnotationFilterOptions,
+    AnnotationMap,
+    AnnotationMetaData,
+    buildAnnotationMap,
+    gatherContractAnnotations,
+    gatherFunctionAnnotations,
     PropertyMetaData,
     SyntaxError,
     UnsupportedByTargetError,
-    AnnotationMetaData,
-    UserFunctionDefinitionMetaData,
-    buildAnnotationMap,
-    AnnotationMap,
-    gatherContractAnnotations,
-    gatherFunctionAnnotations,
-    AnnotationFilterOptions
+    UserFunctionDefinitionMetaData
 } from "../instrumenter/annotations";
 import { getCallGraph } from "../instrumenter/callgraph";
 import { CHA, getCHA } from "../instrumenter/cha";
@@ -53,24 +59,24 @@ import {
     FunctionInstrumenter,
     generateUtilsContract
 } from "../instrumenter/instrument";
-import { instrumentStateVars } from "../instrumenter/state_var_instrumenter";
 import { InstrumentationContext } from "../instrumenter/instrumentation_context";
+import { instrumentStateVars } from "../instrumenter/state_var_instrumenter";
 import { merge } from "../rewriter/merge";
 import { AnnotationType, Location, Range } from "../spec-lang/ast";
 import { scUnits, SemError, SemMap, STypeError, tcUnits, TypeEnv } from "../spec-lang/tc";
 import {
     assert,
+    buildOutputJSON,
+    dedup,
+    flatten,
+    generateInstrumentationMetadata,
+    getOr,
     getOrInit,
     getScopeUnit,
     isChangingState,
     isExternallyVisible,
     pp,
-    buildOutputJSON,
-    generateInstrumentationMetadata,
-    flatten,
-    dedup,
-    topoSort,
-    getOr
+    topoSort
 } from "../util";
 import cli from "./scribble_cli.json";
 
@@ -868,8 +874,7 @@ if ("version" in options) {
          *  2. The set of contracts that NEED contract instrumentation (because they, a parent of theirs, or a child of theirs has contract invariants)
          */
         const contractsNeedingInstr = computeContractsNeedingInstr(cha, annotMap);
-
-        const factory = new ASTNodeFactory(mergedCtx);
+        const factory = new ScribbleFactory(mergedCtx);
 
         if (outputMode === "flat" || outputMode === "json") {
             // In flat/json mode fix-up any naming issues due to 'import {a as

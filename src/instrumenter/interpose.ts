@@ -2,7 +2,6 @@ import {
     AddressType,
     ASTNode,
     ASTNodeFactory,
-    Block,
     ContractDefinition,
     DataLocation,
     Expression,
@@ -622,9 +621,10 @@ export function interposeCall(
         );
     }
 
-    (wrapper.vBody as Block).appendChild(factory.makeExpressionStatement(callOriginal));
+    factory.addStmt(wrapper, callOriginal);
 
     const newCallee = factory.makeIdentifierFor(wrapper);
+
     newCallee.src = call.vExpression.src;
 
     contract.appendChild(wrapper);
@@ -633,6 +633,7 @@ export function interposeCall(
 
     // If the call is in a pure/view function change its mutability
     const containingFun = getScopeFun(call);
+
     if (containingFun !== undefined && !isChangingState(containingFun) && changesMutability(ctx)) {
         changeDependentsMutabilty(containingFun, ctx);
     }

@@ -9,7 +9,6 @@ import {
     BoolType,
     BytesType,
     ContractDefinition,
-    DataLocation,
     ElementaryTypeName,
     EnumDefinition,
     Expression,
@@ -25,9 +24,7 @@ import {
     LiteralKind,
     MappingType,
     MemberAccess,
-    Mutability,
     PointerType,
-    StateVariableVisibility,
     StringType,
     StructDefinition,
     TupleType,
@@ -37,15 +34,7 @@ import {
     UserDefinedType,
     VariableDeclaration
 } from "solc-typed-ast";
-import {
-    addStmt,
-    AnnotationMetaData,
-    mkLibraryFunRef,
-    mkStructFieldAcc,
-    PropertyMetaData,
-    single,
-    UserFunctionDefinitionMetaData
-} from "..";
+import { AnnotationMetaData, PropertyMetaData, single, UserFunctionDefinitionMetaData } from "..";
 import {
     BuiltinFunctions,
     SAddressLiteral,
@@ -204,8 +193,10 @@ function addTracingInfo(id: SId, transpiledExpr: Expression, ctx: TranspilingCon
 
     if (!idDebugMap.has(id) && isTypeTraceable(exprT, ctx)) {
         const isOld = (ctx.semInfo.get(id) as SemInfo).isOld;
+
         if (isOld) {
             const dbgBinding = ctx.getDbgVar(id);
+
             ctx.addBinding(dbgBinding, transpileType(exprT, factory));
 
             const assignment = ctx.insertAssignment(
@@ -214,7 +205,9 @@ function addTracingInfo(id: SId, transpiledExpr: Expression, ctx: TranspilingCon
                 true,
                 true
             );
+
             ctx.instrCtx.addAnnotationInstrumentation(ctx.curAnnotation, assignment);
+
             idDebugMap.set(ctx.refBinding(dbgBinding), id);
         } else {
             idDebugMap.set(factory.copy(transpiledExpr), id);
@@ -251,21 +244,27 @@ function transpileId(expr: SId, ctx: TranspilingContext): Expression {
         }
 
         const res = factory.makeIdentifierFor(expr.defSite);
+
         addTracingInfo(expr, res, ctx);
+
         return res;
     }
 
     // Let-variable used inside the body
     if (expr.defSite instanceof Array && expr.defSite[0] instanceof SLet) {
         const res = ctx.refBinding(ctx.getLetBinding(expr));
+
         addTracingInfo(expr, res, ctx);
+
         return res;
     }
 
     // ForAll iterator var
     if (expr.defSite instanceof SForAll) {
         const res = ctx.refBinding(ctx.getForAllIterVar(expr.defSite));
+
         addTracingInfo(expr, res, ctx);
+
         return res;
     }
 
@@ -273,6 +272,7 @@ function transpileId(expr: SId, ctx: TranspilingContext): Expression {
     if (expr.defSite instanceof Array && expr.defSite[0] instanceof SUserFunctionDefinition) {
         const instrCtx = ctx.instrCtx;
         const transpiledUserFun = instrCtx.userFunctions.get(expr.defSite[0]);
+
         assert(
             transpiledUserFun !== undefined,
             `Missing transpiled version of user function ${expr.defSite[0].pp()}`
@@ -287,16 +287,22 @@ function transpileId(expr: SId, ctx: TranspilingContext): Expression {
     if (expr.defSite instanceof Array && expr.defSite[0] instanceof StateVarScope) {
         const [scope, idx] = expr.defSite;
         const prop = scope.annotation;
+
         // Count the indices (omitting member accesses) before `idx`
         let argIdx = 0;
+
         for (let i = 0; i < idx; i++) {
             const el = prop.datastructurePath[i];
+
             if (typeof el !== "string") {
                 argIdx++;
             }
         }
+
         const res = factory.makeIdentifierFor(ctx.container.vParameters.vParameters[argIdx]);
+
         addTracingInfo(expr, res, ctx);
+
         return res;
     }
 
@@ -304,6 +310,7 @@ function transpileId(expr: SId, ctx: TranspilingContext): Expression {
     if (expr.defSite instanceof SUserFunctionDefinition) {
         const instrCtx = ctx.instrCtx;
         const transpiledUserFun = instrCtx.userFunctions.get(expr.defSite);
+
         assert(
             transpiledUserFun !== undefined,
             `Missing transpiled version of user function ${expr.defSite.pp()}`
@@ -397,6 +404,7 @@ function transpileIndexAccess(expr: SIndexAccess, ctx: TranspilingContext): Expr
     // accessors. If this index access is to such a map, then we need to
     // transpile it as a call to the proper getter
     const [sVar, path] = decomposeStateVarRef(expr);
+
     if (sVar !== undefined) {
         const interposeLib = instrCtx.sVarToLibraryMap.get(
             sVar,
@@ -439,6 +447,7 @@ function transpileMemberAccess(expr: SMemberAccess, ctx: TranspilingContext): Ex
     } else if (type instanceof UserDefinedType && type.definition) {
         referencedDeclaration = type.definition.id;
     }
+
     return factory.makeMemberAccess("<missing>", base, expr.member, referencedDeclaration);
 }
 
@@ -455,9 +464,13 @@ function transpileUnaryOperation(expr: SUnaryOperation, ctx: TranspilingContext)
     if (expr.op === "old") {
         const bindingName = ctx.getOldVar(expr);
         const type = ctx.typeEnv.typeOf(expr.subexp);
+
         ctx.addBinding(bindingName, transpileType(type, ctx.factory));
+
         const binding = ctx.refBinding(bindingName);
+
         ctx.insertAssignment(binding, subExp, true, true);
+
         return ctx.refBinding(bindingName);
     }
 
@@ -511,6 +524,7 @@ function transpileFunctionCall(expr: SFunctionCall, ctx: TranspilingContext): Ex
 
         if (argT.to instanceof MappingType) {
             const [sVar, path] = decomposeStateVarRef(arg);
+
             assert(
                 sVar !== undefined,
                 `sum argument should be a state var(or a part of it), not ${arg.pp()}`
@@ -524,7 +538,8 @@ function transpileFunctionCall(expr: SFunctionCall, ctx: TranspilingContext): Ex
             assert(lib !== undefined, `State var ${sVar.name} should already be interposed`);
 
             const struct = single(lib.vStructs);
-            return mkStructFieldAcc(factory, transpile(arg, ctx), struct, "sum");
+
+            return factory.mkStructFieldAcc(transpile(arg, ctx), struct, "sum");
         }
 
         assert(
@@ -533,11 +548,13 @@ function transpileFunctionCall(expr: SFunctionCall, ctx: TranspilingContext): Ex
         );
 
         const sumFun = ctx.instrCtx.arraySumFunMap.get(argT.to, argT.location);
+
         ctx.instrCtx.needsUtils((ctx.container.vScope as ContractDefinition).vScope);
+
         return factory.makeFunctionCall(
             "<missing>",
             FunctionCallKind.FunctionCall,
-            mkLibraryFunRef(ctx.instrCtx, sumFun),
+            factory.mkLibraryFunRef(ctx.instrCtx, sumFun),
             [transpile(arg, ctx)]
         );
     }
@@ -545,6 +562,7 @@ function transpileFunctionCall(expr: SFunctionCall, ctx: TranspilingContext): Ex
     const calleeT = ctx.typeEnv.typeOf(expr.callee);
 
     let callee: Expression;
+
     const kind =
         calleeT instanceof TypeNameType
             ? FunctionCallKind.TypeConversion
@@ -614,7 +632,9 @@ function transpileLet(expr: SLet, ctx: TranspilingContext): Expression {
     if (expr.lhs.length == 1) {
         const name = ctx.getLetBinding([expr, 0]);
         const type = transpileType(rhsT, ctx.factory);
+
         ctx.addBinding(name, type);
+
         lhss.push(ctx.refBinding(name));
     } else {
         const getLhsT = (i: number): TypeNode =>
@@ -623,7 +643,9 @@ function transpileLet(expr: SLet, ctx: TranspilingContext): Expression {
         for (let i = 0; i < expr.lhs.length; i++) {
             const name = ctx.getLetBinding([expr, i]);
             const type = transpileType(getLhsT(i), ctx.factory);
+
             ctx.addBinding(name, type);
+
             lhss.push(ctx.refBinding(name));
         }
     }
@@ -640,7 +662,9 @@ function transpileLet(expr: SLet, ctx: TranspilingContext): Expression {
 
     const body = transpile(expr.in, ctx);
     const letVarName = ctx.getLetVar(expr);
+
     ctx.addBinding(letVarName, transpileType(ctx.typeEnv.typeOf(expr), ctx.factory));
+
     const letVar = ctx.refBinding(letVarName);
 
     ctx.insertAssignment(letVar, body, isLetOld, true);
@@ -658,6 +682,7 @@ function makeForLoop(
     const factory = ctx.factory;
 
     ctx.addBinding(iterVarName, transpileType(iterVarType, ctx.factory));
+
     // Iteration variable initialization statmenet
     const initStmt = factory.makeExpressionStatement(
         factory.makeAssignment("<missing>", "=", ctx.refBinding(iterVarName), transpile(start, ctx))
@@ -689,6 +714,7 @@ function makeMemberAccess(
     name: string
 ): MemberAccess {
     const field = single(type.vMembers.filter((x) => x.name === name));
+
     return factory.makeMemberAccess("<missing>", base, name, field.id);
 }
 
@@ -700,6 +726,7 @@ function transpileForAll(expr: SForAll, ctx: TranspilingContext): Expression {
     const factory = ctx.factory;
     const isOld = (ctx.semInfo.get(expr) as SemInfo).isOld;
     const typeEnv = ctx.typeEnv;
+
     let forStmt: ForStatement;
 
     const iterVarName = ctx.getForAllIterVar(expr);
@@ -721,7 +748,9 @@ function transpileForAll(expr: SForAll, ctx: TranspilingContext): Expression {
                 sVar,
                 path.map((x) => (x instanceof SNode ? null : x))
             );
+
             assert(lib !== undefined, `Unexpected missing library for map ${sVar.name}`);
+
             const struct = single(lib.vStructs);
             const keys = makeMemberAccess(factory, astContainer, struct, "keys");
             const len = factory.makeMemberAccess("<missing>", keys, "length", -1);
@@ -736,8 +765,7 @@ function transpileForAll(expr: SForAll, ctx: TranspilingContext): Expression {
 
             ctx.addBinding(iterVarName, transpileType(expr.iteratorType, ctx.factory));
 
-            addStmt(
-                factory,
+            factory.addStmt(
                 forStmt.vBody as Block,
                 factory.makeAssignment(
                     "<missing>",
@@ -753,6 +781,7 @@ function transpileForAll(expr: SForAll, ctx: TranspilingContext): Expression {
         } else {
             // Forall over array
             const astContainer = transpile(expr.container, ctx);
+
             forStmt = makeForLoop(
                 ctx,
                 iterVarName,
@@ -786,7 +815,7 @@ function transpileForAll(expr: SForAll, ctx: TranspilingContext): Expression {
         true
     );
 
-    const body: Block = forStmt.vBody as Block;
+    const body = forStmt.vBody as Block;
 
     // Insert the created for-loop with empty body
     ctx.insertStatement(forStmt, isOld, true);
@@ -795,6 +824,7 @@ function transpileForAll(expr: SForAll, ctx: TranspilingContext): Expression {
     ctx.pushMarker([body, "end"], isOld);
 
     const bodyPred = transpile(expr.expression, ctx);
+
     // Update the result variable for the forall on every loop iteration
     ctx.insertStatement(
         factory.makeAssignment("<missing>", "=", ctx.refBinding(resultVarName), bodyPred),
@@ -924,44 +954,4 @@ export function transpile(expr: SNode, ctx: TranspilingContext): Expression {
     }
 
     throw new Error(`NYI transpiling node ${expr.pp()}`);
-}
-
-export function getTypeLocation(type: TypeNode): DataLocation {
-    if (type instanceof PointerType) {
-        return type.location;
-    }
-
-    return DataLocation.Default;
-}
-
-/**
- * Generate an ASTVariableDeclaration for:
- *  - function params
- *  - function returns
- *  - function local vars
- *
- * @param name - name of the new var
- * @param type - Scribble type of the var
- * @param factory - ASTNodeFactory
- */
-export function transpileFunVarDecl(
-    name: string,
-    type: TypeNode,
-    ctx: TranspilingContext
-): VariableDeclaration {
-    const astType = transpileType(type, ctx.factory);
-
-    return ctx.factory.makeVariableDeclaration(
-        false,
-        false,
-        name,
-        -1,
-        false,
-        getTypeLocation(type),
-        StateVariableVisibility.Default,
-        Mutability.Mutable,
-        "<missing>",
-        undefined,
-        astType
-    );
 }
