@@ -39,7 +39,7 @@ export function getTypeLocation(type: TypeNode): DataLocation {
 
 export class ScribbleFactory extends ASTNodeFactory {
     /**
-     * Return the constructor of `contract`.
+     * Creates and returns empty public constructor of `contract`
      */
     addConstructor(contract: ContractDefinition): FunctionDefinition {
         const emptyConstructor = this.makeFunctionDefinition(
@@ -63,7 +63,9 @@ export class ScribbleFactory extends ASTNodeFactory {
     }
 
     /**
-     * Return the constructor of `contract`. If there is no constructor defined,
+     * Return the constructor of `contract`.
+     *
+     * If there is no constructor defined,
      * add an empty public constructor and return it.
      */
     getOrAddConstructor(contract: ContractDefinition): FunctionDefinition {

@@ -35,6 +35,9 @@ import {
 import {
     AbsDatastructurePath,
     findStateVarUpdates,
+    generateUtilsContract,
+    instrumentContract,
+    instrumentFunction,
     interposeMap,
     ScribbleFactory,
     UnsupportedConstruct
@@ -54,11 +57,6 @@ import {
 } from "../instrumenter/annotations";
 import { getCallGraph } from "../instrumenter/callgraph";
 import { CHA, getCHA } from "../instrumenter/cha";
-import {
-    ContractInstrumenter,
-    FunctionInstrumenter,
-    generateUtilsContract
-} from "../instrumenter/instrument";
 import { InstrumentationContext } from "../instrumenter/instrumentation_context";
 import { instrumentStateVars } from "../instrumenter/state_var_instrumenter";
 import { merge } from "../rewriter/merge";
@@ -309,22 +307,13 @@ function instrumentFiles(
         }
     }
 
-    const contractInstrumenter = new ContractInstrumenter();
-    const functionInstrumenter = new FunctionInstrumenter();
-
     for (const [contract, contractElement, annotations] of worklist) {
         if (contractElement === undefined) {
-            contractInstrumenter.instrument(
-                ctx,
-                annotations,
-                contract,
-                contractsNeedingInstr.has(contract)
-            );
+            instrumentContract(ctx, annotations, contract, contractsNeedingInstr.has(contract));
         } else {
-            functionInstrumenter.instrument(
+            instrumentFunction(
                 ctx,
                 annotations,
-                contract,
                 contractElement,
                 contractsNeedingInstr.has(contract)
             );

@@ -13,8 +13,8 @@ import {
 } from "solc-typed-ast";
 import { print as printUnits, rewriteImports } from "../../src/ast_to_source_printer";
 import {
-    ContractInstrumenter,
     findExternalCalls,
+    instrumentContract,
     interpose,
     interposeCall,
     interposeInlineInitializer,
@@ -410,7 +410,6 @@ contract Foo is __scribble_ReentrancyUtils {
             const target = getTarget([contractName, undefined], units);
             const contract: ContractDefinition = target as ContractDefinition;
             const factory = new ScribbleFactory(reader.context);
-            const contractInstrumenter = new ContractInstrumenter();
 
             const ctx = makeInstrumentationCtx(
                 units,
@@ -420,7 +419,7 @@ contract Foo is __scribble_ReentrancyUtils {
                 compilerVersion
             );
 
-            contractInstrumenter.instrument(ctx, [], contract, true);
+            instrumentContract(ctx, [], contract, true);
 
             ctx.finalize();
 
