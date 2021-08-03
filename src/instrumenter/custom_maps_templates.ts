@@ -1,9 +1,7 @@
 import {
     ArrayType,
     assert,
-    ASTNodeFactory,
     Block,
-    BytesType,
     ContractDefinition,
     ContractKind,
     DataLocation,
@@ -21,7 +19,6 @@ import {
     SourceUnit,
     Statement,
     StateVariableVisibility,
-    StringType,
     StructDefinition,
     TypeName,
     TypeNode,
@@ -30,18 +27,15 @@ import {
     VariableDeclaration,
     VariableDeclarationStatement
 } from "solc-typed-ast";
-import { getTypeDesc, ScribbleFactory, single, transpileType } from "..";
+import {
+    getTypeDesc,
+    getTypeLocation,
+    needsLocation,
+    ScribbleFactory,
+    single,
+    transpileType
+} from "..";
 import { InstrumentationContext } from "./instrumentation_context";
-
-export function needsLocation(t: TypeNode): boolean {
-    return (
-        t instanceof ArrayType ||
-        t instanceof StringType ||
-        t instanceof BytesType ||
-        t instanceof MappingType ||
-        (t instanceof UserDefinedType && t.definition instanceof StructDefinition)
-    );
-}
 
 function makeStruct(
     factory: ScribbleFactory,
@@ -71,11 +65,11 @@ function mkInnerM(
 }
 
 function mkVarDecl(
-    factory: ASTNodeFactory,
+    factory: ScribbleFactory,
     name: string,
     typ: TypeName,
     location: DataLocation,
-    val: Expression,
+    initialVal: Expression | undefined,
     fun: FunctionDefinition
 ): [VariableDeclaration, VariableDeclarationStatement] {
     const decl = factory.makeVariableDeclaration(
@@ -92,7 +86,11 @@ function mkVarDecl(
         typ
     );
 
-    const stmt = factory.makeVariableDeclarationStatement([decl.id], [decl], val);
+    const stmt = factory.makeVariableDeclarationStatement(
+        initialVal ? [decl.id] : [],
+        [decl],
+        initialVal
+    );
 
     return [decl, stmt];
 }
@@ -182,44 +180,6 @@ export function makeIncDecFun(
     return fn;
 }
 
-function getLoc(t: TypeNode, defLoc: DataLocation): DataLocation {
-    if (t instanceof PointerType) {
-        return t.location;
-    }
-
-    return needsLocation(t) ? defLoc : DataLocation.Default;
-}
-
-function addLocalVar(
-    factory: ScribbleFactory,
-    name: string,
-    type: TypeName,
-    loc: DataLocation,
-    fn: FunctionDefinition,
-    initialVal?: Expression
-): VariableDeclaration {
-    const decl = factory.makeVariableDeclaration(
-        false,
-        false,
-        name,
-        fn.id,
-        false,
-        loc,
-        StateVariableVisibility.Default,
-        Mutability.Mutable,
-        "<missing>",
-        undefined,
-        type
-    );
-
-    factory.addStmt(
-        fn,
-        factory.makeVariableDeclarationStatement(initialVal ? [decl.id] : [], [decl], initialVal)
-    );
-
-    return decl;
-}
-
 function makeRemoveKeyFun(
     ctx: InstrumentationContext,
     keyT: TypeNode,
@@ -236,7 +196,7 @@ function makeRemoveKeyFun(
         fn
     );
 
-    const key = factory.addFunArg("key", keyT, getLoc(keyT, DataLocation.Memory), fn);
+    const key = factory.addFunArg("key", keyT, getTypeLocation(keyT, DataLocation.Memory), fn);
 
     const mkKeys = () => factory.mkStructFieldAcc(factory.makeIdentifierFor(m), struct, 1);
     const mkKeysLen = () => factory.makeMemberAccess("<missing>", mkKeys(), "length", -1);
@@ -295,7 +255,7 @@ function makeRemoveKeyFun(
         factory,
         "lastKey",
         transpileType(keyT, factory),
-        getLoc(keyT, DataLocation.Storage),
+        getTypeLocation(keyT, DataLocation.Storage),
         factory.makeIndexAccess(
             "<missing>",
             mkKeys(),
@@ -373,7 +333,7 @@ function makeAddKeyFun(
         fn
     );
 
-    const key = factory.addFunArg("key", keyT, getLoc(keyT, DataLocation.Memory), fn);
+    const key = factory.addFunArg("key", keyT, getTypeLocation(keyT, DataLocation.Memory), fn);
 
     const mkKeys = () => factory.mkStructFieldAcc(factory.makeIdentifierFor(m), struct, 1);
     const mkKeysLen = () => factory.makeMemberAccess("<missing>", mkKeys(), "length", -1);
@@ -381,14 +341,16 @@ function makeAddKeyFun(
     const mkKeyIdxM = () => factory.mkStructFieldAcc(factory.makeIdentifierFor(m), struct, 2);
 
     // uint idx = m.keyIdxM[key];
-    const idx = addLocalVar(
+    const [idx, idxStmt] = mkVarDecl(
         factory,
         "idx",
         factory.makeElementaryTypeName("<missing>", "uint"),
         DataLocation.Default,
-        fn,
-        factory.makeIndexAccess("<missing>", mkKeyIdxM(), factory.makeIdentifierFor(key))
+        factory.makeIndexAccess("<missing>", mkKeyIdxM(), factory.makeIdentifierFor(key)),
+        fn
     );
+
+    factory.addStmt(fn, idxStmt);
 
     // if (idx == 0) {
     const ifNoIdxStmt = factory.addStmt(
@@ -466,9 +428,9 @@ export function makeGetFun(
         fn
     );
 
-    const key = factory.addFunArg("key", keyT, getLoc(keyT, DataLocation.Memory), fn);
+    const key = factory.addFunArg("key", keyT, getTypeLocation(keyT, DataLocation.Memory), fn);
 
-    factory.addFunRet(ctx, "", valueT, getLoc(valueT, DataLocation.Storage), fn);
+    factory.addFunRet(ctx, "", valueT, getTypeLocation(valueT, DataLocation.Storage), fn);
 
     // When indexes appear on the LHS of assignments we need to update the keys array as well
     if (lhs) {
@@ -525,15 +487,15 @@ export function makeSetFun(
         fn
     );
 
-    const key = factory.addFunArg("key", keyT, getLoc(keyT, DataLocation.Memory), fn);
+    const key = factory.addFunArg("key", keyT, getTypeLocation(keyT, DataLocation.Memory), fn);
     const val = factory.addFunArg(
         "val",
         specializedValueT,
-        getLoc(specializedValueT, DataLocation.Memory),
+        getTypeLocation(specializedValueT, DataLocation.Memory),
         fn
     );
 
-    factory.addFunRet(ctx, "", valueT, getLoc(valueT, DataLocation.Storage), fn);
+    factory.addFunRet(ctx, "", valueT, getTypeLocation(valueT, DataLocation.Storage), fn);
 
     const mkInnerM = () => factory.mkStructFieldAcc(factory.makeIdentifierFor(m), struct, 0);
     const mkSum = () => factory.mkStructFieldAcc(factory.makeIdentifierFor(m), struct, 3);
@@ -615,7 +577,7 @@ export function makeDeleteFun(
         fn
     );
 
-    const key = factory.addFunArg("key", keyT, getLoc(keyT, DataLocation.Memory), fn);
+    const key = factory.addFunArg("key", keyT, getTypeLocation(keyT, DataLocation.Memory), fn);
 
     const mkInnerM = () => factory.mkStructFieldAcc(factory.makeIdentifierFor(m), struct, 0);
     const mkDelete = (exp: Expression) =>

@@ -33,8 +33,30 @@ import {
 import { single, transpileType } from "..";
 import { InstrumentationContext } from "./instrumentation_context";
 
-export function getTypeLocation(type: TypeNode): DataLocation {
-    return type instanceof PointerType ? type.location : DataLocation.Default;
+export function needsLocation(type: TypeNode): boolean {
+    return (
+        type instanceof ArrayType ||
+        type instanceof StringType ||
+        type instanceof BytesType ||
+        type instanceof MappingType ||
+        (type instanceof UserDefinedType && type.definition instanceof StructDefinition)
+    );
+}
+
+export function getTypeLocation(type: TypeNode, location?: DataLocation): DataLocation {
+    if (type instanceof PointerType) {
+        return type.location;
+    }
+
+    if (!needsLocation(type)) {
+        return DataLocation.Default;
+    }
+
+    if (location === undefined) {
+        throw new Error(`Type ${type.pp()} requires other location than "${location}"`);
+    }
+
+    return location;
 }
 
 export class ScribbleFactory extends ASTNodeFactory {
@@ -206,18 +228,15 @@ export class ScribbleFactory extends ASTNodeFactory {
         ctx: InstrumentationContext,
         fn: FunctionDefinition
     ): MemberAccess | Identifier {
-        let ref: MemberAccess | Identifier;
-
-        if (fn.visibility === FunctionVisibility.Private) {
-            ref = this.makeIdentifierFor(fn);
-        } else {
-            ref = this.makeMemberAccess(
-                "<missing>",
-                this.makeIdentifierFor(fn.vScope as ContractDefinition),
-                fn.name,
-                fn.id
-            );
-        }
+        const ref =
+            fn.visibility === FunctionVisibility.Private
+                ? this.makeIdentifierFor(fn)
+                : this.makeMemberAccess(
+                      "<missing>",
+                      this.makeIdentifierFor(fn.vScope as ContractDefinition),
+                      fn.name,
+                      fn.id
+                  );
 
         ctx.addGeneralInstrumentation(ref);
 
@@ -245,19 +264,19 @@ export abstract class BaseStructMap<Args extends any[], KeyT extends string | nu
         this.name = name;
     }
 
-    public get(...args: Args): ResT | undefined {
+    get(...args: Args): ResT | undefined {
         const name = this.getName(...args);
 
         return this._cache.get(name);
     }
 
-    public has(...args: Args): boolean {
+    has(...args: Args): boolean {
         const name = this.getName(...args);
 
         return this._cache.has(name);
     }
 
-    public mustGet(...args: Args): ResT {
+    mustGet(...args: Args): ResT {
         const name = this.getName(...args);
         const res = this._cache.get(name);
 
@@ -269,15 +288,15 @@ export abstract class BaseStructMap<Args extends any[], KeyT extends string | nu
         return res;
     }
 
-    public keys(): Iterable<Args> {
+    keys(): Iterable<Args> {
         return this._keys.values();
     }
 
-    public values(): Iterable<ResT> {
+    values(): Iterable<ResT> {
         return this._cache.values();
     }
 
-    public entries(): Iterable<[Args, ResT]> {
+    entries(): Iterable<[Args, ResT]> {
         const res: Array<[Args, ResT]> = [];
 
         for (const [key, value] of this._cache.entries()) {
@@ -293,14 +312,14 @@ export abstract class StructMap<
     KeyT extends string | number,
     ResT
 > extends BaseStructMap<Args, KeyT, ResT> {
-    public set(res: ResT, ...args: Args): void {
+    set(res: ResT, ...args: Args): void {
         const key = this.getName(...args);
 
         this._cache.set(key, res);
         this._keys.set(key, args);
     }
 
-    public setExclusive(res: ResT, ...args: Args): void {
+    setExclusive(res: ResT, ...args: Args): void {
         const name = this.getName(...args);
 
         assert(!this._cache.has(name), `Name ${name} already appears in cache`);
@@ -317,7 +336,7 @@ export abstract class FactoryMap<
 > extends BaseStructMap<Args, KeyT, ResT> {
     protected abstract makeNew(...args: Args): ResT;
 
-    public get(...args: Args): ResT {
+    get(...args: Args): ResT {
         const name = this.getName(...args);
 
         let res = this._cache.get(name);

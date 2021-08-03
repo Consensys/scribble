@@ -23,7 +23,6 @@ import {
     IntType,
     LiteralKind,
     MappingType,
-    MemberAccess,
     PointerType,
     StringType,
     StructDefinition,
@@ -85,7 +84,7 @@ export function transpileType(type: TypeNode, factory: ASTNodeFactory): TypeName
         type instanceof IntType ||
         type instanceof StringType
     ) {
-        return factory.makeElementaryTypeName(`<missing>`, type.pp());
+        return factory.makeElementaryTypeName("<missing>", type.pp());
     }
 
     if (type instanceof PointerType) {
@@ -707,17 +706,6 @@ function makeForLoop(
     return factory.makeForStatement(body, initStmt, iterCond, incStmt);
 }
 
-function makeMemberAccess(
-    factory: ASTNodeFactory,
-    base: Expression,
-    type: StructDefinition,
-    name: string
-): MemberAccess {
-    const field = single(type.vMembers.filter((x) => x.name === name));
-
-    return factory.makeMemberAccess("<missing>", base, name, field.id);
-}
-
 /**
  * Transpile the `SForAll` statement `expr`. Note that this will generate and insert a loop
  * in `ctx.container`.
@@ -752,7 +740,7 @@ function transpileForAll(expr: SForAll, ctx: TranspilingContext): Expression {
             assert(lib !== undefined, `Unexpected missing library for map ${sVar.name}`);
 
             const struct = single(lib.vStructs);
-            const keys = makeMemberAccess(factory, astContainer, struct, "keys");
+            const keys = factory.mkStructFieldAcc(astContainer, struct, "keys");
             const len = factory.makeMemberAccess("<missing>", keys, "length", -1);
 
             forStmt = makeForLoop(
