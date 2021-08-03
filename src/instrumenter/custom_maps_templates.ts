@@ -469,7 +469,7 @@ export function makeGetFun(
 ): FunctionDefinition {
     const factory = ctx.factory;
     const fun = addEmptyFun(ctx, lhs ? "get_lhs" : "get", FunctionVisibility.Internal, lib);
-    fun.stateMutability = FunctionStateMutability.View;
+    fun.stateMutability = lhs ? FunctionStateMutability.NonPayable : FunctionStateMutability.View;
     const struct = single(lib.vStructs);
 
     const m = addFunArg(
@@ -570,7 +570,7 @@ export function makeSetFun(
             )
         ];
         if (gte(ctx.compilerVersion, "0.8.0")) {
-            const block = factory.makeUncheckedBlock([]);
+            const block = factory.makeUncheckedBlock(incStmts);
             addStmt(factory, fun, block);
         } else {
             incStmts.forEach((stmt) => addStmt(factory, fun, stmt));
