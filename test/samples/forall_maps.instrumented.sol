@@ -46,7 +46,7 @@ library string_to_uint256 {
         return m.innerM[key];
     }
 
-    function get(S storage m, string memory key) internal returns (uint256) {
+    function get(S storage m, string memory key) internal view returns (uint256) {
         return m.innerM[key];
     }
 }
@@ -92,7 +92,7 @@ library uint8_to_int8 {
         return m.innerM[key];
     }
 
-    function get(S storage m, uint8 key) internal returns (int8) {
+    function get(S storage m, uint8 key) internal view returns (int8) {
         return m.innerM[key];
     }
 }
@@ -143,7 +143,7 @@ library uint256_to_uint256 {
         set(m, key, m.innerM[key] - 1);
     }
 
-    function get(S storage m, uint256 key) internal returns (uint256) {
+    function get(S storage m, uint256 key) internal view returns (uint256) {
         return m.innerM[key];
     }
 }
@@ -189,7 +189,7 @@ library string_to_int16 {
         return m.innerM[key];
     }
 
-    function get(S storage m, string memory key) internal returns (int16) {
+    function get(S storage m, string memory key) internal view returns (int16) {
         return m.innerM[key];
     }
 }
@@ -229,7 +229,7 @@ library string_to_uint8_to_int8_S_498 {
         return m.innerM[key];
     }
 
-    function get(S storage m, string memory key) internal returns (uint8_to_int8.S storage) {
+    function get(S storage m, string memory key) internal view returns (uint8_to_int8.S storage) {
         return m.innerM[key];
     }
 }
@@ -270,7 +270,7 @@ library uint256_to_uint256_arr {
         return m.innerM[key];
     }
 
-    function get(S storage m, uint256 key) internal returns (uint256[] storage) {
+    function get(S storage m, uint256 key) internal view returns (uint256[] storage) {
         return m.innerM[key];
     }
 }
@@ -310,7 +310,7 @@ library string_to_mapping_uint8_to_int8 {
         return m.innerM[key];
     }
 
-    function get(S storage m, string memory key) internal returns (mapping(uint8 => int8) storage) {
+    function get(S storage m, string memory key) internal view returns (mapping(uint8 => int8) storage) {
         return m.innerM[key];
     }
 }
