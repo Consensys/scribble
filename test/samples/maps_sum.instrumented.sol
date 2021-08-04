@@ -112,7 +112,7 @@ library uint256_to_uint256 {
         set(m, key, m.innerM[key] - 1);
     }
 
-    function get(S storage m, uint256 key) internal returns (uint256) {
+    function get(S storage m, uint256 key) internal view returns (uint256) {
         return m.innerM[key];
     }
 }
@@ -212,7 +212,7 @@ library string_to_uint256_to_int16_S_234 {
         return m.innerM[key];
     }
 
-    function get(S storage m, string memory key) internal returns (uint256_to_int16.S storage) {
+    function get(S storage m, string memory key) internal view returns (uint256_to_int16.S storage) {
         return m.innerM[key];
     }
 }
