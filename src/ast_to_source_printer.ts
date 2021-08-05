@@ -129,17 +129,13 @@ function getWriter(targetCompilerVersion: string): ASTWriter {
 
     const formatter = new PrettyFormatter(4);
     const writer = new ASTWriter(DefaultASTWriterMapping, formatter, targetCompilerVersion);
+
     writerCache.set(targetCompilerVersion, writer);
 
     return writer;
 }
 /**
  * Print a list of SourceUnits, with potentially different versions and ASTContext's
- *
- * @param sourceUnits
- * @param factoryMap
- * @param targetCompilerVersion
- * @param skipImportRewriting
  */
 export function print(
     sourceUnits: SourceUnit[],

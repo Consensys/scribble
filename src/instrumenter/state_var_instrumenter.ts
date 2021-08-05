@@ -1,3 +1,4 @@
+import { lt } from "semver";
 import {
     AddressType,
     ArrayType,
@@ -56,6 +57,7 @@ import {
     ConcreteDatastructurePath,
     decomposeLHS,
     getOrInit,
+    getTypeLocation,
     insertAnnotations,
     isStateVarRef,
     isTypeAliasable,
@@ -69,14 +71,11 @@ import {
     UnsupportedConstruct,
     updateMap
 } from "..";
+import { SId, SIfUpdated, SStateVarProp } from "../spec-lang/ast";
 import { assert } from "../util";
 import { InstrumentationContext } from "./instrumentation_context";
 import { InstrumentationSiteType, TranspilingContext } from "./transpiling_context";
-import { SId, SIfUpdated, SStateVarProp } from "../spec-lang/ast";
 import { makeTypeString } from "./type_string";
-import { getOrAddConstructor } from "./instrument";
-import { lt } from "semver";
-import { getTypeLocation } from "./transpile";
 
 /**
  * Given a Solidity `Expression` `e` and the `expectedType` where its being used,
@@ -465,20 +464,11 @@ function makeWrapper(
     for (let i = 0; i < formalParamTs.length; i++) {
         const formalT = formalParamTs[i];
 
-        wrapperFun.vParameters.appendChild(
-            factory.makeVariableDeclaration(
-                false,
-                false,
-                ctx.nameGenerator.getFresh(`ARG`),
-                wrapperFun.vParameters.id,
-                false,
-                getTypeLocation(formalT),
-                StateVariableVisibility.Default,
-                Mutability.Mutable,
-                "<missing>",
-                undefined,
-                transpileType(formalT, factory)
-            )
+        factory.addFunArg(
+            ctx.nameGenerator.getFresh(`ARG`),
+            formalT,
+            getTypeLocation(formalT),
+            wrapperFun
         );
     }
 
@@ -496,7 +486,8 @@ function makeWrapper(
         rewrittenNodeStmt = factory.makeUncheckedBlock([rewrittenNodeStmt]);
     }
 
-    body.appendChild(rewrittenNodeStmt);
+    factory.addStmt(wrapperFun, rewrittenNodeStmt);
+
     ctx.addGeneralInstrumentation(rewrittenNodeStmt);
 
     // Compute what the wrapper must return depending on the type of `rewrittenNode
@@ -523,27 +514,14 @@ function makeWrapper(
     } // Remaining update node types don't return
 
     // Add the returns to the wrapper FunctionDefinition
-    for (let i = 0; i < retParamTs.length; i++) {
-        const formalT = retParamTs[i];
-        const loc = formalT instanceof PointerType ? formalT.location : DataLocation.Default;
-        const solFromalT = transpileType(formalT, factory);
-
-        const decl = factory.makeVariableDeclaration(
-            false,
-            false,
-            ctx.nameGenerator.getFresh(`RET`),
-            wrapperFun.vParameters.id,
-            false,
-            loc,
-            StateVariableVisibility.Default,
-            Mutability.Mutable,
-            "<missing>",
-            undefined,
-            solFromalT
+    for (const formalT of retParamTs) {
+        factory.addFunRet(
+            ctx,
+            ctx.nameGenerator.getFresh("RET"),
+            formalT,
+            getTypeLocation(formalT),
+            wrapperFun
         );
-
-        ctx.addGeneralInstrumentation(decl);
-        wrapperFun.vReturnParameters.appendChild(decl);
     }
 
     // Add the actual return statements (assignments) if we have return parameters
@@ -564,6 +542,7 @@ function makeWrapper(
                 value
             )
         );
+
         ctx.addGeneralInstrumentation(retStmt);
 
         if (
@@ -609,12 +588,7 @@ export function ensureTopLevelExprInBlock(e: Expression, factory: ASTNodeFactory
         return;
     }
 
-    if (container instanceof WhileStatement) {
-        container.vBody = factory.makeBlock([e.parent]);
-        return;
-    }
-
-    if (container instanceof DoWhileStatement) {
+    if (container instanceof WhileStatement || container instanceof DoWhileStatement) {
         container.vBody = factory.makeBlock([e.parent]);
         return;
     }
@@ -629,8 +603,6 @@ export function ensureTopLevelExprInBlock(e: Expression, factory: ASTNodeFactory
  * Special care needs to be taken for any indexing sub-expressions appearing inside the LHS expressions - those need to be computed before
  * the assignment to preserve evaluation order.
  *
- * @param ctx
- * @param updateNode
  * @param stateVars - state variables whose update we want to interpose on.
  */
 export function explodeTupleAssignment(
@@ -939,7 +911,8 @@ export function interposeInlineInitializer(
 
     ctx.addGeneralInstrumentation(wrapperCallStmt);
 
-    const constr = getOrAddConstructor(containingContract, factory);
+    const constr = factory.getOrAddConstructor(containingContract);
+
     assert(
         constr.vBody !== undefined,
         `We don't support instrumenting the state var ${containingContract.name}.${updateNode.name} with inline initializer in a contract with an abstract constructor.`

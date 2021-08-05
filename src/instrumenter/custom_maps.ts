@@ -21,7 +21,6 @@ import {
     Mapping,
     MappingType,
     MemberAccess,
-    Mutability,
     PointerType,
     replaceNode,
     SourceUnit,
@@ -38,14 +37,9 @@ import {
     VariableDeclaration
 } from "solc-typed-ast";
 import {
-    addEmptyFun,
-    addFunArg,
-    addFunRet,
-    addStmt,
     ConcreteDatastructurePath,
     explodeTupleAssignment,
     findStateVarUpdates,
-    mkLibraryFunRef,
     needsLocation,
     single,
     UnsupportedConstruct
@@ -160,7 +154,7 @@ function replaceAssignmentHelper(
         const oldVal = factory.makeFunctionCall(
             "<missing>",
             FunctionCallKind.FunctionCall,
-            mkLibraryFunRef(instrCtx, getter),
+            factory.mkLibraryFunRef(instrCtx, getter),
             [base, index]
         );
         const op = assignment.operator.slice(0, -1);
@@ -170,7 +164,7 @@ function replaceAssignmentHelper(
     const newNode = factory.makeFunctionCall(
         "<missing>",
         FunctionCallKind.FunctionCall,
-        mkLibraryFunRef(instrCtx, instrCtx.libToMapSetterMap.get(lib, newValT)),
+        factory.mkLibraryFunRef(instrCtx, instrCtx.libToMapSetterMap.get(lib, newValT)),
         [base, index, newVal]
     );
 
@@ -407,7 +401,8 @@ export function interposeMap(
                         updateNode.parent instanceof ExpressionStatement,
                         `delete operator can only be used as a statement`
                     );
-                    const deleteKeyF = mkLibraryFunRef(
+
+                    const deleteKeyF = factory.mkLibraryFunRef(
                         instrCtx,
                         instrCtx.libToDeleteFunMap.get(lib)
                     );
@@ -430,7 +425,8 @@ export function interposeMap(
                     );
                     const isUnchecked =
                         updateNode.getClosestParentByType(UncheckedBlock) !== undefined;
-                    const incDecF = mkLibraryFunRef(
+
+                    const incDecF = factory.mkLibraryFunRef(
                         instrCtx,
                         instrCtx.libToMapIncDecMap.get(
                             lib,
@@ -484,10 +480,11 @@ export function interposeMap(
             }
 
             const [base, index] = splitExpr(refNode);
-            const getterF = mkLibraryFunRef(
+            const getterF = factory.mkLibraryFunRef(
                 instrCtx,
                 instrCtx.libToMapGetterMap.get(lib, isRvalueInLValue)
             );
+
             const newNode = factory.makeFunctionCall(
                 "<misisng>",
                 FunctionCallKind.FunctionCall,
@@ -496,6 +493,7 @@ export function interposeMap(
             );
 
             replaceNode(refNode, newNode);
+
             // Make sure the getter call maps to the original node
             newNode.src = refNode.src;
         }
@@ -508,6 +506,7 @@ export function interposeMap(
         }
 
         sVar.visibility = StateVariableVisibility.Default;
+
         interposeGetter(instrCtx, sVar, units);
     }
 }
@@ -518,12 +517,16 @@ function interposeGetter(
     units: SourceUnit[]
 ): FunctionDefinition {
     assert(v.stateVariable, `interposeGetter exects a state variable, not ${v.name}`);
+
     const factory = ctx.factory;
     const contract = v.vScope as ContractDefinition;
+
     let typ = v.vType;
 
     assert(typ !== undefined, `State var ${v.name} is missing a type`);
-    const fn = addEmptyFun(ctx, v.name, FunctionVisibility.Public, contract);
+
+    const fn = factory.addEmptyFun(ctx, v.name, FunctionVisibility.Public, contract);
+
     let expr: Expression = factory.makeIdentifierFor(v);
 
     while (true) {
@@ -537,15 +540,16 @@ function interposeGetter(
                 idxT = new PointerType(idxT, DataLocation.Memory);
             }
 
-            const idxArg = addFunArg(
-                factory,
+            const idxArg = factory.addFunArg(
                 ctx.nameGenerator.getFresh("ARG_"),
                 idxT,
                 DataLocation.Default,
                 fn
             );
+
             expr = factory.makeIndexAccess(`<missing>`, expr, factory.makeIdentifierFor(idxArg));
             typ = typ instanceof ArrayTypeName ? typ.vBaseType : typ.vValueType;
+
             continue;
         }
 
@@ -557,31 +561,23 @@ function interposeGetter(
         ) {
             const lib = typ.vReferencedDeclaration.vScope;
             const getter = ctx.libToMapGetterMap.get(lib, false);
-            const idxT = getter.vParameters.vParameters[1].vType as TypeName;
 
-            const idxArg = factory.makeVariableDeclaration(
-                false,
-                false,
+            const idxArg = factory.addFunArg(
                 ctx.nameGenerator.getFresh("ARG_"),
-                fn.id,
-                false,
+                getter.vParameters.vParameters[1].vType as TypeName,
                 getter.vParameters.vParameters[1].storageLocation,
-                StateVariableVisibility.Default,
-                Mutability.Mutable,
-                "<missing>",
-                undefined,
-                idxT
+                fn
             );
-            fn.vParameters.appendChild(idxArg);
 
             expr = factory.makeFunctionCall(
                 "<missing>",
                 FunctionCallKind.FunctionCall,
-                mkLibraryFunRef(ctx, getter),
+                factory.mkLibraryFunRef(ctx, getter),
                 [expr, factory.makeIdentifierFor(idxArg)]
             );
 
             typ = single(getter.vReturnParameters.vParameters).vType as TypeName;
+
             continue;
         }
 
@@ -603,11 +599,12 @@ function interposeGetter(
         `Unsupported return type for public getter of ${v.name}: ${exprT.pp()}`
     );
 
-    addFunRet(ctx, ctx.nameGenerator.getFresh("RET_"), exprT, DataLocation.Default, fn);
-    addStmt(factory, fn, factory.makeReturn(fn.vReturnParameters.id, expr));
+    factory.addFunRet(ctx, ctx.nameGenerator.getFresh("RET_"), exprT, DataLocation.Default, fn);
+    factory.addStmt(fn, factory.makeReturn(fn.vReturnParameters.id, expr));
 
     // Finally rename the variable itself so it doesn't clash with the getter
     v.name = ctx.nameGenerator.getFresh(v.name);
+
     for (const unit of units) {
         for (const ref of unit.getChildrenBySelector(
             (n) =>

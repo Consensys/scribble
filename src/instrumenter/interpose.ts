@@ -2,7 +2,6 @@ import {
     AddressType,
     ASTNode,
     ASTNodeFactory,
-    Block,
     ContractDefinition,
     DataLocation,
     Expression,
@@ -128,7 +127,6 @@ function makeStub(fun: FunctionDefinition, factory: ASTNodeFactory): FunctionDef
  * @param fun - FunctionDefinition from which to start the search
  * @param ctx - InstrumentationContext
  * @param skipStartingFun - whether to skip changing the mutuability of `fun` itself.
- * @returns Recipe - recipe for changing the dependent's mutability
  */
 function changeDependentsMutabilty(
     fun: FunctionDefinition,
@@ -148,6 +146,7 @@ function changeDependentsMutabilty(
 
         if (cur !== fun || !skipStartingFun) {
             seen.add(cur);
+
             cur.stateMutability = FunctionStateMutability.NonPayable;
         }
 
@@ -243,7 +242,7 @@ function copyDefs(
         factory.makeVariableDeclaration(
             false,
             false,
-            ``,
+            "",
             newParent.id,
             false,
             def.storageLocation === DataLocation.CallData
@@ -622,9 +621,10 @@ export function interposeCall(
         );
     }
 
-    (wrapper.vBody as Block).appendChild(factory.makeExpressionStatement(callOriginal));
+    factory.addStmt(wrapper, callOriginal);
 
     const newCallee = factory.makeIdentifierFor(wrapper);
+
     newCallee.src = call.vExpression.src;
 
     contract.appendChild(wrapper);
@@ -633,6 +633,7 @@ export function interposeCall(
 
     // If the call is in a pure/view function change its mutability
     const containingFun = getScopeFun(call);
+
     if (containingFun !== undefined && !isChangingState(containingFun) && changesMutability(ctx)) {
         changeDependentsMutabilty(containingFun, ctx);
     }

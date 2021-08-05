@@ -1,9 +1,13 @@
+import { gte } from "semver";
 import {
+    ArrayType,
+    ASTNode,
     ASTNodeFactory,
     Block,
     ContractDefinition,
     ContractKind,
     DataLocation,
+    EmitStatement,
     EventDefinition,
     Expression,
     ExternalReferenceType,
@@ -12,27 +16,24 @@ import {
     FunctionDefinition,
     FunctionKind,
     FunctionStateMutability,
+    FunctionType,
     FunctionVisibility,
+    getNodeType,
+    IntType,
+    Literal,
     LiteralKind,
     Mutability,
     OverrideSpecifier,
+    PointerType,
     resolveByName,
     SourceUnit,
     Statement,
     StateVariableVisibility,
-    EmitStatement,
-    Literal,
-    ASTNode,
-    UncheckedBlock,
     TypeNode,
-    FunctionType,
-    getNodeType,
-    PointerType,
-    IntType,
-    ArrayType
+    UncheckedBlock
 } from "solc-typed-ast";
-import { SNode, AnnotationType } from "../spec-lang/ast";
-import { SemMap, TypeEnv } from "../spec-lang/tc";
+import { filterByType, getTypeLocation, transpileAnnotation } from "..";
+import { AnnotationType, SNode } from "../spec-lang/ast";
 import {
     assert,
     isChangingState,
@@ -43,18 +44,15 @@ import {
 } from "../util";
 import {
     AnnotationMetaData,
-    PropertyMetaData,
-    UserFunctionDefinitionMetaData,
     PPAbleError,
-    rangeToLocRange
+    PropertyMetaData,
+    rangeToLocRange,
+    UserFunctionDefinitionMetaData
 } from "./annotations";
-import { interpose, interposeCall } from "./interpose";
 import { InstrumentationContext } from "./instrumentation_context";
+import { interpose, interposeCall } from "./interpose";
 import { InstrumentationSiteType, TranspilingContext } from "./transpiling_context";
-
-import { gte } from "semver";
-import { filterByType, transpileAnnotation, transpileFunVarDecl } from "..";
-import { addEmptyFun, addFunArg, addFunRet, addStmt, getTypeDesc } from "./utils";
+import { getTypeDesc } from "./utils";
 
 export type SBinding = [string | string[], TypeNode, SNode, boolean];
 export type SBindings = SBinding[];
@@ -74,8 +72,11 @@ export class UnsupportedConstruct extends InstrumentationError {
 
     constructor(msg: string, unsupportedNode: ASTNode, files: Map<string, string>) {
         const unit = unsupportedNode.getClosestParentByType(SourceUnit);
+
         assert(unit !== undefined, `No unit for node ${print(unsupportedNode)}`);
+
         const contents = files.get(unit.sourceEntryKey);
+
         assert(contents !== undefined, `Missing contents for ${unit.sourceEntryKey}`);
 
         const unitLoc = parseSrcTriple(unsupportedNode.src);
@@ -153,6 +154,7 @@ export function generateUtilsContract(
 ): SourceUnit {
     const exportedSymbols = new Map();
     const sourceUnit = factory.makeSourceUnit(sourceEntryKey, -1, path, exportedSymbols);
+
     sourceUnit.appendChild(factory.makePragmaDirective(["solidity", version]));
 
     const contract = factory.makeContractDefinition(
@@ -211,7 +213,9 @@ function getDebugInfo(
     const instrCtx = transCtx.instrCtx;
 
     const events = resolveByName(transCtx.contract, EventDefinition, "AssertionFailedData");
+
     let evtDef = undefined;
+
     if (events.length > 0) {
         evtDef = events[0];
     }
@@ -266,12 +270,14 @@ function getDebugInfo(
             // Note: This works only for primitive types. If we ever allow more complex types, the builtin
             // `pp()` function for those may differ from the typeString that solc expects.
             const typeString = vType instanceof PointerType ? vType.to.pp() : vType.pp();
+
             typeList.push([id.name, typeString]);
         }
 
         // If there are no debug ids for the current annotation, there is no debug event to build
         if (evtArgs.length == 0) {
             res.push(undefined);
+
             continue;
         }
 
@@ -306,6 +312,7 @@ function getDebugInfo(
 
 function getBitPattern(factory: ASTNodeFactory, id: number): Literal {
     const hexId = id.toString(16).padStart(4, "0");
+
     return factory.makeLiteral(
         "<missing>",
         LiteralKind.Number,
@@ -329,6 +336,7 @@ function emitAssert(
 ): Statement {
     const instrCtx = transCtx.instrCtx;
     const factory = instrCtx.factory;
+
     let userAssertFailed: Statement;
     let userAssertionHit: Statement | undefined;
 
@@ -408,6 +416,7 @@ function emitAssert(
 
     if (userAssertionHit) {
         instrCtx.addAnnotationInstrumentation(annotation, userAssertionHit);
+
         return factory.makeBlock([userAssertionHit, ifStmt]);
     }
 
@@ -486,6 +495,7 @@ export function insertAnnotations(annotations: PropertyMetaData[], ctx: Transpil
         const event = getAssertionFailedEvent(factory, contract);
         const dbgInfo = debugInfos[i];
         const emitStmt = dbgInfo !== undefined ? dbgInfo[1] : undefined;
+
         return emitAssert(ctx, predicate, annotation, event, emitStmt);
     });
 
@@ -500,633 +510,536 @@ export function insertAnnotations(annotations: PropertyMetaData[], ctx: Transpil
     }
 }
 
-export class ContractInstrumenter {
-    /**
-     * Instrument the contract  `contract` with checks for the contract-level invariants in `annotations`.
-     * Note that this only emits the functions for checking the contracts.
-     * Interposing on the public/external functions in `contract`,
-     * incrementing/decrementing the stack depth,
-     * and calling the invariant checkers is done in `FunctionInstrumenter`.
-     *
-     * Interposing on the external callsites, is done in `interposeCall`.
-     */
-    instrument(
-        ctx: InstrumentationContext,
-        annotations: AnnotationMetaData[],
-        contract: ContractDefinition,
-        needsStateInvChecks: boolean
-    ): void {
-        const typeEnv = ctx.typeEnv;
-        const semInfo = ctx.semMap;
+/**
+ * Instrument the contract  `contract` with checks for the contract-level invariants in `annotations`.
+ * Note that this only emits the functions for checking the contracts.
+ * Interposing on the public/external functions in `contract`,
+ * incrementing/decrementing the stack depth,
+ * and calling the invariant checkers is done in `instrumentFunction()`.
+ *
+ * Interposing on the external callsites, is done in `interposeCall`.
+ */
+export function instrumentContract(
+    ctx: InstrumentationContext,
+    annotations: AnnotationMetaData[],
+    contract: ContractDefinition,
+    needsStateInvChecks: boolean
+): void {
+    const userFunctionsAnnotations = filterByType(annotations, UserFunctionDefinitionMetaData);
 
-        const userFunctionsAnnotations = filterByType(annotations, UserFunctionDefinitionMetaData);
+    makeUserFunctions(ctx, userFunctionsAnnotations, contract);
 
-        this.makeUserFunctions(ctx, typeEnv, semInfo, userFunctionsAnnotations, contract);
+    const propertyAnnotations = filterByType(annotations, PropertyMetaData).filter(
+        (annot) => annot.type !== AnnotationType.IfSucceeds
+    );
 
-        const propertyAnnotations = filterByType(annotations, PropertyMetaData).filter(
-            (annot) => annot.type !== AnnotationType.IfSucceeds
+    if (needsStateInvChecks) {
+        const internalInvChecker = makeInternalInvariantChecker(ctx, propertyAnnotations, contract);
+        const generalInvChecker = makeGeneralInvariantChecker(ctx, contract, internalInvChecker);
+
+        prependBase(contract, ctx.utilsContract, ctx.factory);
+        instrumentConstructor(ctx, contract, generalInvChecker);
+        replaceExternalCallSites(ctx, contract, generalInvChecker);
+
+        ctx.needsUtils(contract.vScope);
+    }
+}
+
+function prependBase(
+    contract: ContractDefinition,
+    newBase: ContractDefinition,
+    factory: ASTNodeFactory
+): void {
+    const inhSpec = factory.makeInheritanceSpecifier(
+        factory.makeUserDefinedTypeName("<missing>", newBase.name, newBase.id),
+        []
+    );
+
+    contract.linearizedBaseContracts.unshift(newBase.id);
+
+    const specs = contract.vInheritanceSpecifiers;
+
+    if (specs.length !== 0) {
+        contract.insertBefore(inhSpec, specs[0]);
+    } else {
+        contract.appendChild(inhSpec);
+    }
+}
+
+/**
+ * Generate and insert all the user-defined functions in `annotations` to the current
+ * contract `contract`. Returns a list of the newly transpiler user-functions.
+ */
+function makeUserFunctions(
+    ctx: InstrumentationContext,
+    annotations: UserFunctionDefinitionMetaData[],
+    contract: ContractDefinition
+): FunctionDefinition[] {
+    const userFuns: FunctionDefinition[] = [];
+
+    const factory = ctx.factory;
+    const nameGen = ctx.nameGenerator;
+
+    for (const funDefMD of annotations) {
+        const funDef = funDefMD.parsedAnnot;
+        const userFun = factory.addEmptyFun(
+            ctx,
+            nameGen.getFresh(funDef.name.name, true),
+            FunctionVisibility.Internal,
+            contract
         );
 
-        if (needsStateInvChecks) {
-            const internalInvChecker = this.makeInternalInvariantChecker(
-                ctx,
-                typeEnv,
-                semInfo,
-                propertyAnnotations,
-                contract
-            );
+        userFun.stateMutability = FunctionStateMutability.View;
+        userFun.documentation = `Implementation of user function ${funDef.pp()}`;
 
-            const generalInvChecker = this.makeGeneralInvariantChecker(
-                ctx,
-                contract,
-                internalInvChecker
-            );
+        ctx.userFunctions.set(funDef, userFun);
 
-            this.prependBase(contract, ctx.utilsContract, ctx.factory);
-            this.instrumentConstructor(ctx, contract, generalInvChecker);
-            this.replaceExternalCallSites(ctx, contract, generalInvChecker);
+        /**
+         * Arithmetic in Solidity >= 0.8.0 is checked by default.
+         * In Scribble its unchecked.
+         */
+        const body = gte(ctx.compilerVersion, "0.8.0")
+            ? (factory.addStmt(userFun, factory.makeUncheckedBlock([])) as UncheckedBlock)
+            : (userFun.vBody as Block);
 
-            ctx.needsUtils(contract.vScope);
+        const transCtx = ctx.transCtxMap.get(userFun, InstrumentationSiteType.UserDefinedFunction);
+
+        for (let i = 0; i < funDef.parameters.length; i++) {
+            const [, paramType] = funDef.parameters[i];
+            const instrName = transCtx.getUserFunArg(funDef, i);
+
+            factory.addFunArg(instrName, paramType, getTypeLocation(paramType), userFun);
         }
+
+        factory.addFunRet(ctx, "", funDef.returnType, getTypeLocation(funDef.returnType), userFun);
+
+        const result = transpileAnnotation(funDefMD, transCtx);
+
+        factory.addStmt(body, factory.makeReturn(userFun.vReturnParameters.id, result));
+
+        userFuns.push(userFun);
     }
 
-    private prependBase(
-        contract: ContractDefinition,
-        newBase: ContractDefinition,
-        factory: ASTNodeFactory
-    ): void {
-        const inhSpec = factory.makeInheritanceSpecifier(
-            factory.makeUserDefinedTypeName("<missing>", newBase.name, newBase.id),
+    return userFuns;
+}
+
+/**
+ * Make the "internal invariant checker" function. For example given a
+ * contract `C` with contract-wide invariants [I1, I2], the "internal
+ * invariant checker" function is responsible ONLY for checking `I1` and
+ * `I2`, but NOT for any of the invariants of base contracts.
+ */
+function makeInternalInvariantChecker(
+    ctx: InstrumentationContext,
+    annotations: PropertyMetaData[],
+    contract: ContractDefinition
+): FunctionDefinition {
+    const factory = ctx.factory;
+
+    const mut = changesMutability(ctx)
+        ? FunctionStateMutability.NonPayable
+        : FunctionStateMutability.View;
+
+    const checker = factory.makeFunctionDefinition(
+        contract.id,
+        FunctionKind.Function,
+        ctx.getInternalInvariantCheckerName(contract),
+        false,
+        FunctionVisibility.Internal,
+        mut,
+        false,
+        factory.makeParameterList([]),
+        factory.makeParameterList([]),
+        [],
+        undefined,
+        factory.makeBlock([]),
+        factory.makeStructuredDocumentation(`Check only the current contract's state invariants`)
+    );
+
+    const transCtx = ctx.transCtxMap.get(checker, InstrumentationSiteType.ContractInvariant);
+
+    insertAnnotations(annotations, transCtx);
+
+    contract.appendChild(checker);
+
+    return checker;
+}
+
+/**
+ * The actual contract invariant evaluation logic is split into two parts to deal with inheritance.
+ * For each contract C we emit a concrete internal function __scribble_C_check_state_invariants_internal,
+ * in which we evaluate the annotations for _ONLY_ 'C'. This is done by makeInternalInvariantChecker.
+ *
+ * Additionally we emit a virtual (overriden) function `__scribble_check_state_invariants` that
+ * calls __scribble_X_check_state_invariants_internal for the current contract, and each of the bases of the current contract.
+ * This is emited below.
+ */
+function makeGeneralInvariantChecker(
+    ctx: InstrumentationContext,
+    contract: ContractDefinition,
+    internalInvChecker: FunctionDefinition
+): FunctionDefinition {
+    const factory = ctx.factory;
+    const directBases = (ctx.cha.parents.get(contract) as ContractDefinition[])?.filter(
+        (base) =>
+            base.kind === ContractKind.Contract && base !== ctx.utilsContract && base !== contract
+    );
+
+    let overrideSpecifier: OverrideSpecifier | undefined = undefined;
+
+    if (directBases.length == 1) {
+        // Single base, don't need to specify explicit classes in override specifier
+        overrideSpecifier = factory.makeOverrideSpecifier([]);
+    } else if (directBases.length > 1) {
+        overrideSpecifier = factory.makeOverrideSpecifier(
+            directBases.map((base) =>
+                factory.makeUserDefinedTypeName("<missing>", base.name, base.id)
+            )
+        );
+    }
+
+    const mut = changesMutability(ctx)
+        ? FunctionStateMutability.NonPayable
+        : FunctionStateMutability.View;
+
+    const checker = factory.makeFunctionDefinition(
+        contract.id,
+        FunctionKind.Function,
+        ctx.checkStateInvsFuncName,
+        true, // general invariant checker is always virtual
+        FunctionVisibility.Internal,
+        mut,
+        false,
+        factory.makeParameterList([]),
+        factory.makeParameterList([]),
+        [],
+        overrideSpecifier, // non-root functions must have an override specifier
+        factory.makeBlock([]),
+        factory.makeStructuredDocumentation(
+            `Check the state invariant for the current contract and all its bases`
+        )
+    );
+
+    contract.appendChild(checker);
+
+    const body = checker.vBody as Block;
+
+    for (const base of contract.vLinearizedBaseContracts) {
+        assert(base !== ctx.utilsContract, "");
+
+        if (base.kind === ContractKind.Interface) {
+            continue;
+        }
+
+        const callExpr =
+            base === contract
+                ? factory.makeIdentifierFor(internalInvChecker)
+                : factory.makeIdentifier(
+                      "<missing>",
+                      ctx.getInternalInvariantCheckerName(base),
+                      -1
+                  );
+
+        const callInternalCheckInvs = factory.makeExpressionStatement(
+            factory.makeFunctionCall("<missing>", FunctionCallKind.FunctionCall, callExpr, [])
+        );
+
+        ctx.addGeneralInstrumentation(callInternalCheckInvs);
+
+        factory.addStmt(body, callInternalCheckInvs);
+    }
+
+    return checker;
+}
+
+/**
+ * Contract invariants need to be checked at the end of the constructor.
+ * If there is no constructor insert a default constructor.
+ */
+function instrumentConstructor(
+    ctx: InstrumentationContext,
+    contract: ContractDefinition,
+    generalInvChecker: FunctionDefinition
+): void {
+    const factory = ctx.factory;
+
+    const constructor = factory.getOrAddConstructor(contract);
+    const body = constructor.vBody as Block;
+
+    const entryGuard = factory.makeExpressionStatement(
+        factory.makeAssignment(
+            "<missing>",
+            "=",
+            factory.makeIdentifier("bool", ctx.outOfContractFlagName, -1),
+            factory.makeLiteral("bool", LiteralKind.Bool, "", "false")
+        )
+    );
+
+    const callCheckInvs = factory.makeExpressionStatement(
+        factory.makeFunctionCall(
+            "<missing>",
+            FunctionCallKind.FunctionCall,
+            factory.makeIdentifierFor(generalInvChecker),
             []
-        );
-        contract.linearizedBaseContracts.unshift(newBase.id);
+        )
+    );
 
-        const specs = contract.vInheritanceSpecifiers;
+    const exitGuard = factory.makeExpressionStatement(
+        factory.makeAssignment(
+            "<missing>",
+            "=",
+            factory.makeIdentifier("bool", ctx.outOfContractFlagName, -1),
+            factory.makeLiteral("bool", LiteralKind.Bool, "", "true")
+        )
+    );
 
-        if (specs.length !== 0) {
-            contract.insertBefore(inhSpec, specs[0]);
-        } else {
-            contract.appendChild(inhSpec);
-        }
-    }
+    ctx.addGeneralInstrumentation(entryGuard, callCheckInvs, exitGuard);
 
-    /**
-     * Genrate and insert all the user-defined functions in `annotations` to the current
-     * contract `contract`. Returns a list of the newly transpiler user-functions.
-     */
-    private makeUserFunctions(
-        ctx: InstrumentationContext,
-        typeEnv: TypeEnv,
-        semInfo: SemMap,
-        annotations: UserFunctionDefinitionMetaData[],
-        contract: ContractDefinition
-    ): FunctionDefinition[] {
-        const userFuns: FunctionDefinition[] = [];
+    body.insertAtBeginning(entryGuard);
+    body.appendChild(callCheckInvs);
+    body.appendChild(exitGuard);
+}
 
-        const factory = ctx.factory;
-        const nameGen = ctx.nameGenerator;
+/**
+ * Wrap all external call sites in `contract` with wrappers that also invoke the
+ * `generalInvChecker` function, to check contract invariants before leaving the contract.
+ */
+function replaceExternalCallSites(
+    ctx: InstrumentationContext,
+    contract: ContractDefinition,
+    generalInvChecker: FunctionDefinition
+): void {
+    const factory = ctx.factory;
 
-        for (const funDefMD of annotations) {
-            const funDef = funDefMD.parsedAnnot;
-            const instrFunName = nameGen.getFresh(funDef.name.name, true);
-            const userFun = factory.makeFunctionDefinition(
-                contract.id,
-                FunctionKind.Function,
-                instrFunName,
-                false,
-                FunctionVisibility.Internal,
-                FunctionStateMutability.View,
-                false,
-                factory.makeParameterList([]),
-                factory.makeParameterList([]),
-                [],
-                undefined,
-                factory.makeBlock([]),
-                `Implementation of user function ${funDef.pp()}`
-            );
+    for (const callSite of findExternalCalls(contract, ctx.compilerVersion)) {
+        const containingFun = callSite.getClosestParentByType(FunctionDefinition);
 
-            ctx.userFunctions.set(funDef, userFun);
-
-            // Arithmetic in Solidity >= 0.8.0 is checked by default.
-            // In Scribble its unchecked.
-            let body: Block | UncheckedBlock;
-            if (gte(ctx.compilerVersion, "0.8.0")) {
-                body = factory.makeUncheckedBlock([]);
-                (userFun.vBody as Block).appendChild(body);
-            } else {
-                body = userFun.vBody as Block;
-            }
-
-            const transCtx = ctx.transCtxMap.get(
-                userFun,
-                InstrumentationSiteType.UserDefinedFunction
-            );
-
-            for (let i = 0; i < funDef.parameters.length; i++) {
-                const [, paramType] = funDef.parameters[i];
-                const instrName = transCtx.getUserFunArg(funDef, i);
-                userFun.vParameters.appendChild(
-                    transpileFunVarDecl(instrName, paramType, transCtx)
-                );
-            }
-
-            const retDecl = transpileFunVarDecl("", funDef.returnType, transCtx);
-            userFun.vReturnParameters.appendChild(retDecl);
-            ctx.addGeneralInstrumentation(retDecl);
-
-            const result = transpileAnnotation(funDefMD, transCtx);
-            body.appendChild(factory.makeReturn(userFun.vReturnParameters.id, result));
-
-            ctx.addGeneralInstrumentation(body);
-            contract.appendChild(userFun);
-            userFuns.push(userFun);
+        if (
+            containingFun !== undefined &&
+            [FunctionKind.Fallback, FunctionKind.Receive].includes(containingFun.kind)
+        ) {
+            // Cannot instrument receive() and fallback()
+            continue;
         }
 
-        return userFuns;
-    }
+        const calleeType = getNodeType(callSite.vExpression, ctx.compilerVersion);
 
-    /**
-     * Make the "internal invariant checker" function. For example given a
-     * contract `C` with contract-wide invariants [I1, I2], the "internal
-     * invariant checker" function is responsible ONLY for checking `I1` and
-     * `I2`, but NOT for any of the invariants of base contracts.
-     */
-    private makeInternalInvariantChecker(
-        ctx: InstrumentationContext,
-        typeEnv: TypeEnv,
-        semInfo: SemMap,
-        annotations: PropertyMetaData[],
-        contract: ContractDefinition
-    ): FunctionDefinition {
-        const factory = ctx.factory;
-
-        const body = factory.makeBlock([]);
-        const mut = changesMutability(ctx)
-            ? FunctionStateMutability.NonPayable
-            : FunctionStateMutability.View;
-        const checker = factory.makeFunctionDefinition(
-            contract.id,
-            FunctionKind.Function,
-            ctx.getInternalInvariantCheckerName(contract),
-            false,
-            FunctionVisibility.Internal,
-            mut,
-            false,
-            factory.makeParameterList([]),
-            factory.makeParameterList([]),
-            [],
-            undefined,
-            body,
-            factory.makeStructuredDocumentation(
-                `Check only the current contract's state invariants`
-            )
+        assert(
+            calleeType instanceof FunctionType,
+            `Expected function type not ${calleeType.pp()} for calee in ${callSite.print()}`
         );
 
-        const transCtx = ctx.transCtxMap.get(checker, InstrumentationSiteType.ContractInvariant);
-        insertAnnotations(annotations, transCtx);
-        contract.appendChild(checker);
+        if (calleeType.mutability === FunctionStateMutability.Pure) {
+            continue;
+        }
 
-        return checker;
-    }
+        const callsiteWrapper = interposeCall(ctx, contract, callSite);
+        const wrapperBody = callsiteWrapper.vBody as Block;
 
-    /**
-     * The actual contract invariant evaluation logic is split into two parts to deal with inheritance.
-     * For each contract C we emit a concrete internal function __scribble_C_check_state_invariants_internal,
-     * in which we evaluate the annotations for _ONLY_ 'C'. This is done by makeInternalInvariantChecker.
-     *
-     * Additionally we emit a virtual (overriden) function `__scribble_check_state_invariants` that
-     * calls __scribble_X_check_state_invariants_internal for the current contract, and each of the bases of the current contract.
-     * This is emited below.
-     *
-     * @param ctx
-     * @param contract
-     * @param internalInvChecker
-     */
-    private makeGeneralInvariantChecker(
-        ctx: InstrumentationContext,
-        contract: ContractDefinition,
-        internalInvChecker: FunctionDefinition
-    ): FunctionDefinition {
-        const factory = ctx.factory;
-        const directBases = (ctx.cha.parents.get(contract) as ContractDefinition[])?.filter(
-            (base) =>
-                base.kind === ContractKind.Contract &&
-                base !== ctx.utilsContract &&
-                base !== contract
-        );
-        let overrideSpecifier: OverrideSpecifier | undefined = undefined;
-
-        if (directBases.length == 1) {
-            // Single base, don't need to specify explicit classes in override specifier
-            overrideSpecifier = factory.makeOverrideSpecifier([]);
-        } else if (directBases.length > 1) {
-            overrideSpecifier = factory.makeOverrideSpecifier(
-                directBases.map((base) =>
-                    factory.makeUserDefinedTypeName("<missing>", base.name, base.id)
+        wrapperBody.vStatements.splice(
+            0,
+            0,
+            factory.makeExpressionStatement(
+                factory.makeFunctionCall(
+                    "<missing>",
+                    FunctionCallKind.FunctionCall,
+                    factory.makeIdentifierFor(generalInvChecker),
+                    []
                 )
-            );
-        }
-
-        const mut = changesMutability(ctx)
-            ? FunctionStateMutability.NonPayable
-            : FunctionStateMutability.View;
-
-        const checker = factory.makeFunctionDefinition(
-            contract.id,
-            FunctionKind.Function,
-            ctx.checkStateInvsFuncName,
-            true, // general invariant checker is always virtual
-            FunctionVisibility.Internal,
-            mut,
-            false,
-            factory.makeParameterList([]),
-            factory.makeParameterList([]),
-            [],
-            overrideSpecifier, // non-root functions must have an override specifier
-            factory.makeBlock([]),
-            factory.makeStructuredDocumentation(
-                `Check the state invariant for the current contract and all its bases`
             )
         );
 
-        contract.appendChild(checker);
-
-        const body = checker.vBody as Block;
-
-        for (const base of contract.vLinearizedBaseContracts) {
-            assert(base !== ctx.utilsContract, "");
-
-            if (base.kind === ContractKind.Interface) {
-                continue;
-            }
-
-            const callExpr =
-                base === contract
-                    ? factory.makeIdentifierFor(internalInvChecker)
-                    : factory.makeIdentifier(
-                          "<missing>",
-                          ctx.getInternalInvariantCheckerName(base),
-                          -1
-                      );
-
-            const callInternalCheckInvs = factory.makeExpressionStatement(
-                factory.makeFunctionCall("<missing>", FunctionCallKind.FunctionCall, callExpr, [])
-            );
-
-            ctx.addGeneralInstrumentation(callInternalCheckInvs);
-            body.appendChild(callInternalCheckInvs);
-        }
-
-        return checker;
-    }
-
-    /**
-     * Contract invariants need to be checked at the end of the constructor. If there is no constructor insert a default constructor.
-     *
-     * @param ctx
-     * @param contract
-     * @param generalInvChecker
-     */
-    private instrumentConstructor(
-        ctx: InstrumentationContext,
-        contract: ContractDefinition,
-        generalInvChecker: FunctionDefinition
-    ): void {
-        const factory = ctx.factory;
-
-        let constructor: FunctionDefinition;
-        let body: Block;
-
-        if (contract.vConstructor === undefined) {
-            body = factory.makeBlock([]);
-            constructor = factory.makeFunctionDefinition(
-                contract.id,
-                FunctionKind.Constructor,
-                "",
-                false,
-                FunctionVisibility.Public,
-                FunctionStateMutability.NonPayable,
-                true,
-                factory.makeParameterList([]),
-                factory.makeParameterList([]),
-                [],
-                undefined,
-                body
-            );
-
-            contract.appendChild(constructor);
-        } else {
-            constructor = contract.vConstructor;
-            body = constructor.vBody as Block;
-        }
-
-        const entryGuard = factory.makeExpressionStatement(
-            factory.makeAssignment(
-                "<missing>",
-                "=",
-                factory.makeIdentifier("bool", ctx.outOfContractFlagName, -1),
-                factory.makeLiteral("bool", LiteralKind.Bool, "", "false")
-            )
-        );
-
-        const callCheckInvs = factory.makeExpressionStatement(
-            factory.makeFunctionCall(
-                "<missing>",
-                FunctionCallKind.FunctionCall,
-                factory.makeIdentifierFor(generalInvChecker),
-                []
-            )
-        );
-
-        const exitGuard = factory.makeExpressionStatement(
-            factory.makeAssignment(
-                "<missing>",
-                "=",
-                factory.makeIdentifier("bool", ctx.outOfContractFlagName, -1),
-                factory.makeLiteral("bool", LiteralKind.Bool, "", "true")
-            )
-        );
-
-        ctx.addGeneralInstrumentation(entryGuard, callCheckInvs, exitGuard);
-
-        body.insertAtBeginning(entryGuard);
-        body.appendChild(callCheckInvs);
-        body.appendChild(exitGuard);
-    }
-
-    /**
-     * Wrap all external call sites in `contract` with wrappers that also invoke the
-     * `generalInvChecker` function, to check contract invariants before leaving the contract.
-     */
-    private replaceExternalCallSites(
-        ctx: InstrumentationContext,
-        contract: ContractDefinition,
-        generalInvChecker: FunctionDefinition
-    ): void {
-        const factory = ctx.factory;
-
-        for (const callSite of findExternalCalls(contract, ctx.compilerVersion)) {
-            const containingFun = callSite.getClosestParentByType(FunctionDefinition);
-
-            if (
-                containingFun !== undefined &&
-                [FunctionKind.Fallback, FunctionKind.Receive].includes(containingFun.kind)
-            ) {
-                // Cannot instrument receive() and fallback()
-                continue;
-            }
-
-            const calleeType = getNodeType(callSite.vExpression, ctx.compilerVersion);
-            assert(
-                calleeType instanceof FunctionType,
-                `Expected function type not ${calleeType.pp()} for calee in ${callSite.print()}`
-            );
-
-            if (calleeType.mutability === FunctionStateMutability.Pure) {
-                continue;
-            }
-
-            const callsiteWrapper = interposeCall(ctx, contract, callSite);
-
-            const wrapperBody = callsiteWrapper.vBody as Block;
-
+        /**
+         * Subtlety: We DONT set the `OUT_OF_CONTRACT` when the external
+         * function call we are wrapping around is pure/view, but we STILL
+         * check the invariants as this is an externally observable point.
+         *
+         * Note that a pure/view external call can only re-enter the
+         * contract at a pure or view function, at which we don't check
+         * state invariants, and don't mutate the OUT_OF_CONTRACT
+         * variable.
+         */
+        if (isChangingState(callsiteWrapper)) {
             wrapperBody.vStatements.splice(
-                0,
+                1,
                 0,
                 factory.makeExpressionStatement(
-                    factory.makeFunctionCall(
+                    factory.makeAssignment(
                         "<missing>",
-                        FunctionCallKind.FunctionCall,
-                        factory.makeIdentifierFor(generalInvChecker),
-                        []
+                        "=",
+                        factory.makeIdentifier("bool", ctx.outOfContractFlagName, -1),
+                        factory.makeLiteral("bool", LiteralKind.Bool, "", "true")
                     )
                 )
             );
 
-            /**
-             * Subtlety: We DONT set the `OUT_OF_CONTRACT` when the external
-             * function call we are wrapping around is pure/view, but we STILL
-             * check the invariants as this is an externally observable point.
-             *
-             * Note that a pure/view external call can only re-enter the
-             * contract at a pure or view function, at which we don't check
-             * state invariants, and don't mutate the OUT_OF_CONTRACT
-             * variable.
-             */
-            if (isChangingState(callsiteWrapper)) {
-                wrapperBody.vStatements.splice(
-                    1,
-                    0,
-                    factory.makeExpressionStatement(
-                        factory.makeAssignment(
-                            "<missing>",
-                            "=",
-                            factory.makeIdentifier("bool", ctx.outOfContractFlagName, -1),
-                            factory.makeLiteral("bool", LiteralKind.Bool, "", "true")
-                        )
+            wrapperBody.appendChild(
+                factory.makeExpressionStatement(
+                    factory.makeAssignment(
+                        "<missing>",
+                        "=",
+                        factory.makeIdentifier("bool", ctx.outOfContractFlagName, -1),
+                        factory.makeLiteral("bool", LiteralKind.Bool, "", "false")
                     )
-                );
-                wrapperBody.appendChild(
-                    factory.makeExpressionStatement(
-                        factory.makeAssignment(
-                            "<missing>",
-                            "=",
-                            factory.makeIdentifier("bool", ctx.outOfContractFlagName, -1),
-                            factory.makeLiteral("bool", LiteralKind.Bool, "", "false")
-                        )
-                    )
-                );
-            }
+                )
+            );
         }
     }
 }
 
-export class FunctionInstrumenter {
-    /**
-     * Instrument the function `fn` in contract `contract`
-     * with checks for the function-level invariants in `annotations`.
-     */
-    instrument(
-        ctx: InstrumentationContext,
-        allAnnotations: AnnotationMetaData[],
-        contract: ContractDefinition,
-        fn: FunctionDefinition,
-        needsContractInvInstr: boolean
-    ): void {
-        const annotations = filterByType(allAnnotations, PropertyMetaData);
-        assert(
-            allAnnotations.length === annotations.length,
-            `NYI: Non-property annotations on functions.`
-        );
+/**
+ * Instrument the function `fn` in contract `contract`
+ * with checks for the function-level invariants in `annotations`.
+ */
+export function instrumentFunction(
+    ctx: InstrumentationContext,
+    allAnnotations: AnnotationMetaData[],
+    fn: FunctionDefinition,
+    needsContractInvInstr: boolean
+): void {
+    const annotations = filterByType(allAnnotations, PropertyMetaData);
 
-        const stub = interpose(fn, ctx);
-        const transCtx = ctx.transCtxMap.get(stub, InstrumentationSiteType.FunctionAnnotation);
-        insertAnnotations(annotations, transCtx);
+    assert(
+        allAnnotations.length === annotations.length,
+        `NYI: Non-property annotations on functions.`
+    );
 
-        // We only need to check state invariants on functions that are:
-        //      1) Not in a library
-        //      2) public or external
-        //      3) mutating state (non-payable or payable)
-        //      4) not the fallback() functions (since it may receive staticcalls)
-        const checkStateInvs =
-            needsContractInvInstr &&
-            isExternallyVisible(stub) &&
-            isChangingState(stub) &&
-            fn.kind !== FunctionKind.Fallback;
+    const stub = interpose(fn, ctx);
+    const transCtx = ctx.transCtxMap.get(stub, InstrumentationSiteType.FunctionAnnotation);
 
-        if (checkStateInvs) {
-            this.insertEnterMarker(stub, transCtx);
-            this.insertExitMarker(stub, transCtx);
-        }
+    insertAnnotations(annotations, transCtx);
+
+    // We only need to check state invariants on functions that are:
+    //      1) Not in a library
+    //      2) public or external
+    //      3) mutating state (non-payable or payable)
+    //      4) not the fallback() functions (since it may receive staticcalls)
+    const checkStateInvs =
+        needsContractInvInstr &&
+        isExternallyVisible(stub) &&
+        isChangingState(stub) &&
+        fn.kind !== FunctionKind.Fallback;
+
+    if (checkStateInvs) {
+        insertEnterMarker(stub, transCtx);
+        insertExitMarker(stub, transCtx);
     }
+}
 
-    /**
-     * For public/external functions insert a peramble that set the "out-of-contract" flag to false (marking that we are executing in the contract).
-     * When the function is public, we remember the old value of the "out-of-contract" flag and restore it upon exit. This is done since
-     * public function can also be invoked internally.
-     */
-    private insertEnterMarker(stub: FunctionDefinition, transCtx: TranspilingContext): void {
-        const body = stub.vBody as Block;
-        const factory = transCtx.factory;
-        const instrCtx = transCtx.instrCtx;
+/**
+ * For public/external functions insert a peramble that set the "out-of-contract" flag to false (marking that we are executing in the contract).
+ * When the function is public, we remember the old value of the "out-of-contract" flag and restore it upon exit. This is done since
+ * public function can also be invoked internally.
+ */
+function insertEnterMarker(stub: FunctionDefinition, transCtx: TranspilingContext): void {
+    const body = stub.vBody as Block;
+    const factory = transCtx.factory;
+    const instrCtx = transCtx.instrCtx;
 
-        const stmts: Statement[] = [];
+    const stmts: Statement[] = [];
 
-        if (stub.visibility === FunctionVisibility.External) {
-            const enter = factory.makeExpressionStatement(
-                factory.makeAssignment(
-                    "<missing>",
-                    "=",
-                    factory.makeIdentifier("<missing>", instrCtx.outOfContractFlagName, -1),
-                    factory.makeLiteral("<missing>", LiteralKind.Bool, "", "false")
-                )
-            );
-
-            stmts.push(enter);
-        } else if (isPublic(stub)) {
-            transCtx.addBinding(
-                instrCtx.checkInvsFlag,
-                factory.makeElementaryTypeName("<missing>", "bool")
-            );
-
-            const storeEntry = factory.makeExpressionStatement(
-                factory.makeAssignment(
-                    "<missing>",
-                    "=",
-                    transCtx.refBinding(instrCtx.checkInvsFlag),
-                    factory.makeIdentifier("<missing>", instrCtx.outOfContractFlagName, -1)
-                )
-            );
-
-            const enter = factory.makeExpressionStatement(
-                factory.makeAssignment(
-                    "<missing>",
-                    "=",
-                    factory.makeIdentifier("<missing>", instrCtx.outOfContractFlagName, -1),
-                    factory.makeLiteral("<missing>", LiteralKind.Bool, "", "false")
-                )
-            );
-
-            stmts.push(storeEntry, enter);
-        }
-
-        const before: Statement | undefined =
-            body.vStatements.length > 0 ? body.vStatements[0] : undefined;
-
-        for (const stmt of stmts) {
-            instrCtx.addGeneralInstrumentation(stmt);
-
-            if (before) {
-                body.insertBefore(stmt, before);
-            } else {
-                body.appendChild(stmt);
-            }
-        }
-    }
-
-    /**
-     * For public/external functions insert a epilgoue that sets the "out-of-contract" flag(marking that we are executing in the contract).
-     * When the function is public, we remember the old value of the "out-of-contract" flag and restore it upon exit. This is done since
-     * public function can also be invoked internally.
-     *
-     * When the function is external we just set the flag to true.
-     */
-    private insertExitMarker(stub: FunctionDefinition, transCtx: TranspilingContext): void {
-        const factory = transCtx.factory;
-        const instrCtx = transCtx.instrCtx;
-        const body = stub.vBody as Block;
-        const contract = stub.vScope as ContractDefinition;
-        const stmts: Statement[] = [];
-
-        const checkInvsCall = factory.makeExpressionStatement(
-            factory.makeFunctionCall(
+    if (stub.visibility === FunctionVisibility.External) {
+        const enter = factory.makeExpressionStatement(
+            factory.makeAssignment(
                 "<missing>",
-                FunctionCallKind.FunctionCall,
-                factory.makeIdentifierFor(getCheckStateInvsFuncs(contract, instrCtx)),
-                []
+                "=",
+                factory.makeIdentifier("<missing>", instrCtx.outOfContractFlagName, -1),
+                factory.makeLiteral("<missing>", LiteralKind.Bool, "", "false")
             )
         );
 
-        // Call the check contract invariants function (optional for public functions)
-        if (isPublic(stub)) {
-            stmts.push(
-                factory.makeIfStatement(transCtx.refBinding(instrCtx.checkInvsFlag), checkInvsCall)
-            );
+        stmts.push(enter);
+    } else if (isPublic(stub)) {
+        transCtx.addBinding(
+            instrCtx.checkInvsFlag,
+            factory.makeElementaryTypeName("<missing>", "bool")
+        );
+
+        const storeEntry = factory.makeExpressionStatement(
+            factory.makeAssignment(
+                "<missing>",
+                "=",
+                transCtx.refBinding(instrCtx.checkInvsFlag),
+                factory.makeIdentifier("<missing>", instrCtx.outOfContractFlagName, -1)
+            )
+        );
+
+        const enter = factory.makeExpressionStatement(
+            factory.makeAssignment(
+                "<missing>",
+                "=",
+                factory.makeIdentifier("<missing>", instrCtx.outOfContractFlagName, -1),
+                factory.makeLiteral("<missing>", LiteralKind.Bool, "", "false")
+            )
+        );
+
+        stmts.push(storeEntry, enter);
+    }
+
+    const before = body.vStatements.length > 0 ? body.vStatements[0] : undefined;
+
+    for (const stmt of stmts) {
+        instrCtx.addGeneralInstrumentation(stmt);
+
+        if (before) {
+            body.insertBefore(stmt, before);
         } else {
-            stmts.push(checkInvsCall);
-        }
-
-        // Set re-entrancy flag
-        stmts.push(
-            factory.makeExpressionStatement(
-                factory.makeAssignment(
-                    "<missing>",
-                    "=",
-                    factory.makeIdentifier("<missing>", instrCtx.outOfContractFlagName, -1),
-                    stub.visibility === FunctionVisibility.External
-                        ? factory.makeLiteral("bool", LiteralKind.Bool, "", "true")
-                        : transCtx.refBinding(instrCtx.checkInvsFlag)
-                )
-            )
-        );
-
-        for (const stmt of stmts) {
-            instrCtx.addGeneralInstrumentation(stmt);
             body.appendChild(stmt);
         }
     }
 }
 
 /**
- * Return the constructor of `contract`. If there is no constructor defined,
- * add an empty public constructor and return it.
+ * For public/external functions insert a epilgoue that sets the "out-of-contract" flag(marking that we are executing in the contract).
+ * When the function is public, we remember the old value of the "out-of-contract" flag and restore it upon exit. This is done since
+ * public function can also be invoked internally.
+ *
+ * When the function is external we just set the flag to true.
  */
-export function getOrAddConstructor(
-    contract: ContractDefinition,
-    factory: ASTNodeFactory
-): FunctionDefinition {
-    if (contract.vConstructor !== undefined) {
-        return contract.vConstructor;
-    }
+function insertExitMarker(stub: FunctionDefinition, transCtx: TranspilingContext): void {
+    const factory = transCtx.factory;
+    const instrCtx = transCtx.instrCtx;
+    const body = stub.vBody as Block;
+    const contract = stub.vScope as ContractDefinition;
+    const stmts: Statement[] = [];
 
-    const emptyConstructor = factory.makeFunctionDefinition(
-        contract.id,
-        FunctionKind.Constructor,
-        "",
-        false,
-        FunctionVisibility.Public,
-        FunctionStateMutability.NonPayable,
-        true,
-        factory.makeParameterList([]),
-        factory.makeParameterList([]),
-        [],
-        undefined,
-        factory.makeBlock([])
+    const checkInvsCall = factory.makeExpressionStatement(
+        factory.makeFunctionCall(
+            "<missing>",
+            FunctionCallKind.FunctionCall,
+            factory.makeIdentifierFor(getCheckStateInvsFuncs(contract, instrCtx)),
+            []
+        )
     );
 
-    contract.appendChild(emptyConstructor);
+    // Call the check contract invariants function (optional for public functions)
+    if (isPublic(stub)) {
+        stmts.push(
+            factory.makeIfStatement(transCtx.refBinding(instrCtx.checkInvsFlag), checkInvsCall)
+        );
+    } else {
+        stmts.push(checkInvsCall);
+    }
 
-    return emptyConstructor;
+    // Set re-entrancy flag
+    stmts.push(
+        factory.makeExpressionStatement(
+            factory.makeAssignment(
+                "<missing>",
+                "=",
+                factory.makeIdentifier("<missing>", instrCtx.outOfContractFlagName, -1),
+                stub.visibility === FunctionVisibility.External
+                    ? factory.makeLiteral("bool", LiteralKind.Bool, "", "true")
+                    : transCtx.refBinding(instrCtx.checkInvsFlag)
+            )
+        )
+    );
+
+    for (const stmt of stmts) {
+        instrCtx.addGeneralInstrumentation(stmt);
+
+        body.appendChild(stmt);
+    }
 }
 
 /**
@@ -1149,15 +1062,11 @@ export function makeArraySumFun(
     const name = `sum_arr_${getTypeDesc(arrT)}_${loc}`;
     const sumT = new IntType(256, arrT.elementT.signed);
 
-    const fun = addEmptyFun(ctx, name, FunctionVisibility.Internal, container);
-    const body: UncheckedBlock = addStmt(
-        factory,
-        fun,
-        factory.makeUncheckedBlock([])
-    ) as UncheckedBlock;
+    const fun = factory.addEmptyFun(ctx, name, FunctionVisibility.Internal, container);
+    const body = factory.addStmt(fun, factory.makeUncheckedBlock([])) as UncheckedBlock;
 
-    const arr = addFunArg(factory, "arr", arrT, loc, fun);
-    const ret = addFunRet(ctx, "ret", sumT, DataLocation.Default, fun);
+    const arr = factory.addFunArg("arr", arrT, loc, fun);
+    const ret = factory.addFunRet(ctx, "ret", sumT, DataLocation.Default, fun);
 
     const idx = factory.makeVariableDeclaration(
         false,
@@ -1173,8 +1082,7 @@ export function makeArraySumFun(
         factory.makeElementaryTypeName("<missing>", "uint256")
     );
 
-    addStmt(
-        factory,
+    factory.addStmt(
         body,
         factory.makeForStatement(
             factory.makeExpressionStatement(

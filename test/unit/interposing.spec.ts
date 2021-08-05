@@ -1,3 +1,4 @@
+import expect from "expect";
 import {
     Assignment,
     ASTContext,
@@ -10,20 +11,20 @@ import {
     VariableDeclaration,
     XPath
 } from "solc-typed-ast";
-import expect from "expect";
 import { print as printUnits, rewriteImports } from "../../src/ast_to_source_printer";
 import {
-    ContractInstrumenter,
     findExternalCalls,
+    instrumentContract,
     interpose,
     interposeCall,
     interposeInlineInitializer,
     interposeSimpleStateVarUpdate,
-    interposeTupleAssignment
+    interposeTupleAssignment,
+    ScribbleFactory
 } from "../../src/instrumenter";
+import { InstrumentationSiteType } from "../../src/instrumenter/transpiling_context";
 import { single } from "../../src/util";
 import { getTarget, getTypeCtxAndTarget, toAst } from "../integration/utils";
-import { InstrumentationSiteType } from "../../src/instrumenter/transpiling_context";
 import { makeInstrumentationCtx } from "./utils";
 
 export type LocationDesc = [string, string];
@@ -284,8 +285,8 @@ contract Foo {
         it(`Interpose on ${contractName}.${funName} in #${fileName}`, () => {
             const { units, reader, files, compilerVersion } = toAst(fileName, content);
             const target = getTarget([contractName, funName], units);
-            const fun: FunctionDefinition = target as FunctionDefinition;
-            const factory = new ASTNodeFactory(reader.context);
+            const fun = target as FunctionDefinition;
+            const factory = new ScribbleFactory(reader.context);
 
             const ctx = makeInstrumentationCtx(
                 units,
@@ -294,10 +295,13 @@ contract Foo {
                 assertionMode,
                 compilerVersion
             );
+
             interpose(fun, ctx);
+
             ctx.finalize();
 
             const instrumented = print(units, [content], "0.6.0").get(units[0]);
+
             expect(instrumented).toEqual(expectedInstrumented);
         });
     }
@@ -405,8 +409,7 @@ contract Foo is __scribble_ReentrancyUtils {
 
             const target = getTarget([contractName, undefined], units);
             const contract: ContractDefinition = target as ContractDefinition;
-            const factory = new ASTNodeFactory(reader.context);
-            const contractInstrumenter = new ContractInstrumenter();
+            const factory = new ScribbleFactory(reader.context);
 
             const ctx = makeInstrumentationCtx(
                 units,
@@ -415,7 +418,9 @@ contract Foo is __scribble_ReentrancyUtils {
                 assertionMode,
                 compilerVersion
             );
-            contractInstrumenter.instrument(ctx, [], contract, true);
+
+            instrumentContract(ctx, [], contract, true);
+
             ctx.finalize();
 
             const instrumented = print(units, [content], "0.6.0").get(units[0]);
@@ -614,9 +619,9 @@ contract Foo {
         it(`Instrument ${contractName} in #${fileName}`, () => {
             const { units, reader, files, compilerVersion } = toAst(fileName, content);
             const [typeCtx, target] = getTypeCtxAndTarget([contractName, funName], units);
-            const contract: ContractDefinition = typeCtx[1] as ContractDefinition;
-            const fun: FunctionDefinition = target as FunctionDefinition;
-            const factory = new ASTNodeFactory(reader.context);
+            const contract = typeCtx[1] as ContractDefinition;
+            const fun = target as FunctionDefinition;
+            const factory = new ScribbleFactory(reader.context);
 
             const callSite: FunctionCall = single(
                 findExternalCalls(fun, "0.6.0"),
@@ -630,13 +635,16 @@ contract Foo {
                 assertionMode,
                 compilerVersion
             );
+
             interposeCall(ctx, contract, callSite);
+
             ctx.finalize();
 
             const instrumented = print(units, [content], "0.6.0").get(units[0]) as string;
 
             // Check that the interposed code compiles correctly
             expect(toAst.bind(toAst, "foo.sol", instrumented)).not.toThrow();
+
             // Check that it equals the expected code
             expect(instrumented).toEqual(expectedInstrumented);
         });
@@ -1602,7 +1610,7 @@ contract Child is Foo {
             const { units, reader, files, compilerVersion } = toAst(fileName, content);
             const result = new XPath(units[0]).query(selector);
             const nodes = result instanceof Array ? result : [result];
-            const factory = new ASTNodeFactory(reader.context);
+            const factory = new ScribbleFactory(reader.context);
             const contract = units[0].vContracts[0];
             const vars = new Set(contract.vStateVariables);
 
@@ -1612,6 +1620,7 @@ contract Child is Foo {
                     const container = node.getClosestParentByType(
                         FunctionDefinition
                     ) as FunctionDefinition;
+
                     const transCtx = ctx.transCtxMap.get(
                         container,
                         InstrumentationSiteType.StateVarUpdated
@@ -1628,6 +1637,7 @@ contract Child is Foo {
             ctx.finalize();
 
             const instrumented = print(units, [content], "0.6.0").get(units[0]);
+
             expect(instrumented).toEqual(expectedInstrumented);
         });
     }

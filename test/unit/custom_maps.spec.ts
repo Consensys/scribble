@@ -3,7 +3,6 @@ import {
     AddressType,
     ArrayType,
     ASTContext,
-    ASTNodeFactory,
     ASTWriter,
     BoolType,
     BytesType,
@@ -21,7 +20,7 @@ import {
     UserDefinedType,
     VariableDeclaration
 } from "solc-typed-ast";
-import { generateUtilsContract, interposeMap } from "../../src";
+import { generateUtilsContract, interposeMap, ScribbleFactory } from "../../src";
 import { InstrumentationContext } from "../../src/instrumenter/instrumentation_context";
 import { pp, single } from "../../src/util";
 import { toAst } from "../integration/utils";
@@ -65,7 +64,7 @@ describe("Maps with keys library generation", () => {
     const [content, testTypes] = libGenTests;
     let unit: SourceUnit;
     let ctx: ASTContext;
-    let factory: ASTNodeFactory;
+    let factory: ScribbleFactory;
     let version: string;
     let writer: ASTWriter;
     let instrCtx: InstrumentationContext;
@@ -75,7 +74,7 @@ describe("Maps with keys library generation", () => {
         unit = single(res.units);
         ctx = res.reader.context;
         version = res.compilerVersion;
-        factory = new ASTNodeFactory(ctx);
+        factory = new ScribbleFactory(ctx);
         instrCtx = makeInstrumentationCtx(res.units, factory, res.files, "log", version);
 
         writer = new ASTWriter(DefaultASTWriterMapping, new PrettyFormatter(4, 0), version);
@@ -523,8 +522,10 @@ describe("Interposing on a map", () => {
             const res = toAst(name, sample);
             const unit = single(res.units);
             const ctx = res.reader.context;
+
             version = res.compilerVersion;
-            const factory = new ASTNodeFactory(ctx);
+
+            const factory = new ScribbleFactory(ctx);
             const instrCtx = makeInstrumentationCtx(
                 [unit],
                 factory,
@@ -532,11 +533,13 @@ describe("Interposing on a map", () => {
                 "log",
                 version
             );
+
             const writer: ASTWriter = new ASTWriter(
                 DefaultASTWriterMapping,
                 new PrettyFormatter(4, 0),
                 version
             );
+
             const contract = single(unit.vContracts);
 
             generateUtilsContract(
