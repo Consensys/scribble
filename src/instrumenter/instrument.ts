@@ -24,7 +24,6 @@ import {
     LiteralKind,
     Mutability,
     OverrideSpecifier,
-    PointerType,
     resolveByName,
     SourceUnit,
     Statement,
@@ -33,7 +32,7 @@ import {
     UncheckedBlock
 } from "solc-typed-ast";
 import { filterByType, getTypeLocation, transpileAnnotation } from "..";
-import { AnnotationType, SNode } from "../spec-lang/ast";
+import { AnnotationType, SId, SNode } from "../spec-lang/ast";
 import {
     assert,
     isChangingState,
@@ -260,18 +259,17 @@ function getDebugInfo(
         const dbgIdsMap = transCtx.dbgInfo.get(annot);
 
         const evtArgs: Expression[] = [];
-        const typeList: Array<[string, string]> = [];
+        const typeList: Array<[SId, TypeNode]> = [];
 
         // Walk over the debug id map for the current annotation and add any ids found to `evtArgs` and `typeList`.
-        for (const [[id], transpiledId] of dbgIdsMap.entries()) {
+        for (const [id, transpiledId] of dbgIdsMap.entries()) {
             evtArgs.push(transpiledId);
 
             const vType = transCtx.typeEnv.typeOf(id);
             // Note: This works only for primitive types. If we ever allow more complex types, the builtin
             // `pp()` function for those may differ from the typeString that solc expects.
-            const typeString = vType instanceof PointerType ? vType.to.pp() : vType.pp();
-
-            typeList.push([id.name, typeString]);
+            console.log(id.requiredSrc.start.offset);
+            typeList.push([id, vType]);
         }
 
         // If there are no debug ids for the current annotation, there is no debug event to build
@@ -280,7 +278,7 @@ function getDebugInfo(
 
             continue;
         }
-
+        
         if (!instrCtx.debugEventsEncoding.has(annot.id)) {
             instrCtx.debugEventsEncoding.set(annot.id, typeList);
         }

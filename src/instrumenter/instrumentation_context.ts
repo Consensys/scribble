@@ -35,7 +35,7 @@ import {
     UnsupportedConstruct
 } from "..";
 import { print } from "../ast_to_source_printer";
-import { SUserFunctionDefinition } from "../spec-lang/ast";
+import { SId, SUserFunctionDefinition } from "../spec-lang/ast";
 import { SemMap, TypeEnv } from "../spec-lang/tc";
 import { NameGenerator } from "../util/name_generator";
 import { AnnotationFilterOptions, AnnotationMetaData } from "./annotations";
@@ -357,7 +357,7 @@ export class InstrumentationContext {
         public readonly files: Map<string, string>,
         public readonly compilerVersion: string,
         public readonly debugEvents: boolean,
-        public readonly debugEventsEncoding: Map<number, Array<[string, string]>>,
+        public readonly debugEventsEncoding: Map<number, Array<[SId, TypeNode]>>,
         public readonly outputMode: "files" | "flat" | "json",
         public readonly typeEnv: TypeEnv,
         public readonly semMap: SemMap,

@@ -7,13 +7,14 @@ import {
     VariableDeclaration,
     CompileResult,
     StructuredDocumentation,
-    ASTNode
+    ASTNode, TypeNode
 } from "solc-typed-ast";
 import { PropertyMetaData } from "../instrumenter/annotations";
 import { InstrumentationContext } from "../instrumenter/instrumentation_context";
-import { Range } from "../spec-lang/ast";
+import { Range, SId, VarDefSite } from "../spec-lang/ast";
 import { dedup, assert, pp } from ".";
-import { getOr } from "..";
+import { getOr, StructMap } from "..";
+import { defSiteToKey } from "../instrumenter/transpiling_context";
 
 type TargetType = "function" | "variable" | "contract";
 
@@ -236,8 +237,27 @@ function generatePropertyMap(
         const annotationRange = annotation.annotationFileRange;
 
         const encodingData = ctx.debugEventsEncoding.get(annotation.id);
-        const encoding: Array<[string, string]> =
-            encodingData !== undefined ? encodingData : [["", ""]];
+        const encoding: Array<[SId, TypeNode]> =
+            encodingData !== undefined ? encodingData : [];
+        const defSiteMap = new DefSiteMap();
+        const typeMap = new TypeMap();
+        
+        for(const [id, type] of encoding) {
+            const defSite = id.defSite as VarDefSite
+            typeMap.set(type, defSite);
+            if(!defSiteMap.has(defSite)) {
+                defSiteMap.set([id], defSite);
+            }
+            else {
+                defSiteMap.mustGet(defSite).push(id);
+            }
+        }
+        
+        const srcEncoding: [string[], string][] = [];
+        for(const [[defSite], ids] of defSiteMap.entries()) {
+            const type = typeMap.mustGet(defSite);
+            srcEncoding.push(ids, type);
+        }
 
         const newUnitIdx = originalSourceList.indexOf(unit.absolutePath);
         const propertySource = rangeToSrc(predRange, newUnitIdx);
@@ -302,7 +322,7 @@ function generatePropertyMap(
             annotationSource,
             target: targetType,
             targetName,
-            debugEventEncoding: encoding,
+            debugEventEncoding: srcEncoding,
             message: annotation.message,
             instrumentationRanges,
             checkRanges,
@@ -404,4 +424,16 @@ export function buildOutputJSON(
     );
 
     return result;
+}
+
+export class DefSiteMap extends StructMap<[VarDefSite], string, SId[]> {
+    protected getName(id: VarDefSite): string {
+        return defSiteToKey(id);
+    }
+}
+
+export class TypeMap extends StructMap<[VarDefSite], string, TypeNode> {
+    protected getName(id: VarDefSite): string {
+        return defSiteToKey(id);
+    }
 }
