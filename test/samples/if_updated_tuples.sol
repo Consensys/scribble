@@ -1,4 +1,4 @@
-pragma solidity ^0.8.0;
+pragma solidity 0.8.7;
 
 contract IfUpdatedPrimitive {
 	//// #if_updated x >=1;

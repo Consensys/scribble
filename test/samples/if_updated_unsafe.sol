@@ -1,4 +1,4 @@
-pragma solidity ^0.8.0;
+pragma solidity 0.8.7;
 
 /// #define id(uint x) uint = x + 1 - 1;
 contract TestUnchecked {
