@@ -15,7 +15,7 @@ import { Range } from "../spec-lang/ast";
 import { dedup, assert, pp } from ".";
 import { getOr } from "..";
 
-type TargetType = "function" | "variable" | "contract";
+type TargetType = "function" | "variable" | "contract" | "statement";
 
 interface PropertyDesc {
     id: number;
@@ -223,9 +223,14 @@ function generatePropertyMap(
 
             contract = annotation.target.vScope;
             targetType = "variable";
-        } else {
+        } else if (annotation.target instanceof ContractDefinition) {
             contract = annotation.target;
             targetType = "contract";
+        } else {
+            contract = annotation.target.getClosestParentByType(
+                ContractDefinition
+            ) as ContractDefinition;
+            targetType = "statement";
         }
 
         const targetName = annotation.targetName;

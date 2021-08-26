@@ -9,7 +9,8 @@ import {
     VariableDeclaration,
     SourceUnit,
     ContractDefinition,
-    LatestCompilerVersion
+    LatestCompilerVersion,
+    Statement
 } from "solc-typed-ast";
 import { pp } from ".";
 
@@ -126,22 +127,14 @@ export function getOrInit<K, V>(key: K, m: Map<K, V>, def?: V): V {
 }
 
 export function getScopeUnit(
-    node: ContractDefinition | FunctionDefinition | VariableDeclaration
+    node: ContractDefinition | FunctionDefinition | VariableDeclaration | Statement
 ): SourceUnit {
-    if (node instanceof ContractDefinition) {
-        return node.vScope;
+    while (!(node instanceof SourceUnit)) {
+        assert(node.parent !== undefined, `Can't get scope of node ${pp(node)}`);
+        node = node.parent;
     }
 
-    if (node instanceof FunctionDefinition) {
-        return node.vScope instanceof ContractDefinition ? node.vScope.vScope : node.vScope;
-    }
-
-    assert(
-        node.vScope instanceof ContractDefinition,
-        "Instrumenting is supported for state variables only"
-    );
-
-    return node.vScope.vScope;
+    return node;
 }
 
 /**

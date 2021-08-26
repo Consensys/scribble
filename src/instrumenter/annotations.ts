@@ -4,6 +4,7 @@ import {
     FunctionDefinition,
     resolve,
     SourceUnit,
+    Statement,
     StructuredDocumentation,
     VariableDeclaration
 } from "solc-typed-ast";
@@ -47,7 +48,11 @@ function rangeToOffsetRange(r: Range): OffsetRange {
     return [r.start.offset, r.end.offset - r.start.offset];
 }
 
-export type AnnotationTarget = ContractDefinition | FunctionDefinition | VariableDeclaration;
+export type AnnotationTarget =
+    | ContractDefinition
+    | FunctionDefinition
+    | VariableDeclaration
+    | Statement;
 /// File byte range: [start, length]
 type OffsetRange = [number, number];
 
@@ -108,7 +113,7 @@ export class AnnotationMetaData<T extends SAnnotation = SAnnotation> {
         this.raw = raw;
         this.target = target;
         // This is a hack. Remember the target name as interposing overwrites it
-        this.targetName = target.name;
+        this.targetName = target instanceof Statement ? "" : target.name;
 
         this.original = parsedAnnot.getSourceFragment(originalSlice);
         this.id = numAnnotations++;
@@ -351,6 +356,15 @@ class AnnotationExtractor {
                     target
                 );
             }
+        } else if (target instanceof Statement) {
+            if (annotation.type !== AnnotationType.Assert) {
+                throw new UnsupportedByTargetError(
+                    `The "${annotation.type}" annotation is not applicable inside functions`,
+                    annotation.original,
+                    annotation.annotationFileRange,
+                    target
+                );
+            }
         } else {
             if (
                 annotation.type !== AnnotationType.IfUpdated &&
@@ -396,7 +410,7 @@ class AnnotationExtractor {
         const result: AnnotationMetaData[] = [];
 
         const rx =
-            /\s*(\*|\/\/\/)\s*#?(if_succeeds|if_updated|if_assigned|invariant|define\s*[a-zA-Z0-9_]*\s*\([^)]*\))/g;
+            /\s*(\*|\/\/\/)\s*#?(if_succeeds|if_updated|if_assigned|invariant|assert|define\s*[a-zA-Z0-9_]*\s*\([^)]*\))/g;
 
         let match = rx.exec(meta.text);
 
@@ -421,7 +435,7 @@ class AnnotationExtractor {
     }
 
     extract(
-        node: ContractDefinition | FunctionDefinition | VariableDeclaration,
+        node: ContractDefinition | FunctionDefinition | VariableDeclaration | Statement,
         sources: Map<string, string>,
         filters: AnnotationFilterOptions
     ): AnnotationMetaData[] {
@@ -545,6 +559,11 @@ export function buildAnnotationMap(
             for (const method of contract.vFunctions) {
                 res.set(method, extractor.extract(method, sources, filters));
             }
+        }
+
+        // Finally check for any assertions
+        for (const stmt of unit.getChildrenByType(Statement)) {
+            res.set(stmt, extractor.extract(stmt, sources, filters));
         }
     }
 

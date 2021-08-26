@@ -145,9 +145,8 @@ export function getTarget(
     raw: [string, string | undefined],
     sources: SourceUnit[]
 ): AnnotationTarget {
-    const res: STypingCtx = [sources];
-
     for (const unit of sources) {
+        const res: STypingCtx = [unit];
         for (const contract of unit.vContracts) {
             if (contract.name === raw[0]) {
                 res.push(contract);
@@ -185,9 +184,8 @@ export function getTypeCtxAndTarget(
     sources: SourceUnit[],
     annotation?: SAnnotation
 ): [STypingCtx, AnnotationTarget] {
-    const res: STypingCtx = [sources];
-
     for (const unit of sources) {
+        const res: STypingCtx = [unit];
         for (const contract of unit.vContracts) {
             if (contract.name === raw[0]) {
                 res.push(contract);

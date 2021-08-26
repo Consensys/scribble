@@ -4,7 +4,8 @@ export enum AnnotationType {
     IfUpdated = "if_updated",
     IfAssigned = "if_assigned",
     Invariant = "invariant",
-    Define = "define"
+    Define = "define",
+    Assert = "assert"
 }
 
 export abstract class SAnnotation extends SNode {

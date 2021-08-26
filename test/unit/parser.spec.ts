@@ -809,11 +809,29 @@ describe("Annotation Parser Unit Tests", () => {
                 )
             )
         ],
-
         [
             "/// if_succeeds forall (uint x in a) a[x]>10;",
             new SProperty(
                 AnnotationType.IfSucceeds,
+                new SForAll(
+                    new IntType(256, false),
+                    new SId("x"),
+                    new SBinaryOperation(
+                        new SIndexAccess(new SId("a"), new SId("x")),
+                        ">",
+                        new SNumber(bigInt(10), 10)
+                    ),
+                    undefined,
+                    undefined,
+                    new SId("a")
+                )
+            )
+        ],
+        ["/// assert true;", new SProperty(AnnotationType.Assert, new SBooleanLiteral(true))],
+        [
+            "/// assert forall (uint x in a) a[x] > 10;",
+            new SProperty(
+                AnnotationType.Assert,
                 new SForAll(
                     new IntType(256, false),
                     new SId("x"),

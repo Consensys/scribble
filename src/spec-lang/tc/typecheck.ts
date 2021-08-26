@@ -1,15 +1,18 @@
-import { satisfies } from "semver";
+import { gte, satisfies } from "semver";
 import {
     AddressType,
     ArrayType,
     ArrayTypeName,
+    ASTNode,
     ASTNodeConstructor,
+    Block,
     BoolType,
     BytesType,
     ContractDefinition,
     DataLocation,
     EnumDefinition,
     FixedBytesType,
+    ForStatement,
     FunctionDefinition,
     FunctionStateMutability,
     FunctionType,
@@ -23,6 +26,7 @@ import {
     resolveByName,
     SourceUnit,
     specializeType,
+    Statement,
     StateVariableVisibility,
     StringLiteralType,
     StringType,
@@ -32,6 +36,7 @@ import {
     typeNameToTypeNode,
     TypeNameType,
     TypeNode,
+    UncheckedBlock,
     UserDefinedType,
     UserDefinedTypeName,
     VariableDeclaration,
@@ -78,13 +83,14 @@ export class StateVarScope {
     ) {}
 }
 export type SScope =
-    | SourceUnit[]
+    | SourceUnit
     | ContractDefinition
     | FunctionDefinition
     | SLet
     | SUserFunctionDefinition
     | StateVarScope
-    | SForAll;
+    | SForAll
+    | VariableDeclarationStatement;
 
 export type STypingCtx = SScope[];
 
@@ -285,8 +291,26 @@ export function lookupVarDef(name: string, ctx: STypingCtx): VarDefSite | undefi
                     return [scope, paramIdx];
                 }
             }
-        } else if (scope instanceof Array) {
+        } else if (scope instanceof SourceUnit) {
             // No variable definitions at the global scope
+            for (const globVar of scope.vVariables) {
+                if (globVar.name === name) {
+                    return globVar;
+                }
+            }
+
+            for (const impStmt of scope.vImportDirectives) {
+                for (const sym of impStmt.vSymbolAliases) {
+                    const [original, alias] = sym;
+
+                    if (original instanceof VariableDeclaration) {
+                        const symName = alias !== undefined ? alias : original.name;
+                        if (symName == name) {
+                            return original;
+                        }
+                    }
+                }
+            }
             return undefined;
         } else if (scope instanceof StateVarScope) {
             const prop = scope.annotation;
@@ -301,6 +325,12 @@ export function lookupVarDef(name: string, ctx: STypingCtx): VarDefSite | undefi
         } else if (scope instanceof SForAll) {
             if (scope.iteratorVariable.name == name) {
                 return scope;
+            }
+        } else if (scope instanceof VariableDeclarationStatement) {
+            for (const decl of scope.vDeclarations) {
+                if (decl.name === name) {
+                    return decl;
+                }
             }
         } else {
             for (let bindingIdx = 0; bindingIdx < scope.lhs.length; bindingIdx++) {
@@ -344,27 +374,56 @@ function resolveTypeDef(
             }
         }
 
-        if (scope instanceof Array) {
-            for (const sourceUnit of scope) {
-                // Check if this is a globally defined struct or enum
+        if (scope instanceof SourceUnit) {
+            const resolveUnitScope = (
+                unit: SourceUnit
+            ): StructDefinition | EnumDefinition | ContractDefinition | undefined => {
+                // Check if this is a struct or an enum in the SourceUnit
                 for (const def of (
-                    sourceUnit.vStructs as Array<StructDefinition | EnumDefinition>
-                ).concat(sourceUnit.vEnums)) {
+                    unit.vStructs as Array<StructDefinition | EnumDefinition>
+                ).concat(unit.vEnums)) {
                     if (def.name === name) {
                         return def;
                     }
                 }
-            }
 
-            // Finally check if this is a contract/library name
-            for (const sourceUnit of scope) {
-                // Check if this is a globally defined struct or enum
-                for (const contract of sourceUnit.vContracts) {
+                // Check if this is a contract/interface/library name in the source unit
+                for (const contract of unit.vContracts) {
                     if (contract.name === name) {
                         return contract;
                     }
                 }
-            }
+
+                // Check if this is an imported struct/enum/contract
+                for (const impDef of unit.vImportDirectives) {
+                    // Imports all symbols from target
+                    if (impDef.unitAlias === "" && impDef.vSymbolAliases.length === 0) {
+                        const defined = resolveUnitScope(impDef.vSourceUnit);
+                        if (defined !== undefined) {
+                            return defined;
+                        }
+                    }
+
+                    // Imports specific symbols (with potential aliases)
+                    for (const sym of impDef.vSymbolAliases) {
+                        const [original, alias] = sym;
+                        if (
+                            original instanceof ContractDefinition ||
+                            original instanceof StructDefinition ||
+                            original instanceof EnumDefinition
+                        ) {
+                            const symName = alias !== undefined ? alias : original.name;
+                            if (symName === name) {
+                                return original;
+                            }
+                        }
+                    }
+                }
+
+                return undefined;
+            };
+
+            return resolveUnitScope(scope);
         }
     }
 
@@ -384,8 +443,10 @@ function getVarLocation(astV: VariableDeclaration, baseLoc?: DataLocation): Data
         return astV.storageLocation;
     }
 
+    const scope = astV.vScope;
+
     // State variable case - must be in storage
-    if (astV.vScope instanceof ContractDefinition) {
+    if (scope instanceof ContractDefinition) {
         return DataLocation.Storage;
     }
 
@@ -394,18 +455,22 @@ function getVarLocation(astV: VariableDeclaration, baseLoc?: DataLocation): Data
     }
 
     // Either function argument/return or local variables
-    if (astV.vScope instanceof FunctionDefinition) {
+    if (scope instanceof FunctionDefinition) {
         assert(
             !(astV.parent instanceof VariableDeclarationStatement),
             `Scribble shouldn't look at local vars`
         );
         // Function args/returns have default memory locations for public/internal and calldata for external.
-        return astV.vScope.visibility === FunctionVisibility.External
+        return scope.visibility === FunctionVisibility.External
             ? DataLocation.CallData
             : DataLocation.Memory;
     }
 
-    throw new Error(`NYI variables with scope ${astV.vScope.print()}`);
+    if (scope instanceof Block || scope instanceof UncheckedBlock) {
+        return DataLocation.Memory;
+    }
+
+    throw new Error(`NYI variables with scope ${scope.print()}`);
 }
 
 export function astVarToTypeNode(astV: VariableDeclaration, baseLoc?: DataLocation): TypeNode {
@@ -435,64 +500,115 @@ function sortContracts(contracts: ContractDefinition[]): ContractDefinition[] {
         }
     }
 
-    return topoSort(contracts, order);
+    return order.length > 0 ? topoSort(contracts, order) : contracts;
+}
+
+/**
+ * Get the typing context corresponding to `target` (and compiler version `version`).
+ * Note this code should work for both 0.4.x and >0.4.x variable resolution.
+ */
+function getTypeCtx(target: AnnotationTarget, version: string): STypingCtx {
+    // TODO(dimo): Repeated calls to this are inefficient due to the indexOf below. For now
+    // I think we will call this infrequently enough so it doesn't matter much. But fix in
+    // long term
+
+    const res: STypingCtx = [];
+    let cur: ASTNode | undefined = target;
+    do {
+        if (cur instanceof SourceUnit) {
+            res.unshift(cur);
+            cur = undefined;
+        } else if (
+            cur instanceof FunctionDefinition ||
+            cur instanceof ContractDefinition ||
+            (cur instanceof VariableDeclaration && cur.stateVariable)
+        ) {
+            if (!(cur instanceof VariableDeclaration)) {
+                res.unshift(cur);
+            }
+
+            cur = cur.vScope;
+        } else {
+            const pt: ASTNode | undefined = cur.parent;
+
+            if (pt instanceof Block || pt instanceof UncheckedBlock) {
+                if (gte(version, "0.5.0")) {
+                    for (const nd of pt.getChildrenByType(VariableDeclarationStatement)) {
+                        res.unshift(nd);
+                    }
+                } else {
+                    let idx = pt.children.indexOf(cur);
+                    for (let i = idx - 1; idx >= 0; idx--) {
+                        const sibling = pt.children[i];
+                        if (sibling instanceof VariableDeclarationStatement) {
+                            res.unshift(sibling);
+                        }
+                    }
+                }
+            } else if (pt instanceof ForStatement) {
+                if (
+                    pt.vInitializationExpression instanceof VariableDeclarationStatement &&
+                    (cur == pt.vBody || cur == pt.vLoopExpression)
+                ) {
+                    res.unshift(pt.vInitializationExpression);
+                }
+            }
+
+            cur = pt;
+        }
+    } while (cur !== undefined);
+
+    return res;
 }
 
 export function tcUnits(units: SourceUnit[], annotMap: AnnotationMap, typeEnv: TypeEnv): void {
     let contracts: ContractDefinition[] = [];
-    const ctx: STypingCtx = [units];
+    let targets: AnnotationTarget[] = [];
 
-    const tcHelper = (
-        annotationMD: AnnotationMetaData,
-        ctx: STypingCtx,
-        target: AnnotationTarget
-    ): void => {
-        try {
-            tcAnnotation(annotationMD.parsedAnnot, ctx, target, typeEnv);
-        } catch (e) {
-            // Add the annotation metadata to the exception for pretty-printing
-            if (e instanceof STypeError) {
-                e.annotationMetaData = annotationMD;
-            }
-
-            throw e;
-        }
-    };
-
-    // Gather all contracts. buildAnnotationsMap() checks that free
-    // functions/file level constants don't have annotations so we can ignore them.
+    // First gather all the targets
     for (const unit of units) {
-        contracts.push(...unit.vContracts);
+        for (const child of unit.getChildrenBySelector(
+            (node) =>
+                (node instanceof FunctionDefinition && node.vScope instanceof ContractDefinition) ||
+                node instanceof ContractDefinition ||
+                (node instanceof VariableDeclaration && node.stateVariable) ||
+                node instanceof Statement
+        )) {
+            const target = child as AnnotationTarget;
+            const annots = annotMap.get(target);
+
+            // We include all contracts so that we can perform the topo sort (as it may depend on contracts without annotations)
+            if (target instanceof ContractDefinition) {
+                contracts.push(target);
+            } else {
+                if (annots !== undefined && annots.length > 0) {
+                    targets.push(target);
+                }
+            }
+        }
     }
 
-    // Sort contracts in topological order of inheritance. This way
-    // user-defined functions in base contracts are added to the type environment
-    // before annotations in child contracts
+    // Sort contracts topologically and prepend them to targets
     contracts = sortContracts(contracts);
-    for (const contract of contracts) {
-        ctx.push(contract);
-        // First type-check contract-level annotations
-        for (const contractAnnot of annotMap.get(contract) as AnnotationMetaData[]) {
-            tcHelper(contractAnnot, ctx, contract);
-        }
+    targets = [...contracts, ...targets];
 
-        // Next type-check any state var annotations
-        for (const stateVar of contract.vStateVariables) {
-            for (const svAnnot of annotMap.get(stateVar) as AnnotationMetaData[]) {
-                // The if_updated scope is pushed on ctx inside tcAnnotation
-                tcHelper(svAnnot, ctx, stateVar);
+    // Walk over all targets, and TC the annotations for each target
+    for (const target of targets) {
+        const typingCtx = getTypeCtx(target, typeEnv.compilerVersion);
+        const annotations = annotMap.get(target) as AnnotationMetaData[];
+
+        for (const annotationMD of annotations) {
+            try {
+                tcAnnotation(annotationMD.parsedAnnot, typingCtx, target, typeEnv);
+            } catch (e) {
+                // Add the annotation metadata to the exception for pretty-printing
+                if (e instanceof STypeError) {
+                    e.annotationMetaData = annotationMD;
+                }
+
+                throw e;
             }
         }
-
-        // Finally type-check any function annotations
-        for (const funDef of contract.vFunctions) {
-            ctx.push(funDef);
-            for (const funAnnot of annotMap.get(funDef) as AnnotationMetaData[]) {
-                tcHelper(funAnnot, ctx, funDef);
-            }
-            ctx.pop();
-        }
-        ctx.pop();
     }
 }
 
