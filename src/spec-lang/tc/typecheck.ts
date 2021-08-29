@@ -527,7 +527,6 @@ export function getTypeCtx(target: AnnotationTarget, version: string): STypingCt
             cur = cur.vScope;
         } else {
             const pt: ASTNode | undefined = cur.parent;
-            const ptChildren = pt.children;
 
             if (pt instanceof Block || pt instanceof UncheckedBlock) {
                 if (gte(version, "0.5.0")) {
@@ -537,6 +536,7 @@ export function getTypeCtx(target: AnnotationTarget, version: string): STypingCt
                         res.unshift(nd as VariableDeclarationStatement);
                     }
                 } else {
+                    const ptChildren = pt.children;
                     const curIdx = ptChildren.indexOf(cur);
                     for (let i = curIdx - 1; i >= 0; i--) {
                         const sibling = ptChildren[i];
