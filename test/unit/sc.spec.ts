@@ -454,7 +454,8 @@ describe("SemanticChecker Annotation Unit Tests", () => {
                 ["if_updated old(sV) < sV;", ["Foo", "sV"]],
                 ["if_assigned old(sV) < sV;", ["Foo", "sV"]],
                 ["if_succeeds old(y) + y > add;", ["Foo", "add"]],
-                ["invariant sV > 0;", ["Foo"]]
+                ["invariant sV > 0;", ["Foo"]],
+                ["assert x> 0 && y < 10 && sV > 1;", ["Foo", "add", "//Block/*[1]"]]
             ]
         ]
     ];
@@ -482,7 +483,8 @@ describe("SemanticChecker Annotation Unit Tests", () => {
                 ["if_succeeds let x := y in old(x) > 0;", ["Foo", "add"]],
                 ["invariant old(sV) > 0;", ["Foo"]],
                 ["define foo(uint x) uint = old(x);", ["Foo"]],
-                ["define foo() uint = old(sV);", ["Foo"]]
+                ["define foo() uint = old(sV);", ["Foo"]],
+                ["assert old(x) > 0;", ["Foo", "add", "//Block/*[1]"]]
             ]
         ]
     ];
