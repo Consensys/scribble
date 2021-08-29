@@ -22,6 +22,7 @@ import {
     IntType,
     Mapping,
     MappingType,
+    ParameterList,
     PointerType,
     resolveByName,
     SourceUnit,
@@ -455,22 +456,18 @@ function getVarLocation(astV: VariableDeclaration, baseLoc?: DataLocation): Data
     }
 
     // Either function argument/return or local variables
-    if (scope instanceof FunctionDefinition) {
-        assert(
-            !(astV.parent instanceof VariableDeclarationStatement),
-            `Scribble shouldn't look at local vars`
-        );
+    if (scope instanceof FunctionDefinition && astV.parent instanceof ParameterList) {
         // Function args/returns have default memory locations for public/internal and calldata for external.
         return scope.visibility === FunctionVisibility.External
             ? DataLocation.CallData
             : DataLocation.Memory;
     }
 
-    if (scope instanceof Block || scope instanceof UncheckedBlock) {
+    if (astV.parent instanceof VariableDeclarationStatement) {
         return DataLocation.Memory;
     }
 
-    throw new Error(`NYI variables with scope ${scope.print()}`);
+    throw new Error(`NYI variables with scope ${scope.print()} for var ${astV.name}`);
 }
 
 export function astVarToTypeNode(astV: VariableDeclaration, baseLoc?: DataLocation): TypeNode {
@@ -507,7 +504,7 @@ function sortContracts(contracts: ContractDefinition[]): ContractDefinition[] {
  * Get the typing context corresponding to `target` (and compiler version `version`).
  * Note this code should work for both 0.4.x and >0.4.x variable resolution.
  */
-function getTypeCtx(target: AnnotationTarget, version: string): STypingCtx {
+export function getTypeCtx(target: AnnotationTarget, version: string): STypingCtx {
     // TODO(dimo): Repeated calls to this are inefficient due to the indexOf below. For now
     // I think we will call this infrequently enough so it doesn't matter much. But fix in
     // long term
@@ -530,16 +527,20 @@ function getTypeCtx(target: AnnotationTarget, version: string): STypingCtx {
             cur = cur.vScope;
         } else {
             const pt: ASTNode | undefined = cur.parent;
+            const ptChildren = pt.children;
 
             if (pt instanceof Block || pt instanceof UncheckedBlock) {
                 if (gte(version, "0.5.0")) {
-                    for (const nd of pt.getChildrenByType(VariableDeclarationStatement)) {
-                        res.unshift(nd);
+                    for (const nd of pt.children.filter(
+                        (child) => child instanceof VariableDeclarationStatement
+                    )) {
+                        res.unshift(nd as VariableDeclarationStatement);
                     }
                 } else {
-                    let idx = pt.children.indexOf(cur);
-                    for (let i = idx - 1; idx >= 0; idx--) {
-                        const sibling = pt.children[i];
+                    const curIdx = ptChildren.indexOf(cur);
+                    for (let i = curIdx - 1; i >= 0; i--) {
+                        const sibling = ptChildren[i];
+
                         if (sibling instanceof VariableDeclarationStatement) {
                             res.unshift(sibling);
                         }
@@ -548,7 +549,7 @@ function getTypeCtx(target: AnnotationTarget, version: string): STypingCtx {
             } else if (pt instanceof ForStatement) {
                 if (
                     pt.vInitializationExpression instanceof VariableDeclarationStatement &&
-                    (cur == pt.vBody || cur == pt.vLoopExpression)
+                    (cur === pt.vBody || cur === pt.vLoopExpression)
                 ) {
                     res.unshift(pt.vInitializationExpression);
                 }

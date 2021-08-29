@@ -30,9 +30,7 @@ import { parseAnnotation, parseExpression as parse } from "../../src/spec-lang/e
 import { tc, tcAnnotation, TypeEnv } from "../../src/spec-lang/tc";
 import { assert, pp } from "../../src/util";
 import { eq } from "../../src/util/struct_equality";
-import { getTarget, getTypeCtxAndTarget, toAst } from "../integration/utils";
-
-export type LocationDesc = [string, string | undefined];
+import { getTarget, getTypeCtxAndTarget, LocationDesc, toAst } from "../integration/utils";
 
 function findTypeDef(name: string, units: SourceUnit[]): UserDefinition {
     for (const unit of units) {
@@ -175,52 +173,48 @@ describe("TypeChecker Expression Unit Tests", () => {
                 }
             }`,
             [
-                ["uint", ["Foo", undefined], new TypeNameType(new IntType(256, false))],
-                ["int24", ["Foo", undefined], new TypeNameType(new IntType(24, true))],
-                ["byte", ["Foo", undefined], new TypeNameType(new FixedBytesType(1))],
-                ["bytes3", ["Foo", undefined], new TypeNameType(new FixedBytesType(3))],
-                ["string", ["Foo", undefined], new TypeNameType(new StringType())],
-                ["address payable", ["Foo", undefined], new TypeNameType(new AddressType(true))],
-                ["true", ["Foo", undefined], new BoolType()],
-                ["1", ["Foo", undefined], new IntLiteralType()],
-                ["hex'0011ff'", ["Foo", undefined], new StringLiteralType("0011ff", true)],
-                ['hex""', ["Foo", undefined], new StringLiteralType("", true)],
+                ["uint", ["Foo"], new TypeNameType(new IntType(256, false))],
+                ["int24", ["Foo"], new TypeNameType(new IntType(24, true))],
+                ["byte", ["Foo"], new TypeNameType(new FixedBytesType(1))],
+                ["bytes3", ["Foo"], new TypeNameType(new FixedBytesType(3))],
+                ["string", ["Foo"], new TypeNameType(new StringType())],
+                ["address payable", ["Foo"], new TypeNameType(new AddressType(true))],
+                ["true", ["Foo"], new BoolType()],
+                ["1", ["Foo"], new IntLiteralType()],
+                ["hex'0011ff'", ["Foo"], new StringLiteralType("0011ff", true)],
+                ['hex""', ["Foo"], new StringLiteralType("", true)],
                 [
                     '"abc \\" \\u0000 \\x01 Def "',
-                    ["Foo", undefined],
+                    ["Foo"],
                     new StringLiteralType('abc " \u0000 \x01 Def ', false)
                 ],
-                ["''", ["Foo", undefined], new StringLiteralType("", false)],
-                ["1e10", ["Foo", undefined], new IntLiteralType()],
-                ["10e+5", ["Foo", undefined], new IntLiteralType()],
-                ["1000e-2", ["Foo", undefined], new IntLiteralType()],
-                [
-                    "0xAaaaAaAAaaaAAaAAaAaaaaAAAAAaAaaaAaAaaAA0",
-                    ["Foo", undefined],
-                    new AddressType(true)
-                ],
+                ["''", ["Foo"], new StringLiteralType("", false)],
+                ["1e10", ["Foo"], new IntLiteralType()],
+                ["10e+5", ["Foo"], new IntLiteralType()],
+                ["1000e-2", ["Foo"], new IntLiteralType()],
+                ["0xAaaaAaAAaaaAAaAAaAaaaaAAAAAaAaaaAaAaaAA0", ["Foo"], new AddressType(true)],
                 [
                     "0xAaaaAaAAaaaAAaAAaAaaaaAAAAAaAaaaAaAaaAA0.balance",
-                    ["Foo", undefined],
+                    ["Foo"],
                     new IntType(256, false)
                 ],
-                ["sV", ["Foo", undefined], new IntType(256, false)],
-                ["sV1", ["Foo", undefined], new IntType(128, true)],
-                ["sA", ["Foo", undefined], new AddressType(false)],
+                ["sV", ["Foo"], new IntType(256, false)],
+                ["sV1", ["Foo"], new IntType(128, true)],
+                ["sA", ["Foo"], new AddressType(false)],
                 ["sA1", ["Foo", "add"], new AddressType(true)],
                 ["x", ["Foo", "add"], new IntType(8, true)],
                 ["y", ["Foo", "add"], new IntType(64, false)],
                 ["add", ["Foo", "add"], new IntType(64, false)],
                 ["-x", ["Foo", "add"], new IntType(8, true)],
                 ["-x", ["Foo", "add"], new IntType(8, true)],
-                ["!sB", ["Foo", undefined], new BoolType()],
+                ["!sB", ["Foo"], new BoolType()],
                 ["x+x", ["Foo", "add"], new IntType(8, true)],
                 ["x-16", ["Foo", "add"], new IntType(8, true)],
                 ["24*x", ["Foo", "add"], new IntType(8, true)],
                 ["x/sV1", ["Foo", "add"], new IntType(128, true)],
                 ["y%123", ["Foo", "add"], new IntType(64, false)],
                 ["33%5", ["Foo", "add"], new IntLiteralType()],
-                ["3**2", ["Foo", undefined], new IntLiteralType()],
+                ["3**2", ["Foo"], new IntLiteralType()],
                 ["y**2", ["Foo", "add"], new IntType(64, false)],
                 ["2**y", ["Foo", "add"], new IntType(64, false)],
                 ["y**sV", ["Foo", "add"], new IntType(64, false)],
@@ -240,23 +234,23 @@ describe("TypeChecker Expression Unit Tests", () => {
                 ["5 | 1235", ["Foo", "add"], new IntLiteralType()],
                 ["5 & x", ["Foo", "add"], new IntType(8, true)],
                 ["y ^ sV", ["Foo", "add"], new IntType(256, false)],
-                ["sB || sB", ["Foo", undefined], new BoolType()],
-                ["true && false", ["Foo", undefined], new BoolType()],
-                ["true ==> sB", ["Foo", undefined], new BoolType()],
-                ["true ? 1 : 2", ["Foo", undefined], new IntLiteralType()],
+                ["sB || sB", ["Foo"], new BoolType()],
+                ["true && false", ["Foo"], new BoolType()],
+                ["true ==> sB", ["Foo"], new BoolType()],
+                ["true ? 1 : 2", ["Foo"], new IntLiteralType()],
                 ["sB ? x : 2", ["Foo", "add"], new IntType(8, true)],
                 ["sB ? x : sV1", ["Foo", "add"], new IntType(128, true)],
-                ["sB ? sA1 : sA", ["Foo", undefined], new AddressType(false)],
-                ["sS", ["Foo", undefined], new PointerType(new StringType(), DataLocation.Storage)],
-                ["sBy", ["Foo", undefined], new PointerType(new BytesType(), DataLocation.Storage)],
+                ["sB ? sA1 : sA", ["Foo"], new AddressType(false)],
+                ["sS", ["Foo"], new PointerType(new StringType(), DataLocation.Storage)],
+                ["sBy", ["Foo"], new PointerType(new BytesType(), DataLocation.Storage)],
                 [
                     "sUArr",
-                    ["Foo", undefined],
+                    ["Foo"],
                     new PointerType(new ArrayType(new IntType(256, false)), DataLocation.Storage)
                 ],
                 [
                     "sUFixedArr",
-                    ["Foo", undefined],
+                    ["Foo"],
                     new PointerType(
                         new ArrayType(new IntType(256, false), BigInt(5)),
                         DataLocation.Storage
@@ -264,12 +258,12 @@ describe("TypeChecker Expression Unit Tests", () => {
                 ],
                 [
                     "sI64Arr",
-                    ["Foo", undefined],
+                    ["Foo"],
                     new PointerType(new ArrayType(new IntType(64, true)), DataLocation.Storage)
                 ],
                 [
                     "sNestedArr",
-                    ["Foo", undefined],
+                    ["Foo"],
                     new PointerType(
                         new ArrayType(
                             new PointerType(
@@ -280,8 +274,8 @@ describe("TypeChecker Expression Unit Tests", () => {
                         DataLocation.Storage
                     )
                 ],
-                ["sFB32", ["Foo", undefined], new FixedBytesType(32)],
-                ["sFB16", ["Foo", undefined], new FixedBytesType(16)],
+                ["sFB32", ["Foo"], new FixedBytesType(32)],
+                ["sFB16", ["Foo"], new FixedBytesType(16)],
                 [
                     "mUArr",
                     ["Foo", "foo"],
@@ -289,118 +283,106 @@ describe("TypeChecker Expression Unit Tests", () => {
                 ],
                 ["mBy", ["Foo", "foo"], new PointerType(new BytesType(), DataLocation.Memory)],
                 ["mS", ["Foo", "foo"], new PointerType(new StringType(), DataLocation.Memory)],
-                ["sBy[1]", ["Foo", undefined], new FixedBytesType(1)],
-                ["sBy[sV]", ["Foo", undefined], new FixedBytesType(1)],
-                ["sBy[sV1]", ["Foo", undefined], new FixedBytesType(1)],
-                ["sFB32[4]", ["Foo", undefined], new IntType(8, false)],
-                ["sFB32[sV1]", ["Foo", undefined], new IntType(8, false)],
-                ["sUArr[sV]", ["Foo", undefined], new IntType(256, false)],
-                ["sUFixedArr[sV]", ["Foo", undefined], new IntType(256, false)],
-                ["sI64Arr[sV]", ["Foo", undefined], new IntType(64, true)],
+                ["sBy[1]", ["Foo"], new FixedBytesType(1)],
+                ["sBy[sV]", ["Foo"], new FixedBytesType(1)],
+                ["sBy[sV1]", ["Foo"], new FixedBytesType(1)],
+                ["sFB32[4]", ["Foo"], new IntType(8, false)],
+                ["sFB32[sV1]", ["Foo"], new IntType(8, false)],
+                ["sUArr[sV]", ["Foo"], new IntType(256, false)],
+                ["sUFixedArr[sV]", ["Foo"], new IntType(256, false)],
+                ["sI64Arr[sV]", ["Foo"], new IntType(64, true)],
                 [
                     "sNestedArr[sV]",
-                    ["Foo", undefined],
+                    ["Foo"],
                     new PointerType(new ArrayType(new IntType(8, false)), DataLocation.Storage)
                 ],
-                ["sNestedArr[sV][0]", ["Foo", undefined], new IntType(8, false)],
-                ["sM[0]", ["Foo", undefined], new IntType(64, true)],
-                ["sM[u32a]", ["Foo", undefined], new IntType(64, true)],
-                ["sM[sNestedArr[0][0]]", ["Foo", undefined], new IntType(64, true)],
+                ["sNestedArr[sV][0]", ["Foo"], new IntType(8, false)],
+                ["sM[0]", ["Foo"], new IntType(64, true)],
+                ["sM[u32a]", ["Foo"], new IntType(64, true)],
+                ["sM[sNestedArr[0][0]]", ["Foo"], new IntType(64, true)],
                 [
                     "sFoo",
-                    ["Foo", undefined],
+                    ["Foo"],
                     (units) =>
                         new PointerType(
                             new UserDefinedType("Foo.SFoo", findTypeDef("SFoo", units)),
                             DataLocation.Storage
                         )
                 ],
-                [
-                    "sBoo",
-                    ["Foo", undefined],
-                    (units) => new UserDefinedType("Boo", findTypeDef("Boo", units))
-                ],
-                ["sFoo.x", ["Foo", undefined], new IntType(256, false)],
-                ["sFoo.a", ["Foo", undefined], new AddressType(false)],
-                ["sFoo.a.balance", ["Foo", undefined], new IntType(256, false)],
-                ["sBoo.balance", ["Foo", undefined], new IntType(256, false)],
-                [
-                    "sFoo.s",
-                    ["Foo", undefined],
-                    new PointerType(new StringType(), DataLocation.Storage)
-                ],
+                ["sBoo", ["Foo"], (units) => new UserDefinedType("Boo", findTypeDef("Boo", units))],
+                ["sFoo.x", ["Foo"], new IntType(256, false)],
+                ["sFoo.a", ["Foo"], new AddressType(false)],
+                ["sFoo.a.balance", ["Foo"], new IntType(256, false)],
+                ["sBoo.balance", ["Foo"], new IntType(256, false)],
+                ["sFoo.s", ["Foo"], new PointerType(new StringType(), DataLocation.Storage)],
                 [
                     "sMoo",
-                    ["Foo", undefined],
+                    ["Foo"],
                     (units) =>
                         new PointerType(
                             new UserDefinedType("Foo.SMoo", findTypeDef("SMoo", units)),
                             DataLocation.Storage
                         )
                 ],
-                ["sMoo.foo.x", ["Foo", undefined], new IntType(256, false)],
-                [
-                    "goos[0].f2",
-                    ["Foo", undefined],
-                    new PointerType(new BytesType(), DataLocation.Storage)
-                ],
-                ["address(0x0).balanceOf()", ["Foo", undefined], new IntType(256, false)],
-                ["this.balanceOf2()", ["Foo", undefined], new IntType(256, false)],
-                ["add(5,5)", ["Foo", undefined], new IntType(64, false)],
+                ["sMoo.foo.x", ["Foo"], new IntType(256, false)],
+                ["goos[0].f2", ["Foo"], new PointerType(new BytesType(), DataLocation.Storage)],
+                ["address(0x0).balanceOf()", ["Foo"], new IntType(256, false)],
+                ["this.balanceOf2()", ["Foo"], new IntType(256, false)],
+                ["add(5,5)", ["Foo"], new IntType(64, false)],
                 ["old(5)", ["Foo", "add"], new IntLiteralType()],
                 ["old(sV1)", ["Foo", "add"], new IntType(128, true)],
                 ["old(sA)", ["Foo", "add"], new AddressType(false)],
-                ["this.add(5,5)", ["Foo", undefined], new IntType(64, false)],
-                ["sBoo.foo(5)", ["Foo", undefined], new IntType(256, false)],
+                ["this.add(5,5)", ["Foo"], new IntType(64, false)],
+                ["sBoo.foo(5)", ["Foo"], new IntType(256, false)],
                 [
                     "IFace(address(0x0))",
-                    ["Foo", undefined],
+                    ["Foo"],
                     (units) => new UserDefinedType("IFace", findTypeDef("IFace", units))
                 ],
                 [
                     "IFace(address(0x0)).imoo(5,10)",
-                    ["Foo", undefined],
+                    ["Foo"],
                     new TupleType([
                         new AddressType(false),
                         new PointerType(new StringType(), DataLocation.Memory)
                     ])
                 ],
-                ["uint256(u32a)", ["Foo", undefined], new IntType(256, false)],
-                ["int256(u32a)", ["Foo", undefined], new IntType(256, true)],
-                ["bytes32(uint256(u32a))", ["Foo", undefined], new FixedBytesType(32)],
+                ["uint256(u32a)", ["Foo"], new IntType(256, false)],
+                ["int256(u32a)", ["Foo"], new IntType(256, true)],
+                ["bytes32(uint256(u32a))", ["Foo"], new FixedBytesType(32)],
                 [
                     "FooEnum(0)",
-                    ["Foo", undefined],
+                    ["Foo"],
                     (units) => new UserDefinedType("Foo.FooEnum", findTypeDef("FooEnum", units))
                 ],
                 [
                     "Foo(address(0x0))",
-                    ["Foo", undefined],
+                    ["Foo"],
                     (units) => new UserDefinedType("Foo", findTypeDef("Foo", units))
                 ],
-                ["Lib.ladd(u32a, u32b)", ["Foo", undefined], new IntType(32, false)],
-                ["u32a.ladd(u32b)", ["Foo", undefined], new IntType(32, false)],
-                ["sS.len()", ["Foo", undefined], new IntType(256, false)],
-                ["sV1.foo()", ["Foo", undefined], new BoolType()],
+                ["Lib.ladd(u32a, u32b)", ["Foo"], new IntType(32, false)],
+                ["u32a.ladd(u32b)", ["Foo"], new IntType(32, false)],
+                ["sS.len()", ["Foo"], new IntType(256, false)],
+                ["sV1.foo()", ["Foo"], new BoolType()],
                 [
                     "FooEnum.D",
-                    ["Foo", undefined],
+                    ["Foo"],
                     (units) => new UserDefinedType("Foo.FooEnum", findTypeDef("FooEnum", units))
                 ],
                 [
                     "GlobalEnum.A",
-                    ["Foo", undefined],
+                    ["Foo"],
                     (units) => new UserDefinedType("GlobalEnum", findTypeDef("GlobalEnum", units))
                 ],
                 [
                     "Boo.BooEnum.G",
-                    ["Foo", undefined],
+                    ["Foo"],
                     (units) => new UserDefinedType("Boo.BooEnum", findTypeDef("BooEnum", units))
                 ],
-                ["sA.balance", ["Foo", undefined], new IntType(256, false)],
+                ["sA.balance", ["Foo"], new IntType(256, false)],
                 [
                     "sA.staticcall",
-                    ["Foo", undefined],
+                    ["Foo"],
                     new FunctionType(
                         undefined,
                         [new PointerType(new BytesType(), DataLocation.Memory)],
@@ -409,24 +391,20 @@ describe("TypeChecker Expression Unit Tests", () => {
                         FunctionStateMutability.View
                     )
                 ],
-                ["block.coinbase", ["Foo", undefined], new AddressType(true)],
-                ["block.difficulty", ["Foo", undefined], new IntType(256, false)],
-                ["block.gaslimit", ["Foo", undefined], new IntType(256, false)],
-                ["block.number", ["Foo", undefined], new IntType(256, false)],
-                ["block.timestamp", ["Foo", undefined], new IntType(256, false)],
-                [
-                    "msg.data",
-                    ["Foo", undefined],
-                    new PointerType(new BytesType(), DataLocation.CallData)
-                ],
-                ["msg.sender", ["Foo", undefined], new AddressType(true)],
-                ["msg.sig", ["Foo", undefined], new FixedBytesType(4)],
-                ["msg.value", ["Foo", undefined], new IntType(256, false)],
-                ["tx.gasprice", ["Foo", undefined], new IntType(256, false)],
-                ["tx.origin", ["Foo", undefined], new AddressType(true)],
+                ["block.coinbase", ["Foo"], new AddressType(true)],
+                ["block.difficulty", ["Foo"], new IntType(256, false)],
+                ["block.gaslimit", ["Foo"], new IntType(256, false)],
+                ["block.number", ["Foo"], new IntType(256, false)],
+                ["block.timestamp", ["Foo"], new IntType(256, false)],
+                ["msg.data", ["Foo"], new PointerType(new BytesType(), DataLocation.CallData)],
+                ["msg.sender", ["Foo"], new AddressType(true)],
+                ["msg.sig", ["Foo"], new FixedBytesType(4)],
+                ["msg.value", ["Foo"], new IntType(256, false)],
+                ["tx.gasprice", ["Foo"], new IntType(256, false)],
+                ["tx.origin", ["Foo"], new AddressType(true)],
                 [
                     "blockhash",
-                    ["Foo", undefined],
+                    ["Foo"],
                     new FunctionType(
                         undefined,
                         [new IntType(256, false)],
@@ -437,7 +415,7 @@ describe("TypeChecker Expression Unit Tests", () => {
                 ],
                 [
                     "gasleft",
-                    ["Foo", undefined],
+                    ["Foo"],
                     new FunctionType(
                         undefined,
                         [],
@@ -448,7 +426,7 @@ describe("TypeChecker Expression Unit Tests", () => {
                 ],
                 [
                     "now",
-                    ["Foo", undefined],
+                    ["Foo"],
                     new FunctionType(
                         undefined,
                         [],
@@ -459,7 +437,7 @@ describe("TypeChecker Expression Unit Tests", () => {
                 ],
                 [
                     "addmod",
-                    ["Foo", undefined],
+                    ["Foo"],
                     new FunctionType(
                         undefined,
                         [new IntType(256, false), new IntType(256, false), new IntType(256, false)],
@@ -470,7 +448,7 @@ describe("TypeChecker Expression Unit Tests", () => {
                 ],
                 [
                     "mulmod",
-                    ["Foo", undefined],
+                    ["Foo"],
                     new FunctionType(
                         undefined,
                         [new IntType(256, false), new IntType(256, false), new IntType(256, false)],
@@ -481,7 +459,7 @@ describe("TypeChecker Expression Unit Tests", () => {
                 ],
                 [
                     "keccak256",
-                    ["Foo", undefined],
+                    ["Foo"],
                     new FunctionType(
                         undefined,
                         [new PointerType(new BytesType(), DataLocation.Memory)],
@@ -492,7 +470,7 @@ describe("TypeChecker Expression Unit Tests", () => {
                 ],
                 [
                     "sha256",
-                    ["Foo", undefined],
+                    ["Foo"],
                     new FunctionType(
                         undefined,
                         [new PointerType(new BytesType(), DataLocation.Memory)],
@@ -503,7 +481,7 @@ describe("TypeChecker Expression Unit Tests", () => {
                 ],
                 [
                     "ripemd160",
-                    ["Foo", undefined],
+                    ["Foo"],
                     new FunctionType(
                         undefined,
                         [new PointerType(new BytesType(), DataLocation.Memory)],
@@ -514,7 +492,7 @@ describe("TypeChecker Expression Unit Tests", () => {
                 ],
                 [
                     "ecrecover",
-                    ["Foo", undefined],
+                    ["Foo"],
                     new FunctionType(
                         undefined,
                         [
@@ -534,8 +512,8 @@ describe("TypeChecker Expression Unit Tests", () => {
                     ["Foo", "idPair"],
                     new TupleType([new IntType(256, false), new IntType(256, false)])
                 ],
-                ["unchecked_sum(sM)", ["Foo", undefined], new IntType(256, true)],
-                ["unchecked_sum(sI64Arr)", ["Foo", undefined], new IntType(256, true)]
+                ["unchecked_sum(sM)", ["Foo"], new IntType(256, true)],
+                ["unchecked_sum(sI64Arr)", ["Foo"], new IntType(256, true)]
             ]
         ],
         [
@@ -546,13 +524,7 @@ describe("TypeChecker Expression Unit Tests", () => {
                 address public addr;
             }
             `,
-            [
-                [
-                    "addr.code",
-                    ["Some", undefined],
-                    new PointerType(new BytesType(), DataLocation.Memory)
-                ]
-            ]
+            [["addr.code", ["Some"], new PointerType(new BytesType(), DataLocation.Memory)]]
         ]
     ];
 
@@ -607,23 +579,23 @@ describe("TypeChecker Expression Unit Tests", () => {
                 function noReturn(uint x) public {}
             }`,
             [
-                ["int23", ["Foo", undefined]],
-                ["int264", ["Foo", undefined]],
-                ["bytes33", ["Foo", undefined]],
-                ["sMissing", ["Foo", undefined]],
+                ["int23", ["Foo"]],
+                ["int264", ["Foo"]],
+                ["bytes33", ["Foo"]],
+                ["sMissing", ["Foo"]],
                 ["sMissing", ["Foo", "add"]],
-                ["x", ["Foo", undefined]],
-                ["!sV", ["Foo", undefined]],
-                ["-sA", ["Foo", undefined]],
-                ["x+y", ["Foo", undefined]],
-                ["sV1/sV", ["Foo", undefined]],
-                ["sV1%sA", ["Foo", undefined]],
-                ["sV**sV1", ["Foo", undefined]],
-                ["2**sV1", ["Foo", undefined]],
-                ["x<<sA", ["Foo", undefined]],
-                ["sA<<x", ["Foo", undefined]],
-                ["x<<x", ["Foo", undefined]],
-                ["x<<5", ["Foo", undefined]],
+                ["x", ["Foo"]],
+                ["!sV", ["Foo"]],
+                ["-sA", ["Foo"]],
+                ["x+y", ["Foo"]],
+                ["sV1/sV", ["Foo"]],
+                ["sV1%sA", ["Foo"]],
+                ["sV**sV1", ["Foo"]],
+                ["2**sV1", ["Foo"]],
+                ["x<<sA", ["Foo"]],
+                ["sA<<x", ["Foo"]],
+                ["x<<x", ["Foo"]],
+                ["x<<5", ["Foo"]],
                 ["y<=sV1", ["Foo", "add"]],
                 ["sA>sA", ["Foo", "add"]],
                 ["sA==x", ["Foo", "add"]],
@@ -635,34 +607,34 @@ describe("TypeChecker Expression Unit Tests", () => {
                 ["b || sV", ["Foo", "add"]],
                 ["sA && true", ["Foo", "add"]],
                 ["x ? 1 : 2", ["Foo", "add"]],
-                ["sS[1]", ["Foo", undefined]],
-                ["sV[1]", ["Foo", undefined]],
-                ["sM[sV]", ["Foo", undefined]],
-                ["sM[sV1]", ["Foo", undefined]],
-                ["sM[sA]", ["Foo", undefined]],
-                ["sV1.balance", ["Foo", undefined]],
-                ["add(5)", ["Foo", undefined]],
-                ["add(5, true)", ["Foo", undefined]],
-                ["add(5, int256(5))", ["Foo", undefined]],
-                ["noFunc(5, 5)", ["Foo", undefined]],
+                ["sS[1]", ["Foo"]],
+                ["sV[1]", ["Foo"]],
+                ["sM[sV]", ["Foo"]],
+                ["sM[sV1]", ["Foo"]],
+                ["sM[sA]", ["Foo"]],
+                ["sV1.balance", ["Foo"]],
+                ["add(5)", ["Foo"]],
+                ["add(5, true)", ["Foo"]],
+                ["add(5, int256(5))", ["Foo"]],
+                ["noFunc(5, 5)", ["Foo"]],
                 // @todo This should not type check. Fix later on
-                //["IFace.imoo(5,10)", ["Foo", undefined]],
-                ["Lib.ladd(sV1, sV1)", ["Foo", undefined]],
-                ["sBoo.a", ["Foo", undefined]],
-                ["sBoo.s", ["Foo", undefined]],
-                ["sBoo.str", ["Foo", undefined]],
-                ["sA.foo()", ["Foo", undefined]],
-                ["FooEnum.X", ["Foo", undefined]],
-                ["BooEnum.G", ["Foo", undefined]],
-                ["sA.any", ["Foo", undefined]],
-                ["block.any", ["Foo", undefined]],
-                ["msg.any", ["Foo", undefined]],
-                ["tx.any", ["Foo", undefined]],
-                ["$result", ["Foo", undefined]],
+                //["IFace.imoo(5,10)", ["Foo"]],
+                ["Lib.ladd(sV1, sV1)", ["Foo"]],
+                ["sBoo.a", ["Foo"]],
+                ["sBoo.s", ["Foo"]],
+                ["sBoo.str", ["Foo"]],
+                ["sA.foo()", ["Foo"]],
+                ["FooEnum.X", ["Foo"]],
+                ["BooEnum.G", ["Foo"]],
+                ["sA.any", ["Foo"]],
+                ["block.any", ["Foo"]],
+                ["msg.any", ["Foo"]],
+                ["tx.any", ["Foo"]],
+                ["$result", ["Foo"]],
                 ["$result", ["Foo", "noReturn"]],
-                ["forall (string x in 0...100) x > 0", ["Foo", undefined]],
-                ["forall (uint x in sV) x > 0", ["Foo", undefined]],
-                ["unchecked_sum(sV)", ["Foo", undefined]]
+                ["forall (string x in 0...100) x > 0", ["Foo"]],
+                ["forall (uint x in sV) x > 0", ["Foo"]],
+                ["unchecked_sum(sV)", ["Foo"]]
             ]
         ],
         [
@@ -673,7 +645,7 @@ describe("TypeChecker Expression Unit Tests", () => {
                 address public addr;
             }
             `,
-            [["addr.code", ["Some", undefined]]]
+            [["addr.code", ["Some"]]]
         ]
     ];
 
@@ -692,7 +664,7 @@ describe("TypeChecker Expression Unit Tests", () => {
             for (const [specString, loc, expected] of testCases) {
                 it(`Typecheck for ${specString}`, () => {
                     const expectedType = expected instanceof TypeNode ? expected : expected(units);
-                    const [typeCtx, target] = getTypeCtxAndTarget(loc, units);
+                    const [typeCtx, target] = getTypeCtxAndTarget(loc, units, compilerVersion);
                     const parsed = parse(specString, target, compilerVersion);
                     const typeEnv = new TypeEnv(compilerVersion);
                     const type = tc(parsed, typeCtx, typeEnv);
@@ -722,7 +694,7 @@ describe("TypeChecker Expression Unit Tests", () => {
 
             for (const [specString, loc] of testCases) {
                 it(`Typecheck for ${specString} throws`, () => {
-                    const [typeCtx, target] = getTypeCtxAndTarget(loc, units);
+                    const [typeCtx, target] = getTypeCtxAndTarget(loc, units, compilerVersion);
                     const parsed = parse(specString, target, compilerVersion);
 
                     expect(() => tc(parsed, typeCtx, typeEnv)).toThrow();
@@ -786,7 +758,7 @@ describe("TypeChecker Annotation Tests", () => {
                 ["if_succeeds old(x) + t == x;", ["Base", "plus"], undefined, true],
                 [
                     "define foo() uint = 1;",
-                    ["Base", undefined],
+                    ["Base"],
                     new FunctionType(
                         undefined,
                         [],
@@ -798,7 +770,7 @@ describe("TypeChecker Annotation Tests", () => {
                 ],
                 [
                     "define foo() uint = x;",
-                    ["Base", undefined],
+                    ["Base"],
                     new FunctionType(
                         undefined,
                         [],
@@ -810,7 +782,7 @@ describe("TypeChecker Annotation Tests", () => {
                 ],
                 [
                     "define foo(uint a) uint = x + a;",
-                    ["Base", undefined],
+                    ["Base"],
                     new FunctionType(
                         undefined,
                         [new IntType(256, false)],
@@ -822,7 +794,7 @@ describe("TypeChecker Annotation Tests", () => {
                 ],
                 [
                     "define boo(uint a) uint = plus(foo(a));",
-                    ["Base", undefined],
+                    ["Base"],
                     new FunctionType(
                         undefined,
                         [new IntType(256, false)],
@@ -846,7 +818,7 @@ describe("TypeChecker Annotation Tests", () => {
                 ],
                 [
                     "define moo(uint a) uint = foo(a) + boo(a);",
-                    ["Child", undefined],
+                    ["Child"],
                     new FunctionType(
                         undefined,
                         [new IntType(256, false)],
@@ -924,25 +896,238 @@ describe("TypeChecker Annotation Tests", () => {
                 ],
                 [
                     "invariant forall(bytes memory b in m1) m1[b] > 0;",
-                    ["Unrelated", undefined],
+                    ["Unrelated"],
                     undefined,
                     true
                 ],
                 [
                     "invariant forall(address a in m3) m3[a].sArr.arr.length > 0;",
-                    ["Unrelated", undefined],
+                    ["Unrelated"],
                     undefined,
                     true
                 ],
                 [
                     "invariant forall(address a in m2) forall(bytes storage b in m2[a]) m2[a][b];",
-                    ["Unrelated", undefined],
+                    ["Unrelated"],
+                    undefined,
+                    true
+                ],
+                ["invariant forall(string memory s in m4) m4[s];", ["Unrelated"], undefined, true]
+            ]
+        ],
+        [
+            "statements04.sol",
+            `
+            pragma solidity 0.4.26;
+
+contract Statements04 {
+    int8 sVar;
+    function main(int8 arg1) {
+        int8 loc;
+        
+        loc = 1;
+        
+        if (loc > 0) 
+            loc  = 2;
+        else {
+            int8 t;
+            loc = t+3;
+        }
+        
+        if (loc > 1) {
+            loc = 4;
+        }
+        
+        for(int8 iter = 1; iter < arg1; iter += loc) {
+            loc += 1;
+        }
+        
+        while (loc < 0) {
+            int8 g = 1;
+            loc += g;
+        }
+        
+        {
+            int16 loc2;
+            
+            loc2 += int16(loc);
+        }
+    }
+}
+            `,
+            [
+                ["assert true;", ["Statements04", "main", "//Block/*[1]"], undefined, true],
+                ["assert arg1 > 0;", ["Statements04", "main", "//Block/*[1]"], undefined, true],
+                ["assert arg1 > loc;", ["Statements04", "main", "//Block/*[2]"], undefined, true],
+                ["assert arg1 > loc;", ["Statements04", "main", "//Block/*[3]"], undefined, true],
+                [
+                    "assert arg1 > loc;",
+                    ["Statements04", "main", "//Block/*[3]/ExpressionStatement"],
                     undefined,
                     true
                 ],
                 [
-                    "invariant forall(string memory s in m4) m4[s];",
-                    ["Unrelated", undefined],
+                    "assert arg1 > loc;",
+                    ["Statements04", "main", "//Block/*[3]/Block"],
+                    undefined,
+                    true
+                ],
+                [
+                    "assert arg1 > loc + t;",
+                    ["Statements04", "main", "//Block/*[3]/Block/*[2]"],
+                    undefined,
+                    true
+                ],
+                ["assert arg1 > loc;", ["Statements04", "main", "//Block/*[4]"], undefined, true],
+                [
+                    "assert arg1 > loc;",
+                    ["Statements04", "main", "//Block/*[4]/Block/*[1]"],
+                    undefined,
+                    true
+                ],
+                ["assert arg1 > loc;", ["Statements04", "main", "//Block/*[5]"], undefined, true],
+                [
+                    "assert iter <= arg1;",
+                    ["Statements04", "main", "//Block/*[5]/ExpressionStatement"],
+                    undefined,
+                    true
+                ],
+                [
+                    "assert iter <= arg1;",
+                    ["Statements04", "main", "//Block/*[5]/Block"],
+                    undefined,
+                    true
+                ],
+                [
+                    "assert loc + arg1 > 0;",
+                    ["Statements04", "main", "//Block/*[6]"],
+                    undefined,
+                    true
+                ],
+                [
+                    "assert loc + arg1 > 0;",
+                    ["Statements04", "main", "//Block/*[6]/Block"],
+                    undefined,
+                    true
+                ],
+                [
+                    "assert loc + arg1 + g + sVar> 0;",
+                    ["Statements04", "main", "//Block/*[6]/Block/*[2]"],
+                    undefined,
+                    true
+                ],
+                [
+                    "assert loc + loc2 + sVar> 0;",
+                    ["Statements04", "main", "//Block/*[7]/*[2]"],
+                    undefined,
+                    true
+                ]
+            ]
+        ],
+        [
+            "statements08.sol",
+            `
+            pragma solidity 0.8.7;
+
+contract Statements08 {
+    int8 sVar;
+    function main(int8 arg1) public {
+        int8 loc;
+        
+        loc = 1;
+        
+        if (loc > 0) 
+            loc  = 2;
+        else {
+            int8 t;
+            loc = t+3;
+        }
+        
+        if (loc > 1) {
+            loc = 4;
+        }
+        
+        for(int8 iter = 1; iter < arg1; iter += loc) {
+            loc += 1;
+        }
+        
+        while (loc < 0) {
+            int8 g = 1;
+            loc += g;
+        }
+        
+        {
+            int16 loc2;
+            
+            loc2 += int16(loc);
+        }
+    }
+}
+            `,
+            [
+                ["assert true;", ["Statements08", "main", "//Block/*[1]"], undefined, true],
+                ["assert arg1 > loc;", ["Statements08", "main", "//Block/*[1]"], undefined, true],
+                ["assert arg1 > loc;", ["Statements08", "main", "//Block/*[2]"], undefined, true],
+                ["assert arg1 > loc;", ["Statements08", "main", "//Block/*[3]"], undefined, true],
+                [
+                    "assert arg1 > loc;",
+                    ["Statements08", "main", "//Block/*[3]/ExpressionStatement"],
+                    undefined,
+                    true
+                ],
+                [
+                    "assert arg1 > loc;",
+                    ["Statements08", "main", "//Block/*[3]/Block"],
+                    undefined,
+                    true
+                ],
+                [
+                    "assert arg1 > loc + t;",
+                    ["Statements08", "main", "//Block/*[3]/Block/*[1]"],
+                    undefined,
+                    true
+                ],
+                ["assert arg1 > loc;", ["Statements08", "main", "//Block/*[4]"], undefined, true],
+                [
+                    "assert arg1 > loc;",
+                    ["Statements08", "main", "//Block/*[4]/Block/*[1]"],
+                    undefined,
+                    true
+                ],
+                ["assert arg1 > loc;", ["Statements08", "main", "//Block/*[5]"], undefined, true],
+                [
+                    "assert iter <= arg1;",
+                    ["Statements08", "main", "//Block/*[5]/ExpressionStatement"],
+                    undefined,
+                    true
+                ],
+                [
+                    "assert iter <= arg1;",
+                    ["Statements08", "main", "//Block/*[5]/Block"],
+                    undefined,
+                    true
+                ],
+                [
+                    "assert loc + arg1 > 0;",
+                    ["Statements08", "main", "//Block/*[6]"],
+                    undefined,
+                    true
+                ],
+                [
+                    "assert loc + arg1 > 0;",
+                    ["Statements08", "main", "//Block/*[6]/Block"],
+                    undefined,
+                    true
+                ],
+                [
+                    "assert loc + arg1 + g + sVar> 0;",
+                    ["Statements08", "main", "//Block/*[6]/Block/*[1]"],
+                    undefined,
+                    true
+                ],
+                [
+                    "assert loc + loc2 + sVar> 0;",
+                    ["Statements08", "main", "//Block/*[7]/*[1]"],
                     undefined,
                     true
                 ]
@@ -995,18 +1180,15 @@ describe("TypeChecker Annotation Tests", () => {
                  mapping (address => mapping (string => bool)) m2;
                 
              }`,
-            [["define user_plusOne(uint x) uint = x+1;", ["Base", undefined]]],
+            [["define user_plusOne(uint x) uint = x+1;", ["Base"]]],
             [
                 ["if_succeeds z > 0;", ["Base", "plus"]],
-                ["invariant $result > 0;", ["Base", undefined]],
-                ["define foo() uint = true;", ["Base", undefined]],
-                ["define foo() uint = x;", ["Unrelated", undefined]],
+                ["invariant $result > 0;", ["Base"]],
+                ["define foo() uint = true;", ["Base"]],
+                ["define foo() uint = x;", ["Unrelated"]],
                 ["define foo() uint = 1;", ["Base", "plus"]],
-                ["define foo() uint256 = $result;", ["Base", undefined]],
-                [
-                    "define foo(uint t, uint[253] arr) uint = user_plusOne(t);",
-                    ["Unrelated", undefined]
-                ],
+                ["define foo() uint256 = $result;", ["Base"]],
+                ["define foo(uint t, uint[253] arr) uint = user_plusOne(t);", ["Unrelated"]],
                 ["if_assigned.foo true;", ["Unrelated", "z"]],
                 ["if_assigned[x] true;", ["Unrelated", "z"]],
                 ["if_assigned.foo true;", ["Unrelated", "arr"]],
@@ -1020,9 +1202,104 @@ describe("TypeChecker Annotation Tests", () => {
                 ["if_succeeds forall(uint i in 1...10) i+10;", ["Base", "plus"]],
                 ["if_succeeds forall(uint i in a) true;", ["Base", "plus"]],
                 ["if_succeeds forall(uint8 i in a...b) arr[i] > 0;", ["Base", "plus"]],
-                ["invariant forall(uint8 i in m1) true;", ["Unrelated", undefined]],
-                ["invariant forall(bytes memory i in m1) true;", ["Unrelated", undefined]]
+                ["invariant forall(uint8 i in m1) true;", ["Unrelated"]],
+                ["invariant forall(bytes memory i in m1) true;", ["Unrelated"]]
             ]
+        ],
+        [
+            "statements04.sol",
+            `
+            pragma solidity 0.4.26;
+
+contract Statements04 {
+    uint sVar;
+    function main(int8 arg1) {
+        int8 loc;
+        
+        loc = 1;
+        
+        if (loc > 0) 
+            loc  = 2;
+        else {
+            loc = 3;
+        }
+        
+        if (loc > 1) {
+            loc = 4;
+        }
+        
+        for(int8 iter = 1; iter < arg1; iter += loc) {
+            loc += 1;
+        }
+        
+        while (loc < 0) {
+            loc --;
+        }
+        
+        {
+            int16 loc2;
+            
+            loc2 += int16(loc);
+        }
+
+        loc++;
+    }
+}
+            `,
+            [],
+            [
+                ["assert 1;", ["Statements04", "main", "//Block/*[1]"]],
+                ["assert loc > 0;", ["Statements04", "main", "//Block/*[1]"]],
+                [
+                    "assert iter <= arg1;",
+                    ["Statements04", "main", "//Block/*[5]/VariableDeclarationStatement"]
+                ],
+                ["assert iter <= arg1;", ["Statements04", "main", "//Block/*[6]"]],
+                ["assert loc + loc2 > 0;", ["Statements04", "main", "//Block/*[8]"]]
+            ]
+        ],
+        [
+            "statements08.sol",
+            `
+            pragma solidity 0.8.7;
+
+contract Statements08 {
+    int8 sVar;
+    function main(int8 arg1) public {
+        int8 loc;
+        
+        loc = 1;
+        
+        if (loc > 0) 
+            loc  = 2;
+        else {
+            int8 t;
+            loc = t+3;
+        }
+        
+        if (loc > 1) {
+            loc = 4;
+        }
+        
+        for(int8 iter = 1; iter < arg1; iter += loc) {
+            loc += 1;
+        }
+        
+        while (loc < 0) {
+            int8 g = 1;
+            loc += g;
+        }
+        
+        {
+            int16 loc2;
+            
+            loc2 += int16(loc);
+        }
+    }
+}
+            `,
+            [],
+            [["assert loc + arg1 + g > 0;", ["Statements08", "main", "//Block/*[6]/Block"]]]
         ]
     ];
 
@@ -1045,7 +1322,7 @@ describe("TypeChecker Annotation Tests", () => {
                 it(`Typecheck for ${specString} succeeds.`, () => {
                     const target = getTarget(loc, units);
                     const parsed = parseAnnotation(specString, target, compilerVersion);
-                    const [ctx] = getTypeCtxAndTarget(loc, units, parsed);
+                    const [ctx] = getTypeCtxAndTarget(loc, units, compilerVersion, parsed);
 
                     if (clearFunsBefore) {
                         typeEnv = new TypeEnv(compilerVersion);
@@ -1083,7 +1360,7 @@ describe("TypeChecker Annotation Tests", () => {
 
                 // Setup any definitions
                 for (const [specString, loc] of setupSteps) {
-                    const [ctx, target] = getTypeCtxAndTarget(loc, units);
+                    const [ctx, target] = getTypeCtxAndTarget(loc, units, compilerVersion);
                     const parsed = parseAnnotation(specString, target, compilerVersion);
 
                     tcAnnotation(parsed, ctx, target, typeEnv);
@@ -1094,7 +1371,7 @@ describe("TypeChecker Annotation Tests", () => {
                 it(`Typecheck for ${specString} throws`, () => {
                     const target = getTarget(loc, units);
                     const parsed = parseAnnotation(specString, target, compilerVersion);
-                    const [ctx] = getTypeCtxAndTarget(loc, units, parsed);
+                    const [ctx] = getTypeCtxAndTarget(loc, units, compilerVersion, parsed);
                     Logger.debug(
                         `[${specString}]: Expect typechecking of ${parsed.pp()} in ctx ${pp(
                             ctx
