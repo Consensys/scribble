@@ -35,6 +35,7 @@ import {
     PointerType,
     replaceNode,
     Statement,
+    StatementWithChildren,
     StateVariableVisibility,
     StringLiteralType,
     StringType,
@@ -558,40 +559,64 @@ function makeWrapper(
     return wrapperFun;
 }
 
+export class InvalidForAnnotation extends Error {
+    constructor(msg: string, public readonly stmt: ForStatement) {
+        super(msg);
+    }
+}
+
+export function ensureStmtInBlock(
+    e: Statement | StatementWithChildren<any>,
+    factory: ASTNodeFactory
+): void {
+    const container = e.parent;
+
+    assert(container !== undefined, `Unexpected statement ${e.print()} with no parent`);
+
+    if (container instanceof Block || container instanceof UncheckedBlock) {
+        return;
+    }
+
+    if (container instanceof IfStatement) {
+        if (container.vTrueBody === e) {
+            container.vTrueBody = factory.makeBlock([e]);
+        } else {
+            assert(container.vFalseBody === e, ``);
+            container.vFalseBody = factory.makeBlock([e]);
+        }
+
+        container.acceptChildren();
+        return;
+    }
+
+    if (
+        container instanceof ForStatement ||
+        container instanceof WhileStatement ||
+        container instanceof DoWhileStatement
+    ) {
+        if (container instanceof ForStatement && container.vBody !== e.parent) {
+            throw new InvalidForAnnotation(
+                `Currently dont support instrumenting the init/loop expessions in for statements`,
+                container
+            );
+        }
+
+        container.vBody = factory.makeBlock([e]);
+
+        container.acceptChildren();
+        return;
+    }
+
+    assert(false, `NYI container type ${container.constructor.name}`);
+}
+
 /**
  * Given the expression `e` make sure that `e` is contained in an `ExpressionStatement`, which itself
  * is contained in a `Block`. There are several cases where we may need to create the block itself
  */
 export function ensureTopLevelExprInBlock(e: Expression, factory: ASTNodeFactory): void {
     assert(e.parent instanceof ExpressionStatement, ``);
-    const container = e.parent.parent;
-    if (container instanceof Block || container instanceof UncheckedBlock) {
-        return;
-    }
-
-    if (container instanceof IfStatement) {
-        if (container.vTrueBody === e.parent) {
-            container.vTrueBody = factory.makeBlock([e.parent]);
-        } else {
-            assert(container.vFalseBody === e.parent, ``);
-            container.vFalseBody = factory.makeBlock([e.parent]);
-        }
-        return;
-    }
-
-    if (container instanceof ForStatement) {
-        assert(
-            container.vBody === e.parent,
-            `Currently dont support instrumenting tuple assignments in for init/loop expession`
-        );
-        container.vBody = factory.makeBlock([e.parent]);
-        return;
-    }
-
-    if (container instanceof WhileStatement || container instanceof DoWhileStatement) {
-        container.vBody = factory.makeBlock([e.parent]);
-        return;
-    }
+    ensureStmtInBlock(e.parent, factory);
 }
 
 /**

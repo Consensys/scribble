@@ -6,6 +6,7 @@ import {
     ASTNode,
     ASTNodeFactory,
     ASTReader,
+    Block,
     CompileFailedError,
     compileJson,
     compileJsonData,
@@ -28,16 +29,20 @@ import {
     replaceNode,
     SourceUnit,
     SrcRangeMap,
+    Statement,
     StructDefinition,
+    UncheckedBlock,
     UserDefinedTypeName,
     VariableDeclaration
 } from "solc-typed-ast";
 import {
     AbsDatastructurePath,
+    AnnotationTarget,
     findStateVarUpdates,
     generateUtilsContract,
     instrumentContract,
     instrumentFunction,
+    instrumentStatement,
     interposeMap,
     ScribbleFactory,
     UnsupportedConstruct
@@ -224,9 +229,7 @@ function instrumentFiles(
 ) {
     const units = ctx.units;
 
-    const worklist: Array<
-        [ContractDefinition, FunctionDefinition | undefined, AnnotationMetaData[]]
-    > = [];
+    const worklist: Array<[AnnotationTarget, AnnotationMetaData[]]> = [];
     const stateVarsWithAnnot: VariableDeclaration[] = [];
 
     if (ctx.varInterposingQueue.length > 0) {
@@ -252,7 +255,7 @@ function instrumentFiles(
             }
 
             if (needsStateInvariantInstr || userFuns.length > 0) {
-                worklist.push([contract, undefined, contractAnnot]);
+                worklist.push([contract, contractAnnot]);
                 assert(
                     ![ContractKind.Library, ContractKind.Interface].includes(contract.kind),
                     `Shouldn't be instrumenting ${contract.kind} ${contract.name} with contract invs`
@@ -301,22 +304,42 @@ function instrumentFiles(
                         contract.kind === ContractKind.Contract &&
                         fun.kind === FunctionKind.Function)
                 ) {
-                    worklist.push([contract, fun, annotations]);
+                    worklist.push([fun, annotations]);
                 }
             }
         }
     }
 
-    for (const [contract, contractElement, annotations] of worklist) {
-        if (contractElement === undefined) {
-            instrumentContract(ctx, annotations, contract, contractsNeedingInstr.has(contract));
-        } else {
-            instrumentFunction(
-                ctx,
-                annotations,
-                contractElement,
-                contractsNeedingInstr.has(contract)
+    // Finally add in all of the assertions to the worklist
+    for (const [target, annots] of annotMap.entries()) {
+        if (
+            (target instanceof Statement ||
+                target instanceof Block ||
+                target instanceof UncheckedBlock) &&
+            annots.length > 0
+        ) {
+            worklist.push([target, annots]);
+        }
+    }
+
+    for (const [target, annotations] of worklist) {
+        if (target instanceof ContractDefinition) {
+            instrumentContract(ctx, annotations, target, contractsNeedingInstr.has(target));
+        } else if (target instanceof FunctionDefinition) {
+            const contract = target.vScope;
+            assert(
+                contract instanceof ContractDefinition,
+                `Function instrumentation allowed only on contract funs`
             );
+            instrumentFunction(ctx, annotations, target, contractsNeedingInstr.has(contract));
+        } else {
+            assert(
+                target instanceof Statement ||
+                    target instanceof Block ||
+                    target instanceof UncheckedBlock,
+                `State vars handled below`
+            );
+            instrumentStatement(ctx, annotations, target);
         }
     }
 

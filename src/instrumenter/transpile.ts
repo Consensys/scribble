@@ -298,7 +298,7 @@ function transpileId(expr: SId, ctx: TranspilingContext): Expression {
             }
         }
 
-        const res = factory.makeIdentifierFor(ctx.container.vParameters.vParameters[argIdx]);
+        const res = factory.makeIdentifierFor(ctx.containerFun.vParameters.vParameters[argIdx]);
 
         addTracingInfo(expr, res, ctx);
 
@@ -320,11 +320,7 @@ function transpileId(expr: SId, ctx: TranspilingContext): Expression {
 
     // This identifier
     if (expr.defSite === "this") {
-        return factory.makeIdentifier(
-            "<missing>",
-            "this",
-            (ctx.container.vScope as ContractDefinition).id
-        );
+        return factory.makeIdentifier("<missing>", "this", ctx.containerContract.id);
     }
 
     // Function, Public Getter, Contract or Type name
@@ -359,7 +355,7 @@ function transpileId(expr: SId, ctx: TranspilingContext): Expression {
  */
 function transpileResult(expr: SResult, ctx: TranspilingContext): Expression {
     const factory = ctx.factory;
-    const retParams = ctx.container.vReturnParameters.vParameters;
+    const retParams = ctx.containerFun.vReturnParameters.vParameters;
 
     if (retParams.length === 1) {
         return factory.makeIdentifierFor(retParams[0]);
@@ -548,7 +544,7 @@ function transpileFunctionCall(expr: SFunctionCall, ctx: TranspilingContext): Ex
 
         const sumFun = ctx.instrCtx.arraySumFunMap.get(argT.to, argT.location);
 
-        ctx.instrCtx.needsUtils((ctx.container.vScope as ContractDefinition).vScope);
+        ctx.instrCtx.needsUtils(ctx.containerContract.vScope);
 
         return factory.makeFunctionCall(
             "<missing>",
@@ -592,11 +588,7 @@ function transpileFunctionCall(expr: SFunctionCall, ctx: TranspilingContext): Ex
         ) {
             callee = factory.makeMemberAccess(
                 "<missing>",
-                factory.makeIdentifier(
-                    "<missing>",
-                    "this",
-                    (ctx.container.vScope as ContractDefinition).id
-                ),
+                factory.makeIdentifier("<missing>", "this", ctx.containerContract.id),
                 callee.name,
                 callee.vReferencedDeclaration.id
             );

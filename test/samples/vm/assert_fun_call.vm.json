@@ -1,0 +1,45 @@
+{
+    "file": "test/samples/assert_fun_call.instrumented.sol",
+    "steps": [
+        {
+            "act": "createUser",
+            "alias": "owner",
+            "options": {
+                "balance": 1000e18
+            }
+        },
+        {
+            "act": "deployContract",
+            "contract": "AssertFunCall",
+            "user": "owner",
+            "alias": "instance1"
+        },
+        {
+            "act": "txCall",
+            "user": "owner",
+            "contract": "instance1",
+
+            "method": "main",
+            "returns": [],
+
+            "args": {
+                "types": ["uint", "uint","uint"],
+                "values": ["5", "6", "1"]
+            }
+        },
+        {
+            "act": "txCall",
+            "user": "owner",
+            "contract": "instance1",
+
+            "method": "main",
+            "returns": [],
+
+            "args": {
+                "types": ["uint", "uint","uint"],
+                "values": ["5", "6", "2"]
+            },
+            "failure": "*"
+        }
+    ]
+}

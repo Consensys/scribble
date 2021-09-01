@@ -32,7 +32,13 @@ import {
     TypeNode,
     UncheckedBlock
 } from "solc-typed-ast";
-import { filterByType, getTypeLocation, transpileAnnotation } from "..";
+import {
+    ensureStmtInBlock,
+    filterByType,
+    getTypeLocation,
+    InvalidForAnnotation,
+    transpileAnnotation
+} from "..";
 import { AnnotationType, SNode } from "../spec-lang/ast";
 import {
     assert,
@@ -221,11 +227,17 @@ function getDebugInfo(
     }
 
     if (evtDef == undefined) {
+        evtDef = factory.makeEventDefinition(
+            false,
+            `AssertionFailedData`,
+            factory.makeParameterList([])
+        );
+
         const eventId = factory.makeVariableDeclaration(
             false,
             false,
             "eventId",
-            transCtx.container.id,
+            evtDef.id,
             false,
             DataLocation.Default,
             StateVariableVisibility.Default,
@@ -239,7 +251,7 @@ function getDebugInfo(
             false,
             false,
             "encodingData",
-            transCtx.container.id,
+            evtDef.id,
             false,
             DataLocation.Default,
             StateVariableVisibility.Default,
@@ -249,11 +261,8 @@ function getDebugInfo(
             factory.makeElementaryTypeName("<missing>", "bytes")
         );
 
-        evtDef = factory.makeEventDefinition(
-            false,
-            `AssertionFailedData`,
-            factory.makeParameterList([eventId, encodingData])
-        );
+        evtDef.vParameters.appendChild(eventId);
+        evtDef.vParameters.appendChild(encodingData);
     }
 
     for (const annot of annotations) {
@@ -482,7 +491,7 @@ function isPublic(fn: FunctionDefinition): boolean {
  */
 export function insertAnnotations(annotations: PropertyMetaData[], ctx: TranspilingContext): void {
     const factory = ctx.factory;
-    const contract = ctx.container.vScope as ContractDefinition;
+    const contract = ctx.containerContract;
     const predicates: Array<[PropertyMetaData, Expression]> = [];
 
     for (const annotation of annotations) {
@@ -1115,4 +1124,49 @@ export function makeArraySumFun(
     );
 
     return fun;
+}
+
+/**
+ * Instrument the statement `stmt` with the annotations `allAnnotations`. These should all be
+ * `assert`s
+ */
+export function instrumentStatement(
+    ctx: InstrumentationContext,
+    allAnnotations: AnnotationMetaData[],
+    stmt: Statement
+): void {
+    const factory = ctx.factory;
+
+    // Make sure stmt is contained in a block. (converts cases like `while () i++` to `while () { i++}`
+    try {
+        ensureStmtInBlock(stmt, factory);
+    } catch (e) {
+        throw e instanceof InvalidForAnnotation
+            ? new UnsupportedConstruct(e.message, e.stmt, ctx.files)
+            : e;
+    }
+
+    const container = stmt.parent as Block;
+    const assertionBlock = gte(ctx.compilerVersion, "0.8.0")
+        ? factory.makeUncheckedBlock([])
+        : factory.makeBlock([]);
+
+    // Add a new block before the target stement where we will transpile the assertions
+    container.insertBefore(assertionBlock, stmt);
+
+    for (const annot of allAnnotations) {
+        assert(
+            annot.type === AnnotationType.Assert,
+            `Unexpected non-assert annotaiton ${annot.original}`
+        );
+    }
+
+    const fun = stmt.getClosestParentByType(FunctionDefinition);
+    assert(fun !== undefined, `Unexpected orphan stmt ${stmt.print()}`);
+    const transCtx = ctx.transCtxMap.get(fun, InstrumentationSiteType.Assert);
+    transCtx.resetMarkser([assertionBlock, "end"], false);
+
+    insertAnnotations(allAnnotations as PropertyMetaData[], transCtx);
+
+    stmt.documentation = undefined;
 }

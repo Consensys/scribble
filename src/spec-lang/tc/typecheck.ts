@@ -28,6 +28,7 @@ import {
     SourceUnit,
     specializeType,
     Statement,
+    StatementWithChildren,
     StateVariableVisibility,
     StringLiteralType,
     StringType,
@@ -573,7 +574,8 @@ export function tcUnits(units: SourceUnit[], annotMap: AnnotationMap, typeEnv: T
                 (node instanceof FunctionDefinition && node.vScope instanceof ContractDefinition) ||
                 node instanceof ContractDefinition ||
                 (node instanceof VariableDeclaration && node.stateVariable) ||
-                node instanceof Statement
+                node instanceof Statement ||
+                node instanceof StatementWithChildren
         )) {
             const target = child as AnnotationTarget;
             const annots = annotMap.get(target);

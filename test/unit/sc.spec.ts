@@ -484,7 +484,8 @@ describe("SemanticChecker Annotation Unit Tests", () => {
                 ["invariant old(sV) > 0;", ["Foo"]],
                 ["define foo(uint x) uint = old(x);", ["Foo"]],
                 ["define foo() uint = old(sV);", ["Foo"]],
-                ["assert old(x) > 0;", ["Foo", "add", "//Block/*[1]"]]
+                ["assert old(x) > 0;", ["Foo", "add", "//Block/*[1]"]],
+                ["assert $result > 0;", ["Foo", "add", "//Block/*[1]"]]
             ]
         ]
     ];
