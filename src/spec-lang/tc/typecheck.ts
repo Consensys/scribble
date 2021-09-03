@@ -18,12 +18,14 @@ import {
     FunctionType,
     FunctionVisibility,
     generalizeType,
+    ImportDirective,
     IntLiteralType,
     IntType,
     Mapping,
     MappingType,
     ParameterList,
     PointerType,
+    resolveAny,
     resolveByName,
     SourceUnit,
     specializeType,
@@ -75,7 +77,7 @@ import {
     VarDefSite
 } from "../ast";
 import { BuiltinAddressMembers, BuiltinSymbols } from "./builtins";
-import { BuiltinStructType, FunctionSetType } from "./internal_types";
+import { BuiltinStructType, FunctionSetType, ImportRefType } from "./internal_types";
 import { TypeEnv } from "./typeenv";
 
 export class StateVarScope {
@@ -261,30 +263,16 @@ export class SInvalidKeyword extends SGenericTypeError<SNode> {
  * @param name variable name
  * @param ctx stack of scopes in which we are looking for `name`'s defintion
  */
-export function lookupVarDef(name: string, ctx: STypingCtx): VarDefSite | undefined {
+function lookupVarDef(name: string, ctx: STypingCtx, version: string): VarDefSite | undefined {
     // Walk the scope stack down looking for the definition of v
     for (let i = ctx.length - 1; i >= 0; i--) {
         const scope = ctx[i];
-        if (scope instanceof FunctionDefinition) {
-            for (const param of scope.vParameters.vParameters) {
-                if (param.name === name) {
-                    return param;
-                }
-            }
+        if (scope instanceof ASTNode) {
+            const res = [...resolveAny(name, scope, version, true)].filter(
+                (x) => x instanceof VariableDeclaration
+            ) as VariableDeclaration[];
 
-            for (const param of scope.vReturnParameters.vParameters) {
-                if (param.name === name) {
-                    return param;
-                }
-            }
-        } else if (scope instanceof ContractDefinition) {
-            for (const base of scope.vLinearizedBaseContracts) {
-                for (const v of base.vStateVariables) {
-                    if (v.name === name) {
-                        return v;
-                    }
-                }
-            }
+            return res.length > 0 ? single(res) : undefined;
         } else if (scope instanceof SUserFunctionDefinition) {
             for (let paramIdx = 0; paramIdx < scope.parameters.length; paramIdx++) {
                 const [param] = scope.parameters[paramIdx];
@@ -293,27 +281,6 @@ export function lookupVarDef(name: string, ctx: STypingCtx): VarDefSite | undefi
                     return [scope, paramIdx];
                 }
             }
-        } else if (scope instanceof SourceUnit) {
-            // No variable definitions at the global scope
-            for (const globVar of scope.vVariables) {
-                if (globVar.name === name) {
-                    return globVar;
-                }
-            }
-
-            for (const impStmt of scope.vImportDirectives) {
-                for (const sym of impStmt.vSymbolAliases) {
-                    const [original, alias] = sym;
-
-                    if (original instanceof VariableDeclaration) {
-                        const symName = alias !== undefined ? alias : original.name;
-                        if (symName == name) {
-                            return original;
-                        }
-                    }
-                }
-            }
-            return undefined;
         } else if (scope instanceof StateVarScope) {
             const prop = scope.annotation;
 
@@ -328,12 +295,6 @@ export function lookupVarDef(name: string, ctx: STypingCtx): VarDefSite | undefi
             if (scope.iteratorVariable.name == name) {
                 return scope;
             }
-        } else if (scope instanceof VariableDeclarationStatement) {
-            for (const decl of scope.vDeclarations) {
-                if (decl.name === name) {
-                    return decl;
-                }
-            }
         } else {
             for (let bindingIdx = 0; bindingIdx < scope.lhs.length; bindingIdx++) {
                 const binding = scope.lhs[bindingIdx];
@@ -347,89 +308,35 @@ export function lookupVarDef(name: string, ctx: STypingCtx): VarDefSite | undefi
     return undefined;
 }
 
+function lookupFun(name: string, ctx: STypingCtx, version: string): FunctionDefinition[] {
+    const scope = ctx.length > 1 ? (ctx[1] as ContractDefinition) : (ctx[0] as SourceUnit);
+    const res = [...resolveAny(name, scope, version, true)].filter(
+        (x) => x instanceof FunctionDefinition
+    );
+
+    return res as FunctionDefinition[];
+}
+
 /**
  * Find and return the user-defined type name `name` in the typing context `ctx`. Return `undefined` if none is found.
  *
  * @param ctx typing context
  * @param name user-defined type name to lookup
  */
-function resolveTypeDef(
+function lookupTypeDef(
+    name: string,
     ctx: STypingCtx,
-    name: string
+    version: string
 ): StructDefinition | EnumDefinition | ContractDefinition | undefined {
-    for (let i = ctx.length; i >= 0; i--) {
-        const scope = ctx[i];
-        if (scope instanceof SLet || scope instanceof FunctionDefinition) {
-            continue;
-        }
+    const scope = ctx.length > 1 ? (ctx[1] as ContractDefinition) : (ctx[0] as SourceUnit);
+    const res = [...resolveAny(name, scope, version, true)].filter(
+        (x) =>
+            x instanceof StructDefinition ||
+            x instanceof EnumDefinition ||
+            x instanceof ContractDefinition
+    ) as Array<StructDefinition | EnumDefinition | ContractDefinition>;
 
-        if (scope instanceof ContractDefinition) {
-            // Check if this is a struct or enum defined on the current contract or one of its bases
-            for (const base of scope.vLinearizedBaseContracts) {
-                for (const def of (
-                    base.vStructs as Array<StructDefinition | EnumDefinition>
-                ).concat(base.vEnums)) {
-                    if (def.name === name) {
-                        return def;
-                    }
-                }
-            }
-        }
-
-        if (scope instanceof SourceUnit) {
-            const resolveUnitScope = (
-                unit: SourceUnit
-            ): StructDefinition | EnumDefinition | ContractDefinition | undefined => {
-                // Check if this is a struct or an enum in the SourceUnit
-                for (const def of (
-                    unit.vStructs as Array<StructDefinition | EnumDefinition>
-                ).concat(unit.vEnums)) {
-                    if (def.name === name) {
-                        return def;
-                    }
-                }
-
-                // Check if this is a contract/interface/library name in the source unit
-                for (const contract of unit.vContracts) {
-                    if (contract.name === name) {
-                        return contract;
-                    }
-                }
-
-                // Check if this is an imported struct/enum/contract
-                for (const impDef of unit.vImportDirectives) {
-                    // Imports all symbols from target
-                    if (impDef.unitAlias === "" && impDef.vSymbolAliases.length === 0) {
-                        const defined = resolveUnitScope(impDef.vSourceUnit);
-                        if (defined !== undefined) {
-                            return defined;
-                        }
-                    }
-
-                    // Imports specific symbols (with potential aliases)
-                    for (const sym of impDef.vSymbolAliases) {
-                        const [original, alias] = sym;
-                        if (
-                            original instanceof ContractDefinition ||
-                            original instanceof StructDefinition ||
-                            original instanceof EnumDefinition
-                        ) {
-                            const symName = alias !== undefined ? alias : original.name;
-                            if (symName === name) {
-                                return original;
-                            }
-                        }
-                    }
-                }
-
-                return undefined;
-            };
-
-            return resolveUnitScope(scope);
-        }
-    }
-
-    return undefined;
+    return res.length > 0 ? single(res) : undefined;
 }
 
 function mkUserDefinedType(
@@ -465,6 +372,10 @@ function getVarLocation(astV: VariableDeclaration, baseLoc?: DataLocation): Data
     }
 
     if (astV.parent instanceof VariableDeclarationStatement) {
+        return DataLocation.Memory;
+    }
+
+    if (scope instanceof SourceUnit) {
         return DataLocation.Memory;
     }
 
@@ -963,7 +874,7 @@ function locateKeyType(type: TypeName, idx: number, path: Array<SId | string>): 
 }
 
 function tcIdVariable(expr: SId, ctx: STypingCtx, typeEnv: TypeEnv): TypeNode | undefined {
-    const def = lookupVarDef(expr.name, ctx);
+    const def = lookupVarDef(expr.name, ctx, typeEnv.compilerVersion);
 
     if (def === undefined) {
         return undefined;
@@ -1021,6 +932,19 @@ function tcIdVariable(expr: SId, ctx: STypingCtx, typeEnv: TypeEnv): TypeNode | 
     return defNode.parameters[bindingIdx][1];
 }
 
+export function tcIdImportUnitRef(
+    expr: SId,
+    ctx: STypingCtx,
+    typeEnv: TypeEnv
+): ImportRefType | undefined {
+    const curUnit = ctx[0] as SourceUnit;
+    const res = [...resolveAny(expr.name, curUnit, typeEnv.compilerVersion, true)].filter(
+        (x) => x instanceof ImportDirective
+    ) as ImportDirective[];
+
+    return res.length > 0 ? new ImportRefType(single(res)) : undefined;
+}
+
 export function tcId(expr: SId, ctx: STypingCtx, typeEnv: TypeEnv): TypeNode {
     if (expr.name === "this") {
         const contract = ctx[1] as ContractDefinition;
@@ -1046,12 +970,7 @@ export function tcId(expr: SId, ctx: STypingCtx, typeEnv: TypeEnv): TypeNode {
 
     // Next lets try to TC as a function name (note - can't be a public getter
     // as those only appear in MemberExpressions)
-    const funDefs = resolveByName(
-        ctx[1] as ContractDefinition,
-        FunctionDefinition,
-        expr.name,
-        false
-    );
+    const funDefs = lookupFun(expr.name, ctx, typeEnv.compilerVersion);
 
     if (funDefs.length > 0) {
         expr.defSite = "function_name";
@@ -1059,8 +978,8 @@ export function tcId(expr: SId, ctx: STypingCtx, typeEnv: TypeEnv): TypeNode {
         return new FunctionSetType(funDefs);
     }
 
-    // Finally lets try to TC it as a type name
-    const userDef = resolveTypeDef(ctx, expr.name);
+    // Next try to TC it as a type name
+    const userDef = lookupTypeDef(expr.name, ctx, typeEnv.compilerVersion);
 
     if (userDef !== undefined) {
         expr.defSite = "type_name";
@@ -1068,6 +987,7 @@ export function tcId(expr: SId, ctx: STypingCtx, typeEnv: TypeEnv): TypeNode {
         return new TypeNameType(mkUserDefinedType(userDef));
     }
 
+    // Next check if this is a builtin symbol
     retT = tcIdBuiltinSymbol(expr, expr.name, typeEnv);
 
     if (retT !== undefined) {
@@ -1089,6 +1009,14 @@ export function tcId(expr: SId, ctx: STypingCtx, typeEnv: TypeEnv): TypeNode {
                 FunctionStateMutability.View
             );
         }
+    }
+
+    // Next check if this is a builtin symbol
+    retT = tcIdImportUnitRef(expr, ctx, typeEnv);
+
+    if (retT !== undefined) {
+        expr.defSite = (retT as ImportRefType).impStatement;
+        return retT;
     }
 
     // If all fails, throw unknown id
@@ -1512,6 +1440,7 @@ export function tcMemberAccess(expr: SMemberAccess, ctx: STypingCtx, typeEnv: Ty
                 for (const rawDecl of rawDef.vMembers) {
                     if (expr.member === rawDecl.name) {
                         // rawDecl.vType is defined, as you can't put a `var x;` in a struct definition.
+                        expr.defSite = rawDecl;
                         return astVarToTypeNode(rawDecl, baseLoc);
                     }
                 }
@@ -1538,6 +1467,7 @@ export function tcMemberAccess(expr: SMemberAccess, ctx: STypingCtx, typeEnv: Ty
                 expr.member === varDecl.name &&
                 varDecl.visibility === StateVariableVisibility.Public
             ) {
+                expr.defSite = varDecl;
                 return new FunctionSetType([varDecl]);
             }
         }
@@ -1563,9 +1493,14 @@ export function tcMemberAccess(expr: SMemberAccess, ctx: STypingCtx, typeEnv: Ty
         baseT.type.definition instanceof ContractDefinition
     ) {
         // First check if this is a type name
-        const type = resolveTypeDef([ctx[0], baseT.type.definition], expr.member);
+        const type = lookupTypeDef(
+            expr.member,
+            [ctx[0], baseT.type.definition],
+            typeEnv.compilerVersion
+        );
 
         if (type) {
+            expr.defSite = type;
             return new TypeNameType(mkUserDefinedType(type));
         }
 
@@ -1602,6 +1537,33 @@ export function tcMemberAccess(expr: SMemberAccess, ctx: STypingCtx, typeEnv: Ty
         baseT.definitions.length === 1
     ) {
         return new FixedBytesType(4);
+    }
+
+    if (baseT instanceof ImportRefType) {
+        const sourceUnit = baseT.impStatement.vSourceUnit;
+        try {
+            const tmpId = new SId(expr.member, expr.src);
+            const res = tc(tmpId, [sourceUnit], typeEnv);
+            if (
+                tmpId.defSite instanceof VariableDeclaration ||
+                tmpId.defSite instanceof FunctionDefinition ||
+                tmpId.defSite instanceof StructDefinition ||
+                tmpId.defSite instanceof EnumDefinition ||
+                tmpId.defSite instanceof ContractDefinition ||
+                tmpId.defSite instanceof ImportDirective
+            ) {
+                expr.defSite = tmpId.defSite;
+            }
+            return res;
+        } catch (e) {
+            if (e instanceof SUnknownId) {
+                throw new SNoField(
+                    `Contract ${sourceUnit.sourceEntryKey} doesn't export symbol ${expr.member}`,
+                    expr.base,
+                    expr.member
+                );
+            }
+        }
     }
 
     // Finally check if there is a `using for` declaration that binds a library to this type.
@@ -1910,6 +1872,10 @@ export function tcFunctionCall(expr: SFunctionCall, ctx: STypingCtx, typeEnv: Ty
         const def = matchingDefs[0];
         // Narrow down the set of matching definitions in the callee's type.
         calleeT.definitions = [def];
+
+        if (callee instanceof SId || callee instanceof SMemberAccess) {
+            callee.defSite = def;
+        }
 
         if (def instanceof FunctionDefinition) {
             // param.vType is defined, as you can't put a `var x,` in a function definition.

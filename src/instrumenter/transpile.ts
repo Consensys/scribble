@@ -19,11 +19,13 @@ import {
     FunctionType,
     FunctionVisibility,
     Identifier,
+    ImportDirective,
     IntLiteralType,
     IntType,
     LiteralKind,
     MappingType,
     PointerType,
+    SourceUnit,
     StringType,
     StructDefinition,
     TupleType,
@@ -61,7 +63,7 @@ import {
     StateVarScope,
     unwrapOld
 } from "../spec-lang/tc";
-import { FunctionSetType } from "../spec-lang/tc/internal_types";
+import { FunctionSetType, ImportRefType } from "../spec-lang/tc/internal_types";
 import { TranspilingContext } from "./transpiling_context";
 
 /**
@@ -236,13 +238,30 @@ function transpileId(expr: SId, ctx: TranspilingContext): Expression {
     if (expr.defSite instanceof VariableDeclaration) {
         if (expr.name !== expr.defSite.name) {
             assert(
-                expr.defSite.stateVariable,
+                expr.defSite.stateVariable || expr.defSite.vScope instanceof SourceUnit,
                 `Internal error: variable id ${expr.pp()} has different name from underlying variable ${expr.defSite.print()}` +
-                    `Variable renaming only allowed for public state vars with maps`
+                    `Variable renaming only allowed for public state vars with maps and imported global vars`
             );
         }
 
-        const res = factory.makeIdentifierFor(expr.defSite);
+        let res: Identifier;
+        // If the scribble name doesn't match the name of the underlying definition there are several cases:
+        // 1) This is a state variable- pick the underlying definition, since
+        //  we sometimes rename public state vars during instrumentation to allow
+        //  for an explicit getter fun
+        // 2) Global symbol in flat/json mode - pick the underlying definition, since all definitions are
+        //  flattened and renamed to avoid collisions
+        // 3) Global symbol in files mode - pick the scribble identifier - this is a case of import renaming
+        // 4) All other cases - pick the underlying definition
+        if (
+            expr.name !== expr.defSite.name &&
+            (expr.defSite.stateVariable ||
+                (expr.defSite.vScope instanceof SourceUnit && ctx.instrCtx.outputMode !== "files"))
+        ) {
+            res = factory.makeIdentifierFor(expr.defSite);
+        } else {
+            res = factory.makeIdentifier("<missing>", expr.name, expr.defSite.id);
+        }
 
         addTracingInfo(expr, res, ctx);
 
@@ -323,13 +342,14 @@ function transpileId(expr: SId, ctx: TranspilingContext): Expression {
         return factory.makeIdentifier("<missing>", "this", ctx.containerContract.id);
     }
 
-    // Function, Public Getter, Contract or Type name
+    // Function, Public Getter, Contract, Type name or imported unit name
     let referrencedDef:
         | FunctionDefinition
         | StructDefinition
         | EnumDefinition
         | ContractDefinition
-        | VariableDeclaration;
+        | VariableDeclaration
+        | ImportDirective;
 
     const exprT = typeEnv.typeOf(expr);
 
@@ -343,8 +363,10 @@ function transpileId(expr: SId, ctx: TranspilingContext): Expression {
         }
 
         referrencedDef = exprT.definition;
+    } else if (exprT instanceof ImportRefType) {
+        referrencedDef = exprT.impStatement;
     } else {
-        throw new Error(`Unknown `);
+        throw new Error(`Unknown id type ${exprT.pp()}`);
     }
 
     return factory.makeIdentifierFor(referrencedDef);
@@ -433,16 +455,8 @@ function transpileIndexAccess(expr: SIndexAccess, ctx: TranspilingContext): Expr
 function transpileMemberAccess(expr: SMemberAccess, ctx: TranspilingContext): Expression {
     const factory = ctx.factory;
     const base = transpile(expr.base, ctx);
-    const type = ctx.typeEnv.typeOf(expr);
 
-    let referencedDeclaration = -1;
-
-    if (type instanceof FunctionSetType) {
-        referencedDeclaration = single(type.definitions).id;
-    } else if (type instanceof UserDefinedType && type.definition) {
-        referencedDeclaration = type.definition.id;
-    }
-
+    const referencedDeclaration = expr.defSite !== undefined ? expr.defSite.id : -1;
     return factory.makeMemberAccess("<missing>", base, expr.member, referencedDeclaration);
 }
 

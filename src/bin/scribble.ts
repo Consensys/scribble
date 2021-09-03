@@ -16,12 +16,14 @@ import {
     ContractDefinition,
     ContractKind,
     EnumDefinition,
-    ExternalReferenceType,
+    ErrorDefinition,
+    ExportedSymbol,
     FunctionDefinition,
     FunctionKind,
     FunctionStateMutability,
     FunctionVisibility,
     Identifier,
+    IdentifierPath,
     ImportDirective,
     isSane,
     MemberAccess,
@@ -352,31 +354,45 @@ function instrumentFiles(
     ctx.finalize();
 }
 
-type TopLevelDef = ContractDefinition | StructDefinition | EnumDefinition;
-
 /**
  * When flattening units, we may introduce two definitions with the same name.
  * Rename definitions accordingly.
  *
  * @param units - units to flatten
  */
-function fixNameConflicts(units: SourceUnit[]): void {
-    const nameMap = new Map<string, TopLevelDef[]>();
+function fixNameConflicts(units: SourceUnit[]): Set<ExportedSymbol> {
+    const nameMap = new Map<string, ExportedSymbol[]>();
 
     for (const unit of units) {
         unit.vContracts.forEach((contr) => getOrInit(contr.name, nameMap, []).push(contr));
         unit.vStructs.forEach((struct) => getOrInit(struct.name, nameMap, []).push(struct));
         unit.vEnums.forEach((enumDef) => getOrInit(enumDef.name, nameMap, []).push(enumDef));
+        unit.vErrors.forEach((errDef) => getOrInit(errDef.name, nameMap, []).push(errDef));
+        unit.vVariables.forEach((varDef) => getOrInit(varDef.name, nameMap, []).push(varDef));
+        unit.vFunctions.forEach((funDef) => getOrInit(funDef.name, nameMap, []).push(funDef));
+        unit.vImportDirectives.forEach((impDef) => {
+            if (impDef.unitAlias !== "") getOrInit(impDef.unitAlias, nameMap, []).push(impDef);
+        });
     }
+
+    const renamed = new Set<ExportedSymbol>();
 
     for (const [, defs] of nameMap) {
         // Rename all defs after the first one
         for (let defIdx = 1; defIdx < defs.length; defIdx++) {
             const def = defs[defIdx];
 
-            def.name += `_${defIdx}`;
+            if (def instanceof ImportDirective) {
+                def.unitAlias += `_${defIdx}`;
+            } else {
+                def.name += `_${defIdx}`;
+            }
+
+            renamed.add(def);
         }
     }
+
+    return renamed;
 }
 
 function getTypeScope(n: ASTNode): SourceUnit | ContractDefinition {
@@ -386,21 +402,22 @@ function getTypeScope(n: ASTNode): SourceUnit | ContractDefinition {
     return typeScope;
 }
 
-function getFQName(
-    def:
-        | ContractDefinition
-        | FunctionDefinition
-        | StructDefinition
-        | EnumDefinition
-        | VariableDeclaration,
-    atUseSite: ASTNode
-): string {
+function getFQName(def: ExportedSymbol, atUseSite: ASTNode): string {
+    if (def instanceof ImportDirective) {
+        return def.unitAlias;
+    }
+
     if (def instanceof ContractDefinition) {
         return def.name;
     }
 
     const scope = def.vScope;
-    assert(scope instanceof SourceUnit || scope instanceof ContractDefinition, ``);
+    assert(
+        scope instanceof SourceUnit || scope instanceof ContractDefinition,
+        `Unexpected scope ${
+            scope.constructor.name
+        } for def ${def.print()} at site ${atUseSite.print()}}`
+    );
 
     if (scope instanceof SourceUnit) {
         return def.name;
@@ -413,86 +430,69 @@ function getFQName(
     }
 }
 
-/**
- * When flattening units, sometimes we can break Identifier/UserDefinedType names. There are
- * 2 general cases:
- *  - An Identifier/UserDefinedType referes to an `import {a as b} ...`
- *  - An Identifier/UserDefinedType refers to a top-level definition that was renamed to avoid a name conflict.
- * @param units - units to flatten
- */
-function fixRenamingErrors(units: SourceUnit[], factory: ASTNodeFactory): void {
+function flattenImports(units: SourceUnit[], factory: ASTNodeFactory): void {
+    const renamed = fixNameConflicts(units);
+
     for (const unit of units) {
-        for (const child of unit.getChildrenBySelector(
+        for (const refNode of unit.getChildrenBySelector(
             (node) =>
                 node instanceof Identifier ||
+                node instanceof IdentifierPath ||
                 node instanceof UserDefinedTypeName ||
                 node instanceof MemberAccess
-        )) {
-            const refNode = child as Identifier | UserDefinedTypeName | MemberAccess;
+        ) as Array<Identifier | IdentifierPath | UserDefinedTypeName | MemberAccess>) {
             const def = refNode.vReferencedDeclaration;
 
-            // Skip builtin identifiers
+            // Only interested in references to exportable symbols
             if (
-                refNode instanceof Identifier &&
-                refNode.vIdentifierType !== ExternalReferenceType.UserDefined
-            ) {
-                continue;
-            }
-
-            // Skip identifiers not refereing to material imports
-            if (
+                def === undefined ||
                 !(
                     def instanceof ContractDefinition ||
                     def instanceof StructDefinition ||
                     def instanceof EnumDefinition ||
+                    def instanceof ErrorDefinition ||
                     def instanceof FunctionDefinition ||
-                    def instanceof VariableDeclaration
+                    (def instanceof VariableDeclaration && def.vScope instanceof SourceUnit)
                 )
             ) {
                 continue;
             }
 
-            // For VariableDeclarations we only care about file-level constants
-            // and state vars with fully-qualified names. All other
-            // VariableDeclarations cannot be broken by renaming.
-            // Cases where the base is a contract name are handled by identifier-renaming.
+            // Only interested in references to top-level symbols (they are the only ones affected by flattening)
+            if (!(def.vScope instanceof SourceUnit)) {
+                continue;
+            }
+
+            const fqName = getFQName(def, refNode);
+
+            // Member accesses that have an unit import alias as a base need t o be replaced with ids
             if (
-                def instanceof VariableDeclaration &&
-                !(
-                    (def.vScope instanceof SourceUnit ||
-                        def.vScope instanceof ContractDefinition) &&
-                    refNode instanceof MemberAccess
-                )
+                refNode instanceof MemberAccess &&
+                refNode.vExpression instanceof Identifier &&
+                refNode.vExpression.vReferencedDeclaration instanceof ImportDirective
             ) {
-                continue;
+                replaceNode(refNode, factory.makeIdentifierFor(def));
             }
 
-            const fqDefName = getFQName(def, refNode);
-
-            // For member accesses we only care about member accesses where the base is a source unit
-            if (refNode instanceof MemberAccess) {
-                const baseExp = refNode.vExpression;
-
-                if (
+            if (
+                (refNode instanceof Identifier &&
                     !(
-                        baseExp instanceof Identifier &&
-                        (baseExp.vReferencedDeclaration instanceof SourceUnit ||
-                            baseExp.vReferencedDeclaration instanceof ImportDirective)
-                    )
-                ) {
-                    continue;
+                        refNode.name === "this" &&
+                        refNode.vReferencedDeclaration instanceof ContractDefinition
+                    )) ||
+                refNode instanceof IdentifierPath ||
+                (refNode instanceof UserDefinedTypeName && refNode.name !== undefined)
+            ) {
+                if (renamed.has(def) || refNode.name !== def.name) {
+                    refNode.name = fqName;
                 }
-
-                // Replace the base member access with the right identifier
-                const newNode = factory.makeIdentifierFor(def);
-                replaceNode(refNode, newNode);
-
-                continue;
             }
+        }
+    }
 
-            if (fqDefName !== refNode.name) {
-                refNode.name = fqDefName;
-            }
+    for (const unit of units) {
+        for (const imp of unit.vImportDirectives) {
+            unit.removeChild(imp);
         }
     }
 }
@@ -888,12 +888,6 @@ if ("version" in options) {
         const contractsNeedingInstr = computeContractsNeedingInstr(cha, annotMap);
         const factory = new ScribbleFactory(mergedCtx);
 
-        if (outputMode === "flat" || outputMode === "json") {
-            // In flat/json mode fix-up any naming issues due to 'import {a as
-            // b} from ...' and name collisions.
-            fixNameConflicts(mergedUnits);
-            fixRenamingErrors(mergedUnits, factory);
-        }
         /**
          * Next try to instrument the merged SourceUnits.
          */
@@ -955,10 +949,15 @@ if ("version" in options) {
             const sortedUnits = sortUnits(allUnits);
 
             // 2. Strip import and compiler pragma directives
+            flattenImports(sortedUnits, factory);
+
+            // 2.5 Remove pragma directives
             sortedUnits.forEach((unit) => {
+                /*
                 for (const node of unit.vImportDirectives) {
                     unit.removeChild(node);
                 }
+                */
 
                 for (const node of unit.vPragmaDirectives) {
                     if (node.vIdentifier === "solidity") {

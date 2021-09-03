@@ -151,6 +151,18 @@ function generateSrcMap2SrcMap(
     }
 
     for (const [property, assertions] of ctx.instrumentedCheck) {
+        const propertyOriginalFileName = (
+            property.raw.getClosestParentByType(SourceUnit) as SourceUnit
+        ).sourceEntryKey;
+
+        const originalFileIdx = originalSourceList.indexOf(propertyOriginalFileName);
+        assert(
+            originalFileIdx !== -1,
+            `Original file ${propertyOriginalFileName} of property ${
+                property.original
+            } missing from original source list ${originalSourceList.join(", ")}`
+        );
+
         for (const assertion of assertions) {
             const assertionSrc = newSrcMap.get(assertion);
             const instrFileIdx = getInstrFileIdx(assertion, ctx.outputMode, instrSourceList);
@@ -159,8 +171,6 @@ function generateSrcMap2SrcMap(
                 assertionSrc !== undefined,
                 `Missing new source for assertion of property ${property.original}`
             );
-
-            const originalFileIdx = property.raw.src.split(":")[2];
 
             src2SrcMap.push([
                 `${assertionSrc[0]}:${assertionSrc[1]}:${instrFileIdx}`,

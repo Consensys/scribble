@@ -1,0 +1,95 @@
+{
+    "file": "test/samples/assert_mixed.instrumented.sol",
+    "steps": [
+        {
+            "act": "createUser",
+            "alias": "owner",
+            "options": {
+                "balance": 1000e18
+            }
+        },
+        {
+            "act": "deployContract",
+            "contract": "AssertMixed",
+            "user": "owner",
+            "alias": "instance1"
+        },
+        {
+            "act": "txCall",
+            "user": "owner",
+            "contract": "instance1",
+
+            "method": "main",
+
+            "args": {
+                "types": ["uint[]"],
+                "values": [[4,5,6,7]]
+            }
+        },
+        {
+            "act": "txCall",
+            "user": "owner",
+            "contract": "instance1",
+
+            "method": "main",
+
+            "args": {
+                "types": ["uint[]"],
+                "values": [[50,50,50,50,50]]
+            },
+            "failure": "*"
+        },
+        {
+            "act": "txCall",
+            "user": "owner",
+            "contract": "instance1",
+
+            "method": "main",
+
+            "args": {
+                "types": ["uint[]"],
+                "values": [[3,5,6,7]]
+            },
+            "failure": "*"
+        },
+        {
+            "act": "txCall",
+            "user": "owner",
+            "contract": "instance1",
+
+            "method": "main",
+
+            "args": {
+                "types": ["uint[]"],
+                "values": [[4,4,4,4,4,4,4,4,4,4]]
+            },
+            "failure": "*"
+        },
+        {
+            "act": "txCall",
+            "user": "owner",
+            "contract": "instance1",
+
+            "method": "main",
+
+            "args": {
+                "types": ["uint[]"],
+                "values": [[5,6,7,51]]
+            },
+            "failure": "*"
+        },
+        {
+            "act": "txCall",
+            "user": "owner",
+            "contract": "instance1",
+
+            "method": "main",
+
+            "args": {
+                "types": ["uint[]"],
+                "values": [[5,6,7,2]]
+            },
+            "failure": "*"
+        }
+    ]
+}
