@@ -246,13 +246,13 @@ function transpileId(expr: SId, ctx: TranspilingContext): Expression {
 
         let res: Identifier;
         // If the scribble name doesn't match the name of the underlying definition there are several cases:
-        // 1) This is a state variable- pick the underlying definition, since
+        // 1) This is a state variable - pick the underlying definition, since
         //  we sometimes rename public state vars during instrumentation to allow
         //  for an explicit getter fun
         // 2) Global symbol in flat/json mode - pick the underlying definition, since all definitions are
         //  flattened and renamed to avoid collisions
         // 3) Global symbol in files mode - pick the scribble identifier - this is a case of import renaming
-        // 4) All other cases - pick the underlying definition
+        // 4) All other cases - pick the Scribble name
         if (
             expr.name !== expr.defSite.name &&
             (expr.defSite.stateVariable ||
