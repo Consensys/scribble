@@ -7,13 +7,15 @@ import {
     VariableDeclaration,
     CompileResult,
     StructuredDocumentation,
-    ASTNode, TypeNode
+    ASTNode,
+    TypeNode
 } from "solc-typed-ast";
 import { PropertyMetaData } from "../instrumenter/annotations";
 import { InstrumentationContext } from "../instrumenter/instrumentation_context";
 import { Range, SId, VarDefSite } from "../spec-lang/ast";
 import { dedup, assert, pp } from ".";
-import { getOr, StructMap } from "..";
+import { getOr, rangeToOffsetRange } from "..";
+import { StructMap } from "../instrumenter/utils";
 import { defSiteToKey } from "../instrumenter/transpiling_context";
 
 type TargetType = "function" | "variable" | "contract";
@@ -26,7 +28,7 @@ interface PropertyDesc {
     annotationSource: string;
     target: TargetType;
     targetName: string;
-    debugEventEncoding: Array<[string, string]>;
+    debugEventEncoding: Array<[string[], string]>;
     message: string;
     instrumentationRanges: string[];
     checkRanges: string[];
@@ -237,26 +239,36 @@ function generatePropertyMap(
         const annotationRange = annotation.annotationFileRange;
 
         const encodingData = ctx.debugEventsEncoding.get(annotation.id);
-        const encoding: Array<[SId, TypeNode]> =
-            encodingData !== undefined ? encodingData : [];
+        const encoding: Array<[SId, TypeNode]> = encodingData !== undefined ? encodingData : [];
         const defSiteMap = new DefSiteMap();
         const typeMap = new TypeMap();
-        
-        for(const [id, type] of encoding) {
-            const defSite = id.defSite as VarDefSite
+
+        for (const [id, type] of encoding) {
+            const defSite = id.defSite as VarDefSite;
             typeMap.set(type, defSite);
-            if(!defSiteMap.has(defSite)) {
+            if (!defSiteMap.has(defSite)) {
                 defSiteMap.set([id], defSite);
-            }
-            else {
+            } else {
                 defSiteMap.mustGet(defSite).push(id);
             }
         }
-        
-        const srcEncoding: [string[], string][] = [];
-        for(const [[defSite], ids] of defSiteMap.entries()) {
-            const type = typeMap.mustGet(defSite);
-            srcEncoding.push(ids, type);
+
+        const srcEncoding: Array<[string[], string]> = [];
+        for (const [[df], ids] of defSiteMap.entries()) {
+            const type = typeMap.mustGet(df);
+            const srcMapList: string[] = [];
+            for (const id of ids) {
+                const src = ctx.files.get(filename);
+                assert(
+                    src !== undefined,
+                    `The file ${filename} does not exist in the InstrumentationContext`
+                );
+                const range = annotation.annotOffToFileLoc(rangeToOffsetRange(id.requiredSrc), src);
+                srcMapList.push(
+                    `${range.start.offset}:${range.end.offset - range.start.offset + 1}:0`
+                );
+            }
+            srcEncoding.push([srcMapList, type.pp()]);
         }
 
         const newUnitIdx = originalSourceList.indexOf(unit.absolutePath);

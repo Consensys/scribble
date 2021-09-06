@@ -838,7 +838,7 @@ if ("version" in options) {
                 let fileLoc;
 
                 if (annotation instanceof PropertyMetaData) {
-                    fileLoc = annotation.predOffToFileLoc(
+                    fileLoc = annotation.annotOffToFileLoc(
                         [loc.start.offset, loc.end.offset],
                         source
                     );

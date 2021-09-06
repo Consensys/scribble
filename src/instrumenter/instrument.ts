@@ -268,7 +268,6 @@ function getDebugInfo(
             const vType = transCtx.typeEnv.typeOf(id);
             // Note: This works only for primitive types. If we ever allow more complex types, the builtin
             // `pp()` function for those may differ from the typeString that solc expects.
-            console.log(id.requiredSrc.start.offset);
             typeList.push([id, vType]);
         }
 
@@ -278,7 +277,7 @@ function getDebugInfo(
 
             continue;
         }
-        
+
         if (!instrCtx.debugEventsEncoding.has(annot.id)) {
             instrCtx.debugEventsEncoding.set(annot.id, typeList);
         }

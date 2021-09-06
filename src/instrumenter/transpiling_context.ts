@@ -17,7 +17,14 @@ import {
     VariableDeclaration
 } from "solc-typed-ast";
 import { AnnotationMetaData, pp, ScribbleFactory } from "..";
-import { SForAll, SId, SLet, SUnaryOperation, SUserFunctionDefinition, VarDefSite } from "../spec-lang/ast";
+import {
+    SForAll,
+    SId,
+    SLet,
+    SUnaryOperation,
+    SUserFunctionDefinition,
+    VarDefSite
+} from "../spec-lang/ast";
 import { SemMap, StateVarScope, TypeEnv } from "../spec-lang/tc";
 import { assert, last } from "../util";
 import { InstrumentationContext } from "./instrumentation_context";
@@ -55,7 +62,6 @@ export function defSiteToKey(defSite: VarDefSite): string {
 
     throw new Error(`NYI debug info for def site ${pp(defSite)}`);
 }
-
 
 class AnnotationDebugMap extends FactoryMap<[AnnotationMetaData], number, Map<SId, Expression>> {
     protected getName(md: AnnotationMetaData): number {

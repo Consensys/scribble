@@ -207,9 +207,9 @@ function addTracingInfo(id: SId, transpiledExpr: Expression, ctx: TranspilingCon
 
             ctx.instrCtx.addAnnotationInstrumentation(ctx.curAnnotation, assignment);
 
-            idDebugMap.set(ctx.refBinding(dbgBinding), id);
+            idDebugMap.set(id, ctx.refBinding(dbgBinding));
         } else {
-            idDebugMap.set(factory.copy(transpiledExpr), id);
+            idDebugMap.set(id, factory.copy(transpiledExpr));
         }
     }
 }
