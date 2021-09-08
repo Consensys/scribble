@@ -6,7 +6,6 @@ import {
     ASTNode,
     ASTNodeFactory,
     ASTReader,
-    Block,
     CompileFailedError,
     compileJson,
     compileJsonData,
@@ -32,8 +31,8 @@ import {
     SourceUnit,
     SrcRangeMap,
     Statement,
+    StatementWithChildren,
     StructDefinition,
-    UncheckedBlock,
     UserDefinedTypeName,
     VariableDeclaration
 } from "solc-typed-ast";
@@ -315,9 +314,7 @@ function instrumentFiles(
     // Finally add in all of the assertions to the worklist
     for (const [target, annots] of annotMap.entries()) {
         if (
-            (target instanceof Statement ||
-                target instanceof Block ||
-                target instanceof UncheckedBlock) &&
+            (target instanceof Statement || target instanceof StatementWithChildren) &&
             annots.length > 0
         ) {
             worklist.push([target, annots]);
@@ -336,9 +333,7 @@ function instrumentFiles(
             instrumentFunction(ctx, annotations, target, contractsNeedingInstr.has(contract));
         } else {
             assert(
-                target instanceof Statement ||
-                    target instanceof Block ||
-                    target instanceof UncheckedBlock,
+                target instanceof Statement || target instanceof StatementWithChildren,
                 `State vars handled below`
             );
             instrumentStatement(ctx, annotations, target);
@@ -430,6 +425,19 @@ function getFQName(def: ExportedSymbol, atUseSite: ASTNode): string {
     }
 }
 
+/**
+ * Given a list of `SourceUnit`s `units`, perform "flattening" of all imports to allow the units to be concatenated into a single unit.
+ * This involves several tasks:
+ *
+ * 1. Rename any top-level definitions with conflicting names to the same namne
+ * 2. For any `Identifier`, `IdentifierPath`, `UserDefinedTypeName` or `MemberAccess` referring to a renamed top-level definition fix the name.
+ * 3. For any `Identifier`, `IdentifierPath`, `UserDefinedTypeName` referring to a name that was declared in an import statement (e.g. `improt {X as Y}...`) fix
+ *    the name to point to the name of the original defintion.
+ * 4. For any `MemberAccess` that has a unit alias as its base (e.g. `import "..." as Lib`) convert it to an `Identifier` referring directly to the original imported definition.
+ * 5. For any `MemberAccess` pointing to a state variable that was renamed due to instrumentation (happens sometimes) also fix that name
+ * @param units
+ * @param factory
+ */
 function flattenImports(units: SourceUnit[], factory: ASTNodeFactory): void {
     const renamed = fixNameConflicts(units);
 
@@ -465,7 +473,7 @@ function flattenImports(units: SourceUnit[], factory: ASTNodeFactory): void {
 
             const fqName = getFQName(def, refNode);
 
-            // Member accesses that have an unit import alias as a base need t o be replaced with ids
+            // Member accesses that have an unit import alias as a base need to be replaced with ids
             if (
                 refNode instanceof MemberAccess &&
                 refNode.vExpression instanceof Identifier &&
@@ -474,6 +482,14 @@ function flattenImports(units: SourceUnit[], factory: ASTNodeFactory): void {
                 replaceNode(refNode, factory.makeIdentifierFor(def));
             }
 
+            // If we have:
+            // 1. Identifiers other than "this"
+            // 2. Identifier paths
+            // 3. UserDefinedTypeNames with a name (the case when they have a path instead of name is handled in 2.)
+            //
+            // AND the original definition is part of the `renamed` set, or the name differs from the original def for other reasons,
+            // fix the name of the node to the fully-qualified name.
+            // TODO: (dimo): It might be cleaner here to replace `Identifier` with `IdentifierPath` when `fqName` has dots in it.
             if (
                 (refNode instanceof Identifier &&
                     !(
@@ -953,12 +969,6 @@ if ("version" in options) {
 
             // 2.5 Remove pragma directives
             sortedUnits.forEach((unit) => {
-                /*
-                for (const node of unit.vImportDirectives) {
-                    unit.removeChild(node);
-                }
-                */
-
                 for (const node of unit.vPragmaDirectives) {
                     if (node.vIdentifier === "solidity") {
                         unit.removeChild(node);

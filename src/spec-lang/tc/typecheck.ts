@@ -308,6 +308,10 @@ function lookupVarDef(name: string, ctx: STypingCtx, version: string): VarDefSit
     return undefined;
 }
 
+/**
+ * Lookup any function definition(s) of name `name` in `STypeingCtx` `ctx`. Requires `version` to be
+ * able to pass on to `resolveAny`.
+ */
 function lookupFun(name: string, ctx: STypingCtx, version: string): FunctionDefinition[] {
     const scope = ctx.length > 1 ? (ctx[1] as ContractDefinition) : (ctx[0] as SourceUnit);
     const res = [...resolveAny(name, scope, version, true)].filter(

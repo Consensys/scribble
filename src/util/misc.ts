@@ -129,12 +129,9 @@ export function getOrInit<K, V>(key: K, m: Map<K, V>, def?: V): V {
 export function getScopeUnit(
     node: ContractDefinition | FunctionDefinition | VariableDeclaration | Statement
 ): SourceUnit {
-    while (!(node instanceof SourceUnit)) {
-        assert(node.parent !== undefined, `Can't get scope of node ${pp(node)}`);
-        node = node.parent;
-    }
-
-    return node;
+    const res = node.getClosestParentByType(SourceUnit);
+    assert(res !== undefined, `Can't get source unit of node ${pp(node)}`);
+    return res;
 }
 
 /**

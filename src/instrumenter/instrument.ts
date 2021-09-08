@@ -32,13 +32,7 @@ import {
     TypeNode,
     UncheckedBlock
 } from "solc-typed-ast";
-import {
-    ensureStmtInBlock,
-    filterByType,
-    getTypeLocation,
-    InvalidForAnnotation,
-    transpileAnnotation
-} from "..";
+import { ensureStmtInBlock, filterByType, getTypeLocation, transpileAnnotation } from "..";
 import { AnnotationType, SNode } from "../spec-lang/ast";
 import {
     assert,
@@ -1128,7 +1122,7 @@ export function makeArraySumFun(
 
 /**
  * Instrument the statement `stmt` with the annotations `allAnnotations`. These should all be
- * `assert`s
+ * `assert`s.
  */
 export function instrumentStatement(
     ctx: InstrumentationContext,
@@ -1138,13 +1132,7 @@ export function instrumentStatement(
     const factory = ctx.factory;
 
     // Make sure stmt is contained in a block. (converts cases like `while () i++` to `while () { i++}`
-    try {
-        ensureStmtInBlock(stmt, factory);
-    } catch (e) {
-        throw e instanceof InvalidForAnnotation
-            ? new UnsupportedConstruct(e.message, e.stmt, ctx.files)
-            : e;
-    }
+    ensureStmtInBlock(stmt, factory);
 
     const container = stmt.parent as Block;
     const assertionBlock = gte(ctx.compilerVersion, "0.8.0")

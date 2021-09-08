@@ -1,14 +1,13 @@
 import {
-    Block,
     ContractDefinition,
     ContractKind,
     FunctionDefinition,
     resolve,
     SourceUnit,
     Statement,
+    StatementWithChildren,
     StructuredDocumentation,
     TryCatchClause,
-    UncheckedBlock,
     VariableDeclaration
 } from "solc-typed-ast";
 import {
@@ -359,11 +358,7 @@ class AnnotationExtractor {
                     target
                 );
             }
-        } else if (
-            target instanceof Statement ||
-            target instanceof Block ||
-            target instanceof UncheckedBlock
-        ) {
+        } else if (target instanceof Statement || target instanceof StatementWithChildren) {
             if (annotation.type !== AnnotationType.Assert) {
                 throw new UnsupportedByTargetError(
                     `The "${annotation.type}" annotation is not applicable inside functions`,
@@ -579,10 +574,10 @@ export function buildAnnotationMap(
 
         // Finally check for any assertions
         for (const stmt of unit.getChildrenBySelector(
-            (nd) => nd instanceof Statement || nd instanceof Block || nd instanceof UncheckedBlock
+            (nd) => nd instanceof Statement || nd instanceof StatementWithChildren
         )) {
             res.set(
-                stmt as Statement | Block | UncheckedBlock,
+                stmt as Statement | StatementWithChildren<any>,
                 extractor.extract(stmt, sources, filters)
             );
         }

@@ -559,12 +559,12 @@ function makeWrapper(
     return wrapperFun;
 }
 
-export class InvalidForAnnotation extends Error {
-    constructor(msg: string, public readonly stmt: ForStatement) {
-        super(msg);
-    }
-}
-
+/**
+ * Given a statement `e`, if `e` is not contained inside of a `Block` (or `UncheckedBlock`) insert a `Block` between it and its parent.
+ * @param e
+ * @param factory
+ * @returns
+ */
 export function ensureStmtInBlock(
     e: Statement | StatementWithChildren<any>,
     factory: ASTNodeFactory
@@ -589,20 +589,44 @@ export function ensureStmtInBlock(
         return;
     }
 
-    if (
-        container instanceof ForStatement ||
-        container instanceof WhileStatement ||
-        container instanceof DoWhileStatement
-    ) {
-        if (container instanceof ForStatement && container.vBody !== e.parent) {
-            throw new InvalidForAnnotation(
-                `Currently dont support instrumenting the init/loop expessions in for statements`,
-                container
-            );
+    if (container instanceof ForStatement) {
+        if (e === container.vBody) {
+            container.vBody = factory.makeBlock([e]);
         }
 
-        container.vBody = factory.makeBlock([e]);
+        /**
+         * Convert `for(initStmt; ...)` into `initStmt; for(; ...)`
+         */
+        if (e === container.vInitializationExpression) {
+            ensureStmtInBlock(container, factory);
+            const grandad = container.parent as Block;
 
+            grandad.insertBefore(e, container);
+            container.vInitializationExpression = undefined;
+            grandad.acceptChildren();
+        }
+
+        /**
+         * Convert `for(...;loopStmt) e` into `for(...;) { e; loopStmt; }`
+         */
+        if (e === container.vLoopExpression) {
+            if (!(container.vBody instanceof StatementWithChildren)) {
+                ensureStmtInBlock(container.vBody, factory);
+            }
+
+            const body = container.vBody as Block;
+            body.appendChild(container.vLoopExpression);
+
+            container.vLoopExpression = undefined;
+            body.acceptChildren();
+        }
+
+        container.acceptChildren();
+        return;
+    }
+
+    if (container instanceof WhileStatement || container instanceof DoWhileStatement) {
+        container.vBody = factory.makeBlock([e]);
         container.acceptChildren();
         return;
     }

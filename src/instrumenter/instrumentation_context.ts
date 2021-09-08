@@ -111,8 +111,8 @@ class TranspilingContextCache extends ContextFactoryMap<
     number,
     TranspilingContext
 > {
-    protected getName(arg: FunctionDefinition): number {
-        return arg.id;
+    protected getName(fun: FunctionDefinition): number {
+        return fun.id;
     }
 
     protected makeNew(fun: FunctionDefinition, type: InstrumentationSiteType): TranspilingContext {
