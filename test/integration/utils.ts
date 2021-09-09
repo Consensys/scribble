@@ -15,7 +15,7 @@ import {
 } from "solc-typed-ast";
 import { AnnotationTarget, assert, single } from "../../src";
 import { SAnnotation, SStateVarProp } from "../../src/spec-lang/ast";
-import { getTypeCtx, StateVarScope, STypingCtx } from "../../src/spec-lang/tc";
+import { StateVarScope, STypingCtx } from "../../src/spec-lang/tc";
 
 export interface ExtendedCompileResult extends CompileResult {
     compilerVersion: string;
@@ -187,35 +187,29 @@ export function getTypeCtxAndTarget(
     annotation?: SAnnotation
 ): [STypingCtx, AnnotationTarget] {
     for (const unit of sources) {
-        const res: STypingCtx = [unit];
         for (const contract of unit.vContracts) {
             if (contract.name === loc[0]) {
-                res.push(contract);
-
                 if (loc.length === 1) {
-                    return [res, contract];
+                    return [[contract], contract];
                 }
 
                 const subTarget = loc[1];
 
                 for (const fun of contract.vFunctions) {
                     if (fun.name == subTarget) {
-                        res.push(fun);
-
                         if (loc.length === 3) {
                             const stmt = single(new XPath(fun).query(loc[2])) as Statement;
-                            return [getTypeCtx(stmt, compilerVersion), stmt];
+                            return [[stmt], stmt];
                         }
 
-                        return [res, fun];
+                        return [[fun], fun];
                     }
                 }
 
                 for (const stateVar of contract.vStateVariables) {
                     if (stateVar.name == subTarget) {
                         assert(annotation instanceof SStateVarProp, ``);
-                        res.push(new StateVarScope(stateVar, annotation));
-                        return [res, stateVar];
+                        return [[contract, new StateVarScope(stateVar, annotation)], stateVar];
                     }
                 }
 

@@ -958,6 +958,7 @@ contract Statements04 {
             [
                 ["assert true;", ["Statements04", "main", "//Block/*[1]"], undefined, true],
                 ["assert arg1 > 0;", ["Statements04", "main", "//Block/*[1]"], undefined, true],
+                ["assert loc > 0;", ["Statements04", "main", "//Block/*[1]"], undefined, true],
                 ["assert arg1 > loc;", ["Statements04", "main", "//Block/*[2]"], undefined, true],
                 ["assert arg1 > loc;", ["Statements04", "main", "//Block/*[3]"], undefined, true],
                 [
@@ -1066,7 +1067,6 @@ contract Statements08 {
             `,
             [
                 ["assert true;", ["Statements08", "main", "//Block/*[1]"], undefined, true],
-                ["assert arg1 > loc;", ["Statements08", "main", "//Block/*[1]"], undefined, true],
                 ["assert arg1 > loc;", ["Statements08", "main", "//Block/*[2]"], undefined, true],
                 ["assert arg1 > loc;", ["Statements08", "main", "//Block/*[3]"], undefined, true],
                 [
@@ -1078,12 +1078,6 @@ contract Statements08 {
                 [
                     "assert arg1 > loc;",
                     ["Statements08", "main", "//Block/*[3]/Block"],
-                    undefined,
-                    true
-                ],
-                [
-                    "assert arg1 > loc + t;",
-                    ["Statements08", "main", "//Block/*[3]/Block/*[1]"],
                     undefined,
                     true
                 ],
@@ -1120,13 +1114,13 @@ contract Statements08 {
                     true
                 ],
                 [
-                    "assert loc + arg1 + g + sVar> 0;",
+                    "assert loc + arg1 + sVar> 0;",
                     ["Statements08", "main", "//Block/*[6]/Block/*[1]"],
                     undefined,
                     true
                 ],
                 [
-                    "assert loc + loc2 + sVar> 0;",
+                    "assert loc + sVar> 0;",
                     ["Statements08", "main", "//Block/*[7]/*[1]"],
                     undefined,
                     true
@@ -1249,7 +1243,6 @@ contract Statements04 {
             [],
             [
                 ["assert 1;", ["Statements04", "main", "//Block/*[1]"]],
-                ["assert loc > 0;", ["Statements04", "main", "//Block/*[1]"]],
                 [
                     "assert iter <= arg1;",
                     ["Statements04", "main", "//Block/*[5]/VariableDeclarationStatement"]
@@ -1299,7 +1292,12 @@ contract Statements08 {
 }
             `,
             [],
-            [["assert loc + arg1 + g > 0;", ["Statements08", "main", "//Block/*[6]/Block"]]]
+            [
+                ["assert arg1 > loc;", ["Statements08", "main", "//Block/*[1]"]],
+                ["assert arg1 > loc + t;", ["Statements08", "main", "//Block/*[3]/Block/*[1]"]],
+                ["assert loc + loc2 + sVar> 0;", ["Statements08", "main", "//Block/*[7]/*[1]"]],
+                ["assert loc + arg1 + g > 0;", ["Statements08", "main", "//Block/*[6]/Block"]]
+            ]
         ]
     ];
 

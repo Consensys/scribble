@@ -1,6 +1,7 @@
 import expect from "expect";
 import { ContractDefinition } from "solc-typed-ast";
 import { findExternalCalls } from "../../src/instrumenter/instrument";
+import { getScopeOfType } from "../../src/spec-lang/tc";
 import { nodeToSource } from "../../src/util";
 import { getTypeCtxAndTarget, LocationDesc, toAst } from "../integration/utils";
 
@@ -67,7 +68,10 @@ contract Main {
             const { units } = toAst(fileName, content);
 
             const [ctx] = getTypeCtxAndTarget(loc, units, compilerVersion);
-            const contract: ContractDefinition = ctx[1] as ContractDefinition;
+            const contract: ContractDefinition = getScopeOfType(
+                ContractDefinition,
+                ctx
+            ) as ContractDefinition;
             const extCalls: string[] = findExternalCalls(contract, compilerVersion).map((call) =>
                 nodeToSource(call.vExpression)
             );

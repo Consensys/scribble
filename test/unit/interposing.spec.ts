@@ -23,6 +23,7 @@ import {
     ScribbleFactory
 } from "../../src/instrumenter";
 import { InstrumentationSiteType } from "../../src/instrumenter/transpiling_context";
+import { getScopeOfType } from "../../src/spec-lang/tc";
 import { single } from "../../src/util";
 import { getTarget, getTypeCtxAndTarget, toAst } from "../integration/utils";
 import { makeInstrumentationCtx } from "./utils";
@@ -621,7 +622,7 @@ contract Foo {
                 units,
                 compilerVersion
             );
-            const contract = typeCtx[1] as ContractDefinition;
+            const contract = getScopeOfType(ContractDefinition, typeCtx) as ContractDefinition;
             const fun = target as FunctionDefinition;
             const factory = new ScribbleFactory(reader.context);
 
