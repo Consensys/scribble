@@ -456,7 +456,7 @@ export function tcUnits(units: SourceUnit[], annotMap: AnnotationMap, typeEnv: T
     for (const target of targets) {
         const typingCtx: STypingCtx = [
             target instanceof VariableDeclaration ? (target.vScope as ContractDefinition) : target
-        ]; // getTypeCtx(target, typeEnv.compilerVersion);
+        ];
         const annotations = annotMap.get(target) as AnnotationMetaData[];
 
         for (const annotationMD of annotations) {
