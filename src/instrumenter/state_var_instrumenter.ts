@@ -561,9 +561,6 @@ function makeWrapper(
 
 /**
  * Given a statement `e`, if `e` is not contained inside of a `Block` (or `UncheckedBlock`) insert a `Block` between it and its parent.
- * @param e
- * @param factory
- * @returns
  */
 export function ensureStmtInBlock(
     e: Statement | StatementWithChildren<any>,
@@ -581,7 +578,10 @@ export function ensureStmtInBlock(
         if (container.vTrueBody === e) {
             container.vTrueBody = factory.makeBlock([e]);
         } else {
-            assert(container.vFalseBody === e, ``);
+            assert(
+                container.vFalseBody === e,
+                `Unexpected child ${e.print()} of ${container.print()}`
+            );
             container.vFalseBody = factory.makeBlock([e]);
         }
 
@@ -592,24 +592,25 @@ export function ensureStmtInBlock(
     if (container instanceof ForStatement) {
         if (e === container.vBody) {
             container.vBody = factory.makeBlock([e]);
-        }
-
-        /**
-         * Convert `for(initStmt; ...)` into `initStmt; for(; ...)`
-         */
-        if (e === container.vInitializationExpression) {
+        } else if (e === container.vInitializationExpression) {
+            /**
+             * Convert `for(initStmt; ...)` into `initStmt; for(; ...)`
+             */
             ensureStmtInBlock(container, factory);
             const grandad = container.parent as Block;
 
             grandad.insertBefore(e, container);
             container.vInitializationExpression = undefined;
             grandad.acceptChildren();
-        }
+        } else {
+            /**
+             * Convert `for(...;loopStmt) e` into `for(...;) { e; loopStmt; }`
+             */
+            assert(
+                e === container.vLoopExpression,
+                `unexpected child ${e.print()} of ${container.print()}`
+            );
 
-        /**
-         * Convert `for(...;loopStmt) e` into `for(...;) { e; loopStmt; }`
-         */
-        if (e === container.vLoopExpression) {
             if (!(container.vBody instanceof StatementWithChildren)) {
                 ensureStmtInBlock(container.vBody, factory);
             }

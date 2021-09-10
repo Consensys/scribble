@@ -6,13 +6,11 @@ import {
     FunctionStateMutability,
     PrettyFormatter,
     FunctionVisibility,
-    VariableDeclaration,
     SourceUnit,
-    ContractDefinition,
-    LatestCompilerVersion,
-    Statement
+    LatestCompilerVersion
 } from "solc-typed-ast";
 import { pp } from ".";
+import { AnnotationTarget } from "..";
 
 export function nodeToSource(main: ASTNode, targetCompilerVersion = "0.6.0"): string {
     const formatter = new PrettyFormatter(4);
@@ -126,9 +124,7 @@ export function getOrInit<K, V>(key: K, m: Map<K, V>, def?: V): V {
     return def;
 }
 
-export function getScopeUnit(
-    node: ContractDefinition | FunctionDefinition | VariableDeclaration | Statement
-): SourceUnit {
+export function getScopeUnit(node: AnnotationTarget): SourceUnit {
     const res = node.getClosestParentByType(SourceUnit);
     assert(res !== undefined, `Can't get source unit of node ${pp(node)}`);
     return res;

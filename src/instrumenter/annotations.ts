@@ -54,7 +54,8 @@ export type AnnotationTarget =
     | ContractDefinition
     | FunctionDefinition
     | VariableDeclaration
-    | Statement;
+    | Statement
+    | StatementWithChildren<any>;
 /// File byte range: [start, length]
 type OffsetRange = [number, number];
 
@@ -115,7 +116,10 @@ export class AnnotationMetaData<T extends SAnnotation = SAnnotation> {
         this.raw = raw;
         this.target = target;
         // This is a hack. Remember the target name as interposing overwrites it
-        this.targetName = target instanceof Statement ? "" : target.name;
+        this.targetName =
+            target instanceof Statement || target instanceof StatementWithChildren
+                ? ""
+                : target.name;
 
         this.original = parsedAnnot.getSourceFragment(originalSlice);
         this.id = numAnnotations++;
@@ -446,26 +450,26 @@ class AnnotationExtractor {
     }
 
     extract(
-        node: ContractDefinition | FunctionDefinition | VariableDeclaration | Statement,
+        target: AnnotationTarget,
         sources: Map<string, string>,
         filters: AnnotationFilterOptions
     ): AnnotationMetaData[] {
         const result: AnnotationMetaData[] = [];
 
-        if (node.documentation === undefined) {
+        if (target.documentation === undefined) {
             return result;
         }
 
-        const raw = node.documentation;
+        const raw = target.documentation;
 
         if (!(raw instanceof StructuredDocumentation)) {
             throw new Error(`Expected structured documentation not string`);
         }
 
-        const unit = getScopeUnit(node);
+        const unit = getScopeUnit(target);
 
         const source = sources.get(unit.absolutePath) as string;
-        const annotations = this.findAnnotations(raw, node, source, filters);
+        const annotations = this.findAnnotations(raw, target, source, filters);
 
         result.push(...annotations);
 

@@ -1131,6 +1131,13 @@ export function instrumentStatement(
 ): void {
     const factory = ctx.factory;
 
+    for (const annot of allAnnotations) {
+        assert(
+            annot.type === AnnotationType.Assert,
+            `Unexpected non-assert annotaiton ${annot.original}`
+        );
+    }
+
     // Make sure stmt is contained in a block. (converts cases like `while () i++` to `while () { i++}`
     ensureStmtInBlock(stmt, factory);
 
@@ -1139,15 +1146,8 @@ export function instrumentStatement(
         ? factory.makeUncheckedBlock([])
         : factory.makeBlock([]);
 
-    // Add a new block before the target stement where we will transpile the assertions
+    // Add a new block before the target statement where we will transpile the assertions
     container.insertBefore(assertionBlock, stmt);
-
-    for (const annot of allAnnotations) {
-        assert(
-            annot.type === AnnotationType.Assert,
-            `Unexpected non-assert annotaiton ${annot.original}`
-        );
-    }
 
     const fun = stmt.getClosestParentByType(FunctionDefinition);
     assert(fun !== undefined, `Unexpected orphan stmt ${stmt.print()}`);
