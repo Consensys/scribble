@@ -28,7 +28,8 @@ export enum InstrumentationSiteType {
     FunctionAnnotation,
     ContractInvariant,
     UserDefinedFunction,
-    StateVarUpdated
+    StateVarUpdated,
+    Assert
 }
 
 export type ASTMap = Map<ASTNode, ASTNode>;
@@ -109,7 +110,7 @@ export class TranspilingContext {
     /**
      * Positions where statements outside of an `old` context are inserted. This is a stack to support building expressions with nested scopes
      */
-    private newMarkerStack: Marker[];
+    private newMarkerStack!: Marker[];
 
     public get factory(): ScribbleFactory {
         return this.instrCtx.factory;
@@ -129,15 +130,21 @@ export class TranspilingContext {
 
     public readonly dbgInfo = new AnnotationDebugMap();
 
+    public get containerContract(): ContractDefinition {
+        const fun = this.containerFun;
+        assert(fun.vScope instanceof ContractDefinition, `Unexpected free function ${fun.name}`);
+        return fun.vScope;
+    }
+
     constructor(
         public readonly typeEnv: TypeEnv,
         public readonly semInfo: SemMap,
-        public readonly container: FunctionDefinition,
+        public readonly containerFun: FunctionDefinition,
         public readonly instrCtx: InstrumentationContext,
         public readonly instrSiteType: InstrumentationSiteType
     ) {
         // Create the StructDefinition for temporary bindings.
-        const contract = this.container.vScope;
+        const contract = this.containerFun.vScope;
         assert(
             contract instanceof ContractDefinition,
             `Can't put instrumentation into free functions.`
@@ -165,7 +172,7 @@ export class TranspilingContext {
             false,
             false,
             instrCtx.structVar,
-            this.container.id,
+            this.containerFun.id,
             false,
             DataLocation.Memory,
             StateVariableVisibility.Default,
@@ -176,7 +183,7 @@ export class TranspilingContext {
         );
 
         if (gte(instrCtx.compilerVersion, "0.8.0")) {
-            const containerBody = this.container.vBody as Block;
+            const containerBody = this.containerFun.vBody as Block;
             if (
                 this.instrSiteType === InstrumentationSiteType.FunctionAnnotation ||
                 this.instrSiteType === InstrumentationSiteType.StateVarUpdated
@@ -193,7 +200,7 @@ export class TranspilingContext {
             containerBody.appendChild(newUncheckedBlock);
             this.newMarkerStack = [[newUncheckedBlock, "end"]];
         } else {
-            const containerBody = this.container.vBody as Block;
+            const containerBody = this.containerFun.vBody as Block;
             if (
                 this.instrSiteType === InstrumentationSiteType.FunctionAnnotation ||
                 this.instrSiteType === InstrumentationSiteType.StateVarUpdated
@@ -234,7 +241,7 @@ export class TranspilingContext {
         if (isOld) {
             if (this.oldMarkerStack === undefined) {
                 throw new Error(
-                    `InternalError: cannot insert statement in the old context of ${this.container.name}. Not support for instrumentation site.`
+                    `InternalError: cannot insert statement in the old context of ${this.containerFun.name}. Not support for instrumentation site.`
                 );
             }
 
@@ -275,6 +282,21 @@ export class TranspilingContext {
         const stack = this.getMarkerStack(isOld);
         assert(stack.length > 1, `Popping bottom marker - shouldn't happen`);
         stack.pop();
+    }
+
+    /**
+     * Reset a marker stack to a new starting position. This is used for transpiling assertions, as we share one
+     * TranspilingContext for the whole function.
+     *
+     * @TODO this is a hack. Find a cleaner way to separate the responsibilities between holding function-wide information and
+     * specific annotation instance information during transpiling.
+     */
+    resetMarkser(marker: Marker, isOld: boolean): void {
+        if (isOld) {
+            this.oldMarkerStack = [marker];
+        } else {
+            this.newMarkerStack = [marker];
+        }
     }
 
     /**
@@ -489,13 +511,9 @@ export class TranspilingContext {
             return;
         }
 
-        const contract = this.container.parent;
+        this.containerContract.appendChild(this.bindingsStructDef);
 
-        assert(contract instanceof ContractDefinition, ``);
-
-        contract.appendChild(this.bindingsStructDef);
-
-        const block = this.container.vBody as Block;
+        const block = this.containerFun.vBody as Block;
         const localVarStmt = this.factory.makeVariableDeclarationStatement([], [this.bindingsVar]);
 
         this.instrCtx.addGeneralInstrumentation(localVarStmt);

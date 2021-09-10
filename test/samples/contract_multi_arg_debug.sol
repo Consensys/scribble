@@ -1,4 +1,5 @@
 pragma solidity 0.8.7;
+
 /// #invariant {:msg ""} b == a + c - 1; 
 contract Foo  {
     uint a=2;

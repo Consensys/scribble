@@ -46,6 +46,10 @@ describe(`Command "scribble <filename>" is failing as expected`, () => {
         [
             ["test/samples/invalid/forall_maps_aliasing2.invalid.sol"],
             /^test\/samples\/invalid\/forall_maps_aliasing2.invalid.sol:12:2 Error: Cannot instrument state var BadAliasing.s as it may be aliased by a storage pointer/m
+        ],
+        [
+            ["test/samples/invalid/assert_try_catch.invalid.sol"],
+            /^test\/samples\/invalid\/assert_try_catch.invalid.sol:7:9 UnsupportedByTargetError: The "assert" annotation is not applicable to try-catch clauses/m
         ]
     ];
 

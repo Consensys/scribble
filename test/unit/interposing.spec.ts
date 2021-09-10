@@ -23,11 +23,10 @@ import {
     ScribbleFactory
 } from "../../src/instrumenter";
 import { InstrumentationSiteType } from "../../src/instrumenter/transpiling_context";
+import { getScopeOfType } from "../../src/spec-lang/tc";
 import { single } from "../../src/util";
 import { getTarget, getTypeCtxAndTarget, toAst } from "../integration/utils";
 import { makeInstrumentationCtx } from "./utils";
-
-export type LocationDesc = [string, string];
 
 function print(units: SourceUnit[], contents: string[], version: string): Map<SourceUnit, string> {
     const contentMap = new Map(units.map((unit, idx) => [unit.absolutePath, contents[idx]]));
@@ -40,7 +39,7 @@ function print(units: SourceUnit[], contents: string[], version: string): Map<So
 }
 
 describe("Function interposing Unit Tests", () => {
-    const goodSamples: Array<[string, string, "log" | "mstore", LocationDesc, string]> = [
+    const goodSamples: Array<[string, string, "log" | "mstore", [string, string], string]> = [
         [
             "internal_interpose.sol",
             `pragma solidity 0.6.0;
@@ -407,7 +406,7 @@ contract Foo is __scribble_ReentrancyUtils {
         it(`Instrument ${contractName} in #${fileName}`, () => {
             const { units, reader, files, compilerVersion } = toAst(fileName, content);
 
-            const target = getTarget([contractName, undefined], units);
+            const target = getTarget([contractName], units);
             const contract: ContractDefinition = target as ContractDefinition;
             const factory = new ScribbleFactory(reader.context);
 
@@ -431,7 +430,7 @@ contract Foo is __scribble_ReentrancyUtils {
 });
 
 describe("Callsite interposing unit tests", () => {
-    const goodSamples: Array<[string, string, "log" | "mstore", LocationDesc, string]> = [
+    const goodSamples: Array<[string, string, "log" | "mstore", [string, string], string]> = [
         [
             "callsite1.sol",
             `pragma solidity 0.6.0;
@@ -618,8 +617,12 @@ contract Foo {
     ] of goodSamples) {
         it(`Instrument ${contractName} in #${fileName}`, () => {
             const { units, reader, files, compilerVersion } = toAst(fileName, content);
-            const [typeCtx, target] = getTypeCtxAndTarget([contractName, funName], units);
-            const contract = typeCtx[1] as ContractDefinition;
+            const [typeCtx, target] = getTypeCtxAndTarget(
+                [contractName, funName],
+                units,
+                compilerVersion
+            );
+            const contract = getScopeOfType(ContractDefinition, typeCtx) as ContractDefinition;
             const fun = target as FunctionDefinition;
             const factory = new ScribbleFactory(reader.context);
 

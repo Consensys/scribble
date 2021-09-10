@@ -1,8 +1,10 @@
 import { satisfies } from "semver";
 import {
     AddressType,
+    AnyResolvable,
     ArrayType,
     ArrayTypeName,
+    ASTNode,
     ASTNodeConstructor,
     BoolType,
     BytesType,
@@ -15,14 +17,19 @@ import {
     FunctionType,
     FunctionVisibility,
     generalizeType,
+    ImportDirective,
     IntLiteralType,
     IntType,
     Mapping,
     MappingType,
+    ParameterList,
     PointerType,
+    resolveAny,
     resolveByName,
     SourceUnit,
     specializeType,
+    Statement,
+    StatementWithChildren,
     StateVariableVisibility,
     StringLiteralType,
     StringType,
@@ -68,7 +75,7 @@ import {
     VarDefSite
 } from "../ast";
 import { BuiltinAddressMembers, BuiltinSymbols } from "./builtins";
-import { BuiltinStructType, FunctionSetType } from "./internal_types";
+import { BuiltinStructType, FunctionSetType, ImportRefType } from "./internal_types";
 import { TypeEnv } from "./typeenv";
 
 export class StateVarScope {
@@ -78,13 +85,15 @@ export class StateVarScope {
     ) {}
 }
 export type SScope =
-    | SourceUnit[]
+    | SourceUnit
     | ContractDefinition
     | FunctionDefinition
+    | Statement
     | SLet
     | SUserFunctionDefinition
     | StateVarScope
-    | SForAll;
+    | SForAll
+    | VariableDeclarationStatement;
 
 export type STypingCtx = SScope[];
 
@@ -115,18 +124,15 @@ export function ppTypingCtx(ctx: STypingCtx): string {
         .join(",");
 }
 
-function getScopeOfType<T extends ContractDefinition | FunctionDefinition>(
+export function getScopeOfType<T extends ContractDefinition | FunctionDefinition>(
     constr: ASTNodeConstructor<T>,
     ctx: STypingCtx
 ): T | undefined {
-    for (let i = ctx.length - 1; i >= 0; i--) {
-        const scope = ctx[i];
-        if (scope instanceof constr) {
-            return scope;
-        }
+    if (ctx[0] instanceof constr) {
+        return ctx[0];
     }
 
-    return undefined;
+    return (ctx[0] as ASTNode).getClosestParentByType(constr);
 }
 
 export abstract class STypeError extends Error {
@@ -247,36 +253,31 @@ export class SInvalidKeyword extends SGenericTypeError<SNode> {
     }
 }
 
+function resolveAnyOfType<T extends AnyResolvable>(
+    name: string,
+    scope: ASTNode,
+    version: string,
+    t: ASTNodeConstructor<T>
+): T[] {
+    // If the context is a VariableDecarationStatement we must be in the case of an
+    // assert placed right before it. Therefore excluse the `VariableDeclarationStatemetn` itself from the scope.
+    const inclusive = !(scope instanceof VariableDeclarationStatement);
+    return [...resolveAny(name, scope, version, inclusive)].filter((x) => x instanceof t) as T[];
+}
+
 /**
  * Given a variable name and a stack of scopes find the definition of this variable.
  *
  * @param name variable name
  * @param ctx stack of scopes in which we are looking for `name`'s defintion
  */
-export function lookupVarDef(name: string, ctx: STypingCtx): VarDefSite | undefined {
+function lookupVarDef(name: string, ctx: STypingCtx, version: string): VarDefSite | undefined {
     // Walk the scope stack down looking for the definition of v
     for (let i = ctx.length - 1; i >= 0; i--) {
         const scope = ctx[i];
-        if (scope instanceof FunctionDefinition) {
-            for (const param of scope.vParameters.vParameters) {
-                if (param.name === name) {
-                    return param;
-                }
-            }
-
-            for (const param of scope.vReturnParameters.vParameters) {
-                if (param.name === name) {
-                    return param;
-                }
-            }
-        } else if (scope instanceof ContractDefinition) {
-            for (const base of scope.vLinearizedBaseContracts) {
-                for (const v of base.vStateVariables) {
-                    if (v.name === name) {
-                        return v;
-                    }
-                }
-            }
+        if (scope instanceof ASTNode) {
+            const res = resolveAnyOfType(name, scope, version, VariableDeclaration);
+            return res.length > 0 ? single(res) : undefined;
         } else if (scope instanceof SUserFunctionDefinition) {
             for (let paramIdx = 0; paramIdx < scope.parameters.length; paramIdx++) {
                 const [param] = scope.parameters[paramIdx];
@@ -285,9 +286,6 @@ export function lookupVarDef(name: string, ctx: STypingCtx): VarDefSite | undefi
                     return [scope, paramIdx];
                 }
             }
-        } else if (scope instanceof Array) {
-            // No variable definitions at the global scope
-            return undefined;
         } else if (scope instanceof StateVarScope) {
             const prop = scope.annotation;
 
@@ -316,59 +314,37 @@ export function lookupVarDef(name: string, ctx: STypingCtx): VarDefSite | undefi
 }
 
 /**
+ * Lookup any function definition(s) of name `name` in `STypeingCtx` `ctx`. Requires `version` to be
+ * able to pass on to `resolveAny`.
+ */
+function lookupFun(name: string, ctx: STypingCtx, version: string): FunctionDefinition[] {
+    const scope = ctx[0];
+    assert(scope instanceof ASTNode, `Expected root scope to be an ASTNode, not ${scope}`);
+    const res = resolveAnyOfType(name, scope, version, FunctionDefinition);
+    return res as FunctionDefinition[];
+}
+
+/**
  * Find and return the user-defined type name `name` in the typing context `ctx`. Return `undefined` if none is found.
  *
  * @param ctx typing context
  * @param name user-defined type name to lookup
  */
-function resolveTypeDef(
+function lookupTypeDef(
+    name: string,
     ctx: STypingCtx,
-    name: string
+    version: string
 ): StructDefinition | EnumDefinition | ContractDefinition | undefined {
-    for (let i = ctx.length; i >= 0; i--) {
-        const scope = ctx[i];
-        if (scope instanceof SLet || scope instanceof FunctionDefinition) {
-            continue;
-        }
+    const scope = ctx[0];
+    assert(scope instanceof ASTNode, `Expected root scope to be an ASTNode, not ${scope}`);
+    const res = [...resolveAny(name, scope, version, true)].filter(
+        (x) =>
+            x instanceof StructDefinition ||
+            x instanceof EnumDefinition ||
+            x instanceof ContractDefinition
+    ) as Array<StructDefinition | EnumDefinition | ContractDefinition>;
 
-        if (scope instanceof ContractDefinition) {
-            // Check if this is a struct or enum defined on the current contract or one of its bases
-            for (const base of scope.vLinearizedBaseContracts) {
-                for (const def of (
-                    base.vStructs as Array<StructDefinition | EnumDefinition>
-                ).concat(base.vEnums)) {
-                    if (def.name === name) {
-                        return def;
-                    }
-                }
-            }
-        }
-
-        if (scope instanceof Array) {
-            for (const sourceUnit of scope) {
-                // Check if this is a globally defined struct or enum
-                for (const def of (
-                    sourceUnit.vStructs as Array<StructDefinition | EnumDefinition>
-                ).concat(sourceUnit.vEnums)) {
-                    if (def.name === name) {
-                        return def;
-                    }
-                }
-            }
-
-            // Finally check if this is a contract/library name
-            for (const sourceUnit of scope) {
-                // Check if this is a globally defined struct or enum
-                for (const contract of sourceUnit.vContracts) {
-                    if (contract.name === name) {
-                        return contract;
-                    }
-                }
-            }
-        }
-    }
-
-    return undefined;
+    return res.length > 0 ? single(res) : undefined;
 }
 
 function mkUserDefinedType(
@@ -384,8 +360,10 @@ function getVarLocation(astV: VariableDeclaration, baseLoc?: DataLocation): Data
         return astV.storageLocation;
     }
 
+    const scope = astV.vScope;
+
     // State variable case - must be in storage
-    if (astV.vScope instanceof ContractDefinition) {
+    if (scope instanceof ContractDefinition) {
         return DataLocation.Storage;
     }
 
@@ -394,18 +372,22 @@ function getVarLocation(astV: VariableDeclaration, baseLoc?: DataLocation): Data
     }
 
     // Either function argument/return or local variables
-    if (astV.vScope instanceof FunctionDefinition) {
-        assert(
-            !(astV.parent instanceof VariableDeclarationStatement),
-            `Scribble shouldn't look at local vars`
-        );
+    if (scope instanceof FunctionDefinition && astV.parent instanceof ParameterList) {
         // Function args/returns have default memory locations for public/internal and calldata for external.
-        return astV.vScope.visibility === FunctionVisibility.External
+        return scope.visibility === FunctionVisibility.External
             ? DataLocation.CallData
             : DataLocation.Memory;
     }
 
-    throw new Error(`NYI variables with scope ${astV.vScope.print()}`);
+    if (astV.parent instanceof VariableDeclarationStatement) {
+        return DataLocation.Memory;
+    }
+
+    if (scope instanceof SourceUnit) {
+        return DataLocation.Memory;
+    }
+
+    throw new Error(`NYI variables with scope ${scope.print()} for var ${astV.name}`);
 }
 
 export function astVarToTypeNode(astV: VariableDeclaration, baseLoc?: DataLocation): TypeNode {
@@ -435,64 +417,60 @@ function sortContracts(contracts: ContractDefinition[]): ContractDefinition[] {
         }
     }
 
-    return topoSort(contracts, order);
+    return order.length > 0 ? topoSort(contracts, order) : contracts;
 }
 
 export function tcUnits(units: SourceUnit[], annotMap: AnnotationMap, typeEnv: TypeEnv): void {
     let contracts: ContractDefinition[] = [];
-    const ctx: STypingCtx = [units];
+    let targets: AnnotationTarget[] = [];
 
-    const tcHelper = (
-        annotationMD: AnnotationMetaData,
-        ctx: STypingCtx,
-        target: AnnotationTarget
-    ): void => {
-        try {
-            tcAnnotation(annotationMD.parsedAnnot, ctx, target, typeEnv);
-        } catch (e) {
-            // Add the annotation metadata to the exception for pretty-printing
-            if (e instanceof STypeError) {
-                e.annotationMetaData = annotationMD;
-            }
-
-            throw e;
-        }
-    };
-
-    // Gather all contracts. buildAnnotationsMap() checks that free
-    // functions/file level constants don't have annotations so we can ignore them.
+    // First gather all the targets
     for (const unit of units) {
-        contracts.push(...unit.vContracts);
+        for (const child of unit.getChildrenBySelector(
+            (node) =>
+                (node instanceof FunctionDefinition && node.vScope instanceof ContractDefinition) ||
+                node instanceof ContractDefinition ||
+                (node instanceof VariableDeclaration && node.stateVariable) ||
+                node instanceof Statement ||
+                node instanceof StatementWithChildren
+        )) {
+            const target = child as AnnotationTarget;
+            const annots = annotMap.get(target);
+
+            // We include all contracts so that we can perform the topo sort (as it may depend on contracts without annotations)
+            if (target instanceof ContractDefinition) {
+                contracts.push(target);
+            } else {
+                if (annots !== undefined && annots.length > 0) {
+                    targets.push(target);
+                }
+            }
+        }
     }
 
-    // Sort contracts in topological order of inheritance. This way
-    // user-defined functions in base contracts are added to the type environment
-    // before annotations in child contracts
+    // Sort contracts topologically and prepend them to targets
     contracts = sortContracts(contracts);
-    for (const contract of contracts) {
-        ctx.push(contract);
-        // First type-check contract-level annotations
-        for (const contractAnnot of annotMap.get(contract) as AnnotationMetaData[]) {
-            tcHelper(contractAnnot, ctx, contract);
-        }
+    targets = [...contracts, ...targets];
 
-        // Next type-check any state var annotations
-        for (const stateVar of contract.vStateVariables) {
-            for (const svAnnot of annotMap.get(stateVar) as AnnotationMetaData[]) {
-                // The if_updated scope is pushed on ctx inside tcAnnotation
-                tcHelper(svAnnot, ctx, stateVar);
+    // Walk over all targets, and TC the annotations for each target
+    for (const target of targets) {
+        const typingCtx: STypingCtx = [
+            target instanceof VariableDeclaration ? (target.vScope as ContractDefinition) : target
+        ];
+        const annotations = annotMap.get(target) as AnnotationMetaData[];
+
+        for (const annotationMD of annotations) {
+            try {
+                tcAnnotation(annotationMD.parsedAnnot, typingCtx, target, typeEnv);
+            } catch (e) {
+                // Add the annotation metadata to the exception for pretty-printing
+                if (e instanceof STypeError) {
+                    e.annotationMetaData = annotationMD;
+                }
+
+                throw e;
             }
         }
-
-        // Finally type-check any function annotations
-        for (const funDef of contract.vFunctions) {
-            ctx.push(funDef);
-            for (const funAnnot of annotMap.get(funDef) as AnnotationMetaData[]) {
-                tcHelper(funAnnot, ctx, funDef);
-            }
-            ctx.pop();
-        }
-        ctx.pop();
     }
 }
 
@@ -844,7 +822,7 @@ function locateKeyType(type: TypeName, idx: number, path: Array<SId | string>): 
 }
 
 function tcIdVariable(expr: SId, ctx: STypingCtx, typeEnv: TypeEnv): TypeNode | undefined {
-    const def = lookupVarDef(expr.name, ctx);
+    const def = lookupVarDef(expr.name, ctx, typeEnv.compilerVersion);
 
     if (def === undefined) {
         return undefined;
@@ -902,10 +880,25 @@ function tcIdVariable(expr: SId, ctx: STypingCtx, typeEnv: TypeEnv): TypeNode | 
     return defNode.parameters[bindingIdx][1];
 }
 
+export function tcIdImportUnitRef(
+    expr: SId,
+    ctx: STypingCtx,
+    typeEnv: TypeEnv
+): ImportRefType | undefined {
+    const scope = ctx[0];
+    assert(scope instanceof ASTNode, `Expected root scope to be an ASTNode, not ${scope}`);
+    const res = resolveAnyOfType(expr.name, scope, typeEnv.compilerVersion, ImportDirective);
+
+    return res.length > 0 ? new ImportRefType(single(res)) : undefined;
+}
+
 export function tcId(expr: SId, ctx: STypingCtx, typeEnv: TypeEnv): TypeNode {
     if (expr.name === "this") {
-        const contract = ctx[1] as ContractDefinition;
-
+        const contract = getScopeOfType(ContractDefinition, ctx);
+        // this is not defined outside of the contract scope (i.e. in free functions)
+        if (contract === undefined) {
+            throw new SUnknownId(expr);
+        }
         expr.defSite = "this";
 
         return mkUserDefinedType(contract);
@@ -927,12 +920,7 @@ export function tcId(expr: SId, ctx: STypingCtx, typeEnv: TypeEnv): TypeNode {
 
     // Next lets try to TC as a function name (note - can't be a public getter
     // as those only appear in MemberExpressions)
-    const funDefs = resolveByName(
-        ctx[1] as ContractDefinition,
-        FunctionDefinition,
-        expr.name,
-        false
-    );
+    const funDefs = lookupFun(expr.name, ctx, typeEnv.compilerVersion);
 
     if (funDefs.length > 0) {
         expr.defSite = "function_name";
@@ -940,8 +928,8 @@ export function tcId(expr: SId, ctx: STypingCtx, typeEnv: TypeEnv): TypeNode {
         return new FunctionSetType(funDefs);
     }
 
-    // Finally lets try to TC it as a type name
-    const userDef = resolveTypeDef(ctx, expr.name);
+    // Next try to TC it as a type name
+    const userDef = lookupTypeDef(expr.name, ctx, typeEnv.compilerVersion);
 
     if (userDef !== undefined) {
         expr.defSite = "type_name";
@@ -949,6 +937,7 @@ export function tcId(expr: SId, ctx: STypingCtx, typeEnv: TypeEnv): TypeNode {
         return new TypeNameType(mkUserDefinedType(userDef));
     }
 
+    // Next check if this is a builtin symbol
     retT = tcIdBuiltinSymbol(expr, expr.name, typeEnv);
 
     if (retT !== undefined) {
@@ -970,6 +959,14 @@ export function tcId(expr: SId, ctx: STypingCtx, typeEnv: TypeEnv): TypeNode {
                 FunctionStateMutability.View
             );
         }
+    }
+
+    // Next check if this is a builtin symbol
+    retT = tcIdImportUnitRef(expr, ctx, typeEnv);
+
+    if (retT !== undefined) {
+        expr.defSite = (retT as ImportRefType).impStatement;
+        return retT;
     }
 
     // If all fails, throw unknown id
@@ -1393,6 +1390,7 @@ export function tcMemberAccess(expr: SMemberAccess, ctx: STypingCtx, typeEnv: Ty
                 for (const rawDecl of rawDef.vMembers) {
                     if (expr.member === rawDecl.name) {
                         // rawDecl.vType is defined, as you can't put a `var x;` in a struct definition.
+                        expr.defSite = rawDecl;
                         return astVarToTypeNode(rawDecl, baseLoc);
                     }
                 }
@@ -1419,6 +1417,7 @@ export function tcMemberAccess(expr: SMemberAccess, ctx: STypingCtx, typeEnv: Ty
                 expr.member === varDecl.name &&
                 varDecl.visibility === StateVariableVisibility.Public
             ) {
+                expr.defSite = varDecl;
                 return new FunctionSetType([varDecl]);
             }
         }
@@ -1444,9 +1443,10 @@ export function tcMemberAccess(expr: SMemberAccess, ctx: STypingCtx, typeEnv: Ty
         baseT.type.definition instanceof ContractDefinition
     ) {
         // First check if this is a type name
-        const type = resolveTypeDef([ctx[0], baseT.type.definition], expr.member);
+        const type = lookupTypeDef(expr.member, [baseT.type.definition], typeEnv.compilerVersion);
 
         if (type) {
+            expr.defSite = type;
             return new TypeNameType(mkUserDefinedType(type));
         }
 
@@ -1485,28 +1485,60 @@ export function tcMemberAccess(expr: SMemberAccess, ctx: STypingCtx, typeEnv: Ty
         return new FixedBytesType(4);
     }
 
-    // Finally check if there is a `using for` declaration that binds a library to this type.
-    const funs: Set<FunctionDefinition> = new Set();
-    const [generalBaseT] = generalizeType(baseT);
-
-    for (const base of (ctx[1] as ContractDefinition).vLinearizedBaseContracts) {
-        for (const usingFor of base.vUsingForDirectives) {
-            const libraryApplies =
-                usingFor.vTypeName === undefined
-                    ? true
-                    : eq(typeNameToTypeNode(usingFor.vTypeName), generalBaseT);
-
-            if (libraryApplies) {
-                const library = usingFor.vLibraryName.vReferencedDeclaration as ContractDefinition;
-                library.vFunctions
-                    .filter((fun) => fun.name === expr.member)
-                    .forEach((funDef) => funs.add(funDef));
+    if (baseT instanceof ImportRefType) {
+        const sourceUnit = baseT.impStatement.vSourceUnit;
+        try {
+            const tmpId = new SId(expr.member, expr.src);
+            const res = tc(tmpId, [sourceUnit], typeEnv);
+            if (
+                tmpId.defSite instanceof VariableDeclaration ||
+                tmpId.defSite instanceof FunctionDefinition ||
+                tmpId.defSite instanceof StructDefinition ||
+                tmpId.defSite instanceof EnumDefinition ||
+                tmpId.defSite instanceof ContractDefinition ||
+                tmpId.defSite instanceof ImportDirective
+            ) {
+                expr.defSite = tmpId.defSite;
+            }
+            return res;
+        } catch (e) {
+            if (e instanceof SUnknownId) {
+                throw new SNoField(
+                    `Contract ${sourceUnit.sourceEntryKey} doesn't export symbol ${expr.member}`,
+                    expr.base,
+                    expr.member
+                );
             }
         }
     }
 
-    if (funs.size > 0) {
-        return new FunctionSetType([...funs], expr.base);
+    // Finally check if there is a `using for` declaration that binds a library to this type.
+    const funs: Set<FunctionDefinition> = new Set();
+    const [generalBaseT] = generalizeType(baseT);
+
+    const contract = getScopeOfType(ContractDefinition, ctx);
+
+    if (contract !== undefined) {
+        for (const base of contract.vLinearizedBaseContracts) {
+            for (const usingFor of base.vUsingForDirectives) {
+                const libraryApplies =
+                    usingFor.vTypeName === undefined
+                        ? true
+                        : eq(typeNameToTypeNode(usingFor.vTypeName), generalBaseT);
+
+                if (libraryApplies) {
+                    const library = usingFor.vLibraryName
+                        .vReferencedDeclaration as ContractDefinition;
+                    library.vFunctions
+                        .filter((fun) => fun.name === expr.member)
+                        .forEach((funDef) => funs.add(funDef));
+                }
+            }
+        }
+
+        if (funs.size > 0) {
+            return new FunctionSetType([...funs], expr.base);
+        }
     }
 
     throw new SNoField(
@@ -1791,6 +1823,10 @@ export function tcFunctionCall(expr: SFunctionCall, ctx: STypingCtx, typeEnv: Ty
         const def = matchingDefs[0];
         // Narrow down the set of matching definitions in the callee's type.
         calleeT.definitions = [def];
+
+        if (callee instanceof SId || callee instanceof SMemberAccess) {
+            callee.defSite = def;
+        }
 
         if (def instanceof FunctionDefinition) {
             // param.vType is defined, as you can't put a `var x,` in a function definition.

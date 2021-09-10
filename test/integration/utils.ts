@@ -9,9 +9,11 @@ import {
     CompileResult,
     compileSol,
     compileSourceString,
-    SourceUnit
+    SourceUnit,
+    Statement,
+    XPath
 } from "solc-typed-ast";
-import { AnnotationTarget, assert } from "../../src";
+import { AnnotationTarget, assert, single } from "../../src";
 import { SAnnotation, SStateVarProp } from "../../src/spec-lang/ast";
 import { StateVarScope, STypingCtx } from "../../src/spec-lang/tc";
 
@@ -141,26 +143,24 @@ export function scribble(fileName: string | string[], ...args: string[]): string
     return result.stdout;
 }
 
-export function getTarget(
-    raw: [string, string | undefined],
-    sources: SourceUnit[]
-): AnnotationTarget {
-    const res: STypingCtx = [sources];
+export type LocationDesc = [string] | [string, string] | [string, string, string];
 
+export function getTarget(loc: LocationDesc, sources: SourceUnit[]): AnnotationTarget {
     for (const unit of sources) {
         for (const contract of unit.vContracts) {
-            if (contract.name === raw[0]) {
-                res.push(contract);
-
-                const subTarget = raw[1];
-
-                if (subTarget === undefined) {
+            if (contract.name === loc[0]) {
+                if (loc.length === 1) {
                     return contract;
                 }
 
+                const subTarget = loc[1];
+
                 for (const fun of contract.vFunctions) {
                     if (fun.name == subTarget) {
-                        res.push(fun);
+                        if (loc.length === 3) {
+                            return single(new XPath(fun).query(loc[2])) as Statement;
+                        }
+
                         return fun;
                     }
                 }
@@ -172,54 +172,54 @@ export function getTarget(
                 }
 
                 throw new Error(
-                    `Couldn't find annotation target ${subTarget} in contract ${raw[0]}`
+                    `Couldn't find annotation target ${subTarget} in contract ${loc[0]}`
                 );
             }
         }
     }
-    throw new Error(`Couldn't find contract ${raw[0]}`);
+    throw new Error(`Couldn't find contract ${loc[0]}`);
 }
 
 export function getTypeCtxAndTarget(
-    raw: [string, string | undefined],
+    loc: LocationDesc,
     sources: SourceUnit[],
+    compilerVersion: string,
     annotation?: SAnnotation
 ): [STypingCtx, AnnotationTarget] {
-    const res: STypingCtx = [sources];
-
     for (const unit of sources) {
         for (const contract of unit.vContracts) {
-            if (contract.name === raw[0]) {
-                res.push(contract);
-
-                const subTarget = raw[1];
-
-                if (subTarget === undefined) {
-                    return [res, contract];
+            if (contract.name === loc[0]) {
+                if (loc.length === 1) {
+                    return [[contract], contract];
                 }
+
+                const subTarget = loc[1];
 
                 for (const fun of contract.vFunctions) {
                     if (fun.name == subTarget) {
-                        res.push(fun);
-                        return [res, fun];
+                        if (loc.length === 3) {
+                            const stmt = single(new XPath(fun).query(loc[2])) as Statement;
+                            return [[stmt], stmt];
+                        }
+
+                        return [[fun], fun];
                     }
                 }
 
                 for (const stateVar of contract.vStateVariables) {
                     if (stateVar.name == subTarget) {
                         assert(annotation instanceof SStateVarProp, ``);
-                        res.push(new StateVarScope(stateVar, annotation));
-                        return [res, stateVar];
+                        return [[contract, new StateVarScope(stateVar, annotation)], stateVar];
                     }
                 }
 
                 throw new Error(
-                    `Couldn't find annotation target ${subTarget} in contract ${raw[0]}`
+                    `Couldn't find annotation target ${subTarget} in contract ${loc[0]}`
                 );
             }
         }
     }
-    throw new Error(`Couldn't find contract ${raw[0]}`);
+    throw new Error(`Couldn't find contract ${loc[0]}`);
 }
 /**
  * Helper function to check that 2 ASTNodes are (roughly) isomorphic. It checks that:

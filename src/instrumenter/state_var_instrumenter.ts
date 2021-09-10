@@ -35,6 +35,7 @@ import {
     PointerType,
     replaceNode,
     Statement,
+    StatementWithChildren,
     StateVariableVisibility,
     StringLiteralType,
     StringType,
@@ -559,39 +560,88 @@ function makeWrapper(
 }
 
 /**
- * Given the expression `e` make sure that `e` is contained in an `ExpressionStatement`, which itself
- * is contained in a `Block`. There are several cases where we may need to create the block itself
+ * Given a statement `e`, if `e` is not contained inside of a `Block` (or `UncheckedBlock`) insert a `Block` between it and its parent.
  */
-export function ensureTopLevelExprInBlock(e: Expression, factory: ASTNodeFactory): void {
-    assert(e.parent instanceof ExpressionStatement, ``);
-    const container = e.parent.parent;
+export function ensureStmtInBlock(
+    e: Statement | StatementWithChildren<any>,
+    factory: ASTNodeFactory
+): void {
+    const container = e.parent;
+
+    assert(container !== undefined, `Unexpected statement ${e.print()} with no parent`);
+
     if (container instanceof Block || container instanceof UncheckedBlock) {
         return;
     }
 
     if (container instanceof IfStatement) {
-        if (container.vTrueBody === e.parent) {
-            container.vTrueBody = factory.makeBlock([e.parent]);
+        if (container.vTrueBody === e) {
+            container.vTrueBody = factory.makeBlock([e]);
         } else {
-            assert(container.vFalseBody === e.parent, ``);
-            container.vFalseBody = factory.makeBlock([e.parent]);
+            assert(
+                container.vFalseBody === e,
+                `Unexpected child ${e.print()} of ${container.print()}`
+            );
+            container.vFalseBody = factory.makeBlock([e]);
         }
+
+        container.acceptChildren();
         return;
     }
 
     if (container instanceof ForStatement) {
-        assert(
-            container.vBody === e.parent,
-            `Currently dont support instrumenting tuple assignments in for init/loop expession`
-        );
-        container.vBody = factory.makeBlock([e.parent]);
+        if (e === container.vBody) {
+            container.vBody = factory.makeBlock([e]);
+        } else if (e === container.vInitializationExpression) {
+            /**
+             * Convert `for(initStmt; ...)` into `initStmt; for(; ...)`
+             */
+            ensureStmtInBlock(container, factory);
+            const grandad = container.parent as Block;
+
+            grandad.insertBefore(e, container);
+            container.vInitializationExpression = undefined;
+            grandad.acceptChildren();
+        } else {
+            /**
+             * Convert `for(...;loopStmt) e` into `for(...;) { e; loopStmt; }`
+             */
+            assert(
+                e === container.vLoopExpression,
+                `unexpected child ${e.print()} of ${container.print()}`
+            );
+
+            if (!(container.vBody instanceof StatementWithChildren)) {
+                ensureStmtInBlock(container.vBody, factory);
+            }
+
+            const body = container.vBody as Block;
+            body.appendChild(container.vLoopExpression);
+
+            container.vLoopExpression = undefined;
+            body.acceptChildren();
+        }
+
+        container.acceptChildren();
         return;
     }
 
     if (container instanceof WhileStatement || container instanceof DoWhileStatement) {
-        container.vBody = factory.makeBlock([e.parent]);
+        container.vBody = factory.makeBlock([e]);
+        container.acceptChildren();
         return;
     }
+
+    assert(false, `NYI container type ${container.constructor.name}`);
+}
+
+/**
+ * Given the expression `e` make sure that `e` is contained in an `ExpressionStatement`, which itself
+ * is contained in a `Block`. There are several cases where we may need to create the block itself
+ */
+export function ensureTopLevelExprInBlock(e: Expression, factory: ASTNodeFactory): void {
+    assert(e.parent instanceof ExpressionStatement, ``);
+    ensureStmtInBlock(e.parent, factory);
 }
 
 /**

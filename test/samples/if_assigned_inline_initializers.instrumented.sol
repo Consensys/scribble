@@ -19,7 +19,7 @@ contract Base {
     uint internal x = 1;
     uint[] internal arr = [1];
     uint[][] internal arr2 = [[1, 2], [3, 4]];
-    S internal s = Base.S({arr: arr, arr2: arr2});
+    S internal s = S({arr: arr, arr2: arr2});
 
     function Base_x_inline_initializer() internal {
         vars0 memory _v;

@@ -1,5 +1,5 @@
 import { SNode, Range } from "./node";
-import { VariableDeclaration } from "solc-typed-ast";
+import { ImportDirective, VariableDeclaration } from "solc-typed-ast";
 import { SLet, SForAll } from ".";
 import { SUserFunctionDefinition } from "./declarations";
 import { StateVarScope } from "../tc";
@@ -17,7 +17,8 @@ export type IdDefSite =
     | "type_name"
     | "this"
     | SUserFunctionDefinition
-    | "builtin_fun";
+    | "builtin_fun"
+    | ImportDirective;
 
 export class SId extends SNode {
     public readonly name: string;

@@ -95,26 +95,9 @@ export function scUnits(
         }
     };
 
-    for (const unit of units) {
-        for (const contract of unit.vContracts) {
-            // First semantic-check contract-level annotations
-            for (const contractAnnot of annotMap.get(contract) as AnnotationMetaData[]) {
-                scHelper(contractAnnot);
-            }
-
-            // Next semantic-check any state var annotations
-            for (const stateVar of contract.vStateVariables) {
-                for (const svAnnot of annotMap.get(stateVar) as AnnotationMetaData[]) {
-                    scHelper(svAnnot);
-                }
-            }
-
-            // Finally semantic-check any function annotations
-            for (const funDef of contract.vFunctions) {
-                for (const funAnnot of annotMap.get(funDef) as AnnotationMetaData[]) {
-                    scHelper(funAnnot);
-                }
-            }
+    for (const [, annotations] of annotMap.entries()) {
+        for (const annotation of annotations) {
+            scHelper(annotation);
         }
     }
 
@@ -263,6 +246,13 @@ export function scResult(
 ): SemInfo {
     if (ctx.isOld) {
         throw new SemError(`Cannot use ${expr.pp()} inside of old()`, expr);
+    }
+
+    if (ctx.annotation.type !== AnnotationType.IfSucceeds) {
+        throw new SemError(
+            `$result is only allowed in if_succeed annotations, not ${ctx.annotation.type}`,
+            expr
+        );
     }
 
     // Conservatively assume that result is never const.
