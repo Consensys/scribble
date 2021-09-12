@@ -1,0 +1,80 @@
+pragma solidity 0.8.7;
+
+/// Utility contract holding a stack counter
+contract __scribble_ReentrancyUtils {
+    bool __scribble_out_of_contract = true;
+}
+
+/// #invariant true;
+contract A is __scribble_ReentrancyUtils {
+    event AssertionFailed(string message);
+
+    function a(B b) external returns (B RET_0) {
+        __scribble_out_of_contract = false;
+        RET_0 = _original_A_a(b);
+        __scribble_check_state_invariants();
+        __scribble_out_of_contract = true;
+    }
+
+    function _original_A_a(B b) private returns (B) {
+        return b;
+    }
+
+    /// Check only the current contract's state invariants
+    function __scribble_A_check_state_invariants_internal() internal {
+        unchecked {
+            if (!(true)) {
+                emit AssertionFailed("0: ");
+                assert(false);
+            }
+        }
+    }
+
+    /// Check the state invariant for the current contract and all its bases
+    function __scribble_check_state_invariants() virtual internal {
+        __scribble_A_check_state_invariants_internal();
+    }
+
+    constructor() {
+        __scribble_out_of_contract = false;
+        __scribble_check_state_invariants();
+        __scribble_out_of_contract = true;
+    }
+}
+
+/// #invariant true;
+contract B is __scribble_ReentrancyUtils {
+    event AssertionFailed(string message);
+
+    function a(A a) external returns (A RET_0) {
+        __scribble_out_of_contract = false;
+        RET_0 = _original_B_a(a);
+        __scribble_check_state_invariants();
+        __scribble_out_of_contract = true;
+    }
+
+    function _original_B_a(A a) private returns (A) {
+        return a;
+    }
+
+    /// Check only the current contract's state invariants
+    function __scribble_B_check_state_invariants_internal() internal {
+        unchecked {
+            if (!(true)) {
+                emit AssertionFailed("1: ");
+                assert(false);
+            }
+        }
+    }
+
+    /// Check the state invariant for the current contract and all its bases
+    function __scribble_check_state_invariants() virtual internal {
+        __scribble_B_check_state_invariants_internal();
+    }
+
+    constructor() {
+        __scribble_out_of_contract = false;
+        __scribble_check_state_invariants();
+        __scribble_out_of_contract = true;
+    }
+}

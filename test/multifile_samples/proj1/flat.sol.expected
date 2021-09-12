@@ -4,6 +4,7 @@ pragma solidity 0.6.11;
 contract __scribble_ReentrancyUtils {
     bool __scribble_out_of_contract = true;
 }
+
 /// #invariant {:msg "P0"} x > 0;
 contract Base is __scribble_ReentrancyUtils {
     event AssertionFailed(string message);
@@ -29,6 +30,7 @@ contract Base is __scribble_ReentrancyUtils {
         __scribble_out_of_contract = true;
     }
 }
+
 contract Child1 is __scribble_ReentrancyUtils, Base {
     struct vars2 {
         uint256 old_0;
@@ -68,6 +70,7 @@ contract Child1 is __scribble_ReentrancyUtils, Base {
         __scribble_out_of_contract = true;
     }
 }
+
 contract Child2 is __scribble_ReentrancyUtils, Base {
     struct vars4 {
         uint256 old_1;

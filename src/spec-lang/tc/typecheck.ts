@@ -262,7 +262,8 @@ function resolveAnyOfType<T extends AnyResolvable>(
     // If the context is a VariableDecarationStatement we must be in the case of an
     // assert placed right before it. Therefore excluse the `VariableDeclarationStatemetn` itself from the scope.
     const inclusive = !(scope instanceof VariableDeclarationStatement);
-    return [...resolveAny(name, scope, version, inclusive)].filter((x) => x instanceof t) as T[];
+    const x = resolveAny(name, scope, version, inclusive);
+    return [...x].filter((x) => x instanceof t) as T[];
 }
 
 /**

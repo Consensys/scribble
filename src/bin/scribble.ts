@@ -3,7 +3,6 @@ import fse from "fs-extra";
 import { dirname, join, relative } from "path";
 import {
     ASTContext,
-    ASTNode,
     ASTNodeFactory,
     ASTReader,
     CompileFailedError,
@@ -14,26 +13,15 @@ import {
     compileSourceString,
     ContractDefinition,
     ContractKind,
-    EnumDefinition,
-    ErrorDefinition,
-    ExportedSymbol,
     FunctionDefinition,
     FunctionKind,
     FunctionStateMutability,
     FunctionVisibility,
-    Identifier,
-    IdentifierPath,
-    ImportDirective,
     isSane,
-    MemberAccess,
-    ParameterList,
-    replaceNode,
     SourceUnit,
     SrcRangeMap,
     Statement,
     StatementWithChildren,
-    StructDefinition,
-    UserDefinedTypeName,
     VariableDeclaration
 } from "solc-typed-ast";
 import {
@@ -65,6 +53,7 @@ import { getCallGraph } from "../instrumenter/callgraph";
 import { CHA, getCHA } from "../instrumenter/cha";
 import { InstrumentationContext } from "../instrumenter/instrumentation_context";
 import { instrumentStateVars } from "../instrumenter/state_var_instrumenter";
+import { flattenUnits } from "../rewriter/flatten";
 import { merge } from "../rewriter/merge";
 import { AnnotationType, Location, Range } from "../spec-lang/ast";
 import { scUnits, SemError, SemMap, STypeError, tcUnits, TypeEnv } from "../spec-lang/tc";
@@ -75,12 +64,9 @@ import {
     flatten,
     generateInstrumentationMetadata,
     getOr,
-    getOrInit,
     getScopeUnit,
     isChangingState,
-    isExternallyVisible,
-    pp,
-    topoSort
+    isExternallyVisible
 } from "../util";
 import cli from "./scribble_cli.json";
 
@@ -349,170 +335,6 @@ function instrumentFiles(
     ctx.finalize();
 }
 
-/**
- * When flattening units, we may introduce two definitions with the same name.
- * Rename definitions accordingly.
- *
- * @param units - units to flatten
- */
-function fixNameConflicts(units: SourceUnit[]): Set<ExportedSymbol> {
-    const nameMap = new Map<string, ExportedSymbol[]>();
-
-    for (const unit of units) {
-        unit.vContracts.forEach((contr) => getOrInit(contr.name, nameMap, []).push(contr));
-        unit.vStructs.forEach((struct) => getOrInit(struct.name, nameMap, []).push(struct));
-        unit.vEnums.forEach((enumDef) => getOrInit(enumDef.name, nameMap, []).push(enumDef));
-        unit.vErrors.forEach((errDef) => getOrInit(errDef.name, nameMap, []).push(errDef));
-        unit.vVariables.forEach((varDef) => getOrInit(varDef.name, nameMap, []).push(varDef));
-        unit.vFunctions.forEach((funDef) => getOrInit(funDef.name, nameMap, []).push(funDef));
-        unit.vImportDirectives.forEach((impDef) => {
-            if (impDef.unitAlias !== "") getOrInit(impDef.unitAlias, nameMap, []).push(impDef);
-        });
-    }
-
-    const renamed = new Set<ExportedSymbol>();
-
-    for (const [, defs] of nameMap) {
-        // Rename all defs after the first one
-        for (let defIdx = 1; defIdx < defs.length; defIdx++) {
-            const def = defs[defIdx];
-
-            if (def instanceof ImportDirective) {
-                def.unitAlias += `_${defIdx}`;
-            } else {
-                def.name += `_${defIdx}`;
-            }
-
-            renamed.add(def);
-        }
-    }
-
-    return renamed;
-}
-
-function getTypeScope(n: ASTNode): SourceUnit | ContractDefinition {
-    const typeScope = n.getClosestParentBySelector(
-        (p: ASTNode) => p instanceof SourceUnit || p instanceof ContractDefinition
-    ) as SourceUnit | ContractDefinition;
-    return typeScope;
-}
-
-function getFQName(def: ExportedSymbol, atUseSite: ASTNode): string {
-    if (def instanceof ImportDirective) {
-        return def.unitAlias;
-    }
-
-    if (def instanceof ContractDefinition) {
-        return def.name;
-    }
-
-    const scope = def.vScope;
-    assert(
-        scope instanceof SourceUnit || scope instanceof ContractDefinition,
-        `Unexpected scope ${
-            scope.constructor.name
-        } for def ${def.print()} at site ${atUseSite.print()}}`
-    );
-
-    if (scope instanceof SourceUnit) {
-        return def.name;
-    } else {
-        if (def instanceof FunctionDefinition && getTypeScope(def) === getTypeScope(atUseSite)) {
-            return def.name;
-        }
-
-        return scope.name + "." + def.name;
-    }
-}
-
-/**
- * Given a list of `SourceUnit`s `units`, perform "flattening" of all imports to allow the units to be concatenated into a single unit.
- * This involves several tasks:
- *
- * 1. Rename any top-level definitions with conflicting names to the same namne
- * 2. For any `Identifier`, `IdentifierPath`, `UserDefinedTypeName` or `MemberAccess` referring to a renamed top-level definition fix the name.
- * 3. For any `Identifier`, `IdentifierPath`, `UserDefinedTypeName` referring to a name that was declared in an import statement (e.g. `improt {X as Y}...`) fix
- *    the name to point to the name of the original defintion.
- * 4. For any `MemberAccess` that has a unit alias as its base (e.g. `import "..." as Lib`) convert it to an `Identifier` referring directly to the original imported definition.
- * 5. For any `MemberAccess` pointing to a state variable that was renamed due to instrumentation (happens sometimes) also fix that name
- * @param units
- * @param factory
- */
-function flattenImports(units: SourceUnit[], factory: ASTNodeFactory): void {
-    const renamed = fixNameConflicts(units);
-
-    for (const unit of units) {
-        for (const refNode of unit.getChildrenBySelector(
-            (node) =>
-                node instanceof Identifier ||
-                node instanceof IdentifierPath ||
-                node instanceof UserDefinedTypeName ||
-                node instanceof MemberAccess
-        ) as Array<Identifier | IdentifierPath | UserDefinedTypeName | MemberAccess>) {
-            const def = refNode.vReferencedDeclaration;
-
-            // Only interested in references to exportable symbols
-            if (
-                def === undefined ||
-                !(
-                    def instanceof ContractDefinition ||
-                    def instanceof StructDefinition ||
-                    def instanceof EnumDefinition ||
-                    def instanceof ErrorDefinition ||
-                    def instanceof FunctionDefinition ||
-                    (def instanceof VariableDeclaration && def.vScope instanceof SourceUnit)
-                )
-            ) {
-                continue;
-            }
-
-            // Only interested in references to top-level symbols (they are the only ones affected by flattening)
-            if (!(def.vScope instanceof SourceUnit)) {
-                continue;
-            }
-
-            const fqName = getFQName(def, refNode);
-
-            // Member accesses that have an unit import alias as a base need to be replaced with ids
-            if (
-                refNode instanceof MemberAccess &&
-                refNode.vExpression instanceof Identifier &&
-                refNode.vExpression.vReferencedDeclaration instanceof ImportDirective
-            ) {
-                replaceNode(refNode, factory.makeIdentifierFor(def));
-            }
-
-            // If we have:
-            // 1. Identifiers other than "this"
-            // 2. Identifier paths
-            // 3. UserDefinedTypeNames with a name (the case when they have a path instead of name is handled in 2.)
-            //
-            // AND the original definition is part of the `renamed` set, or the name differs from the original def for other reasons,
-            // fix the name of the node to the fully-qualified name.
-            // TODO: (dimo): It might be cleaner here to replace `Identifier` with `IdentifierPath` when `fqName` has dots in it.
-            if (
-                (refNode instanceof Identifier &&
-                    !(
-                        refNode.name === "this" &&
-                        refNode.vReferencedDeclaration instanceof ContractDefinition
-                    )) ||
-                refNode instanceof IdentifierPath ||
-                (refNode instanceof UserDefinedTypeName && refNode.name !== undefined)
-            ) {
-                if (renamed.has(def) || refNode.name !== def.name) {
-                    refNode.name = fqName;
-                }
-            }
-        }
-    }
-
-    for (const unit of units) {
-        for (const imp of unit.vImportDirectives) {
-            unit.removeChild(imp);
-        }
-    }
-}
-
 const params = cli as any;
 
 let options = params[1].optionList;
@@ -535,34 +357,6 @@ function oneOf(input: any, options: string[], msg: string): any {
     }
 
     return input;
-}
-
-/**
- * Sort source units in topological order based on their imports.
- *
- * @param units - units to sort
- */
-function sortUnits(units: SourceUnit[]): SourceUnit[] {
-    // Map from absolute paths to source units
-    const pathMap = new Map(units.map((unit) => [unit.absolutePath, unit]));
-    // Partial order of imports
-    const order: Array<[SourceUnit, SourceUnit]> = [];
-
-    for (const unit of units) {
-        const seen = new Set<SourceUnit>();
-        for (const imp of unit.vImportDirectives) {
-            const importee = pathMap.get(imp.vSourceUnit.absolutePath);
-            assert(importee !== undefined, ``);
-            // Avoid duplicats in order
-            if (seen.has(importee)) {
-                continue;
-            }
-            seen.add(importee);
-            order.push([importee, unit]);
-        }
-    }
-
-    return topoSort(units, order);
 }
 
 function writeOut(contents: string, fileName: string) {
@@ -904,6 +698,13 @@ if ("version" in options) {
         const contractsNeedingInstr = computeContractsNeedingInstr(cha, annotMap);
         const factory = new ScribbleFactory(mergedCtx);
 
+        // Next we re-write the imports. We want to do this here, as the imports are need by the topo sort
+        mergedUnits.forEach((sourceUnit) => {
+            if (contentsMap.has(sourceUnit.absolutePath)) {
+                rewriteImports(sourceUnit, contentsMap, factory);
+            }
+        });
+
         /**
          * Next try to instrument the merged SourceUnits.
          */
@@ -943,76 +744,28 @@ if ("version" in options) {
             throw e;
         }
 
-        const allUnits: SourceUnit[] = [...instrCtx.units];
-        const changedUnits: SourceUnit[] = [...instrCtx.changedUnits];
+        const allUnits: SourceUnit[] = [...instrCtx.units, utilsUnit];
+        let modifiedFiles: SourceUnit[];
 
-        allUnits.push(utilsUnit);
-
-        // Next we re-write the imports. We want to do this here, as the imports are need by the topo sort
-        allUnits.forEach((sourceUnit) => {
-            if (contentsMap.has(sourceUnit.absolutePath)) {
-                rewriteImports(sourceUnit, contentsMap, factory);
-            }
-        });
-
-        let newSrcMap: SrcRangeMap = new Map();
-        let originalUnits: SourceUnit[];
+        const newSrcMap: SrcRangeMap = new Map();
 
         if (outputMode === "flat" || outputMode === "json") {
             // For flat and json modes, we need to flatten out the output. This goes in several steps.
 
-            // 1. Sort units in topological order by imports
-            const sortedUnits = sortUnits(allUnits);
+            // 1. Strip imports, resolve top-level naming conflicts and merge everything in 1 unit
+            const flatUnit = flattenUnits(allUnits, factory, options.output);
 
-            // 2. Strip import and compiler pragma directives
-            flattenImports(sortedUnits, factory);
-
-            // 2.5 Remove pragma directives
-            sortedUnits.forEach((unit) => {
-                for (const node of unit.vPragmaDirectives) {
-                    if (node.vIdentifier === "solidity") {
-                        unit.removeChild(node);
-                    }
-                }
-            });
+            modifiedFiles = [flatUnit];
 
             // 3. Next insert a single compiler version directive
             const version = pickVersion(compilerVersionUsedMap);
 
-            sortedUnits[0].appendChild(factory.makePragmaDirective(["solidity", version]));
+            flatUnit.insertAtBeginning(factory.makePragmaDirective(["solidity", version]));
 
-            // 5. Now print the stripped files
-            const newContents: Map<SourceUnit, string> = instrCtx.printUnits(
-                sortedUnits,
-                newSrcMap
-            );
-
-            // 6. Join all the contents in-order
-            const flatSrcMap: SrcRangeMap = new Map();
-            let flatContents = "";
-
-            for (let i = 0; i < sortedUnits.length; i++) {
-                const unit = sortedUnits[i];
-
-                if (flatContents !== "") flatContents += "\n";
-
-                unit.walkChildren((node) => {
-                    const localSrc = newSrcMap.get(node);
-                    if (localSrc === undefined) {
-                        assert(
-                            node instanceof ParameterList,
-                            `Missing source for node ${pp(node)}`
-                        );
-                        return;
-                    }
-
-                    flatSrcMap.set(node, [flatContents.length + localSrc[0], localSrc[1]]);
-                });
-                flatContents += newContents.get(unit);
-            }
-
-            newSrcMap = flatSrcMap;
-            originalUnits = sortedUnits;
+            // 5. Print the flattened unit
+            const flatContents = instrCtx
+                .printUnits(modifiedFiles, newSrcMap)
+                .get(flatUnit) as string;
 
             // 7. If the output mode is just 'flat' we just write out the contents now.
             if (outputMode === "flat") {
@@ -1053,8 +806,9 @@ if ("version" in options) {
                     buildOutputJSON(
                         instrCtx,
                         flatCompiled,
-                        sortedUnits,
-                        flatSrcMap,
+                        instrCtx.units,
+                        modifiedFiles,
+                        newSrcMap,
                         pkg.version,
                         options.output,
                         options["arm"] !== undefined
@@ -1066,13 +820,12 @@ if ("version" in options) {
                 writeOut(resultJSON, options.output);
             }
         } else {
-            // In files mode we need to write out every change file, and opitonally swap them in-place.
-
+            modifiedFiles = [...instrCtx.changedUnits, utilsUnit];
             // 1. Write out files
-            const newContents = instrCtx.printUnits(allUnits.concat(utilsUnit), newSrcMap);
+            const newContents = instrCtx.printUnits(modifiedFiles, newSrcMap);
 
             // 2. For all changed files write out a `.instrumented` version of the file.
-            for (const unit of changedUnits) {
+            for (const unit of instrCtx.changedUnits) {
                 const instrumentedFileName = unit.absolutePath + ".instrumented";
 
                 if (!options.quiet) {
@@ -1087,7 +840,7 @@ if ("version" in options) {
 
             // 4. Finally if --arm is passed put the instrumented files in-place
             if (options["arm"]) {
-                for (const unit of changedUnits) {
+                for (const unit of instrCtx.changedUnits) {
                     const instrumentedFileName = unit.absolutePath + ".instrumented";
                     const originalFileName = unit.absolutePath + ".original";
 
@@ -1095,15 +848,14 @@ if ("version" in options) {
                     copy(instrumentedFileName, unit.absolutePath, options);
                 }
             }
-
-            originalUnits = changedUnits.concat(utilsUnit);
         }
 
         if (options["instrumentation-metadata-file"] !== undefined) {
             const metadata: any = generateInstrumentationMetadata(
                 instrCtx,
                 newSrcMap,
-                originalUnits,
+                instrCtx.units,
+                modifiedFiles,
                 options["arm"] !== undefined,
                 pkg.version,
                 options["output"]

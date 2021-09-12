@@ -4,6 +4,7 @@ pragma solidity 0.8.7;
 contract __scribble_ReentrancyUtils {
     bool __scribble_out_of_contract = true;
 }
+
 /// #invariant sum < 200;
 contract AssertMixed is __scribble_ReentrancyUtils {
     event AssertionFailed(string message);

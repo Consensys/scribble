@@ -1,9 +1,5 @@
 pragma solidity 0.6.10;
 
-/// Utility contract holding a stack counter
-contract __scribble_ReentrancyUtils {
-    bool __scribble_out_of_contract = true;
-}
 interface IFoo {
     function boo() external;
 }
@@ -12,6 +8,11 @@ library SillyMath {
     function add(int a, int b) public returns (int) {
         return a + b;
     }
+}
+
+/// Utility contract holding a stack counter
+contract __scribble_ReentrancyUtils {
+    bool __scribble_out_of_contract = true;
 }
 
 /// #invariant {:msg ""} x>0;

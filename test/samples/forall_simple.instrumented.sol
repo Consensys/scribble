@@ -4,6 +4,7 @@ pragma solidity 0.8.4;
 contract __scribble_ReentrancyUtils {
     bool __scribble_out_of_contract = true;
 }
+
 /// #invariant forall (uint i in a) a[i] > 10;
 contract ForallSimple is __scribble_ReentrancyUtils {
     event AssertionFailed(string message);

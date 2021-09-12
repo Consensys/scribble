@@ -6,6 +6,11 @@ contract Base {
     }
 }
 
+/// Utility contract holding a stack counter
+contract __scribble_ReentrancyUtils {
+    bool __scribble_out_of_contract = true;
+}
+
 contract Foo is Base {
     event AssertionFailed(string message);
 
@@ -36,8 +41,4 @@ contract Child is Foo {
     function _original_Child_getX() private returns (uint) {
         return x + 1;
     }
-}
-/// Utility contract holding a stack counter
-contract __scribble_ReentrancyUtils {
-    bool __scribble_out_of_contract = true;
 }

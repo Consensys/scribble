@@ -43,18 +43,24 @@ function findImport(
 
     // Check if `from` re-exports `name`
     for (const importDir of from.vImportDirectives) {
-        if (importDir.vSymbolAliases.length === 0) {
+        if (importDir.vSymbolAliases.length === 0 && importDir.unitAlias === "") {
             const importee = findImport(name, importDir.vSourceUnit, sources, factory);
 
             if (importee !== undefined) {
                 return importee;
             }
+        } else if (importDir.unitAlias !== "" && importDir.unitAlias === name) {
+            return importDir;
         } else {
             for (const [origin, alias] of importDir.vSymbolAliases) {
-                const originName =
-                    origin instanceof ImportDirective ? origin.unitAlias : origin.name;
+                const impName =
+                    alias !== undefined
+                        ? alias
+                        : origin instanceof ImportDirective
+                        ? origin.unitAlias
+                        : origin.name;
 
-                if ((alias !== undefined && alias === name) || originName === name) {
+                if (impName === name) {
                     return origin;
                 }
             }
@@ -107,11 +113,17 @@ export function rewriteImports(
                 `Sym ${symDesc.name} not found in exports of ${importedUnit.sourceEntryKey}`
             );
 
-            const id = factory.makeIdentifierFor(sym);
+            const id = factory.makeIdentifier("<missing>", symDesc.name, sym.id);
 
             id.parent = importDir;
 
             newSymbolAliases.push({ foreign: id, local: symDesc.alias });
+
+            const symName = symDesc.alias !== null ? symDesc.alias : id.name;
+
+            if (!sourceUnit.exportedSymbols.has(symName)) {
+                sourceUnit.exportedSymbols.set(symName, id.referencedDeclaration);
+            }
         }
 
         importDir.symbolAliases = newSymbolAliases;

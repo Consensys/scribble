@@ -7,7 +7,8 @@ import {
     VariableDeclaration,
     CompileResult,
     StructuredDocumentation,
-    ASTNode
+    ASTNode,
+    PragmaDirective
 } from "solc-typed-ast";
 import { PropertyMetaData } from "../instrumenter/annotations";
 import { InstrumentationContext } from "../instrumenter/instrumentation_context";
@@ -104,7 +105,7 @@ function getInstrFileIdx(
 function generateSrcMap2SrcMap(
     ctx: InstrumentationContext,
     sortedUnits: SourceUnit[],
-    utilsUnit: SourceUnit,
+    changedUnits: SourceUnit[],
     newSrcMap: SrcRangeMap,
     originalSourceList: string[],
     instrSourceList: string[]
@@ -112,14 +113,7 @@ function generateSrcMap2SrcMap(
     const src2SrcMap: SrcToSrcMap = [];
     const otherInstrumentation = [];
 
-    for (const unit of sortedUnits) {
-        const newSrcListIdx = originalSourceList.indexOf(unit.absolutePath);
-
-        // Don't add the utils unit to the src2src map
-        if (unit === utilsUnit) {
-            continue;
-        }
-
+    for (const unit of changedUnits) {
         unit.walkChildren((node) => {
             // Skip new nodes
             if (node.src === "0:0:0") {
@@ -132,12 +126,12 @@ function generateSrcMap2SrcMap(
                 return;
             }
 
-            const originalSrc = reNumber(node.src, newSrcListIdx);
             const newSrc = newSrcMap.get(node);
 
             if (newSrc === undefined) {
                 assert(
-                    node instanceof ParameterList && node.vParameters.length == 0,
+                    (node instanceof ParameterList && node.vParameters.length == 0) ||
+                        node instanceof PragmaDirective,
                     `Missing new source for node ${node.constructor.name}#${node.id}`
                 );
 
@@ -146,23 +140,11 @@ function generateSrcMap2SrcMap(
 
             const instrFileIdx = getInstrFileIdx(unit, ctx.outputMode, instrSourceList);
 
-            src2SrcMap.push([`${newSrc[0]}:${newSrc[1]}:${instrFileIdx}`, originalSrc]);
+            src2SrcMap.push([`${newSrc[0]}:${newSrc[1]}:${instrFileIdx}`, node.src]);
         });
     }
 
     for (const [property, assertions] of ctx.instrumentedCheck) {
-        const propertyOriginalFileName = (
-            property.raw.getClosestParentByType(SourceUnit) as SourceUnit
-        ).sourceEntryKey;
-
-        const originalFileIdx = originalSourceList.indexOf(propertyOriginalFileName);
-        assert(
-            originalFileIdx !== -1,
-            `Original file ${propertyOriginalFileName} of property ${
-                property.original
-            } missing from original source list ${originalSourceList.join(", ")}`
-        );
-
         for (const assertion of assertions) {
             const assertionSrc = newSrcMap.get(assertion);
             const instrFileIdx = getInstrFileIdx(assertion, ctx.outputMode, instrSourceList);
@@ -171,6 +153,8 @@ function generateSrcMap2SrcMap(
                 assertionSrc !== undefined,
                 `Missing new source for assertion of property ${property.original}`
             );
+
+            const originalFileIdx = property.originalFileIdx;
 
             src2SrcMap.push([
                 `${assertionSrc[0]}:${assertionSrc[1]}:${instrFileIdx}`,
@@ -203,8 +187,7 @@ function rangeToSrc(range: Range, fileIdx: number): string {
 function generatePropertyMap(
     ctx: InstrumentationContext,
     newSrcMap: SrcRangeMap,
-    instrSourceList: string[],
-    originalSourceList: string[]
+    instrSourceList: string[]
 ): PropertyMap {
     const result: PropertyMap = [];
 
@@ -244,9 +227,8 @@ function generatePropertyMap(
         }
 
         const targetName = annotation.targetName;
-        const filename = contract.vScope.sourceEntryKey;
+        const filename = annotation.originalFileName;
 
-        const unit = contract.vScope;
         const predRange = annotation.predicateFileLoc;
         const annotationRange = annotation.annotationFileRange;
 
@@ -254,9 +236,8 @@ function generatePropertyMap(
         const encoding: Array<[string, string]> =
             encodingData !== undefined ? encodingData : [["", ""]];
 
-        const newUnitIdx = originalSourceList.indexOf(unit.absolutePath);
-        const propertySource = rangeToSrc(predRange, newUnitIdx);
-        const annotationSource = rangeToSrc(annotationRange, newUnitIdx);
+        const propertySource = rangeToSrc(predRange, annotation.originalFileIdx);
+        const annotationSource = rangeToSrc(annotationRange, annotation.originalFileIdx);
 
         const evalStmts = getOr(ctx.evaluationStatements, annotation, []);
 
@@ -332,20 +313,17 @@ export function generateInstrumentationMetadata(
     ctx: InstrumentationContext,
     newSrcMap: SrcRangeMap,
     originalUnits: SourceUnit[],
+    changedUnits: SourceUnit[],
     arm: boolean,
     scribbleVersion: string,
     outputFile?: string
 ): InstrumentationMetaData {
-    const utilsUnit = ctx.utilsUnit;
-
-    let originalSourceList: string[] = originalUnits
-        .filter((unit) => unit !== utilsUnit)
-        .map((unit) => unit.absolutePath);
+    let originalSourceList: string[] = originalUnits.map((unit) => unit.absolutePath);
 
     let instrSourceList: string[];
 
     if (ctx.outputMode === "files") {
-        instrSourceList = [...originalSourceList, utilsUnit.absolutePath];
+        instrSourceList = changedUnits.map((unit) => unit.absolutePath);
     } else {
         assert(outputFile !== undefined, `Must provide output file in ${ctx.outputMode} mode`);
 
@@ -355,16 +333,18 @@ export function generateInstrumentationMetadata(
     const [src2srcMap, otherInstrumentation] = generateSrcMap2SrcMap(
         ctx,
         originalUnits,
-        utilsUnit,
+        changedUnits,
         newSrcMap,
         originalSourceList,
         instrSourceList
     );
 
-    const propertyMap = generatePropertyMap(ctx, newSrcMap, instrSourceList, originalSourceList);
+    const propertyMap = generatePropertyMap(ctx, newSrcMap, instrSourceList);
 
     instrSourceList = instrSourceList.map((name) =>
-        name === "--" || name === utilsUnit.absolutePath ? name : name + ".instrumented"
+        name === "--" || (ctx.outputMode === "files" && name === ctx.utilsUnit.absolutePath)
+            ? name
+            : name + ".instrumented"
     );
 
     if (arm) {
@@ -395,7 +375,8 @@ function addSrcToContext(r: CompileResult): any {
 export function buildOutputJSON(
     ctx: InstrumentationContext,
     flatCompiled: CompileResult,
-    sortedUnits: SourceUnit[],
+    allUnits: SourceUnit[],
+    changedUnits: SourceUnit[],
     newSrcMap: SrcRangeMap,
     scribbleVersion: string,
     outputFile: string,
@@ -412,7 +393,8 @@ export function buildOutputJSON(
     result["instrumentationMetadata"] = generateInstrumentationMetadata(
         ctx,
         newSrcMap,
-        sortedUnits,
+        allUnits,
+        changedUnits,
         arm,
         scribbleVersion,
         outputFile

@@ -96,6 +96,10 @@ export class AnnotationMetaData<T extends SAnnotation = SAnnotation> {
 
     /// Location of the whole annotation relative to the start of the file
     readonly annotationLoc: OffsetRange;
+
+    readonly originalFileIdx: number;
+
+    readonly originalFileName: string;
     /**
      * The line/column location of the whole annotation (relative to the begining of the file).
      */
@@ -136,6 +140,9 @@ export class AnnotationMetaData<T extends SAnnotation = SAnnotation> {
             this.annotationLoc[1],
             source
         );
+        this.originalFileIdx = commentSrc.sourceIndex;
+        const unit = this.target.getClosestParentByType(SourceUnit) as SourceUnit;
+        this.originalFileName = unit.sourceEntryKey;
     }
 }
 

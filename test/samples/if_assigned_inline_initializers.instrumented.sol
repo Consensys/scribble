@@ -106,6 +106,11 @@ contract Base {
     }
 }
 
+/// Utility contract holding a stack counter
+contract __scribble_ReentrancyUtils {
+    bool __scribble_out_of_contract = true;
+}
+
 contract Child is Base {
     constructor() {
         Base_x_uint256_assign(4);
@@ -114,8 +119,4 @@ contract Child is Base {
         s.arr = arr;
         s.arr2 = arr2;
     }
-}
-/// Utility contract holding a stack counter
-contract __scribble_ReentrancyUtils {
-    bool __scribble_out_of_contract = true;
 }

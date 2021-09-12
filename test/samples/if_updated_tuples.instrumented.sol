@@ -96,6 +96,7 @@ contract IfUpdatedPrimitive {
         }
     }
 }
+
 /// Utility contract holding a stack counter
 contract __scribble_ReentrancyUtils {
     bool __scribble_out_of_contract = true;
