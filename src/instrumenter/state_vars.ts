@@ -34,6 +34,7 @@ import {
     VariableDeclarationStatement
 } from "solc-typed-ast";
 import { assert, pp, print, single, zip } from "..";
+import { ppArr } from "../util";
 
 export type LHS = Expression | VariableDeclaration | [Expression, string];
 export type RHS = Expression | [Expression, number];
@@ -42,29 +43,49 @@ export type RHS = Expression | [Expression, number];
  * Given potentially complex assignments involving tuples and function return desugaring, return an
  * iterable of all the primitive assignments happening between. (i.e. assignments where the LHS is not a tuple)
  */
-function* getAssignmentComponents(lhs: Expression, rhs: Expression): Iterable<[LHS, RHS]> {
-    if (lhs instanceof TupleExpression) {
-        if (lhs.vOriginalComponents.length === 1 && !lhs.isInlineArray) {
-            if (lhs.vOriginalComponents[0] !== null) {
-                yield* getAssignmentComponents(lhs.vOriginalComponents[0], rhs);
+function* getAssignmentComponents(
+    lhs: Expression | VariableDeclarationStatement,
+    rhs: Expression
+): Iterable<[LHS, RHS]> {
+    if (lhs instanceof TupleExpression || lhs instanceof VariableDeclarationStatement) {
+        let assignedDecls: Array<null | VariableDeclaration | Expression>;
+
+        if (lhs instanceof TupleExpression) {
+            assignedDecls = lhs.vOriginalComponents;
+        } else {
+            assignedDecls = lhs.assignments.map((declId) =>
+                declId === null ? null : (lhs.requiredContext.locate(declId) as VariableDeclaration)
+            );
+        }
+
+        if (assignedDecls.length === 1) {
+            if (assignedDecls[0] !== null) {
+                yield* getAssignmentComponents(assignedDecls[0], rhs);
             }
         } else if (rhs instanceof TupleExpression) {
-            assert(lhs.vOriginalComponents.length === rhs.vOriginalComponents.length, ``);
-            for (let i = 0; i < lhs.vOriginalComponents.length; i++) {
-                const lhsComp = lhs.vOriginalComponents[i];
-                const rhsComp = rhs.vOriginalComponents[i];
-                // Skip assignments where LHS is omitted
+            assert(
+                assignedDecls.length === rhs.vOriginalComponents.length,
+                `Mismatch in declarations: ${ppArr(assignedDecls)} and ${ppArr(
+                    rhs.vOriginalComponents
+                )}`
+            );
+
+            for (let i = 0; i < assignedDecls.length; i++) {
+                const lhsComp = assignedDecls[i];
+
                 if (lhsComp === null) {
                     continue;
                 }
 
+                const rhsComp = rhs.vOriginalComponents[i];
+                // Skip assignments where LHS is omitted
                 assert(rhsComp !== null, `Unexpected null in rhs of ${pp(rhs)} in position ${i}`);
 
                 yield* getAssignmentComponents(lhsComp, rhsComp);
             }
         } else if (rhs instanceof FunctionCall) {
-            for (let i = 0; i < lhs.vOriginalComponents.length; i++) {
-                const lhsComp = lhs.vOriginalComponents[i];
+            for (let i = 0; i < assignedDecls.length; i++) {
+                const lhsComp = assignedDecls[i];
                 // Skip assignments where LHS is omitted
                 if (lhsComp === null) {
                     continue;
@@ -72,6 +93,9 @@ function* getAssignmentComponents(lhs: Expression, rhs: Expression): Iterable<[L
 
                 yield [lhsComp, [rhs, i]];
             }
+        } else if (rhs instanceof Conditional) {
+            yield* getAssignmentComponents(lhs, rhs.vTrueExpression);
+            yield* getAssignmentComponents(lhs, rhs.vFalseExpression);
         } else {
             throw new Error(`Unexpected rhs in tuple assignment: ${pp(rhs)}`);
         }
@@ -177,37 +201,7 @@ export function* getAssignments(node: ASTNode): Iterable<[LHS, RHS]> {
             }
 
             const rhs = candidate.vInitialValue;
-
-            if (candidate.assignments.length === 1) {
-                yield [candidate.vDeclarations[0], rhs];
-            } else if (rhs instanceof TupleExpression || rhs instanceof FunctionCall) {
-                if (rhs instanceof TupleExpression) {
-                    assert(
-                        candidate.assignments.length === rhs.vOriginalComponents.length &&
-                            rhs.vOriginalComponents.length === rhs.vComponents.length,
-                        ``
-                    );
-                }
-
-                for (let i = 0; i < candidate.assignments.length; i++) {
-                    const declId = candidate.assignments[i];
-
-                    if (declId === null) {
-                        continue;
-                    }
-
-                    const decl = candidate.requiredContext.locate(declId) as VariableDeclaration;
-                    if (rhs instanceof TupleExpression) {
-                        yield [decl, rhs.vComponents[i]];
-                    } else {
-                        yield [decl, [rhs, i]];
-                    }
-                }
-            } else {
-                throw new Error(
-                    `Unexpected rhs ${pp(rhs)} for tuple variable decl statement ${pp(candidate)}`
-                );
-            }
+            yield* getAssignmentComponents(candidate, rhs);
         } else if (candidate instanceof FunctionCall || candidate instanceof ModifierInvocation) {
             // Account for implicit assignments to callee formal parameters.
 

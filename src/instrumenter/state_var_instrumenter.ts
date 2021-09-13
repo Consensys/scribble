@@ -645,7 +645,7 @@ export function ensureTopLevelExprInBlock(e: Expression, factory: ASTNodeFactory
 }
 
 /**
- * Given a complex (potentially nested) tuple assignment with multiple explode it into a list of simple non-tuple assignments.
+ * Given a complex (potentially nested) tuple assignment with explode it into a list of simple non-tuple assignments.
  *
  * The strategy here is to replace all expressions inside tuples on the LHS of `updateNode` with temporaries, then assign
  * those temporaries one-by-one to the original LHS expressions (while interposing with wrappers wherever we have properties to check).

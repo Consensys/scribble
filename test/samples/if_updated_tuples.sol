@@ -37,5 +37,12 @@ contract IfUpdatedPrimitive {
 
         (y, (x, a)) = (1, getTwo());
         assert(y == 1 && x == 4);
+
+		(x,y) = y == 1 ? (3, 4) : (5,6);
+		assert(x == 3 && y == 4);
+
+		(x,y) = (x == 0) ? (0, 0) : (x == 3) ? (1, 1) : (0, 0);
+
+		assert(x == 1 && y == 1);
 	}
 }

@@ -4,10 +4,13 @@ contract IfUpdatedAliasing {
         //// #if_updated true;
         uint[] a1;
         uint[] a2;
+        uint[] a3;
+        uint[] a4;
 
 		//// #if_updated true;
         uint[][] aa1;
         uint[][] aa2;
+
 
         function main() public {
                 a1.push(1);
@@ -27,5 +30,7 @@ contract IfUpdatedAliasing {
 
                 assert(aa1[0][0] == 2 && aa2[0][0] == 2);
 
+                uint i;
+                (p, i) = 1 > 2 ? (a2, 1) : 2>3 ? (a3, 2) : (a4, 3);
         }
 }

@@ -14,6 +14,8 @@ contract IfUpdatedAliasing {
 
     uint[] internal a1;
     uint[] internal a2;
+    uint[] internal a3;
+    uint[] internal a4;
     uint[][] internal aa1;
     uint[][] internal aa2;
 
@@ -40,6 +42,8 @@ contract IfUpdatedAliasing {
         pp[_v.tuple_tmp_5] = tuple_tmp_4;
         IfUpdatedAliasing_aa1_idx_uint256_ptr_arr_uint256_storage_assign(_v.tuple_tmp_7, tuple_tmp_6);
         assert((aa1[0][0] == 2) && (aa2[0][0] == 2));
+        uint i;
+        (p, i) = (1 > 2) ? (a2, 1) : ((2 > 3) ? (a3, 2) : (a4, 3));
     }
 
     function IfUpdatedAliasing_a1_idx_uint256_uint256_assign(uint256 ARG0, uint256 ARG1) internal returns (uint256 RET0) {

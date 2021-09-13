@@ -40,6 +40,10 @@ describe(`Command "scribble <filename>" is failing as expected`, () => {
             /^test\/samples\/invalid\/if_updated_aliasing2.invalid.sol:7:2 Error: Cannot instrument state var BadAliasing.a as it may be aliased by a storage pointer/m
         ],
         [
+            ["test/samples/invalid/if_updated_aliasing3.invalid.sol"],
+            /^test\/samples\/invalid\/if_updated_aliasing3.invalid.sol:9:3 Error: Cannot instrument state var BadAliasing.a1 as it may be aliased by a storage pointer/m
+        ],
+        [
             ["test/samples/invalid/forall_maps_aliasing1.invalid.sol"],
             /^test\/samples\/invalid\/forall_maps_aliasing1.invalid.sol:7:2 Error: Cannot instrument state var BadAliasing.a as it may be aliased by a storage pointer/m
         ],
