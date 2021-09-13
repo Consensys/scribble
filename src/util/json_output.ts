@@ -13,7 +13,7 @@ import {
 import { PropertyMetaData } from "../instrumenter/annotations";
 import { InstrumentationContext } from "../instrumenter/instrumentation_context";
 import { dedup, assert, pp } from ".";
-import { getOr, rangeToSrcTripple, SrcTriple } from "..";
+import { getOr, rangeToSrcTriple, SrcTriple } from "..";
 
 type TargetType = "function" | "variable" | "contract" | "statement";
 
@@ -227,10 +227,10 @@ function generatePropertyMap(
             encodingData !== undefined ? encodingData : [["", ""]];
 
         const propertySource = ppSrcTripple(
-            rangeToSrcTripple(predRange, annotation.annotationLoc[2])
+            rangeToSrcTriple(predRange, annotation.annotationLoc[2])
         );
         const annotationSource = ppSrcTripple(
-            rangeToSrcTripple(annotationRange, annotation.annotationLoc[2])
+            rangeToSrcTriple(annotationRange, annotation.annotationLoc[2])
         );
 
         const evalStmts = getOr(ctx.evaluationStatements, annotation, []);

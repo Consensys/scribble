@@ -51,7 +51,7 @@ function rangeToOffsetRange(r: Range): OffsetRange {
 /**
  * Convert a line/column source range into an offset range
  */
-export function rangeToSrcTripple(r: Range, fileInd: number): SrcTriple {
+export function rangeToSrcTriple(r: Range, fileInd: number): SrcTriple {
     return [r.start.offset, r.end.offset - r.start.offset, fileInd];
 }
 
@@ -141,7 +141,7 @@ export class AnnotationMetaData<T extends SAnnotation = SAnnotation> {
         this.parseOff = commentSrc.offset + annotationDocstringOff;
         /// Location of the annotation relative to the start of the file
         this.annotationLoc = offsetBy(
-            rangeToSrcTripple(parsedAnnot.requiredSrc, commentSrc.sourceIndex),
+            rangeToSrcTriple(parsedAnnot.requiredSrc, commentSrc.sourceIndex),
             this.parseOff
         );
         this.annotationFileRange = rangeToLocRange(
