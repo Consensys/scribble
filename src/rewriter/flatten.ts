@@ -87,13 +87,13 @@ function getFQName(def: ExportedSymbol, atUseSite: ASTNode): string {
 
     if (scope instanceof SourceUnit) {
         return def.name;
-    } else {
-        if (def instanceof FunctionDefinition && getTypeScope(def) === getTypeScope(atUseSite)) {
-            return def.name;
-        }
-
-        return scope.name + "." + def.name;
     }
+
+    if (def instanceof FunctionDefinition && getTypeScope(def) === getTypeScope(atUseSite)) {
+        return def.name;
+    }
+
+    return scope.name + "." + def.name;
 }
 
 /**
@@ -133,8 +133,11 @@ function sortContracts(contracts: ContractDefinition[]): ContractDefinition[] {
  * 5. Fix all broken vScopes to point to the correct source unit.
  * 6. Remove all import directives and solidity version pragmas
  * 7. Add a single compiler version pragma
- * @param units
- * @param factory
+ *
+ * @param units - SourceUnits to flatten
+ * @param factory - ASTNodeFactory used to build new unit
+ * @param flatFileName - file name to be used for the new unit
+ * @param version - compiler version to be used for the new unit
  */
 export function flattenUnits(
     units: SourceUnit[],

@@ -56,12 +56,13 @@ function findImport(
         } else {
             // Individual symbols imported - 'import {A, B as C} from "abc.sol"'. Only listed definitions imported.
             for (const [origin, alias] of importDir.vSymbolAliases) {
-                const impName =
-                    alias !== undefined
-                        ? alias
-                        : origin instanceof ImportDirective
-                        ? origin.unitAlias
-                        : origin.name;
+                let impName: string;
+
+                if (alias != undefined) {
+                    impName = alias;
+                } else {
+                    impName = origin instanceof ImportDirective ? origin.unitAlias : origin.name;
+                }
 
                 if (impName === name) {
                     return origin;
