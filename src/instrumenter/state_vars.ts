@@ -316,6 +316,12 @@ export function* getAssignments(node: ASTNode): Iterable<[LHS, RHS]> {
                 ? contract.vConstructor.vParameters.vParameters
                 : [];
 
+            // If there is both an InheritanceSpecifier and a ModifierInvocation at the constructor,
+            // we want to skip the InheritanceSpecifier.
+            if (formals.length !== 0 && candidate.vArguments.length === 0) {
+                continue;
+            }
+
             yield* helper(formals, candidate.vArguments);
         } else {
             throw new Error(`NYI assignment candidate ${pp(candidate)}`);
