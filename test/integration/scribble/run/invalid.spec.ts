@@ -24,10 +24,6 @@ describe(`Command "scribble <filename>" is failing as expected`, () => {
             /^test\/samples\/invalid\/if_updated_length.invalid.sol:7:2 Error: Cannot instrument state var LengthAssigned.a due to unsupported assignments to .length./m
         ],
         [
-            ["test/samples/invalid/if_updated_tuple_pointer_05.invalid.sol"],
-            /^test\/samples\/invalid\/if_updated_tuple_pointer_05.invalid.sol:9:2 Error: Scribble cannot instrument certain tuple assignments with storage pointers on compilers older than 0.6.0./m
-        ],
-        [
             ["test/samples/invalid/if_updated_push_ref.invalid.sol"],
             /.*Error: Scribble doesn't support instrumenting assignments where the LHS is a push\(\). Problematic LHS: a.push\(\)/m
         ],
