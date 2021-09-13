@@ -698,7 +698,8 @@ if ("version" in options) {
         const contractsNeedingInstr = computeContractsNeedingInstr(cha, annotMap);
         const factory = new ScribbleFactory(mergedCtx);
 
-        // Next we re-write the imports. We want to do this here, as the imports are need by the topo sort
+        // Next we re-write the imports to fix broken alias references (Some
+        // Solidity versions have broken references imports).
         mergedUnits.forEach((sourceUnit) => {
             if (contentsMap.has(sourceUnit.absolutePath)) {
                 rewriteImports(sourceUnit, contentsMap, factory);
@@ -750,28 +751,22 @@ if ("version" in options) {
         const newSrcMap: SrcRangeMap = new Map();
 
         if (outputMode === "flat" || outputMode === "json") {
-            // For flat and json modes, we need to flatten out the output. This goes in several steps.
-
-            // 1. Strip imports, resolve top-level naming conflicts and merge everything in 1 unit
-            const flatUnit = flattenUnits(allUnits, factory, options.output);
+            // 1. Flatten all the source files in a single SourceUnit
+            const version = pickVersion(compilerVersionUsedMap);
+            const flatUnit = flattenUnits(allUnits, factory, options.output, version);
 
             modifiedFiles = [flatUnit];
 
-            // 3. Next insert a single compiler version directive
-            const version = pickVersion(compilerVersionUsedMap);
-
-            flatUnit.insertAtBeginning(factory.makePragmaDirective(["solidity", version]));
-
-            // 5. Print the flattened unit
+            // 2. Print the flattened unit
             const flatContents = instrCtx
                 .printUnits(modifiedFiles, newSrcMap)
                 .get(flatUnit) as string;
 
-            // 7. If the output mode is just 'flat' we just write out the contents now.
+            // 3. If the output mode is just 'flat' we just write out the contents now.
             if (outputMode === "flat") {
                 writeOut(flatContents, options.output);
             } else {
-                // 8. If the output mode is 'json' we have more work - need to re-compile the flattened results.
+                // 4. If the output mode is 'json' we have more work - need to re-compile the flattened code.
                 let flatCompiled: CompileResult;
                 try {
                     flatCompiled = compileSourceString(
@@ -802,6 +797,7 @@ if ("version" in options) {
                     process.exit(1);
                 }
 
+                // 5. Build the output and write it out
                 const resultJSON = JSON.stringify(
                     buildOutputJSON(
                         instrCtx,
@@ -821,7 +817,7 @@ if ("version" in options) {
             }
         } else {
             modifiedFiles = [...instrCtx.changedUnits, utilsUnit];
-            // 1. Write out files
+            // 1. In 'files' mode first write out the files
             const newContents = instrCtx.printUnits(modifiedFiles, newSrcMap);
 
             // 2. For all changed files write out a `.instrumented` version of the file.

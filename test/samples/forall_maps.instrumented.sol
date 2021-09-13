@@ -92,7 +92,7 @@ contract Foo {
     uint256_to_uint256.S internal a;
     string_to_int16.S c0;
     string internal sS;
-    string_to_uint8_to_int8_S_498.S internal d;
+    string_to_uint8_to_int8_S_504.S internal d;
     uint256_to_uint256_arr.S internal e;
     mapping(uint => uint)[] internal f;
     uint256_to_uint256.S[] internal g;
@@ -172,9 +172,9 @@ contract Foo {
             for (_v.i3 = 1; _v.i3 < d.keys.length; _v.i3++) {
                 _v.s1 = d.keys[_v.i3];
                 _v.forall_4 = true;
-                for (_v.i4 = 1; _v.i4 < string_to_uint8_to_int8_S_498.get(d, _v.s1).keys.length; _v.i4++) {
-                    _v.k2 = string_to_uint8_to_int8_S_498.get(d, _v.s1).keys[_v.i4];
-                    _v.forall_4 = uint8_to_int8.get(string_to_uint8_to_int8_S_498.get(d, _v.s1), _v.k2) > 0;
+                for (_v.i4 = 1; _v.i4 < string_to_uint8_to_int8_S_504.get(d, _v.s1).keys.length; _v.i4++) {
+                    _v.k2 = string_to_uint8_to_int8_S_504.get(d, _v.s1).keys[_v.i4];
+                    _v.forall_4 = uint8_to_int8.get(string_to_uint8_to_int8_S_504.get(d, _v.s1), _v.k2) > 0;
                     if (!_v.forall_4) break;
                 }
                 _v.forall_3 = _v.forall_4;
@@ -188,7 +188,7 @@ contract Foo {
     }
 
     function _original_Foo_setD(string memory s, uint8 k, int8 v) private {
-        uint8_to_int8.set(string_to_uint8_to_int8_S_498.get_lhs(d, s), k, v);
+        uint8_to_int8.set(string_to_uint8_to_int8_S_504.get_lhs(d, s), k, v);
     }
 
     function setE(uint k, uint[] memory v) public {
@@ -380,6 +380,11 @@ contract Foo {
 
     function _original_Foo_setK1(uint i, uint v) private {
         uint256_to_uint256.set(k, i, v);
+    }
+
+    function dummy() private {
+        /// Make sure direct references to renamed state var are updated correctly
+        c0;
     }
 
     function c(string memory ARG_0) public returns (int16 RET_0) {
@@ -581,7 +586,7 @@ library string_to_int16 {
     }
 }
 
-library string_to_uint8_to_int8_S_498 {
+library string_to_uint8_to_int8_S_504 {
     struct S {
         mapping(string => uint8_to_int8.S) innerM;
         string[] keys;

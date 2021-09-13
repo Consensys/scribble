@@ -12,9 +12,8 @@ import {
 } from "solc-typed-ast";
 import { PropertyMetaData } from "../instrumenter/annotations";
 import { InstrumentationContext } from "../instrumenter/instrumentation_context";
-import { Range } from "../spec-lang/ast";
 import { dedup, assert, pp } from ".";
-import { getOr } from "..";
+import { getOr, rangeToSrcTripple, SrcTriple } from "..";
 
 type TargetType = "function" | "variable" | "contract" | "statement";
 
@@ -51,7 +50,6 @@ export type InstrumentationMetaData = {
  * - The second element is the length of the code fragment.
  * - The third element is the file index of the source file containing the fragment in the source list.
  */
-export type SrcTriple = [number, number, number];
 export function parseSrcTriple(src: string): SrcTriple {
     return src.split(":").map((sNum) => Number.parseInt(sNum)) as SrcTriple;
 }
@@ -104,10 +102,8 @@ function getInstrFileIdx(
 
 function generateSrcMap2SrcMap(
     ctx: InstrumentationContext,
-    sortedUnits: SourceUnit[],
     changedUnits: SourceUnit[],
     newSrcMap: SrcRangeMap,
-    originalSourceList: string[],
     instrSourceList: string[]
 ): [SrcToSrcMap, string[]] {
     const src2SrcMap: SrcToSrcMap = [];
@@ -154,11 +150,9 @@ function generateSrcMap2SrcMap(
                 `Missing new source for assertion of property ${property.original}`
             );
 
-            const originalFileIdx = property.originalFileIdx;
-
             src2SrcMap.push([
                 `${assertionSrc[0]}:${assertionSrc[1]}:${instrFileIdx}`,
-                `${property.annotationLoc[0]}:${property.annotationLoc[1]}:${originalFileIdx}`
+                ppSrcTripple(property.annotationLoc)
             ]);
         }
     }
@@ -178,10 +172,6 @@ function generateSrcMap2SrcMap(
     }
 
     return [src2SrcMap, dedup(otherInstrumentation)];
-}
-
-function rangeToSrc(range: Range, fileIdx: number): string {
-    return `${range.start.offset}:${range.end.offset - range.start.offset}:${fileIdx}`;
 }
 
 function generatePropertyMap(
@@ -236,8 +226,12 @@ function generatePropertyMap(
         const encoding: Array<[string, string]> =
             encodingData !== undefined ? encodingData : [["", ""]];
 
-        const propertySource = rangeToSrc(predRange, annotation.originalFileIdx);
-        const annotationSource = rangeToSrc(annotationRange, annotation.originalFileIdx);
+        const propertySource = ppSrcTripple(
+            rangeToSrcTripple(predRange, annotation.annotationLoc[2])
+        );
+        const annotationSource = ppSrcTripple(
+            rangeToSrcTripple(annotationRange, annotation.annotationLoc[2])
+        );
 
         const evalStmts = getOr(ctx.evaluationStatements, annotation, []);
 
@@ -332,10 +326,8 @@ export function generateInstrumentationMetadata(
 
     const [src2srcMap, otherInstrumentation] = generateSrcMap2SrcMap(
         ctx,
-        originalUnits,
         changedUnits,
         newSrcMap,
-        originalSourceList,
         instrSourceList
     );
 

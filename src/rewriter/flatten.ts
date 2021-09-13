@@ -98,8 +98,9 @@ function getFQName(def: ExportedSymbol, atUseSite: ASTNode): string {
 
 /**
  * Sort contract definitions in topological order based on their inheritance.
+ * Returns new array
  *
- * @param contracts - units to sort
+ * @param contracts - contracts to sort
  */
 function sortContracts(contracts: ContractDefinition[]): ContractDefinition[] {
     // Partial order of contracts
@@ -117,25 +118,29 @@ function sortContracts(contracts: ContractDefinition[]): ContractDefinition[] {
 }
 
 /**
- * Given a list of `SourceUnit`s `units`, perform "flattening" of all imports to allow the units to be concatenated into a single unit.
+ * Given a list of `SourceUnit`s `units`, perform "flattening" of all imports to
+ * allow the units to be concatenated into a single unit.
  * This involves several tasks:
  *
- * 1. Rename any top-level definitions with conflicting names to the same namne
- * 2. For any `Identifier`, `IdentifierPath`, `UserDefinedTypeName` or `MemberAccess` referring to a renamed top-level definition fix the name.
- * 3. For any `Identifier`, `IdentifierPath`, `UserDefinedTypeName` referring to a name that was declared in an import statement (e.g. `improt {X as Y}...`) fix
- *    the name to point to the name of the original defintion.
- * 4. For any `MemberAccess` that has a unit alias as its base (e.g. `import "..." as Lib`) convert it to an `Identifier` referring directly to the original imported definition.
- * 5. For any `MemberAccess` pointing to a state variable that was renamed due to instrumentation (happens sometimes) also fix that name
- * 6. Merge all the fixed top-level definitions in a single SourceUnit
- * 7. Fix all broken vScopes to point to the correct source unit.
- * 8. Sort contracts in topological order of their inheritance
+ * 1. Rename any top-level definitions with conflicting names
+ * 2. For any `Identifier`, `IdentifierPath`, `UserDefinedTypeName` or
+ *   `MemberAccess` referring to a renamed top-level definition fix the name to the renamed version
+ * 3. For any `MemberAccess` that has a unit alias as its base (e.g. `Lib.Foo`
+ *    where Lib comes from `import "..." as Lib`) convert it to an `Identifier`
+ *    referring directly to the original imported definition (i.e. `Lib.Foo` -> `Foo`).
+ * 4. Move all the modified top-level definitions in a new single SourceUnit. First place all non-contract definitions
+ *    in any order, followed by all contracts sorted topologically by inheritance (i.e. bases first)
+ * 5. Fix all broken vScopes to point to the correct source unit.
+ * 6. Remove all import directives and solidity version pragmas
+ * 7. Add a single compiler version pragma
  * @param units
  * @param factory
  */
 export function flattenUnits(
     units: SourceUnit[],
     factory: ASTNodeFactory,
-    flatFileName: string
+    flatFileName: string,
+    version: string
 ): SourceUnit {
     const renamed = fixNameConflicts(units);
 
@@ -187,7 +192,7 @@ export function flattenUnits(
             //
             // AND the original definition is part of the `renamed` set, or the name differs from the original def for other reasons,
             // fix the name of the node to the fully-qualified name.
-            // TODO: (dimo): It might be cleaner here to replace `Identifier` with `IdentifierPath` when `fqName` has dots in it.
+            // TODO: (dimo): It's cleaner here to replace `Identifier` with `IdentifierPath` when `fqName` has dots in it.
             if (
                 (refNode instanceof Identifier &&
                     !(
@@ -257,6 +262,9 @@ export function flattenUnits(
             nd.scope = flatUnit.id;
         }
     }
+
+    // Finally insert a single compiler version directive
+    flatUnit.insertAtBeginning(factory.makePragmaDirective(["solidity", version]));
 
     return flatUnit;
 }

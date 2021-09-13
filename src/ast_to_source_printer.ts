@@ -44,14 +44,17 @@ function findImport(
     // Check if `from` re-exports `name`
     for (const importDir of from.vImportDirectives) {
         if (importDir.vSymbolAliases.length === 0 && importDir.unitAlias === "") {
+            // Simple import - e.g 'import "abc.sol"'. All top-level definition from "abc.sol" are imported.
             const importee = findImport(name, importDir.vSourceUnit, sources, factory);
 
             if (importee !== undefined) {
                 return importee;
             }
-        } else if (importDir.unitAlias !== "" && importDir.unitAlias === name) {
-            return importDir;
+        } else if (importDir.unitAlias !== "") {
+            // Unit alias import - 'import "abc.sol" as abc'. `abc` is the only identifier defined.
+            if (importDir.unitAlias === name) return importDir;
         } else {
+            // Individual symbols imported - 'import {A, B as C} from "abc.sol"'. Only listed definitions imported.
             for (const [origin, alias] of importDir.vSymbolAliases) {
                 const impName =
                     alias !== undefined
