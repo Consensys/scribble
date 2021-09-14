@@ -251,14 +251,24 @@ export function* getAssignments(node: ASTNode): Iterable<[LHS, RHS]> {
                 decl instanceof ErrorDefinition ||
                 decl instanceof ModifierDefinition
             ) {
+                // Function-like definitions (functions, events, errors, modifiers) just get the declaraed parameters
                 formals = decl.vParameters.vParameters;
             } else if (decl instanceof VariableDeclaration) {
-                assert(
-                    decl.vType instanceof FunctionTypeName,
-                    "Unexpected callee variable without function type"
-                );
+                // For variable definitions we have 2 cases - either its a public state var or a function pointer variable
+                if (decl.stateVariable) {
+                    // This case is tricky, as there are no formal parameters in the AST to yield. (the getter is implicitly generated)
+                    // Luckily, these implicit assignments don't allow aliasing (as they are external calls).
+                    // Furthermore these use sites don't need special instrumentation.
+                    // So we allow imprecision here and skip these
+                    continue;
+                } else {
+                    assert(
+                        decl.vType instanceof FunctionTypeName,
+                        "Unexpected callee variable without function type"
+                    );
 
-                formals = decl.vType.vParameterTypes.vParameters;
+                    formals = decl.vType.vParameterTypes.vParameters;
+                }
             } else if (decl.vConstructor) {
                 formals = decl.vConstructor.vParameters.vParameters;
             } else {

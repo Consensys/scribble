@@ -37,6 +37,7 @@ describe("Finding all assignments.", () => {
 
             contract Base {
                 uint y = 1;
+                uint[] public arr1;
                 constructor(uint x) {
                     y = x;
                 }
@@ -68,6 +69,7 @@ describe("Finding all assignments.", () => {
                     (uint x, ,uint y) = (z, 1, 4);
                     (uint i, uint j, uint k) = foo();
                     (, uint j1, ) = foo();
+                    this.arr1(y);
                 }
             }`,
             new Set([
