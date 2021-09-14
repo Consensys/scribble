@@ -1161,7 +1161,7 @@ export function instrumentStateVars(
             node.vFunctionName === "push" &&
             node.vArguments.length === 0
         ) {
-            // There is a weird edge case where `.push()` returns a refernce that can be updated.
+            // There is a weird edge case where `.push()` returns a reference that can be updated.
             // E.g.: `arr.push() = 10;`.
             // Is tricky to support this so for now throw if we see it used this way
             assert(

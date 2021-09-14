@@ -4,6 +4,7 @@ pragma solidity 0.6.11;
 contract __scribble_ReentrancyUtils {
     bool __scribble_out_of_contract = true;
 }
+
 contract A is __scribble_ReentrancyUtils {
     event AssertionFailed(string message);
 
@@ -42,6 +43,7 @@ contract A is __scribble_ReentrancyUtils {
         __scribble_out_of_contract = true;
     }
 }
+
 contract B is __scribble_ReentrancyUtils {
     /// Check only the current contract's state invariants
     function __scribble_B_check_state_invariants_internal() internal {}
@@ -57,6 +59,7 @@ contract B is __scribble_ReentrancyUtils {
         __scribble_out_of_contract = true;
     }
 }
+
 /// #invariant {:msg "P1"} true;
 contract C is __scribble_ReentrancyUtils, B, A {
     struct vars4 {
@@ -105,6 +108,7 @@ contract C is __scribble_ReentrancyUtils, B, A {
         __scribble_out_of_contract = true;
     }
 }
+
 contract D is __scribble_ReentrancyUtils, B, A {
     /// Check only the current contract's state invariants
     function __scribble_D_check_state_invariants_internal() internal {}

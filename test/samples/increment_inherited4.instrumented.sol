@@ -6,6 +6,19 @@ contract Base {
     }
 }
 
+contract Test {
+    function main() public {
+        Foo f = new Foo();
+        Base b = Base(f);
+        b.foo(0);
+    }
+}
+
+/// Utility contract holding a stack counter
+contract __scribble_ReentrancyUtils {
+    bool __scribble_out_of_contract = true;
+}
+
 contract Foo is Base {
     event AssertionFailed(string message);
 
@@ -20,16 +33,4 @@ contract Foo is Base {
     function _original_Foo_foo(uint256 x) private returns (uint256 y) {
         return x + 1;
     }
-}
-
-contract Test {
-    function main() public {
-        Foo f = new Foo();
-        Base b = Base(f);
-        b.foo(0);
-    }
-}
-/// Utility contract holding a stack counter
-contract __scribble_ReentrancyUtils {
-    bool __scribble_out_of_contract = true;
 }

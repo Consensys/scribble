@@ -2,7 +2,7 @@
 // @ts-nocheck
 export interface SymbolDesc {
     name: string;
-    alias: string;
+    alias: string | null;
 }
 
 export interface ImportDirectiveDesc {

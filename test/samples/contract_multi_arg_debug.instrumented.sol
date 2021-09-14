@@ -4,6 +4,7 @@ pragma solidity 0.8.7;
 contract __scribble_ReentrancyUtils {
     bool __scribble_out_of_contract = true;
 }
+
 /// #invariant {:msg ""} b == a + c - 1; 
 contract Foo is __scribble_ReentrancyUtils {
     event AssertionFailed(string message);

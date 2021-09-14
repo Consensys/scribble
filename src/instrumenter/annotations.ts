@@ -43,11 +43,16 @@ export function rangeToLocRange(start: number, length: number, contents: string)
 
 /**
  * Convert a line/column source range into an offset range
- *
- * @param r line/column source range
  */
 function rangeToOffsetRange(r: Range): OffsetRange {
     return [r.start.offset, r.end.offset - r.start.offset];
+}
+
+/**
+ * Convert a line/column source range into an offset range
+ */
+export function rangeToSrcTriple(r: Range, fileInd: number): SrcTriple {
+    return [r.start.offset, r.end.offset - r.start.offset, fileInd];
 }
 
 export type AnnotationTarget =
@@ -57,11 +62,12 @@ export type AnnotationTarget =
     | Statement
     | StatementWithChildren<any>;
 /// File byte range: [start, length]
+export type SrcTriple = [number, number, number];
 type OffsetRange = [number, number];
 
-function offsetBy(a: OffsetRange, b: number | OffsetRange): OffsetRange {
+function offsetBy<T extends OffsetRange | SrcTriple>(a: T, b: number | OffsetRange | SrcTriple): T {
     const off = typeof b === "number" ? b : b[0];
-    return [a[0] + off, a[1]];
+    return (a.length === 2 ? [a[0] + off, a[1]] : [a[0] + off, a[1], a[2]]) as T;
 }
 
 let numAnnotations = 0;
@@ -94,8 +100,12 @@ export class AnnotationMetaData<T extends SAnnotation = SAnnotation> {
     /// UID of this annotation
     readonly id: number;
 
-    /// Location of the whole annotation relative to the start of the file
-    readonly annotationLoc: OffsetRange;
+    /// Location of the whole annotation relative to the start of the file. (includes file index)
+    readonly annotationLoc: SrcTriple;
+
+    /// In flat mode we destructively modify SourceUnits and move definitions to a new unit.
+    /// Remember the original source file name for the annotation for use in json_output
+    readonly originalFileName: string;
     /**
      * The line/column location of the whole annotation (relative to the begining of the file).
      */
@@ -130,12 +140,17 @@ export class AnnotationMetaData<T extends SAnnotation = SAnnotation> {
         this.commentLoc = [commentSrc.offset, commentSrc.length];
         this.parseOff = commentSrc.offset + annotationDocstringOff;
         /// Location of the annotation relative to the start of the file
-        this.annotationLoc = offsetBy(rangeToOffsetRange(parsedAnnot.requiredSrc), this.parseOff);
+        this.annotationLoc = offsetBy(
+            rangeToSrcTriple(parsedAnnot.requiredSrc, commentSrc.sourceIndex),
+            this.parseOff
+        );
         this.annotationFileRange = rangeToLocRange(
             this.annotationLoc[0],
             this.annotationLoc[1],
             source
         );
+        const unit = this.target.getClosestParentByType(SourceUnit) as SourceUnit;
+        this.originalFileName = unit.sourceEntryKey;
     }
 }
 

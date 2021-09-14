@@ -4,6 +4,7 @@ pragma solidity 0.7.5;
 contract __scribble_ReentrancyUtils1 {
     bool __scribble_out_of_contract1 = true;
 }
+
 abstract contract __scribble_ReentrancyUtils is __scribble_ReentrancyUtils1 {
     enum vars0 { A }
 
