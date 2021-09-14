@@ -267,6 +267,11 @@ export function* getAssignments(node: ASTNode): Iterable<[LHS, RHS]> {
                         "Unexpected callee variable without function type"
                     );
 
+                    // The result in this case is not also quite correct. From a dataflow perspective
+                    // correct overapproximation would be to should consider
+                    // assignments to the formal parameters of all declared functions that match
+                    // the variable signature. For scribble's use case (detecting potential aliasing of state vars) this
+                    // code is sufficient.
                     formals = decl.vType.vParameterTypes.vParameters;
                 }
             } else if (decl.vConstructor) {
