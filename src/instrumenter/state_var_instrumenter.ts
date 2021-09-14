@@ -23,6 +23,7 @@ import {
     FunctionKind,
     FunctionStateMutability,
     FunctionVisibility,
+    generalizeType,
     getNodeTypeInCtx,
     Identifier,
     IfStatement,
@@ -34,6 +35,7 @@ import {
     Mutability,
     PointerType,
     replaceNode,
+    specializeType,
     Statement,
     StatementWithChildren,
     StateVariableVisibility,
@@ -645,7 +647,7 @@ export function ensureTopLevelExprInBlock(e: Expression, factory: ASTNodeFactory
 }
 
 /**
- * Given a complex (potentially nested) tuple assignment with multiple explode it into a list of simple non-tuple assignments.
+ * Given a complex (potentially nested) tuple assignment with explode it into a list of simple non-tuple assignments.
  *
  * The strategy here is to replace all expressions inside tuples on the LHS of `updateNode` with temporaries, then assign
  * those temporaries one-by-one to the original LHS expressions (while interposing with wrappers wherever we have properties to check).
@@ -769,69 +771,34 @@ export function explodeTupleAssignment(
     };
 
     // Walk over LHS tuple and replace each expression with a temporary Identifier/MemberAccess
-    const replaceLHS = (lhs: Expression, rhs: Expression, tuplePath: number[]): void => {
+    const replaceLHS = (lhs: Expression, tuplePath: number[]): void => {
         // Skip singleton tuples
         lhs = skipSingletons(lhs);
-        rhs = skipSingletons(rhs);
 
         if (lhs instanceof TupleExpression) {
-            if (rhs instanceof TupleExpression) {
-                assert(rhs.vOriginalComponents.length == lhs.vOriginalComponents.length, ``);
-                // Note traversal in reverse order - turns out tuple assignments happen right-to-left
-                for (let i = lhs.vOriginalComponents.length - 1; i >= 0; i--) {
-                    const lhsComp = lhs.vOriginalComponents[i];
+            // Note traversal in reverse order - turns out tuple assignments happen right-to-left
+            for (let i = lhs.vOriginalComponents.length - 1; i >= 0; i--) {
+                const lhsComp = lhs.vOriginalComponents[i];
 
-                    if (lhsComp === null) {
-                        continue;
-                    }
-
-                    const rhsComp = rhs.vOriginalComponents[i];
-                    assert(rhsComp !== null, ``);
-                    replaceLHS(lhsComp, rhsComp, tuplePath.concat(i));
+                if (lhsComp === null) {
+                    continue;
                 }
-            } else {
-                assert(rhs instanceof FunctionCall, ``);
-                const lhsT = getMaterialExprType(lhs, ctx.compilerVersion, updateNode);
-                const rhsT = getMaterialExprType(rhs, ctx.compilerVersion, updateNode, lhsT);
 
-                assert(
-                    rhsT instanceof TupleType &&
-                        rhsT.elements.length === lhs.vOriginalComponents.length,
-                    `Type mismatch between lhs tuple ${pp(lhs)} with ${
-                        lhs.vOriginalComponents.length
-                    } elements and rhs ${pp(rhs)}`
-                );
-
-                for (let i = lhs.vOriginalComponents.length - 1; i >= 0; i--) {
-                    const lhsComp = lhs.vOriginalComponents[i];
-                    const rhsCompT = rhsT.elements[i];
-
-                    if (lhsComp === null) {
-                        continue;
-                    }
-
-                    assert(
-                        !(lhsComp instanceof TupleExpression),
-                        `Functions can't return nested tuples`
-                    );
-
-                    replaceLHSComp(lhsComp, rhsCompT, tuplePath.concat(i));
-                }
+                replaceLHS(lhsComp, tuplePath.concat(i));
             }
         } else {
-            const lhsT = getMaterialExprType(lhs, ctx.compilerVersion, updateNode);
-            const rhsT = getMaterialExprType(rhs, ctx.compilerVersion, updateNode, lhsT);
+            const rawLhsT = getMaterialExprType(lhs, ctx.compilerVersion, updateNode);
+            // Note that if the LHS is a storage pointer, we don't want to create temporary pointers to storage,
+            // since the RHS may come from memory. So the resulting code wouldn't compile. So we always convert the
+            // LHS types to memory (if they are aliasable)
+            const lhsT = specializeType(generalizeType(rawLhsT)[0], DataLocation.Memory);
 
-            assert(
-                !(rhsT instanceof TupleType),
-                `Unexpected rhs type ${rhsT.pp()}(${rhs.typeString}) in assignment.`
-            );
-            replaceLHSComp(lhs, rhsT, tuplePath);
+            replaceLHSComp(lhs, lhsT, tuplePath);
         }
     };
 
     assert(updateNode.vLeftHandSide instanceof TupleExpression, ``);
-    replaceLHS(updateNode.vLeftHandSide, updateNode.vRightHandSide, []);
+    replaceLHS(updateNode.vLeftHandSide, []);
 
     const containingStmt = updateNode.parent as ExpressionStatement;
     const containingBlock = containingStmt.parent as Block | UncheckedBlock;

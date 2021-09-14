@@ -1194,6 +1194,7 @@ contract ComplexDatastructures {
         uint256 tuple_tmp_3;
         uint256 tuple_tmp_4;
         uint256 tuple_tmp_5;
+        uint256[] tuple_tmp_6;
         uint256 tuple_tmp_7;
     }
 
@@ -1206,7 +1207,6 @@ contract ComplexDatastructures {
 
     function main() public {
         vars0 memory _v;
-        uint256[] storage tuple_tmp_6;
         ComplexDatastructures_s_ptr_string_memory_assign("abcd");
         ComplexDatastructures_b_ptr_bytes_memory_assign(new bytes(5));
         ComplexDatastructures_a_ptr_arr_uint8_3_memory_assign([1, 2, 3]);
@@ -1221,9 +1221,9 @@ contract ComplexDatastructures {
         _v.tuple_tmp_4 = 0;
         _v.tuple_tmp_5 = 0;
         _v.tuple_tmp_7 = 0;
-        (tuple_tmp_6, _v.tuple_tmp_3) = (a, 5);
+        (_v.tuple_tmp_6, _v.tuple_tmp_3) = (a, 5);
         ComplexDatastructures_aa_idx_uint256_idx_uint256_uint256_assign(_v.tuple_tmp_4, _v.tuple_tmp_5, _v.tuple_tmp_3);
-        ComplexDatastructures_aa_idx_uint256_ptr_arr_uint256_storage_assign(_v.tuple_tmp_7, tuple_tmp_6);
+        ComplexDatastructures_aa_idx_uint256_ptr_arr_uint256_memory_assign(_v.tuple_tmp_7, _v.tuple_tmp_6);
         assert(aa[0][0] == 1);
     }
 
@@ -1252,7 +1252,7 @@ contract ComplexDatastructures {
         RET4 = aa[ARG4][ARG5];
     }
 
-    function ComplexDatastructures_aa_idx_uint256_ptr_arr_uint256_storage_assign(uint256 ARG7, uint256[] storage ARG8) internal returns (uint256[] storage RET5) {
+    function ComplexDatastructures_aa_idx_uint256_ptr_arr_uint256_memory_assign(uint256 ARG7, uint256[] memory ARG8) internal returns (uint256[] storage RET5) {
         aa[ARG7] = ARG8;
         RET5 = aa[ARG7];
     }
@@ -1278,6 +1278,7 @@ contract Foo {
 contract Foo {
     struct vars0 {
         uint256 tuple_tmp_0;
+        uint256[] tuple_tmp_1;
     }
 
     uint[] internal x;
@@ -1285,11 +1286,10 @@ contract Foo {
 
     function main() public {
         vars0 memory _v;
-        uint256[] storage tuple_tmp_1;
         uint[] storage ptr = x;
-        (tuple_tmp_1, _v.tuple_tmp_0) = (x, 1);
+        (_v.tuple_tmp_1, _v.tuple_tmp_0) = (x, 1);
         Foo_y_uint256_assign(_v.tuple_tmp_0);
-        Foo_x_ptr_arr_uint256_storage_assign(tuple_tmp_1);
+        Foo_x_ptr_arr_uint256_memory_assign(_v.tuple_tmp_1);
     }
 
     function Foo_y_uint256_assign(uint256 ARG0) internal returns (uint256 RET0) {
@@ -1297,7 +1297,7 @@ contract Foo {
         RET0 = y;
     }
 
-    function Foo_x_ptr_arr_uint256_storage_assign(uint256[] storage ARG1) internal returns (uint256[] storage RET1) {
+    function Foo_x_ptr_arr_uint256_memory_assign(uint256[] memory ARG1) internal returns (uint256[] storage RET1) {
         x = ARG1;
         RET1 = x;
     }
