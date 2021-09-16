@@ -9,6 +9,7 @@ Annotation =
         / If_Updated
         / If_Assigned
         / UserFunctionDefinition
+        / Assert
     )
     .* {
         annotation.prefix = prefix === null ? undefined : prefix;
@@ -58,6 +59,16 @@ For_All =
 If_Succeeds =
     type: IF_SUCCEEDS __ label: AnnotationLabel? __ expr: Expression __ ";" {
         return new SProperty(
+            type as AnnotationType,
+            expr,
+            label === null ? undefined : label,
+            location()
+        );
+    }
+
+Assert =
+    type: ASSERT __ label: AnnotationLabel? __ expr: Expression __ ";" {
+        return new SProperty (
             type as AnnotationType,
             expr,
             label === null ? undefined : label,
@@ -191,6 +202,7 @@ NONPAYABLE = "nonpayable"
 RESULT = "$result"
 INVARIANT = "invariant"
 IF_SUCCEEDS = "if_succeeds"
+ASSERT = "assert"
 IF_UPDATED = "if_updated"
 IF_ASSIGNED = "if_assigned"
 DEFINE = "define"

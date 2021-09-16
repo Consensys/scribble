@@ -1,4 +1,4 @@
-pragma solidity 0.8.6;
+pragma solidity 0.8.7;
 
 contract IfUpdatedPrimitive {
     event AssertionFailed(string message);
@@ -13,6 +13,10 @@ contract IfUpdatedPrimitive {
         address tuple_tmp_6;
         uint256 tuple_tmp_7;
         uint256 tuple_tmp_8;
+        uint256 tuple_tmp_9;
+        uint256 tuple_tmp_10;
+        uint256 tuple_tmp_11;
+        uint256 tuple_tmp_12;
     }
 
     uint internal x = 1;
@@ -54,6 +58,14 @@ contract IfUpdatedPrimitive {
         IfUpdatedPrimitive_x_uint256_assign(_v.tuple_tmp_7);
         y = _v.tuple_tmp_8;
         assert((y == 1) && (x == 4));
+        (_v.tuple_tmp_10, _v.tuple_tmp_9) = (y == 1) ? (3, 4) : (5, 6);
+        y = _v.tuple_tmp_9;
+        IfUpdatedPrimitive_x_uint256_assign(_v.tuple_tmp_10);
+        assert((x == 3) && (y == 4));
+        (_v.tuple_tmp_12, _v.tuple_tmp_11) = (x == 0) ? (0, 0) : ((x == 3) ? (1, 1) : (0, 0));
+        y = _v.tuple_tmp_11;
+        IfUpdatedPrimitive_x_uint256_assign(_v.tuple_tmp_12);
+        assert((x == 1) && (y == 1));
     }
 
     function IfUpdatedPrimitive_x_inline_initializer() internal {
@@ -96,6 +108,7 @@ contract IfUpdatedPrimitive {
         }
     }
 }
+
 /// Utility contract holding a stack counter
 contract __scribble_ReentrancyUtils {
     bool __scribble_out_of_contract = true;

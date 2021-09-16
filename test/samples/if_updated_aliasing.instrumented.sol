@@ -1,4 +1,4 @@
-pragma solidity 0.8.6;
+pragma solidity 0.8.7;
 
 contract IfUpdatedAliasing {
     event AssertionFailed(string message);
@@ -8,19 +8,21 @@ contract IfUpdatedAliasing {
         uint256 tuple_tmp_1;
         uint256 tuple_tmp_2;
         uint256 tuple_tmp_3;
+        uint256[] tuple_tmp_4;
         uint256 tuple_tmp_5;
+        uint256[] tuple_tmp_6;
         uint256 tuple_tmp_7;
     }
 
     uint[] internal a1;
     uint[] internal a2;
+    uint[] internal a3;
+    uint[] internal a4;
     uint[][] internal aa1;
     uint[][] internal aa2;
 
     function main() public {
         vars0 memory _v;
-        uint256[] storage tuple_tmp_6;
-        uint256[] storage tuple_tmp_4;
         IfUpdatedAliasing_a1_uint256_push(1);
         uint[] storage p = a2;
         p.push(2);
@@ -36,10 +38,12 @@ contract IfUpdatedAliasing {
         assert((aa1[0][0] == 2) && (aa2[0][0] == 1));
         _v.tuple_tmp_5 = 0;
         _v.tuple_tmp_7 = 0;
-        (tuple_tmp_6, tuple_tmp_4) = (pp[0], aa1[0]);
-        pp[_v.tuple_tmp_5] = tuple_tmp_4;
-        IfUpdatedAliasing_aa1_idx_uint256_ptr_arr_uint256_storage_assign(_v.tuple_tmp_7, tuple_tmp_6);
+        (_v.tuple_tmp_6, _v.tuple_tmp_4) = (pp[0], aa1[0]);
+        pp[_v.tuple_tmp_5] = _v.tuple_tmp_4;
+        IfUpdatedAliasing_aa1_idx_uint256_ptr_arr_uint256_memory_assign(_v.tuple_tmp_7, _v.tuple_tmp_6);
         assert((aa1[0][0] == 2) && (aa2[0][0] == 2));
+        uint i;
+        (p, i) = (1 > 2) ? (a2, 1) : ((2 > 3) ? (a3, 2) : (a4, 3));
     }
 
     function IfUpdatedAliasing_a1_idx_uint256_uint256_assign(uint256 ARG0, uint256 ARG1) internal returns (uint256 RET0) {
@@ -53,7 +57,7 @@ contract IfUpdatedAliasing {
         }
     }
 
-    function IfUpdatedAliasing_aa1_idx_uint256_ptr_arr_uint256_storage_assign(uint256 ARG2, uint256[] storage ARG3) internal returns (uint256[] storage RET1) {
+    function IfUpdatedAliasing_aa1_idx_uint256_ptr_arr_uint256_memory_assign(uint256 ARG2, uint256[] memory ARG3) internal returns (uint256[] storage RET1) {
         aa1[ARG2] = ARG3;
         RET1 = aa1[ARG2];
         unchecked {
@@ -84,6 +88,7 @@ contract IfUpdatedAliasing {
         }
     }
 }
+
 /// Utility contract holding a stack counter
 contract __scribble_ReentrancyUtils {
     bool __scribble_out_of_contract = true;

@@ -1,0 +1,43 @@
+{
+    "file": "test/samples/assert_forall.instrumented.sol",
+    "steps": [
+        {
+            "act": "createUser",
+            "alias": "owner",
+            "options": {
+                "balance": 1000e18
+            }
+        },
+        {
+            "act": "deployContract",
+            "contract": "AssertForall",
+            "user": "owner",
+            "alias": "instance1"
+        },
+        {
+            "act": "txCall",
+            "user": "owner",
+            "contract": "instance1",
+
+            "method": "main",
+
+            "args": {
+                "types": ["uint[]"],
+                "values": [[10, 99, 0, 11]]
+            }
+        },
+        {
+            "act": "txCall",
+            "user": "owner",
+            "contract": "instance1",
+
+            "method": "main",
+
+            "args": {
+                "types": ["uint[]"],
+                "values": [[10, 99, 0, 11, 100]]
+            },
+            "failure": "*"
+        }
+    ]
+}

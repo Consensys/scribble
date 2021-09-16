@@ -12,13 +12,11 @@ import {
     StringLiteralType,
     TypeNode
 } from "solc-typed-ast";
-import { getTarget, toAst } from "../integration/utils";
+import { getTarget, LocationDesc, toAst } from "../integration/utils";
 import { tc, SemInfo, SemError, TypeEnv, tcAnnotation, scAnnotation } from "../../src/spec-lang/tc";
 import { sc } from "../../src/spec-lang/tc";
 import { Logger } from "../../src/logger";
 import { getTypeCtxAndTarget } from "../integration/utils";
-
-export type LocationDesc = [string, string | undefined];
 
 describe("SemanticChecker Expression Unit Tests", () => {
     const goodSamples: Array<[string, string, Array<[string, LocationDesc, TypeNode, SemInfo]>]> = [
@@ -80,22 +78,17 @@ describe("SemanticChecker Expression Unit Tests", () => {
                 ],
                 [
                     "forall (string memory s in m1) m1[s] > 0",
-                    ["Foo", undefined],
+                    ["Foo"],
                     new BoolType(),
                     { isOld: false, isConst: false, canFail: true }
                 ],
                 [
                     "forall (bytes memory b in m2) forall(address a in m2[b]) m2[b][a] > 0",
-                    ["Foo", undefined],
+                    ["Foo"],
                     new BoolType(),
                     { isOld: false, isConst: false, canFail: true }
                 ],
-                [
-                    "true",
-                    ["Foo", undefined],
-                    new BoolType(),
-                    { isOld: false, isConst: true, canFail: false }
-                ],
+                ["true", ["Foo"], new BoolType(), { isOld: false, isConst: true, canFail: false }],
                 [
                     "old(true)",
                     ["Foo", "add"],
@@ -104,49 +97,49 @@ describe("SemanticChecker Expression Unit Tests", () => {
                 ],
                 [
                     "1",
-                    ["Foo", undefined],
+                    ["Foo"],
                     new IntLiteralType(),
                     { isOld: false, isConst: true, canFail: false }
                 ],
                 [
                     "hex'0011ff'",
-                    ["Foo", undefined],
+                    ["Foo"],
                     new StringLiteralType("0011ff", true),
                     { isOld: false, isConst: true, canFail: false }
                 ],
                 [
                     'hex""',
-                    ["Foo", undefined],
+                    ["Foo"],
                     new StringLiteralType("", true),
                     { isOld: false, isConst: true, canFail: false }
                 ],
                 [
                     '"abc \\" \\u0000 \\x01 Def "',
-                    ["Foo", undefined],
+                    ["Foo"],
                     new StringLiteralType('abc " \u0000 \x01 Def ', false),
                     { isOld: false, isConst: true, canFail: false }
                 ],
                 [
                     "''",
-                    ["Foo", undefined],
+                    ["Foo"],
                     new StringLiteralType("", false),
                     { isOld: false, isConst: true, canFail: false }
                 ],
                 [
                     "1e10",
-                    ["Foo", undefined],
+                    ["Foo"],
                     new IntLiteralType(),
                     { isOld: false, isConst: true, canFail: false }
                 ],
                 [
                     "10e+5",
-                    ["Foo", undefined],
+                    ["Foo"],
                     new IntLiteralType(),
                     { isOld: false, isConst: true, canFail: false }
                 ],
                 [
                     "1000e-2",
-                    ["Foo", undefined],
+                    ["Foo"],
                     new IntLiteralType(),
                     { isOld: false, isConst: true, canFail: false }
                 ],
@@ -158,13 +151,13 @@ describe("SemanticChecker Expression Unit Tests", () => {
                 ],
                 [
                     "sV",
-                    ["Foo", undefined],
+                    ["Foo"],
                     new IntType(256, false),
                     { isOld: false, isConst: false, canFail: false }
                 ],
                 [
                     "sV1",
-                    ["Foo", undefined],
+                    ["Foo"],
                     new IntType(128, true),
                     { isOld: false, isConst: true, canFail: false }
                 ],
@@ -212,7 +205,7 @@ describe("SemanticChecker Expression Unit Tests", () => {
                 ],
                 [
                     "sI32Arr[1]",
-                    ["Foo", undefined],
+                    ["Foo"],
                     new IntType(32, true),
                     { isOld: false, isConst: false, canFail: true }
                 ],
@@ -284,7 +277,7 @@ describe("SemanticChecker Expression Unit Tests", () => {
                 ],
                 [
                     "unchecked_sum(m1)",
-                    ["Foo", undefined],
+                    ["Foo"],
                     new IntType(256, false),
                     { isOld: false, isConst: false, canFail: false }
                 ],
@@ -351,7 +344,7 @@ describe("SemanticChecker Expression Unit Tests", () => {
                 ["let x := y in let z := old(1) in old(x+z)", ["Foo", "add"]],
                 ["vId()", ["Foo", "add"]],
                 ["old($result)", ["Foo", "add"]],
-                ["old(7)", ["Foo", undefined]]
+                ["old(7)", ["Foo"]]
             ]
         ]
     ];
@@ -369,7 +362,7 @@ describe("SemanticChecker Expression Unit Tests", () => {
             for (const [specString, loc, expectedType, expectedInfo] of testCases) {
                 it(`SemCheck for ${specString} returns ${JSON.stringify(expectedInfo)}`, () => {
                     const compilerVersion = "0.6.0";
-                    const [ctx, target] = getTypeCtxAndTarget(loc, units);
+                    const [ctx, target] = getTypeCtxAndTarget(loc, units, compilerVersion);
                     const parsed = parse(specString, target, compilerVersion);
                     const annotationType =
                         target instanceof ContractDefinition
@@ -407,7 +400,7 @@ describe("SemanticChecker Expression Unit Tests", () => {
             for (const [specString, loc] of testCases) {
                 it(`SemCheck for ${specString} throws SemError`, () => {
                     const compilerVersion = "0.6.0";
-                    const [ctx, target] = getTypeCtxAndTarget(loc, units);
+                    const [ctx, target] = getTypeCtxAndTarget(loc, units, compilerVersion);
                     const parsed = parse(specString, target, compilerVersion);
                     const annotationType =
                         target instanceof ContractDefinition
@@ -457,11 +450,12 @@ describe("SemanticChecker Annotation Unit Tests", () => {
                 }
             }`,
             [
-                ["define foo(uint x) uint = x + sV;", ["Foo", undefined]],
+                ["define foo(uint x) uint = x + sV;", ["Foo"]],
                 ["if_updated old(sV) < sV;", ["Foo", "sV"]],
                 ["if_assigned old(sV) < sV;", ["Foo", "sV"]],
                 ["if_succeeds old(y) + y > add;", ["Foo", "add"]],
-                ["invariant sV > 0;", ["Foo", undefined]]
+                ["invariant sV > 0;", ["Foo"]],
+                ["assert x> 0 && y < 10 && sV > 1;", ["Foo", "add", "//Block/*[1]"]]
             ]
         ]
     ];
@@ -487,9 +481,10 @@ describe("SemanticChecker Annotation Unit Tests", () => {
             [
                 ["if_succeeds old(old(x)) > 0;", ["Foo", "add"]],
                 ["if_succeeds let x := y in old(x) > 0;", ["Foo", "add"]],
-                ["invariant old(sV) > 0;", ["Foo", undefined]],
-                ["define foo(uint x) uint = old(x);", ["Foo", undefined]],
-                ["define foo() uint = old(sV);", ["Foo", undefined]]
+                ["invariant old(sV) > 0;", ["Foo"]],
+                ["define foo(uint x) uint = old(x);", ["Foo"]],
+                ["define foo() uint = old(sV);", ["Foo"]],
+                ["assert old(x) > 0;", ["Foo", "add", "//Block/*[1]"]]
             ]
         ]
     ];
@@ -509,7 +504,7 @@ describe("SemanticChecker Annotation Unit Tests", () => {
                     const compilerVersion = "0.6.0";
                     const target = getTarget(loc, units);
                     const annotation = parseAnnotation(specString, target, compilerVersion);
-                    const [ctx] = getTypeCtxAndTarget(loc, units, annotation);
+                    const [ctx] = getTypeCtxAndTarget(loc, units, compilerVersion, annotation);
                     const typeEnv = new TypeEnv(compilerVersion);
                     tcAnnotation(annotation, ctx, target, typeEnv);
                     scAnnotation(annotation, typeEnv, new Map(), {
@@ -537,7 +532,7 @@ describe("SemanticChecker Annotation Unit Tests", () => {
                     const compilerVersion = "0.6.0";
                     const target = getTarget(loc, units);
                     const annotation = parseAnnotation(specString, target, compilerVersion);
-                    const [ctx] = getTypeCtxAndTarget(loc, units, annotation);
+                    const [ctx] = getTypeCtxAndTarget(loc, units, compilerVersion, annotation);
                     const typeEnv = new TypeEnv(compilerVersion);
                     tcAnnotation(annotation, ctx, target, typeEnv);
                     expect(

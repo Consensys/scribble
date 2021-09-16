@@ -1,4 +1,4 @@
-pragma solidity 0.8.6;
+pragma solidity 0.8.7;
 
 contract Base {
     event AssertionFailed(string message);
@@ -19,7 +19,7 @@ contract Base {
     uint internal x = 1;
     uint[] internal arr = [1];
     uint[][] internal arr2 = [[1, 2], [3, 4]];
-    S internal s = Base.S({arr: arr, arr2: arr2});
+    S internal s = S({arr: arr, arr2: arr2});
 
     function Base_x_inline_initializer() internal {
         vars0 memory _v;
@@ -128,6 +128,11 @@ contract Base {
     }
 }
 
+/// Utility contract holding a stack counter
+contract __scribble_ReentrancyUtils {
+    bool __scribble_out_of_contract = true;
+}
+
 contract Child is Base {
     constructor() {
         Base_x_uint256_assign(4);
@@ -136,8 +141,4 @@ contract Child is Base {
         Base_s_arr_ptr_arr_uint256_storage_assign(arr);
         Base_s_arr2_ptr_arr_ptr_arr_uint256_storage_storage_assign(arr2);
     }
-}
-/// Utility contract holding a stack counter
-contract __scribble_ReentrancyUtils {
-    bool __scribble_out_of_contract = true;
 }

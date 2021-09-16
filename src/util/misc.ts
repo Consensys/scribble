@@ -6,12 +6,11 @@ import {
     FunctionStateMutability,
     PrettyFormatter,
     FunctionVisibility,
-    VariableDeclaration,
     SourceUnit,
-    ContractDefinition,
     LatestCompilerVersion
 } from "solc-typed-ast";
 import { pp } from ".";
+import { AnnotationTarget } from "..";
 
 export function nodeToSource(main: ASTNode, targetCompilerVersion = "0.6.0"): string {
     const formatter = new PrettyFormatter(4);
@@ -125,23 +124,10 @@ export function getOrInit<K, V>(key: K, m: Map<K, V>, def?: V): V {
     return def;
 }
 
-export function getScopeUnit(
-    node: ContractDefinition | FunctionDefinition | VariableDeclaration
-): SourceUnit {
-    if (node instanceof ContractDefinition) {
-        return node.vScope;
-    }
-
-    if (node instanceof FunctionDefinition) {
-        return node.vScope instanceof ContractDefinition ? node.vScope.vScope : node.vScope;
-    }
-
-    assert(
-        node.vScope instanceof ContractDefinition,
-        "Instrumenting is supported for state variables only"
-    );
-
-    return node.vScope.vScope;
+export function getScopeUnit(node: AnnotationTarget): SourceUnit {
+    const res = node.getClosestParentByType(SourceUnit);
+    assert(res !== undefined, `Can't get source unit of node ${pp(node)}`);
+    return res;
 }
 
 /**

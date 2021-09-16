@@ -112,4 +112,9 @@ contract Foo {
     function setK1(uint i, uint v) public {
         k[i] = v;
     }
+
+    function dummy() private {
+        /// Make sure direct references to renamed state var are updated correctly
+        c;
+    }
 }

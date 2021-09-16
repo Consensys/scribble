@@ -37,6 +37,7 @@ describe("Finding all assignments.", () => {
 
             contract Base {
                 uint y = 1;
+                uint[] public arr1;
                 constructor(uint x) {
                     y = x;
                 }
@@ -68,6 +69,7 @@ describe("Finding all assignments.", () => {
                     (uint x, ,uint y) = (z, 1, 4);
                     (uint i, uint j, uint k) = foo();
                     (, uint j1, ) = foo();
+                    this.arr1(y);
                 }
             }`,
             new Set([
@@ -287,6 +289,23 @@ describe("Finding aliased vars.", () => {
             `,
 
             new Set(["arr"])
+        ],
+        [
+            "tuples.sol",
+            `
+            pragma solidity 0.8.0;
+
+            contract T1 {
+                uint[] a1;
+                uint[] a2;
+                uint[] a3;
+
+                function tuples(bool flag) public {
+                    (uint[] storage k, uint x) = flag ? (a1, 1) : (a2, 2);
+                }
+            }
+            `,
+            new Set(["a1", "a2"])
         ]
     ];
 
@@ -671,6 +690,44 @@ describe("Finding all state variable updates.", () => {
                 "delete s.x, s, [x], undefined",
                 "delete s.arr, s, [arr], undefined",
                 "delete s, s, [], undefined"
+            ])
+        ],
+        [
+            "tuples.sol",
+            `
+            pragma solidity 0.8.0;
+
+            contract T1 {
+                uint x;
+                uint y;
+                uint z;
+
+                function tuples() public {
+                    (x,y,z) = (1,2,3);
+
+                    (x,y,z) = 1>2 ? (1,2,3) : (4,5,6);
+
+
+                    (x,y) = 1>2 ? (1,z) : 3>1 ? (2,3) : (4,5);
+                }
+            }
+            `,
+            new Set([
+                "(x, y, z) = (1, 2, 3)[0], x, [], 1",
+                "(x, y, z) = (1, 2, 3)[1], y, [], 2",
+                "(x, y, z) = (1, 2, 3)[2], z, [], 3",
+                "(x, y, z) = (1 > 2) ? (1, 2, 3) : (4, 5, 6)[0], x, [], 1",
+                "(x, y, z) = (1 > 2) ? (1, 2, 3) : (4, 5, 6)[0], x, [], 4",
+                "(x, y, z) = (1 > 2) ? (1, 2, 3) : (4, 5, 6)[1], y, [], 2",
+                "(x, y, z) = (1 > 2) ? (1, 2, 3) : (4, 5, 6)[1], y, [], 5",
+                "(x, y, z) = (1 > 2) ? (1, 2, 3) : (4, 5, 6)[2], z, [], 3",
+                "(x, y, z) = (1 > 2) ? (1, 2, 3) : (4, 5, 6)[2], z, [], 6",
+                "(x, y) = (1 > 2) ? (1, z) : ((3 > 1) ? (2, 3) : (4, 5))[0], x, [], 1",
+                "(x, y) = (1 > 2) ? (1, z) : ((3 > 1) ? (2, 3) : (4, 5))[0], x, [], 2",
+                "(x, y) = (1 > 2) ? (1, z) : ((3 > 1) ? (2, 3) : (4, 5))[0], x, [], 4",
+                "(x, y) = (1 > 2) ? (1, z) : ((3 > 1) ? (2, 3) : (4, 5))[1], y, [], 3",
+                "(x, y) = (1 > 2) ? (1, z) : ((3 > 1) ? (2, 3) : (4, 5))[1], y, [], 5",
+                "(x, y) = (1 > 2) ? (1, z) : ((3 > 1) ? (2, 3) : (4, 5))[1], y, [], z"
             ])
         ]
     ];

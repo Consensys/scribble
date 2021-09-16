@@ -1,0 +1,30 @@
+{
+    "file": "test/samples/if_updated_swap.instrumented.sol",
+    "steps": [
+        {
+            "act": "createUser",
+            "alias": "owner",
+            "options": {
+                "balance": 1000e18
+            }
+        },
+        {
+            "act": "deployContract",
+            "contract": "PointerSwap",
+            "user": "owner",
+            "alias": "instance1"
+        },
+        {
+            "act": "txCall",
+            "user": "owner",
+            "contract": "instance1",
+
+            "method": "main",
+
+            "args": {
+                "types": [],
+                "values": []
+            }
+        }
+    ]
+}
