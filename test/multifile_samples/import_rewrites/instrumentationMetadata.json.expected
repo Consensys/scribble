@@ -121,5 +121,6 @@
   ],
   "instrSourceList": [
     "--"
-  ]
+  ],
+  "scribbleVersion": "0.5.2"
 }

@@ -13,6 +13,7 @@ import {
     StateVariableVisibility,
     StructDefinition,
     TypeName,
+    TypeNode,
     UncheckedBlock,
     VariableDeclaration
 } from "solc-typed-ast";
@@ -29,7 +30,7 @@ import { SemMap, StateVarScope, TypeEnv } from "../spec-lang/tc";
 import { assert, last } from "../util";
 import { InstrumentationContext } from "./instrumentation_context";
 import { makeTypeString } from "./type_string";
-import { FactoryMap } from "./utils";
+import { FactoryMap, StructMap } from "./utils";
 
 export enum InstrumentationSiteType {
     FunctionAnnotation,
@@ -63,13 +64,19 @@ export function defSiteToKey(defSite: VarDefSite): string {
     throw new Error(`NYI debug info for def site ${pp(defSite)}`);
 }
 
-class AnnotationDebugMap extends FactoryMap<[AnnotationMetaData], number, Map<SId, Expression>> {
+export class DbgIdsMap extends StructMap<[VarDefSite], string, [SId[], Expression, TypeNode]> {
+    protected getName(id: VarDefSite): string {
+        return defSiteToKey(id);
+    }
+}
+
+class AnnotationDebugMap extends FactoryMap<[AnnotationMetaData], number, DbgIdsMap> {
     protected getName(md: AnnotationMetaData): number {
         return md.parsedAnnot.id;
     }
 
-    protected makeNew(): Map<SId, Expression> {
-        return new Map();
+    protected makeNew(): DbgIdsMap {
+        return new DbgIdsMap();
     }
 }
 

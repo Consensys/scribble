@@ -485,7 +485,7 @@ for (const option of options) {
 try {
     options = commandLineArgs(params[1].optionList);
 } catch (e) {
-    console.log(e.message);
+    console.error(e.message);
 
     process.exit(1);
 }

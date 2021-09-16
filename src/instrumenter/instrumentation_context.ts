@@ -35,14 +35,14 @@ import {
     UnsupportedConstruct
 } from "..";
 import { print } from "../ast_to_source_printer";
-import { SId, SUserFunctionDefinition } from "../spec-lang/ast";
+import { SUserFunctionDefinition } from "../spec-lang/ast";
 import { SemMap, TypeEnv } from "../spec-lang/tc";
 import { NameGenerator } from "../util/name_generator";
 import { AnnotationFilterOptions, AnnotationMetaData } from "./annotations";
 import { CallGraph } from "./callgraph";
 import { CHA } from "./cha";
 import { generateMapLibrary } from "./custom_maps_templates";
-import { InstrumentationSiteType, TranspilingContext } from "./transpiling_context";
+import { DbgIdsMap, InstrumentationSiteType, TranspilingContext } from "./transpiling_context";
 
 /**
  * Gather all named nodes in the provided source units.
@@ -357,7 +357,7 @@ export class InstrumentationContext {
         public readonly files: Map<string, string>,
         public readonly compilerVersion: string,
         public readonly debugEvents: boolean,
-        public readonly debugEventsEncoding: Map<number, Array<[SId, TypeNode]>>,
+        public readonly debugEventsEncoding: Map<number, DbgIdsMap>,
         public readonly outputMode: "files" | "flat" | "json",
         public readonly typeEnv: TypeEnv,
         public readonly semMap: SemMap,

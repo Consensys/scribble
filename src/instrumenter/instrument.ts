@@ -262,13 +262,12 @@ function getDebugInfo(
         const typeList: Array<[SId, TypeNode]> = [];
 
         // Walk over the debug id map for the current annotation and add any ids found to `evtArgs` and `typeList`.
-        for (const [id, transpiledId] of dbgIdsMap.entries()) {
+        for (const [, [ids, transpiledId, vType]] of dbgIdsMap.entries()) {
             evtArgs.push(transpiledId);
 
-            const vType = transCtx.typeEnv.typeOf(id);
             // Note: This works only for primitive types. If we ever allow more complex types, the builtin
             // `pp()` function for those may differ from the typeString that solc expects.
-            typeList.push([id, vType]);
+            typeList.push([ids[0], vType]);
         }
 
         // If there are no debug ids for the current annotation, there is no debug event to build
@@ -279,7 +278,7 @@ function getDebugInfo(
         }
 
         if (!instrCtx.debugEventsEncoding.has(annot.id)) {
-            instrCtx.debugEventsEncoding.set(annot.id, typeList);
+            instrCtx.debugEventsEncoding.set(annot.id, dbgIdsMap);
         }
 
         // Finally construct the emit statement for the debug event.

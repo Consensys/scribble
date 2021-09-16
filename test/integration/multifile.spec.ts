@@ -122,7 +122,10 @@ describe("Multiple-file project instrumentation", () => {
                     "--output-mode",
                     "json",
                     "--compiler-version",
-                    version
+                    version,
+                    "--debug-events",
+                    "--instrumentation-metadata-file",
+                    `${dirName}/instrumentationMetadata.json.expected`
                 );
 
                 const actualJson = JSON.parse(actualJsonStr);

@@ -7,16 +7,14 @@ import {
     VariableDeclaration,
     CompileResult,
     StructuredDocumentation,
-    ASTNode,
-    TypeNode
+    ASTNode
 } from "solc-typed-ast";
 import { PropertyMetaData } from "../instrumenter/annotations";
 import { InstrumentationContext } from "../instrumenter/instrumentation_context";
-import { Range, SId, VarDefSite } from "../spec-lang/ast";
+import { Range } from "../spec-lang/ast";
 import { dedup, assert, pp } from ".";
 import { getOr, rangeToOffsetRange } from "..";
-import { StructMap } from "../instrumenter/utils";
-import { defSiteToKey } from "../instrumenter/transpiling_context";
+import { DbgIdsMap } from "../instrumenter/transpiling_context";
 
 type TargetType = "function" | "variable" | "contract";
 
@@ -239,23 +237,10 @@ function generatePropertyMap(
         const annotationRange = annotation.annotationFileRange;
 
         const encodingData = ctx.debugEventsEncoding.get(annotation.id);
-        const encoding: Array<[SId, TypeNode]> = encodingData !== undefined ? encodingData : [];
-        const defSiteMap = new DefSiteMap();
-        const typeMap = new TypeMap();
-
-        for (const [id, type] of encoding) {
-            const defSite = id.defSite as VarDefSite;
-            typeMap.set(type, defSite);
-            if (!defSiteMap.has(defSite)) {
-                defSiteMap.set([id], defSite);
-            } else {
-                defSiteMap.mustGet(defSite).push(id);
-            }
-        }
+        const encoding: DbgIdsMap = encodingData !== undefined ? encodingData : new DbgIdsMap();
 
         const srcEncoding: Array<[string[], string]> = [];
-        for (const [[df], ids] of defSiteMap.entries()) {
-            const type = typeMap.mustGet(df);
+        for (const [, [ids, , type]] of encoding.entries()) {
             const srcMapList: string[] = [];
             for (const id of ids) {
                 const src = ctx.files.get(filename);
@@ -264,9 +249,7 @@ function generatePropertyMap(
                     `The file ${filename} does not exist in the InstrumentationContext`
                 );
                 const range = annotation.annotOffToFileLoc(rangeToOffsetRange(id.requiredSrc), src);
-                srcMapList.push(
-                    `${range.start.offset}:${range.end.offset - range.start.offset + 1}:0`
-                );
+                srcMapList.push(`${range.start.offset}:${range.end.offset - range.start.offset}:0`);
             }
             srcEncoding.push([srcMapList, type.pp()]);
         }
@@ -436,16 +419,4 @@ export function buildOutputJSON(
     );
 
     return result;
-}
-
-export class DefSiteMap extends StructMap<[VarDefSite], string, SId[]> {
-    protected getName(id: VarDefSite): string {
-        return defSiteToKey(id);
-    }
-}
-
-export class TypeMap extends StructMap<[VarDefSite], string, TypeNode> {
-    protected getName(id: VarDefSite): string {
-        return defSiteToKey(id);
-    }
 }
