@@ -143,12 +143,7 @@
       "annotationSource": "24:15:0",
       "target": "contract",
       "targetName": "A",
-      "debugEventEncoding": [
-        [
-          "",
-          ""
-        ]
-      ],
+      "debugEventEncoding": [],
       "message": "",
       "instrumentationRanges": [
         "756:27:0",
@@ -170,12 +165,7 @@
       "annotationSource": "24:15:1",
       "target": "contract",
       "targetName": "B",
-      "debugEventEncoding": [
-        [
-          "",
-          ""
-        ]
-      ],
+      "debugEventEncoding": [],
       "message": "",
       "instrumentationRanges": [
         "1818:27:0",

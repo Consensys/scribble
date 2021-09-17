@@ -13,11 +13,19 @@ import {
     StateVariableVisibility,
     StructDefinition,
     TypeName,
+    TypeNode,
     UncheckedBlock,
     VariableDeclaration
 } from "solc-typed-ast";
 import { AnnotationMetaData, pp, ScribbleFactory } from "..";
-import { SForAll, SId, SLet, SUnaryOperation, SUserFunctionDefinition } from "../spec-lang/ast";
+import {
+    SForAll,
+    SId,
+    SLet,
+    SUnaryOperation,
+    SUserFunctionDefinition,
+    VarDefSite
+} from "../spec-lang/ast";
 import { SemMap, StateVarScope, TypeEnv } from "../spec-lang/tc";
 import { assert, last } from "../util";
 import { InstrumentationContext } from "./instrumentation_context";
@@ -37,39 +45,39 @@ export type ASTMap = Map<ASTNode, ASTNode>;
 type PositionInBlock = "start" | "end" | ["after", Statement] | ["before", Statement];
 type Marker = [Block, PositionInBlock];
 
-function defSiteToKey(id: SId): string {
-    if (id.defSite instanceof VariableDeclaration) {
-        return `${id.defSite.id}`;
+export function defSiteToKey(defSite: VarDefSite): string {
+    if (defSite instanceof VariableDeclaration) {
+        return `${defSite.id}`;
     }
 
-    if (id.defSite instanceof Array && id.defSite[0] instanceof SLet) {
-        return `let_${id.defSite[0].id}_${id.defSite[1]}`;
+    if (defSite instanceof Array && defSite[0] instanceof SLet) {
+        return `let_${defSite[0].id}_${defSite[1]}`;
     }
 
-    if (id.defSite instanceof Array && id.defSite[0] instanceof StateVarScope) {
-        return `svar_path_binding_${id.defSite[0].annotation.id}_${id.defSite[1]}`;
+    if (defSite instanceof Array && defSite[0] instanceof StateVarScope) {
+        return `svar_path_binding_${defSite[0].annotation.id}_${defSite[1]}`;
     }
 
-    if (id.defSite instanceof SForAll) {
-        return `forall_${id.defSite.id}`;
+    if (defSite instanceof SForAll) {
+        return `forall_${defSite.id}`;
     }
 
-    throw new Error(`NYI debug info for id ${id.name} with def site ${pp(id.defSite)}`);
+    throw new Error(`NYI debug info for def site ${pp(defSite)}`);
 }
 
-class IdDebugMap extends StructMap<[SId], string, Expression> {
-    protected getName(id: SId): string {
+export class DbgIdsMap extends StructMap<[VarDefSite], string, [SId[], Expression, TypeNode]> {
+    protected getName(id: VarDefSite): string {
         return defSiteToKey(id);
     }
 }
 
-class AnnotationDebugMap extends FactoryMap<[AnnotationMetaData], number, IdDebugMap> {
+class AnnotationDebugMap extends FactoryMap<[AnnotationMetaData], number, DbgIdsMap> {
     protected getName(md: AnnotationMetaData): number {
         return md.parsedAnnot.id;
     }
 
-    protected makeNew(): IdDebugMap {
-        return new IdDebugMap();
+    protected makeNew(): DbgIdsMap {
+        return new DbgIdsMap();
     }
 }
 
@@ -525,7 +533,7 @@ export class TranspilingContext {
      * Get temporary var used to store the value of an id inside an old expression for debugging purposes. E.g. for this expression:
      */
     getDbgVar(node: SId): string {
-        const key = `<dbg ${defSiteToKey(node)}>`;
+        const key = `<dbg ${defSiteToKey(node.defSite as VarDefSite)}>`;
         assert(!this.bindingMap.has(key), `getOldVar called more than once for ${node.pp()}`);
         const res = this.instrCtx.nameGenerator.getFresh("dbg_");
         this.bindingMap.set(key, res);

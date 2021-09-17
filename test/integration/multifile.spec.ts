@@ -82,6 +82,23 @@ describe("Multiple-file project instrumentation", () => {
                 expectedFlat = fse.readFileSync(`${dirName}/flat.sol.expected`, {
                     encoding: "utf-8"
                 });
+
+                // Uncomment below lines to re-generate instrumentationMetadata.json.expected
+                /*
+                scribble(
+                    solPaths,
+                    "-o",
+                    "--",
+                    "--output-mode",
+                    "json",
+                    "--compiler-version",
+                    version,
+                    "--debug-events",
+                    "--instrumentation-metadata-file",
+                    `${dirName}/instrumentationMetadata.json.expected`
+                );
+                */
+
                 expectedInstrMetadata = fse.readJSONSync(
                     `${dirName}/instrumentationMetadata.json.expected`,
                     {
@@ -124,7 +141,8 @@ describe("Multiple-file project instrumentation", () => {
                     "--output-mode",
                     "json",
                     "--compiler-version",
-                    version
+                    version,
+                    "--debug-events"
                 );
 
                 const actualJson = JSON.parse(actualJsonStr);
@@ -146,9 +164,7 @@ describe("Multiple-file project instrumentation", () => {
                     "--quiet",
                     "--arm",
                     "--compiler-version",
-                    version,
-                    "--instrumentation-metadata-file",
-                    "tmp.json"
+                    version
                 );
 
                 for (const [fileName, expectedContents] of expectedInstrumented) {

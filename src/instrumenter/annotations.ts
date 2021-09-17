@@ -44,7 +44,7 @@ export function rangeToLocRange(start: number, length: number, contents: string)
 /**
  * Convert a line/column source range into an offset range
  */
-function rangeToOffsetRange(r: Range): OffsetRange {
+export function rangeToOffsetRange(r: Range): OffsetRange {
     return [r.start.offset, r.end.offset - r.start.offset];
 }
 
@@ -230,8 +230,8 @@ export class PropertyMetaData extends AnnotationMetaData<SProperty> {
     /**
      * Convert a location relative to the predicate into a file-wide location
      */
-    predOffToFileLoc(arg: OffsetRange, source: string): Range {
-        const fileOff = offsetBy(arg, this.exprLoc);
+    annotOffToFileLoc(arg: OffsetRange, source: string): Range {
+        const fileOff = offsetBy(arg, this.parseOff);
 
         return rangeToLocRange(fileOff[0], fileOff[1], source);
     }

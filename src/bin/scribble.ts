@@ -346,7 +346,7 @@ for (const option of options) {
 try {
     options = commandLineArgs(params[1].optionList);
 } catch (e) {
-    console.log(e.message);
+    console.error(e.message);
 
     process.exit(1);
 }
@@ -671,7 +671,7 @@ if ("version" in options) {
                 let fileLoc;
 
                 if (annotation instanceof PropertyMetaData) {
-                    fileLoc = annotation.predOffToFileLoc(
+                    fileLoc = annotation.annotOffToFileLoc(
                         [loc.start.offset, loc.end.offset],
                         source
                     );

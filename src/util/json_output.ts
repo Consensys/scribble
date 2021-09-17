@@ -13,7 +13,8 @@ import {
 import { PropertyMetaData } from "../instrumenter/annotations";
 import { InstrumentationContext } from "../instrumenter/instrumentation_context";
 import { dedup, assert, pp } from ".";
-import { getOr, rangeToSrcTriple, SrcTriple } from "..";
+import { DbgIdsMap } from "../instrumenter/transpiling_context";
+import { getOr, rangeToOffsetRange, rangeToSrcTriple, SrcTriple } from "..";
 
 type TargetType = "function" | "variable" | "contract" | "statement";
 
@@ -25,7 +26,7 @@ interface PropertyDesc {
     annotationSource: string;
     target: TargetType;
     targetName: string;
-    debugEventEncoding: Array<[string, string]>;
+    debugEventEncoding: Array<[string[], string]>;
     message: string;
     instrumentationRanges: string[];
     checkRanges: string[];
@@ -223,8 +224,22 @@ function generatePropertyMap(
         const annotationRange = annotation.annotationFileRange;
 
         const encodingData = ctx.debugEventsEncoding.get(annotation.id);
-        const encoding: Array<[string, string]> =
-            encodingData !== undefined ? encodingData : [["", ""]];
+        const encoding: DbgIdsMap = encodingData !== undefined ? encodingData : new DbgIdsMap();
+
+        const srcEncoding: Array<[string[], string]> = [];
+        for (const [, [ids, , type]] of encoding.entries()) {
+            const srcMapList: string[] = [];
+            for (const id of ids) {
+                const src = ctx.files.get(filename);
+                assert(
+                    src !== undefined,
+                    `The file ${filename} does not exist in the InstrumentationContext`
+                );
+                const range = annotation.annotOffToFileLoc(rangeToOffsetRange(id.requiredSrc), src);
+                srcMapList.push(`${range.start.offset}:${range.end.offset - range.start.offset}:0`);
+            }
+            srcEncoding.push([srcMapList, type.pp()]);
+        }
 
         const propertySource = ppSrcTripple(
             rangeToSrcTriple(predRange, annotation.annotationLoc[2])
@@ -292,7 +307,7 @@ function generatePropertyMap(
             annotationSource,
             target: targetType,
             targetName,
-            debugEventEncoding: encoding,
+            debugEventEncoding: srcEncoding,
             message: annotation.message,
             instrumentationRanges,
             checkRanges,

@@ -54,7 +54,8 @@ import {
     SResult,
     SStringLiteral,
     SUnaryOperation,
-    SUserFunctionDefinition
+    SUserFunctionDefinition,
+    VarDefSite
 } from "../spec-lang/ast";
 import {
     BuiltinSymbols,
@@ -190,9 +191,14 @@ function addTracingInfo(id: SId, transpiledExpr: Expression, ctx: TranspilingCon
         return;
     }
 
-    const idDebugMap = ctx.dbgInfo.get(ctx.curAnnotation);
+    if (!isTypeTraceable(exprT, ctx)) {
+        return;
+    }
 
-    if (!idDebugMap.has(id) && isTypeTraceable(exprT, ctx)) {
+    const idDebugMap = ctx.dbgInfo.get(ctx.curAnnotation);
+    const defSite = id.defSite as VarDefSite;
+
+    if (!idDebugMap.has(defSite)) {
         const isOld = (ctx.semInfo.get(id) as SemInfo).isOld;
 
         if (isOld) {
@@ -209,10 +215,13 @@ function addTracingInfo(id: SId, transpiledExpr: Expression, ctx: TranspilingCon
 
             ctx.instrCtx.addAnnotationInstrumentation(ctx.curAnnotation, assignment);
 
-            idDebugMap.set(ctx.refBinding(dbgBinding), id);
+            idDebugMap.set([[id], ctx.refBinding(dbgBinding), exprT], defSite);
         } else {
-            idDebugMap.set(factory.copy(transpiledExpr), id);
+            idDebugMap.set([[id], factory.copy(transpiledExpr), exprT], defSite);
         }
+    } else {
+        const [ids] = idDebugMap.mustGet(defSite);
+        ids.push(id);
     }
 }
 
