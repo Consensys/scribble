@@ -799,7 +799,8 @@ if ("version" in options) {
                         `flattened.sol`,
                         flatContents,
                         version,
-                        pathRemapping
+                        pathRemapping,
+                        compilerSettings
                     );
                 } catch (e) {
                     if (e instanceof CompileFailedError) {
