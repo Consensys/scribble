@@ -138,7 +138,8 @@ function compile(
     fileName: string,
     type: "source" | "json",
     compilerVersion: string,
-    remapping: string[]
+    remapping: string[],
+    compilerSettings: any
 ): CompileResult {
     if (fileName === "--") {
         const content = fse.readFileSync(0, { encoding: "utf-8" });
@@ -146,8 +147,14 @@ function compile(
         fileName = "stdin";
 
         return type === "json"
-            ? compileJsonData(fileName, JSON.parse(content), compilerVersion, remapping)
-            : compileSourceString(fileName, content, compilerVersion, remapping);
+            ? compileJsonData(
+                  fileName,
+                  JSON.parse(content),
+                  compilerVersion,
+                  remapping,
+                  compilerSettings
+              )
+            : compileSourceString(fileName, content, compilerVersion, remapping, compilerSettings);
     }
 
     if (!fileName || !fse.existsSync(fileName)) {
@@ -161,8 +168,8 @@ function compile(
     }
 
     return type === "json"
-        ? compileJson(fileName, compilerVersion, remapping)
-        : compileSol(fileName, compilerVersion, remapping);
+        ? compileJson(fileName, compilerVersion, remapping, compilerSettings)
+        : compileSol(fileName, compilerVersion, remapping, compilerSettings);
 }
 
 /**
@@ -449,6 +456,19 @@ if ("version" in options) {
     const compilerVersion: string =
         options["compiler-version"] !== undefined ? options["compiler-version"] : "auto";
 
+    let compilerSettings: any;
+
+    try {
+        compilerSettings =
+            options["compiler-settings"] !== undefined
+                ? JSON.parse(options["compiler-settings"])
+                : undefined;
+    } catch (e) {
+        error(
+            `--compiler-settings expects a valid JSON string, not ${options["compiler-settings"]}`
+        );
+    }
+
     const filterOptions: AnnotationFilterOptions = {};
 
     if (options["filter-type"]) {
@@ -496,7 +516,13 @@ if ("version" in options) {
             let targetResult: CompileResult;
 
             try {
-                targetResult = compile(target, inputMode, compilerVersion, pathRemapping);
+                targetResult = compile(
+                    target,
+                    inputMode,
+                    compilerVersion,
+                    pathRemapping,
+                    compilerSettings
+                );
             } catch (e) {
                 if (e instanceof CompileFailedError) {
                     console.error(`Compile errors encountered for ${target}:`);

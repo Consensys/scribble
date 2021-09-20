@@ -220,6 +220,7 @@ export function flattenUnits(
 
     const flatUnit = factory.makeSourceUnit(flatFileName, 0, flatFileName, new Map());
     let contracts: ContractDefinition[] = [];
+    const pragmas = new Map<string, PragmaDirective[]>();
 
     for (const unit of units) {
         for (const def of unit.children) {
@@ -233,6 +234,12 @@ export function flattenUnits(
 
             if (def instanceof ContractDefinition) {
                 contracts.push(def);
+            } else if (def instanceof PragmaDirective) {
+                if (!pragmas.has(def.vIdentifier)) {
+                    pragmas.set(def.vIdentifier, [def]);
+                } else {
+                    (pragmas.get(def.vIdentifier) as PragmaDirective[]).push(def);
+                }
             } else {
                 flatUnit.appendChild(def);
             }
@@ -268,6 +275,17 @@ export function flattenUnits(
 
     // Finally insert a single compiler version directive
     flatUnit.insertAtBeginning(factory.makePragmaDirective(["solidity", version]));
+
+    for (const [name, pragmaDefs] of pragmas) {
+        for (const def of pragmaDefs) {
+            assert(
+                def.vValue === pragmaDefs[0].vValue,
+                `Cannot flatten conflicting pragmas 'pragma ${name} ${def.vValue}' and 'pragma ${name} ${pragmaDefs[0].vValue}'`
+            );
+        }
+
+        flatUnit.insertAtBeginning(pragmaDefs[0]);
+    }
 
     return flatUnit;
 }

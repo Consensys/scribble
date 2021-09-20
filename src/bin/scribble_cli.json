@@ -73,6 +73,11 @@
                 "description": "If given, specifies the exact compiler version to use"
             },
             {
+                "name": "compiler-settings",
+                "type": "String",
+                "description": "If given, specifies additional settings to pass to the underlying compiler as a JSON string. (e.g. --compiler-settings '\\{\"optimizer:\": \\{\"enabled\": true\\}\\}'). For more info see https://docs.soliditylang.org/en/latest/using-the-compiler.html#input-description"
+            },
+            {
                 "name": "no-assert",
                 "type": "Boolean",
                 "description": "If specified execution will not halt when an invariant is violated (only an event will be emitted)."
