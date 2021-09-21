@@ -1,3 +1,4 @@
+import expect from "expect";
 import {
     Assignment,
     ASTContext,
@@ -10,23 +11,22 @@ import {
     VariableDeclaration,
     XPath
 } from "solc-typed-ast";
-import expect from "expect";
 import { print as printUnits, rewriteImports } from "../../src/ast_to_source_printer";
 import {
-    ContractInstrumenter,
     findExternalCalls,
+    instrumentContract,
     interpose,
     interposeCall,
     interposeInlineInitializer,
     interposeSimpleStateVarUpdate,
-    interposeTupleAssignment
+    interposeTupleAssignment,
+    ScribbleFactory
 } from "../../src/instrumenter";
+import { InstrumentationSiteType } from "../../src/instrumenter/transpiling_context";
+import { getScopeOfType } from "../../src/spec-lang/tc";
 import { single } from "../../src/util";
 import { getTarget, getTypeCtxAndTarget, toAst } from "../integration/utils";
-import { InstrumentationSiteType } from "../../src/instrumenter/transpiling_context";
 import { makeInstrumentationCtx } from "./utils";
-
-export type LocationDesc = [string, string];
 
 function print(units: SourceUnit[], contents: string[], version: string): Map<SourceUnit, string> {
     const contentMap = new Map(units.map((unit, idx) => [unit.absolutePath, contents[idx]]));
@@ -39,7 +39,7 @@ function print(units: SourceUnit[], contents: string[], version: string): Map<So
 }
 
 describe("Function interposing Unit Tests", () => {
-    const goodSamples: Array<[string, string, "log" | "mstore", LocationDesc, string]> = [
+    const goodSamples: Array<[string, string, "log" | "mstore", [string, string], string]> = [
         [
             "internal_interpose.sol",
             `pragma solidity 0.6.0;
@@ -284,8 +284,8 @@ contract Foo {
         it(`Interpose on ${contractName}.${funName} in #${fileName}`, () => {
             const { units, reader, files, compilerVersion } = toAst(fileName, content);
             const target = getTarget([contractName, funName], units);
-            const fun: FunctionDefinition = target as FunctionDefinition;
-            const factory = new ASTNodeFactory(reader.context);
+            const fun = target as FunctionDefinition;
+            const factory = new ScribbleFactory(reader.context);
 
             const ctx = makeInstrumentationCtx(
                 units,
@@ -294,10 +294,13 @@ contract Foo {
                 assertionMode,
                 compilerVersion
             );
+
             interpose(fun, ctx);
+
             ctx.finalize();
 
             const instrumented = print(units, [content], "0.6.0").get(units[0]);
+
             expect(instrumented).toEqual(expectedInstrumented);
         });
     }
@@ -403,10 +406,9 @@ contract Foo is __scribble_ReentrancyUtils {
         it(`Instrument ${contractName} in #${fileName}`, () => {
             const { units, reader, files, compilerVersion } = toAst(fileName, content);
 
-            const target = getTarget([contractName, undefined], units);
+            const target = getTarget([contractName], units);
             const contract: ContractDefinition = target as ContractDefinition;
-            const factory = new ASTNodeFactory(reader.context);
-            const contractInstrumenter = new ContractInstrumenter();
+            const factory = new ScribbleFactory(reader.context);
 
             const ctx = makeInstrumentationCtx(
                 units,
@@ -415,7 +417,9 @@ contract Foo is __scribble_ReentrancyUtils {
                 assertionMode,
                 compilerVersion
             );
-            contractInstrumenter.instrument(ctx, [], contract, true);
+
+            instrumentContract(ctx, [], contract, true);
+
             ctx.finalize();
 
             const instrumented = print(units, [content], "0.6.0").get(units[0]);
@@ -426,7 +430,7 @@ contract Foo is __scribble_ReentrancyUtils {
 });
 
 describe("Callsite interposing unit tests", () => {
-    const goodSamples: Array<[string, string, "log" | "mstore", LocationDesc, string]> = [
+    const goodSamples: Array<[string, string, "log" | "mstore", [string, string], string]> = [
         [
             "callsite1.sol",
             `pragma solidity 0.6.0;
@@ -613,10 +617,14 @@ contract Foo {
     ] of goodSamples) {
         it(`Instrument ${contractName} in #${fileName}`, () => {
             const { units, reader, files, compilerVersion } = toAst(fileName, content);
-            const [typeCtx, target] = getTypeCtxAndTarget([contractName, funName], units);
-            const contract: ContractDefinition = typeCtx[1] as ContractDefinition;
-            const fun: FunctionDefinition = target as FunctionDefinition;
-            const factory = new ASTNodeFactory(reader.context);
+            const [typeCtx, target] = getTypeCtxAndTarget(
+                [contractName, funName],
+                units,
+                compilerVersion
+            );
+            const contract = getScopeOfType(ContractDefinition, typeCtx) as ContractDefinition;
+            const fun = target as FunctionDefinition;
+            const factory = new ScribbleFactory(reader.context);
 
             const callSite: FunctionCall = single(
                 findExternalCalls(fun, "0.6.0"),
@@ -630,13 +638,16 @@ contract Foo {
                 assertionMode,
                 compilerVersion
             );
+
             interposeCall(ctx, contract, callSite);
+
             ctx.finalize();
 
             const instrumented = print(units, [content], "0.6.0").get(units[0]) as string;
 
             // Check that the interposed code compiles correctly
             expect(toAst.bind(toAst, "foo.sol", instrumented)).not.toThrow();
+
             // Check that it equals the expected code
             expect(instrumented).toEqual(expectedInstrumented);
         });
@@ -1183,6 +1194,7 @@ contract ComplexDatastructures {
         uint256 tuple_tmp_3;
         uint256 tuple_tmp_4;
         uint256 tuple_tmp_5;
+        uint256[] tuple_tmp_6;
         uint256 tuple_tmp_7;
     }
 
@@ -1195,7 +1207,6 @@ contract ComplexDatastructures {
 
     function main() public {
         vars0 memory _v;
-        uint256[] storage tuple_tmp_6;
         ComplexDatastructures_s_ptr_string_memory_assign("abcd");
         ComplexDatastructures_b_ptr_bytes_memory_assign(new bytes(5));
         ComplexDatastructures_a_ptr_arr_uint8_3_memory_assign([1, 2, 3]);
@@ -1210,9 +1221,9 @@ contract ComplexDatastructures {
         _v.tuple_tmp_4 = 0;
         _v.tuple_tmp_5 = 0;
         _v.tuple_tmp_7 = 0;
-        (tuple_tmp_6, _v.tuple_tmp_3) = (a, 5);
+        (_v.tuple_tmp_6, _v.tuple_tmp_3) = (a, 5);
         ComplexDatastructures_aa_idx_uint256_idx_uint256_uint256_assign(_v.tuple_tmp_4, _v.tuple_tmp_5, _v.tuple_tmp_3);
-        ComplexDatastructures_aa_idx_uint256_ptr_arr_uint256_storage_assign(_v.tuple_tmp_7, tuple_tmp_6);
+        ComplexDatastructures_aa_idx_uint256_ptr_arr_uint256_memory_assign(_v.tuple_tmp_7, _v.tuple_tmp_6);
         assert(aa[0][0] == 1);
     }
 
@@ -1241,7 +1252,7 @@ contract ComplexDatastructures {
         RET4 = aa[ARG4][ARG5];
     }
 
-    function ComplexDatastructures_aa_idx_uint256_ptr_arr_uint256_storage_assign(uint256 ARG7, uint256[] storage ARG8) internal returns (uint256[] storage RET5) {
+    function ComplexDatastructures_aa_idx_uint256_ptr_arr_uint256_memory_assign(uint256 ARG7, uint256[] memory ARG8) internal returns (uint256[] storage RET5) {
         aa[ARG7] = ARG8;
         RET5 = aa[ARG7];
     }
@@ -1267,6 +1278,7 @@ contract Foo {
 contract Foo {
     struct vars0 {
         uint256 tuple_tmp_0;
+        uint256[] tuple_tmp_1;
     }
 
     uint[] internal x;
@@ -1274,11 +1286,10 @@ contract Foo {
 
     function main() public {
         vars0 memory _v;
-        uint256[] storage tuple_tmp_1;
         uint[] storage ptr = x;
-        (tuple_tmp_1, _v.tuple_tmp_0) = (x, 1);
+        (_v.tuple_tmp_1, _v.tuple_tmp_0) = (x, 1);
         Foo_y_uint256_assign(_v.tuple_tmp_0);
-        Foo_x_ptr_arr_uint256_storage_assign(tuple_tmp_1);
+        Foo_x_ptr_arr_uint256_memory_assign(_v.tuple_tmp_1);
     }
 
     function Foo_y_uint256_assign(uint256 ARG0) internal returns (uint256 RET0) {
@@ -1286,7 +1297,7 @@ contract Foo {
         RET0 = y;
     }
 
-    function Foo_x_ptr_arr_uint256_storage_assign(uint256[] storage ARG1) internal returns (uint256[] storage RET1) {
+    function Foo_x_ptr_arr_uint256_memory_assign(uint256[] memory ARG1) internal returns (uint256[] storage RET1) {
         x = ARG1;
         RET1 = x;
     }
@@ -1602,7 +1613,7 @@ contract Child is Foo {
             const { units, reader, files, compilerVersion } = toAst(fileName, content);
             const result = new XPath(units[0]).query(selector);
             const nodes = result instanceof Array ? result : [result];
-            const factory = new ASTNodeFactory(reader.context);
+            const factory = new ScribbleFactory(reader.context);
             const contract = units[0].vContracts[0];
             const vars = new Set(contract.vStateVariables);
 
@@ -1612,6 +1623,7 @@ contract Child is Foo {
                     const container = node.getClosestParentByType(
                         FunctionDefinition
                     ) as FunctionDefinition;
+
                     const transCtx = ctx.transCtxMap.get(
                         container,
                         InstrumentationSiteType.StateVarUpdated
@@ -1628,6 +1640,7 @@ contract Child is Foo {
             ctx.finalize();
 
             const instrumented = print(units, [content], "0.6.0").get(units[0]);
+
             expect(instrumented).toEqual(expectedInstrumented);
         });
     }

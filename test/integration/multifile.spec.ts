@@ -56,7 +56,9 @@ describe("Multiple-file project instrumentation", () => {
             "0.5.0"
         ],
         ["test/multifile_samples/forall_maps", ["child.sol", "base.sol"], "0.8.4"],
-        ["test/multifile_samples/arr_sum", ["main.sol"], "0.8.4"]
+        ["test/multifile_samples/arr_sum", ["main.sol"], "0.8.4"],
+        ["test/multifile_samples/asserts", ["C.sol", "B.sol", "A.sol"], "0.8.7"],
+        ["test/multifile_samples/circular_imports", ["B.sol", "A.sol"], "0.8.7"]
     ];
 
     for (const [dirName, solFiles, version] of samples) {
@@ -80,6 +82,23 @@ describe("Multiple-file project instrumentation", () => {
                 expectedFlat = fse.readFileSync(`${dirName}/flat.sol.expected`, {
                     encoding: "utf-8"
                 });
+
+                // Uncomment below lines to re-generate instrumentationMetadata.json.expected
+                /*
+                scribble(
+                    solPaths,
+                    "-o",
+                    "--",
+                    "--output-mode",
+                    "json",
+                    "--compiler-version",
+                    version,
+                    "--debug-events",
+                    "--instrumentation-metadata-file",
+                    `${dirName}/instrumentationMetadata.json.expected`
+                );
+                */
+
                 expectedInstrMetadata = fse.readJSONSync(
                     `${dirName}/instrumentationMetadata.json.expected`,
                     {
@@ -122,7 +141,8 @@ describe("Multiple-file project instrumentation", () => {
                     "--output-mode",
                     "json",
                     "--compiler-version",
-                    version
+                    version,
+                    "--debug-events"
                 );
 
                 const actualJson = JSON.parse(actualJsonStr);
@@ -144,9 +164,7 @@ describe("Multiple-file project instrumentation", () => {
                     "--quiet",
                     "--arm",
                     "--compiler-version",
-                    version,
-                    "--instrumentation-metadata-file",
-                    "tmp.json"
+                    version
                 );
 
                 for (const [fileName, expectedContents] of expectedInstrumented) {

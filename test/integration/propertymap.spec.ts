@@ -3,6 +3,8 @@ import {
     ContractDefinition,
     FunctionDefinition,
     SourceUnit,
+    Statement,
+    StatementWithChildren,
     StructuredDocumentation,
     VariableDeclaration
 } from "solc-typed-ast";
@@ -12,7 +14,7 @@ import { removeProcWd, scribble, searchRecursive, toAstUsingCache } from "./util
 function findPredicates(inAST: SourceUnit[]): Map<number, Set<string>> {
     const res: Map<number, Set<string>> = new Map();
     const rx =
-        /\s*(if_succeeds|if_aborts|invariant|if_updated|if_assigned)[a-z0-9.[\])_]*\s*({:msg\s*"([^"]*)"\s*})?\s*([^;]*);/g;
+        /\s*(if_succeeds|if_aborts|invariant|if_updated|if_assigned|assert)[a-z0-9.[\])_]*\s*({:msg\s*"([^"]*)"\s*})?\s*([^;]*);/g;
 
     for (const unit of inAST) {
         const targets: Array<VariableDeclaration | FunctionDefinition | ContractDefinition> =
@@ -20,7 +22,9 @@ function findPredicates(inAST: SourceUnit[]): Map<number, Set<string>> {
                 (node) =>
                     node instanceof ContractDefinition ||
                     node instanceof FunctionDefinition ||
-                    node instanceof VariableDeclaration
+                    node instanceof VariableDeclaration ||
+                    node instanceof Statement ||
+                    node instanceof StatementWithChildren
             );
 
         const preds = new Set<string>();
@@ -68,6 +72,20 @@ describe("Property map test", () => {
 
     const rx = /^([0-9]*):([0-9]*):([0-9]*)$/;
 
+    const getSrcTripple = (raw: string): [number, number, number] => {
+        const m = raw.match(rx);
+
+        expect(m).not.toEqual(null);
+
+        assert(m !== null, ``);
+
+        const start = parseInt(m[1]);
+        const len = parseInt(m[2]);
+        const fileInd = parseInt(m[3]);
+
+        return [start, len, fileInd];
+    };
+
     it(`Source samples are present in ${samplesDir}`, () => {
         expect(samples.length).toBeGreaterThan(0);
     });
@@ -90,7 +108,7 @@ describe("Property map test", () => {
 
                 let fileName: string;
 
-                const args: string[] = [];
+                const args: string[] = ["--debug-events"];
 
                 if (result.artefact) {
                     fileName = result.artefact;
@@ -112,15 +130,7 @@ describe("Property map test", () => {
                 for (const entry of instrMetadata.propertyMap) {
                     expect(entry.filename).toEqual(sample);
 
-                    const m = (entry.propertySource as string).match(rx);
-
-                    expect(m).not.toEqual(null);
-
-                    assert(m !== null, ``);
-
-                    const start = parseInt(m[1]);
-                    const len = parseInt(m[2]);
-                    const fileInd = parseInt(m[3]);
+                    const [start, len, fileInd] = getSrcTripple(entry.propertySource);
 
                     // All the test samples have a single file
                     expect(fileInd).toEqual(0);
@@ -142,6 +152,24 @@ describe("Property map test", () => {
                                 predSet
                             )}`
                         );
+                    }
+                }
+            });
+
+            it("Debug events signature looks correct-ish", () => {
+                const instrMetadata: InstrumentationMetaData = outJSON.instrumentationMetadata;
+
+                for (const propMD of instrMetadata.propertyMap) {
+                    const [propStart, propLen, propFileInd] = getSrcTripple(propMD.propertySource);
+
+                    for (const [srcLocs] of propMD.debugEventEncoding) {
+                        // Check all srcLocs lie inside the annotation
+                        for (const srcLoc of srcLocs) {
+                            const [srcStart, srcLen, srcFileInd] = getSrcTripple(srcLoc);
+                            expect(srcFileInd).toEqual(propFileInd);
+                            expect(srcStart >= propStart).toBeTruthy();
+                            expect(srcStart + srcLen <= propStart + propLen).toBeTruthy();
+                        }
                     }
                 }
             });

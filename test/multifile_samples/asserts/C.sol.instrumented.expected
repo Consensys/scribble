@@ -1,0 +1,57 @@
+pragma solidity 0.8.7;
+
+import { X as XA } from "./A.sol";
+import "./A.sol" as A;
+import "./B.sol" as B;
+import { X as XB } from "./B.sol";
+import "./__scribble_ReentrancyUtils.sol";
+
+contract Child is __scribble_ReentrancyUtils, B.Base {
+    struct vars3 {
+        bool __scribble_check_invs_at_end;
+    }
+
+    function main1(uint t) public {
+        vars3 memory _v;
+        _v.__scribble_check_invs_at_end = __scribble_out_of_contract;
+        __scribble_out_of_contract = false;
+        _original_Child_main1(t);
+        if (_v.__scribble_check_invs_at_end) __scribble_check_state_invariants();
+        __scribble_out_of_contract = _v.__scribble_check_invs_at_end;
+    }
+
+    function _original_Child_main1(uint t) private {
+        unchecked {
+            if (!(((((XA == 2) && (XB == 2)) && (A.X == 2)) && (B.X == 2)) && (t == B.X))) {
+                emit AssertionFailed("5: ");
+                assert(false);
+            }
+        }
+        t++;
+        A.Point memory p;
+        p.x = 1;
+        p.y = 2;
+        unchecked {
+            if (!(B.foo(p) == 3)) {
+                emit AssertionFailed("6: ");
+                assert(false);
+            }
+        }
+        t++;
+    }
+
+    /// Check only the current contract's state invariants
+    function __scribble_Child_check_state_invariants_internal() internal {}
+
+    /// Check the state invariant for the current contract and all its bases
+    function __scribble_check_state_invariants() virtual override internal {
+        __scribble_Child_check_state_invariants_internal();
+        __scribble_Base_check_state_invariants_internal();
+    }
+
+    constructor() {
+        __scribble_out_of_contract = false;
+        __scribble_check_state_invariants();
+        __scribble_out_of_contract = true;
+    }
+}

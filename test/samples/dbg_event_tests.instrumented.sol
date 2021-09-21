@@ -127,7 +127,7 @@ contract Foo {
             _v.x1 = x + 1;
             _v.x2 = _v.x1 + 1;
             _v.x3 = _v.x2 + 1;
-            _v.let_0 = _v.x3 == 4;
+            _v.let_0 = (_v.x3 + _v.x3) == 8;
             _v.let_1 = _v.let_0;
             _v.let_2 = _v.let_1;
             if (!(_v.let_2)) {
@@ -244,6 +244,7 @@ contract Foo {
         }
     }
 }
+
 /// Utility contract holding a stack counter
 contract __scribble_ReentrancyUtils {
     bool __scribble_out_of_contract = true;

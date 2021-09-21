@@ -43,18 +43,28 @@ function findImport(
 
     // Check if `from` re-exports `name`
     for (const importDir of from.vImportDirectives) {
-        if (importDir.vSymbolAliases.length === 0) {
+        if (importDir.vSymbolAliases.length === 0 && importDir.unitAlias === "") {
+            // Simple import - e.g 'import "abc.sol"'. All top-level definition from "abc.sol" are imported.
             const importee = findImport(name, importDir.vSourceUnit, sources, factory);
 
             if (importee !== undefined) {
                 return importee;
             }
+        } else if (importDir.unitAlias !== "") {
+            // Unit alias import - 'import "abc.sol" as abc'. `abc` is the only identifier defined.
+            if (importDir.unitAlias === name) return importDir;
         } else {
+            // Individual symbols imported - 'import {A, B as C} from "abc.sol"'. Only listed definitions imported.
             for (const [origin, alias] of importDir.vSymbolAliases) {
-                const originName =
-                    origin instanceof ImportDirective ? origin.unitAlias : origin.name;
+                let impName: string;
 
-                if ((alias !== undefined && alias === name) || originName === name) {
+                if (alias != undefined) {
+                    impName = alias;
+                } else {
+                    impName = origin instanceof ImportDirective ? origin.unitAlias : origin.name;
+                }
+
+                if (impName === name) {
                     return origin;
                 }
             }
@@ -107,11 +117,17 @@ export function rewriteImports(
                 `Sym ${symDesc.name} not found in exports of ${importedUnit.sourceEntryKey}`
             );
 
-            const id = factory.makeIdentifierFor(sym);
+            const id = factory.makeIdentifier("<missing>", symDesc.name, sym.id);
 
             id.parent = importDir;
 
             newSymbolAliases.push({ foreign: id, local: symDesc.alias });
+
+            const symName = symDesc.alias !== null ? symDesc.alias : id.name;
+
+            if (!sourceUnit.exportedSymbols.has(symName)) {
+                sourceUnit.exportedSymbols.set(symName, id.referencedDeclaration);
+            }
         }
 
         importDir.symbolAliases = newSymbolAliases;
@@ -129,17 +145,13 @@ function getWriter(targetCompilerVersion: string): ASTWriter {
 
     const formatter = new PrettyFormatter(4);
     const writer = new ASTWriter(DefaultASTWriterMapping, formatter, targetCompilerVersion);
+
     writerCache.set(targetCompilerVersion, writer);
 
     return writer;
 }
 /**
  * Print a list of SourceUnits, with potentially different versions and ASTContext's
- *
- * @param sourceUnits
- * @param factoryMap
- * @param targetCompilerVersion
- * @param skipImportRewriting
  */
 export function print(
     sourceUnits: SourceUnit[],

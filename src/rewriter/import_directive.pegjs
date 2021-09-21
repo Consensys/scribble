@@ -114,7 +114,7 @@ Identifier =
 
 Symbol = 
     name: (Identifier) alias: (__ AS __ Identifier)? {
-        return { name, alias: alias[3] } as SymbolDesc;
+        return { name, alias: alias !== null ? alias[3] : null } as SymbolDesc;
     }
 
 SymbolList =

@@ -1,7 +1,6 @@
 import { gte } from "semver";
 import {
     ASTNode,
-    ASTNodeFactory,
     Block,
     ContractDefinition,
     DataLocation,
@@ -14,22 +13,31 @@ import {
     StateVariableVisibility,
     StructDefinition,
     TypeName,
+    TypeNode,
     UncheckedBlock,
     VariableDeclaration
 } from "solc-typed-ast";
-import { AnnotationMetaData, pp } from "..";
-import { StructMap, FactoryMap } from "./utils";
-import { SForAll, SId, SLet, SUnaryOperation, SUserFunctionDefinition } from "../spec-lang/ast";
+import { AnnotationMetaData, pp, ScribbleFactory } from "..";
+import {
+    SForAll,
+    SId,
+    SLet,
+    SUnaryOperation,
+    SUserFunctionDefinition,
+    VarDefSite
+} from "../spec-lang/ast";
 import { SemMap, StateVarScope, TypeEnv } from "../spec-lang/tc";
 import { assert, last } from "../util";
 import { InstrumentationContext } from "./instrumentation_context";
 import { makeTypeString } from "./type_string";
+import { FactoryMap, StructMap } from "./utils";
 
 export enum InstrumentationSiteType {
     FunctionAnnotation,
     ContractInvariant,
     UserDefinedFunction,
-    StateVarUpdated
+    StateVarUpdated,
+    Assert
 }
 
 export type ASTMap = Map<ASTNode, ASTNode>;
@@ -37,39 +45,39 @@ export type ASTMap = Map<ASTNode, ASTNode>;
 type PositionInBlock = "start" | "end" | ["after", Statement] | ["before", Statement];
 type Marker = [Block, PositionInBlock];
 
-function defSiteToKey(id: SId): string {
-    if (id.defSite instanceof VariableDeclaration) {
-        return `${id.defSite.id}`;
+export function defSiteToKey(defSite: VarDefSite): string {
+    if (defSite instanceof VariableDeclaration) {
+        return `${defSite.id}`;
     }
 
-    if (id.defSite instanceof Array && id.defSite[0] instanceof SLet) {
-        return `let_${id.defSite[0].id}_${id.defSite[1]}`;
+    if (defSite instanceof Array && defSite[0] instanceof SLet) {
+        return `let_${defSite[0].id}_${defSite[1]}`;
     }
 
-    if (id.defSite instanceof Array && id.defSite[0] instanceof StateVarScope) {
-        return `svar_path_binding_${id.defSite[0].annotation.id}_${id.defSite[1]}`;
+    if (defSite instanceof Array && defSite[0] instanceof StateVarScope) {
+        return `svar_path_binding_${defSite[0].annotation.id}_${defSite[1]}`;
     }
 
-    if (id.defSite instanceof SForAll) {
-        return `forall_${id.defSite.id}`;
+    if (defSite instanceof SForAll) {
+        return `forall_${defSite.id}`;
     }
 
-    throw new Error(`NYI debug info for id ${id.name} with def site ${pp(id.defSite)}`);
+    throw new Error(`NYI debug info for def site ${pp(defSite)}`);
 }
 
-class IdDebugMap extends StructMap<[SId], string, Expression> {
-    protected getName(id: SId): string {
+export class DbgIdsMap extends StructMap<[VarDefSite], string, [SId[], Expression, TypeNode]> {
+    protected getName(id: VarDefSite): string {
         return defSiteToKey(id);
     }
 }
 
-class AnnotationDebugMap extends FactoryMap<[AnnotationMetaData], number, IdDebugMap> {
+class AnnotationDebugMap extends FactoryMap<[AnnotationMetaData], number, DbgIdsMap> {
     protected getName(md: AnnotationMetaData): number {
         return md.parsedAnnot.id;
     }
 
-    protected makeNew(): IdDebugMap {
-        return new IdDebugMap();
+    protected makeNew(): DbgIdsMap {
+        return new DbgIdsMap();
     }
 }
 
@@ -110,9 +118,9 @@ export class TranspilingContext {
     /**
      * Positions where statements outside of an `old` context are inserted. This is a stack to support building expressions with nested scopes
      */
-    private newMarkerStack: Marker[];
+    private newMarkerStack!: Marker[];
 
-    public get factory(): ASTNodeFactory {
+    public get factory(): ScribbleFactory {
         return this.instrCtx.factory;
     }
 
@@ -130,15 +138,21 @@ export class TranspilingContext {
 
     public readonly dbgInfo = new AnnotationDebugMap();
 
+    public get containerContract(): ContractDefinition {
+        const fun = this.containerFun;
+        assert(fun.vScope instanceof ContractDefinition, `Unexpected free function ${fun.name}`);
+        return fun.vScope;
+    }
+
     constructor(
         public readonly typeEnv: TypeEnv,
         public readonly semInfo: SemMap,
-        public readonly container: FunctionDefinition,
+        public readonly containerFun: FunctionDefinition,
         public readonly instrCtx: InstrumentationContext,
         public readonly instrSiteType: InstrumentationSiteType
     ) {
         // Create the StructDefinition for temporary bindings.
-        const contract = this.container.vScope;
+        const contract = this.containerFun.vScope;
         assert(
             contract instanceof ContractDefinition,
             `Can't put instrumentation into free functions.`
@@ -166,7 +180,7 @@ export class TranspilingContext {
             false,
             false,
             instrCtx.structVar,
-            this.container.id,
+            this.containerFun.id,
             false,
             DataLocation.Memory,
             StateVariableVisibility.Default,
@@ -177,7 +191,7 @@ export class TranspilingContext {
         );
 
         if (gte(instrCtx.compilerVersion, "0.8.0")) {
-            const containerBody = this.container.vBody as Block;
+            const containerBody = this.containerFun.vBody as Block;
             if (
                 this.instrSiteType === InstrumentationSiteType.FunctionAnnotation ||
                 this.instrSiteType === InstrumentationSiteType.StateVarUpdated
@@ -194,7 +208,7 @@ export class TranspilingContext {
             containerBody.appendChild(newUncheckedBlock);
             this.newMarkerStack = [[newUncheckedBlock, "end"]];
         } else {
-            const containerBody = this.container.vBody as Block;
+            const containerBody = this.containerFun.vBody as Block;
             if (
                 this.instrSiteType === InstrumentationSiteType.FunctionAnnotation ||
                 this.instrSiteType === InstrumentationSiteType.StateVarUpdated
@@ -235,7 +249,7 @@ export class TranspilingContext {
         if (isOld) {
             if (this.oldMarkerStack === undefined) {
                 throw new Error(
-                    `InternalError: cannot insert statement in the old context of ${this.container.name}. Not support for instrumentation site.`
+                    `InternalError: cannot insert statement in the old context of ${this.containerFun.name}. Not support for instrumentation site.`
                 );
             }
 
@@ -279,6 +293,21 @@ export class TranspilingContext {
     }
 
     /**
+     * Reset a marker stack to a new starting position. This is used for transpiling assertions, as we share one
+     * TranspilingContext for the whole function.
+     *
+     * @TODO this is a hack. Find a cleaner way to separate the responsibilities between holding function-wide information and
+     * specific annotation instance information during transpiling.
+     */
+    resetMarkser(marker: Marker, isOld: boolean): void {
+        if (isOld) {
+            this.oldMarkerStack = [marker];
+        } else {
+            this.newMarkerStack = [marker];
+        }
+    }
+
+    /**
      * When interposing on tuple assignments we generate temporary variables for components of the lhs of the tuple. E.g. for:
      *
      * ```
@@ -318,12 +347,16 @@ export class TranspilingContext {
     getLetBinding(arg: SId | [SLet, number]): string {
         const [letDecl, idx] = arg instanceof SId ? (arg.defSite as [SLet, number]) : arg;
         const key = `<let_${letDecl.id}_${idx}>`;
+
         if (!this.bindingMap.has(key)) {
             let name = arg instanceof SId ? arg.name : arg[0].lhs[idx].name;
+
             if (name === "_") {
                 name = "dummy_";
             }
+
             const fieldName = this.instrCtx.nameGenerator.getFresh(name, true);
+
             this.bindingMap.set(key, fieldName);
         }
 
@@ -332,9 +365,11 @@ export class TranspilingContext {
 
     getUserFunArg(userFun: SUserFunctionDefinition, idx: number): string {
         const key = `<uf_arg_${userFun.id}_${idx}>`;
+
         if (!this.bindingMap.has(key)) {
             const name = userFun.parameters[idx][0].name;
             const uniqueName = this.instrCtx.nameGenerator.getFresh(name, true);
+
             this.bindingMap.set(key, uniqueName);
         }
 
@@ -436,6 +471,7 @@ export class TranspilingContext {
 
         this.bindingDefMap.set(name, decl);
         this.bindingsStructDef.appendChild(decl);
+
         return decl;
     }
 
@@ -483,13 +519,13 @@ export class TranspilingContext {
             return;
         }
 
-        const contract = this.container.parent;
-        assert(contract instanceof ContractDefinition, ``);
-        contract.appendChild(this.bindingsStructDef);
-        const block = this.container.vBody as Block;
+        this.containerContract.appendChild(this.bindingsStructDef);
+
+        const block = this.containerFun.vBody as Block;
         const localVarStmt = this.factory.makeVariableDeclarationStatement([], [this.bindingsVar]);
 
         this.instrCtx.addGeneralInstrumentation(localVarStmt);
+
         block.insertBefore(localVarStmt, block.children[0]);
     }
 
@@ -497,7 +533,7 @@ export class TranspilingContext {
      * Get temporary var used to store the value of an id inside an old expression for debugging purposes. E.g. for this expression:
      */
     getDbgVar(node: SId): string {
-        const key = `<dbg ${defSiteToKey(node)}>`;
+        const key = `<dbg ${defSiteToKey(node.defSite as VarDefSite)}>`;
         assert(!this.bindingMap.has(key), `getOldVar called more than once for ${node.pp()}`);
         const res = this.instrCtx.nameGenerator.getFresh("dbg_");
         this.bindingMap.set(key, res);

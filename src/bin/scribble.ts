@@ -1,9 +1,8 @@
 #!/usr/bin/env node
 import fse from "fs-extra";
-import { dirname, relative, join } from "path";
+import { dirname, join, relative } from "path";
 import {
     ASTContext,
-    ASTNode,
     ASTNodeFactory,
     ASTReader,
     CompileFailedError,
@@ -14,63 +13,60 @@ import {
     compileSourceString,
     ContractDefinition,
     ContractKind,
-    EnumDefinition,
-    ExternalReferenceType,
     FunctionDefinition,
     FunctionKind,
     FunctionStateMutability,
     FunctionVisibility,
-    Identifier,
-    ImportDirective,
     isSane,
-    MemberAccess,
-    ParameterList,
-    replaceNode,
     SourceUnit,
     SrcRangeMap,
-    StructDefinition,
-    UserDefinedTypeName,
+    Statement,
+    StatementWithChildren,
     VariableDeclaration
 } from "solc-typed-ast";
-import { AbsDatastructurePath, findStateVarUpdates, interposeMap, UnsupportedConstruct } from "..";
+import {
+    AbsDatastructurePath,
+    AnnotationTarget,
+    findStateVarUpdates,
+    generateUtilsContract,
+    instrumentContract,
+    instrumentFunction,
+    instrumentStatement,
+    interposeMap,
+    ScribbleFactory,
+    UnsupportedConstruct
+} from "..";
 import { rewriteImports } from "../ast_to_source_printer";
 import {
+    AnnotationFilterOptions,
+    AnnotationMap,
+    AnnotationMetaData,
+    buildAnnotationMap,
+    gatherContractAnnotations,
+    gatherFunctionAnnotations,
     PropertyMetaData,
     SyntaxError,
     UnsupportedByTargetError,
-    AnnotationMetaData,
-    UserFunctionDefinitionMetaData,
-    buildAnnotationMap,
-    AnnotationMap,
-    gatherContractAnnotations,
-    gatherFunctionAnnotations,
-    AnnotationFilterOptions
+    UserFunctionDefinitionMetaData
 } from "../instrumenter/annotations";
 import { getCallGraph } from "../instrumenter/callgraph";
 import { CHA, getCHA } from "../instrumenter/cha";
-import {
-    ContractInstrumenter,
-    FunctionInstrumenter,
-    generateUtilsContract
-} from "../instrumenter/instrument";
-import { instrumentStateVars } from "../instrumenter/state_var_instrumenter";
 import { InstrumentationContext } from "../instrumenter/instrumentation_context";
+import { instrumentStateVars } from "../instrumenter/state_var_instrumenter";
+import { flattenUnits } from "../rewriter/flatten";
 import { merge } from "../rewriter/merge";
 import { AnnotationType, Location, Range } from "../spec-lang/ast";
 import { scUnits, SemError, SemMap, STypeError, tcUnits, TypeEnv } from "../spec-lang/tc";
 import {
     assert,
-    getOrInit,
+    buildOutputJSON,
+    dedup,
+    flatten,
+    generateInstrumentationMetadata,
+    getOr,
     getScopeUnit,
     isChangingState,
-    isExternallyVisible,
-    pp,
-    buildOutputJSON,
-    generateInstrumentationMetadata,
-    flatten,
-    dedup,
-    topoSort,
-    getOr
+    isExternallyVisible
 } from "../util";
 import cli from "./scribble_cli.json";
 
@@ -142,7 +138,8 @@ function compile(
     fileName: string,
     type: "source" | "json",
     compilerVersion: string,
-    remapping: string[]
+    remapping: string[],
+    compilerSettings: any
 ): CompileResult {
     if (fileName === "--") {
         const content = fse.readFileSync(0, { encoding: "utf-8" });
@@ -150,8 +147,14 @@ function compile(
         fileName = "stdin";
 
         return type === "json"
-            ? compileJsonData(fileName, JSON.parse(content), compilerVersion, remapping)
-            : compileSourceString(fileName, content, compilerVersion, remapping);
+            ? compileJsonData(
+                  fileName,
+                  JSON.parse(content),
+                  compilerVersion,
+                  remapping,
+                  compilerSettings
+              )
+            : compileSourceString(fileName, content, compilerVersion, remapping, compilerSettings);
     }
 
     if (!fileName || !fse.existsSync(fileName)) {
@@ -165,8 +168,8 @@ function compile(
     }
 
     return type === "json"
-        ? compileJson(fileName, compilerVersion, remapping)
-        : compileSol(fileName, compilerVersion, remapping);
+        ? compileJson(fileName, compilerVersion, remapping, compilerSettings)
+        : compileSol(fileName, compilerVersion, remapping, compilerSettings);
 }
 
 /**
@@ -220,9 +223,7 @@ function instrumentFiles(
 ) {
     const units = ctx.units;
 
-    const worklist: Array<
-        [ContractDefinition, FunctionDefinition | undefined, AnnotationMetaData[]]
-    > = [];
+    const worklist: Array<[AnnotationTarget, AnnotationMetaData[]]> = [];
     const stateVarsWithAnnot: VariableDeclaration[] = [];
 
     if (ctx.varInterposingQueue.length > 0) {
@@ -248,7 +249,7 @@ function instrumentFiles(
             }
 
             if (needsStateInvariantInstr || userFuns.length > 0) {
-                worklist.push([contract, undefined, contractAnnot]);
+                worklist.push([contract, contractAnnot]);
                 assert(
                     ![ContractKind.Library, ContractKind.Interface].includes(contract.kind),
                     `Shouldn't be instrumenting ${contract.kind} ${contract.name} with contract invs`
@@ -297,31 +298,38 @@ function instrumentFiles(
                         contract.kind === ContractKind.Contract &&
                         fun.kind === FunctionKind.Function)
                 ) {
-                    worklist.push([contract, fun, annotations]);
+                    worklist.push([fun, annotations]);
                 }
             }
         }
     }
 
-    const contractInstrumenter = new ContractInstrumenter();
-    const functionInstrumenter = new FunctionInstrumenter();
+    // Finally add in all of the assertions to the worklist
+    for (const [target, annots] of annotMap.entries()) {
+        if (
+            (target instanceof Statement || target instanceof StatementWithChildren) &&
+            annots.length > 0
+        ) {
+            worklist.push([target, annots]);
+        }
+    }
 
-    for (const [contract, contractElement, annotations] of worklist) {
-        if (contractElement === undefined) {
-            contractInstrumenter.instrument(
-                ctx,
-                annotations,
-                contract,
-                contractsNeedingInstr.has(contract)
+    for (const [target, annotations] of worklist) {
+        if (target instanceof ContractDefinition) {
+            instrumentContract(ctx, annotations, target, contractsNeedingInstr.has(target));
+        } else if (target instanceof FunctionDefinition) {
+            const contract = target.vScope;
+            assert(
+                contract instanceof ContractDefinition,
+                `Function instrumentation allowed only on contract funs`
             );
+            instrumentFunction(ctx, annotations, target, contractsNeedingInstr.has(contract));
         } else {
-            functionInstrumenter.instrument(
-                ctx,
-                annotations,
-                contract,
-                contractElement,
-                contractsNeedingInstr.has(contract)
+            assert(
+                target instanceof Statement || target instanceof StatementWithChildren,
+                `State vars handled below`
             );
+            instrumentStatement(ctx, annotations, target);
         }
     }
 
@@ -332,151 +340,6 @@ function instrumentFiles(
     }
 
     ctx.finalize();
-}
-
-type TopLevelDef = ContractDefinition | StructDefinition | EnumDefinition;
-
-/**
- * When flattening units, we may introduce two definitions with the same name.
- * Rename definitions accordingly.
- *
- * @param units - units to flatten
- */
-function fixNameConflicts(units: SourceUnit[]): void {
-    const nameMap = new Map<string, TopLevelDef[]>();
-
-    for (const unit of units) {
-        unit.vContracts.forEach((contr) => getOrInit(contr.name, nameMap, []).push(contr));
-        unit.vStructs.forEach((struct) => getOrInit(struct.name, nameMap, []).push(struct));
-        unit.vEnums.forEach((enumDef) => getOrInit(enumDef.name, nameMap, []).push(enumDef));
-    }
-
-    for (const [, defs] of nameMap) {
-        // Rename all defs after the first one
-        for (let defIdx = 1; defIdx < defs.length; defIdx++) {
-            const def = defs[defIdx];
-
-            def.name += `_${defIdx}`;
-        }
-    }
-}
-
-function getTypeScope(n: ASTNode): SourceUnit | ContractDefinition {
-    const typeScope = n.getClosestParentBySelector(
-        (p: ASTNode) => p instanceof SourceUnit || p instanceof ContractDefinition
-    ) as SourceUnit | ContractDefinition;
-    return typeScope;
-}
-
-function getFQName(
-    def:
-        | ContractDefinition
-        | FunctionDefinition
-        | StructDefinition
-        | EnumDefinition
-        | VariableDeclaration,
-    atUseSite: ASTNode
-): string {
-    if (def instanceof ContractDefinition) {
-        return def.name;
-    }
-
-    const scope = def.vScope;
-    assert(scope instanceof SourceUnit || scope instanceof ContractDefinition, ``);
-
-    if (scope instanceof SourceUnit) {
-        return def.name;
-    } else {
-        if (def instanceof FunctionDefinition && getTypeScope(def) === getTypeScope(atUseSite)) {
-            return def.name;
-        }
-
-        return scope.name + "." + def.name;
-    }
-}
-
-/**
- * When flattening units, sometimes we can break Identifier/UserDefinedType names. There are
- * 2 general cases:
- *  - An Identifier/UserDefinedType referes to an `import {a as b} ...`
- *  - An Identifier/UserDefinedType refers to a top-level definition that was renamed to avoid a name conflict.
- * @param units - units to flatten
- */
-function fixRenamingErrors(units: SourceUnit[], factory: ASTNodeFactory): void {
-    for (const unit of units) {
-        for (const child of unit.getChildrenBySelector(
-            (node) =>
-                node instanceof Identifier ||
-                node instanceof UserDefinedTypeName ||
-                node instanceof MemberAccess
-        )) {
-            const refNode = child as Identifier | UserDefinedTypeName | MemberAccess;
-            const def = refNode.vReferencedDeclaration;
-
-            // Skip builtin identifiers
-            if (
-                refNode instanceof Identifier &&
-                refNode.vIdentifierType !== ExternalReferenceType.UserDefined
-            ) {
-                continue;
-            }
-
-            // Skip identifiers not refereing to material imports
-            if (
-                !(
-                    def instanceof ContractDefinition ||
-                    def instanceof StructDefinition ||
-                    def instanceof EnumDefinition ||
-                    def instanceof FunctionDefinition ||
-                    def instanceof VariableDeclaration
-                )
-            ) {
-                continue;
-            }
-
-            // For VariableDeclarations we only care about file-level constants
-            // and state vars with fully-qualified names. All other
-            // VariableDeclarations cannot be broken by renaming.
-            // Cases where the base is a contract name are handled by identifier-renaming.
-            if (
-                def instanceof VariableDeclaration &&
-                !(
-                    (def.vScope instanceof SourceUnit ||
-                        def.vScope instanceof ContractDefinition) &&
-                    refNode instanceof MemberAccess
-                )
-            ) {
-                continue;
-            }
-
-            const fqDefName = getFQName(def, refNode);
-
-            // For member accesses we only care about member accesses where the base is a source unit
-            if (refNode instanceof MemberAccess) {
-                const baseExp = refNode.vExpression;
-
-                if (
-                    !(
-                        baseExp instanceof Identifier &&
-                        (baseExp.vReferencedDeclaration instanceof SourceUnit ||
-                            baseExp.vReferencedDeclaration instanceof ImportDirective)
-                    )
-                ) {
-                    continue;
-                }
-
-                // Replace the base member access with the right identifier
-                const newNode = factory.makeIdentifierFor(def);
-                replaceNode(refNode, newNode);
-
-                continue;
-            }
-
-            if (fqDefName !== refNode.name) {
-                refNode.name = fqDefName;
-            }
-        }
-    }
 }
 
 const params = cli as any;
@@ -490,7 +353,7 @@ for (const option of options) {
 try {
     options = commandLineArgs(params[1].optionList);
 } catch (e) {
-    console.log(e.message);
+    console.error(e.message);
 
     process.exit(1);
 }
@@ -501,34 +364,6 @@ function oneOf(input: any, options: string[], msg: string): any {
     }
 
     return input;
-}
-
-/**
- * Sort source units in topological order based on their imports.
- *
- * @param units - units to sort
- */
-function sortUnits(units: SourceUnit[]): SourceUnit[] {
-    // Map from absolute paths to source units
-    const pathMap = new Map(units.map((unit) => [unit.absolutePath, unit]));
-    // Partial order of imports
-    const order: Array<[SourceUnit, SourceUnit]> = [];
-
-    for (const unit of units) {
-        const seen = new Set<SourceUnit>();
-        for (const imp of unit.vImportDirectives) {
-            const importee = pathMap.get(imp.vSourceUnit.absolutePath);
-            assert(importee !== undefined, ``);
-            // Avoid duplicats in order
-            if (seen.has(importee)) {
-                continue;
-            }
-            seen.add(importee);
-            order.push([importee, unit]);
-        }
-    }
-
-    return topoSort(units, order);
 }
 
 function writeOut(contents: string, fileName: string) {
@@ -621,6 +456,19 @@ if ("version" in options) {
     const compilerVersion: string =
         options["compiler-version"] !== undefined ? options["compiler-version"] : "auto";
 
+    let compilerSettings: any;
+
+    try {
+        compilerSettings =
+            options["compiler-settings"] !== undefined
+                ? JSON.parse(options["compiler-settings"])
+                : undefined;
+    } catch (e) {
+        error(
+            `--compiler-settings expects a valid JSON string, not ${options["compiler-settings"]}`
+        );
+    }
+
     const filterOptions: AnnotationFilterOptions = {};
 
     if (options["filter-type"]) {
@@ -668,7 +516,13 @@ if ("version" in options) {
             let targetResult: CompileResult;
 
             try {
-                targetResult = compile(target, inputMode, compilerVersion, pathRemapping);
+                targetResult = compile(
+                    target,
+                    inputMode,
+                    compilerVersion,
+                    pathRemapping,
+                    compilerSettings
+                );
             } catch (e) {
                 if (e instanceof CompileFailedError) {
                     console.error(`Compile errors encountered for ${target}:`);
@@ -843,7 +697,7 @@ if ("version" in options) {
                 let fileLoc;
 
                 if (annotation instanceof PropertyMetaData) {
-                    fileLoc = annotation.predOffToFileLoc(
+                    fileLoc = annotation.annotOffToFileLoc(
                         [loc.start.offset, loc.end.offset],
                         source
                     );
@@ -868,15 +722,16 @@ if ("version" in options) {
          *  2. The set of contracts that NEED contract instrumentation (because they, a parent of theirs, or a child of theirs has contract invariants)
          */
         const contractsNeedingInstr = computeContractsNeedingInstr(cha, annotMap);
+        const factory = new ScribbleFactory(mergedCtx);
 
-        const factory = new ASTNodeFactory(mergedCtx);
+        // Next we re-write the imports to fix broken alias references (Some
+        // Solidity versions have broken references imports).
+        mergedUnits.forEach((sourceUnit) => {
+            if (contentsMap.has(sourceUnit.absolutePath)) {
+                rewriteImports(sourceUnit, contentsMap, factory);
+            }
+        });
 
-        if (outputMode === "flat" || outputMode === "json") {
-            // In flat/json mode fix-up any naming issues due to 'import {a as
-            // b} from ...' and name collisions.
-            fixNameConflicts(mergedUnits);
-            fixRenamingErrors(mergedUnits, factory);
-        }
         /**
          * Next try to instrument the merged SourceUnits.
          */
@@ -916,90 +771,36 @@ if ("version" in options) {
             throw e;
         }
 
-        const allUnits: SourceUnit[] = [...instrCtx.units];
-        const changedUnits: SourceUnit[] = [...instrCtx.changedUnits];
+        const allUnits: SourceUnit[] = [...instrCtx.units, utilsUnit];
+        let modifiedFiles: SourceUnit[];
 
-        allUnits.push(utilsUnit);
-
-        // Next we re-write the imports. We want to do this here, as the imports are need by the topo sort
-        allUnits.forEach((sourceUnit) => {
-            if (contentsMap.has(sourceUnit.absolutePath)) {
-                rewriteImports(sourceUnit, contentsMap, factory);
-            }
-        });
-
-        let newSrcMap: SrcRangeMap = new Map();
-        let originalUnits: SourceUnit[];
+        const newSrcMap: SrcRangeMap = new Map();
 
         if (outputMode === "flat" || outputMode === "json") {
-            // For flat and json modes, we need to flatten out the output. This goes in several steps.
-
-            // 1. Sort units in topological order by imports
-            const sortedUnits = sortUnits(allUnits);
-
-            // 2. Strip import and compiler pragma directives
-            sortedUnits.forEach((unit) => {
-                for (const node of unit.vImportDirectives) {
-                    unit.removeChild(node);
-                }
-
-                for (const node of unit.vPragmaDirectives) {
-                    if (node.vIdentifier === "solidity") {
-                        unit.removeChild(node);
-                    }
-                }
-            });
-
-            // 3. Next insert a single compiler version directive
+            // 1. Flatten all the source files in a single SourceUnit
             const version = pickVersion(compilerVersionUsedMap);
+            const flatUnit = flattenUnits(allUnits, factory, options.output, version);
 
-            sortedUnits[0].appendChild(factory.makePragmaDirective(["solidity", version]));
+            modifiedFiles = [flatUnit];
 
-            // 5. Now print the stripped files
-            const newContents: Map<SourceUnit, string> = instrCtx.printUnits(
-                sortedUnits,
-                newSrcMap
-            );
+            // 2. Print the flattened unit
+            const flatContents = instrCtx
+                .printUnits(modifiedFiles, newSrcMap)
+                .get(flatUnit) as string;
 
-            // 6. Join all the contents in-order
-            const flatSrcMap: SrcRangeMap = new Map();
-            let flatContents = "";
-
-            for (let i = 0; i < sortedUnits.length; i++) {
-                const unit = sortedUnits[i];
-
-                if (flatContents !== "") flatContents += "\n";
-
-                unit.walkChildren((node) => {
-                    const localSrc = newSrcMap.get(node);
-                    if (localSrc === undefined) {
-                        assert(
-                            node instanceof ParameterList,
-                            `Missing source for node ${pp(node)}`
-                        );
-                        return;
-                    }
-
-                    flatSrcMap.set(node, [flatContents.length + localSrc[0], localSrc[1]]);
-                });
-                flatContents += newContents.get(unit);
-            }
-
-            newSrcMap = flatSrcMap;
-            originalUnits = sortedUnits;
-
-            // 7. If the output mode is just 'flat' we just write out the contents now.
+            // 3. If the output mode is just 'flat' we just write out the contents now.
             if (outputMode === "flat") {
                 writeOut(flatContents, options.output);
             } else {
-                // 8. If the output mode is 'json' we have more work - need to re-compile the flattened results.
+                // 4. If the output mode is 'json' we have more work - need to re-compile the flattened code.
                 let flatCompiled: CompileResult;
                 try {
                     flatCompiled = compileSourceString(
                         `flattened.sol`,
                         flatContents,
                         version,
-                        pathRemapping
+                        pathRemapping,
+                        compilerSettings
                     );
                 } catch (e) {
                     if (e instanceof CompileFailedError) {
@@ -1023,12 +824,14 @@ if ("version" in options) {
                     process.exit(1);
                 }
 
+                // 5. Build the output and write it out
                 const resultJSON = JSON.stringify(
                     buildOutputJSON(
                         instrCtx,
                         flatCompiled,
-                        sortedUnits,
-                        flatSrcMap,
+                        instrCtx.units,
+                        modifiedFiles,
+                        newSrcMap,
                         pkg.version,
                         options.output,
                         options["arm"] !== undefined
@@ -1040,13 +843,12 @@ if ("version" in options) {
                 writeOut(resultJSON, options.output);
             }
         } else {
-            // In files mode we need to write out every change file, and opitonally swap them in-place.
-
-            // 1. Write out files
-            const newContents = instrCtx.printUnits(allUnits.concat(utilsUnit), newSrcMap);
+            modifiedFiles = [...instrCtx.changedUnits, utilsUnit];
+            // 1. In 'files' mode first write out the files
+            const newContents = instrCtx.printUnits(modifiedFiles, newSrcMap);
 
             // 2. For all changed files write out a `.instrumented` version of the file.
-            for (const unit of changedUnits) {
+            for (const unit of instrCtx.changedUnits) {
                 const instrumentedFileName = unit.absolutePath + ".instrumented";
 
                 if (!options.quiet) {
@@ -1061,7 +863,7 @@ if ("version" in options) {
 
             // 4. Finally if --arm is passed put the instrumented files in-place
             if (options["arm"]) {
-                for (const unit of changedUnits) {
+                for (const unit of instrCtx.changedUnits) {
                     const instrumentedFileName = unit.absolutePath + ".instrumented";
                     const originalFileName = unit.absolutePath + ".original";
 
@@ -1069,15 +871,14 @@ if ("version" in options) {
                     copy(instrumentedFileName, unit.absolutePath, options);
                 }
             }
-
-            originalUnits = changedUnits.concat(utilsUnit);
         }
 
         if (options["instrumentation-metadata-file"] !== undefined) {
             const metadata: any = generateInstrumentationMetadata(
                 instrCtx,
                 newSrcMap,
-                originalUnits,
+                instrCtx.units,
+                modifiedFiles,
                 options["arm"] !== undefined,
                 pkg.version,
                 options["output"]

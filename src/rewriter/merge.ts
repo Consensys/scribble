@@ -56,6 +56,7 @@ import {
     VariableDeclarationStatement,
     WhileStatement
 } from "solc-typed-ast";
+import { reNumber } from "..";
 import { assert, getOrInit } from "../util/misc";
 
 /**
@@ -175,7 +176,8 @@ export function merge(groups: SourceUnit[][]): [SourceUnit[], ASTContext] {
     };
 
     // Stage 2: Fix up all node properties that depend on node ids
-    for (const unit of representatives) {
+    for (let i = 0; i < representatives.length; i++) {
+        const unit = representatives[i];
         const oldUnitCtx: ASTContext = getOldCtx(unit);
 
         // Helper: Given a node id from oldUnitCtx find its corresponding node id in newCtxt
@@ -188,6 +190,11 @@ export function merge(groups: SourceUnit[][]): [SourceUnit[], ASTContext] {
         };
 
         for (const child of unit.getChildren(true)) {
+            // Fix the source (if not 0:0:0)
+            if (child.src !== "0:0:0") {
+                child.src = reNumber(child.src, i);
+            }
+
             /// ======== META NODES ==========================================
             if (child instanceof SourceUnit) {
                 // Fix `exportedSymbols' and 'vExportedSymbols'

@@ -1,4 +1,4 @@
-pragma solidity ^0.8.0;
+pragma solidity 0.8.7;
 
 contract Base {
 	//// #if_assigned x >=1;

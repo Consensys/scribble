@@ -1,3 +1,4 @@
+import { lt } from "semver";
 import {
     AddressType,
     ArrayType,
@@ -22,6 +23,7 @@ import {
     FunctionKind,
     FunctionStateMutability,
     FunctionVisibility,
+    generalizeType,
     getNodeTypeInCtx,
     Identifier,
     IfStatement,
@@ -33,7 +35,9 @@ import {
     Mutability,
     PointerType,
     replaceNode,
+    specializeType,
     Statement,
+    StatementWithChildren,
     StateVariableVisibility,
     StringLiteralType,
     StringType,
@@ -56,6 +60,7 @@ import {
     ConcreteDatastructurePath,
     decomposeLHS,
     getOrInit,
+    getTypeLocation,
     insertAnnotations,
     isStateVarRef,
     isTypeAliasable,
@@ -69,14 +74,11 @@ import {
     UnsupportedConstruct,
     updateMap
 } from "..";
+import { SId, SIfUpdated, SStateVarProp } from "../spec-lang/ast";
 import { assert } from "../util";
 import { InstrumentationContext } from "./instrumentation_context";
 import { InstrumentationSiteType, TranspilingContext } from "./transpiling_context";
-import { SId, SIfUpdated, SStateVarProp } from "../spec-lang/ast";
 import { makeTypeString } from "./type_string";
-import { getOrAddConstructor } from "./instrument";
-import { lt } from "semver";
-import { getTypeLocation } from "./transpile";
 
 /**
  * Given a Solidity `Expression` `e` and the `expectedType` where its being used,
@@ -465,20 +467,11 @@ function makeWrapper(
     for (let i = 0; i < formalParamTs.length; i++) {
         const formalT = formalParamTs[i];
 
-        wrapperFun.vParameters.appendChild(
-            factory.makeVariableDeclaration(
-                false,
-                false,
-                ctx.nameGenerator.getFresh(`ARG`),
-                wrapperFun.vParameters.id,
-                false,
-                getTypeLocation(formalT),
-                StateVariableVisibility.Default,
-                Mutability.Mutable,
-                "<missing>",
-                undefined,
-                transpileType(formalT, factory)
-            )
+        factory.addFunArg(
+            ctx.nameGenerator.getFresh(`ARG`),
+            formalT,
+            getTypeLocation(formalT),
+            wrapperFun
         );
     }
 
@@ -496,7 +489,8 @@ function makeWrapper(
         rewrittenNodeStmt = factory.makeUncheckedBlock([rewrittenNodeStmt]);
     }
 
-    body.appendChild(rewrittenNodeStmt);
+    factory.addStmt(wrapperFun, rewrittenNodeStmt);
+
     ctx.addGeneralInstrumentation(rewrittenNodeStmt);
 
     // Compute what the wrapper must return depending on the type of `rewrittenNode
@@ -523,27 +517,14 @@ function makeWrapper(
     } // Remaining update node types don't return
 
     // Add the returns to the wrapper FunctionDefinition
-    for (let i = 0; i < retParamTs.length; i++) {
-        const formalT = retParamTs[i];
-        const loc = formalT instanceof PointerType ? formalT.location : DataLocation.Default;
-        const solFromalT = transpileType(formalT, factory);
-
-        const decl = factory.makeVariableDeclaration(
-            false,
-            false,
-            ctx.nameGenerator.getFresh(`RET`),
-            wrapperFun.vParameters.id,
-            false,
-            loc,
-            StateVariableVisibility.Default,
-            Mutability.Mutable,
-            "<missing>",
-            undefined,
-            solFromalT
+    for (const formalT of retParamTs) {
+        factory.addFunRet(
+            ctx,
+            ctx.nameGenerator.getFresh("RET"),
+            formalT,
+            getTypeLocation(formalT),
+            wrapperFun
         );
-
-        ctx.addGeneralInstrumentation(decl);
-        wrapperFun.vReturnParameters.appendChild(decl);
     }
 
     // Add the actual return statements (assignments) if we have return parameters
@@ -564,6 +545,7 @@ function makeWrapper(
                 value
             )
         );
+
         ctx.addGeneralInstrumentation(retStmt);
 
         if (
@@ -580,48 +562,92 @@ function makeWrapper(
 }
 
 /**
- * Given the expression `e` make sure that `e` is contained in an `ExpressionStatement`, which itself
- * is contained in a `Block`. There are several cases where we may need to create the block itself
+ * Given a statement `e`, if `e` is not contained inside of a `Block` (or `UncheckedBlock`) insert a `Block` between it and its parent.
  */
-export function ensureTopLevelExprInBlock(e: Expression, factory: ASTNodeFactory): void {
-    assert(e.parent instanceof ExpressionStatement, ``);
-    const container = e.parent.parent;
+export function ensureStmtInBlock(
+    e: Statement | StatementWithChildren<any>,
+    factory: ASTNodeFactory
+): void {
+    const container = e.parent;
+
+    assert(container !== undefined, `Unexpected statement ${e.print()} with no parent`);
+
     if (container instanceof Block || container instanceof UncheckedBlock) {
         return;
     }
 
     if (container instanceof IfStatement) {
-        if (container.vTrueBody === e.parent) {
-            container.vTrueBody = factory.makeBlock([e.parent]);
+        if (container.vTrueBody === e) {
+            container.vTrueBody = factory.makeBlock([e]);
         } else {
-            assert(container.vFalseBody === e.parent, ``);
-            container.vFalseBody = factory.makeBlock([e.parent]);
+            assert(
+                container.vFalseBody === e,
+                `Unexpected child ${e.print()} of ${container.print()}`
+            );
+            container.vFalseBody = factory.makeBlock([e]);
         }
+
+        container.acceptChildren();
         return;
     }
 
     if (container instanceof ForStatement) {
-        assert(
-            container.vBody === e.parent,
-            `Currently dont support instrumenting tuple assignments in for init/loop expession`
-        );
-        container.vBody = factory.makeBlock([e.parent]);
+        if (e === container.vBody) {
+            container.vBody = factory.makeBlock([e]);
+        } else if (e === container.vInitializationExpression) {
+            /**
+             * Convert `for(initStmt; ...)` into `initStmt; for(; ...)`
+             */
+            ensureStmtInBlock(container, factory);
+            const grandad = container.parent as Block;
+
+            grandad.insertBefore(e, container);
+            container.vInitializationExpression = undefined;
+            grandad.acceptChildren();
+        } else {
+            /**
+             * Convert `for(...;loopStmt) e` into `for(...;) { e; loopStmt; }`
+             */
+            assert(
+                e === container.vLoopExpression,
+                `unexpected child ${e.print()} of ${container.print()}`
+            );
+
+            if (!(container.vBody instanceof StatementWithChildren)) {
+                ensureStmtInBlock(container.vBody, factory);
+            }
+
+            const body = container.vBody as Block;
+            body.appendChild(container.vLoopExpression);
+
+            container.vLoopExpression = undefined;
+            body.acceptChildren();
+        }
+
+        container.acceptChildren();
         return;
     }
 
-    if (container instanceof WhileStatement) {
-        container.vBody = factory.makeBlock([e.parent]);
+    if (container instanceof WhileStatement || container instanceof DoWhileStatement) {
+        container.vBody = factory.makeBlock([e]);
+        container.acceptChildren();
         return;
     }
 
-    if (container instanceof DoWhileStatement) {
-        container.vBody = factory.makeBlock([e.parent]);
-        return;
-    }
+    assert(false, `NYI container type ${container.constructor.name}`);
 }
 
 /**
- * Given a complex (potentially nested) tuple assignment with multiple explode it into a list of simple non-tuple assignments.
+ * Given the expression `e` make sure that `e` is contained in an `ExpressionStatement`, which itself
+ * is contained in a `Block`. There are several cases where we may need to create the block itself
+ */
+export function ensureTopLevelExprInBlock(e: Expression, factory: ASTNodeFactory): void {
+    assert(e.parent instanceof ExpressionStatement, ``);
+    ensureStmtInBlock(e.parent, factory);
+}
+
+/**
+ * Given a complex (potentially nested) tuple assignment with explode it into a list of simple non-tuple assignments.
  *
  * The strategy here is to replace all expressions inside tuples on the LHS of `updateNode` with temporaries, then assign
  * those temporaries one-by-one to the original LHS expressions (while interposing with wrappers wherever we have properties to check).
@@ -629,8 +655,6 @@ export function ensureTopLevelExprInBlock(e: Expression, factory: ASTNodeFactory
  * Special care needs to be taken for any indexing sub-expressions appearing inside the LHS expressions - those need to be computed before
  * the assignment to preserve evaluation order.
  *
- * @param ctx
- * @param updateNode
  * @param stateVars - state variables whose update we want to interpose on.
  */
 export function explodeTupleAssignment(
@@ -747,69 +771,34 @@ export function explodeTupleAssignment(
     };
 
     // Walk over LHS tuple and replace each expression with a temporary Identifier/MemberAccess
-    const replaceLHS = (lhs: Expression, rhs: Expression, tuplePath: number[]): void => {
+    const replaceLHS = (lhs: Expression, tuplePath: number[]): void => {
         // Skip singleton tuples
         lhs = skipSingletons(lhs);
-        rhs = skipSingletons(rhs);
 
         if (lhs instanceof TupleExpression) {
-            if (rhs instanceof TupleExpression) {
-                assert(rhs.vOriginalComponents.length == lhs.vOriginalComponents.length, ``);
-                // Note traversal in reverse order - turns out tuple assignments happen right-to-left
-                for (let i = lhs.vOriginalComponents.length - 1; i >= 0; i--) {
-                    const lhsComp = lhs.vOriginalComponents[i];
+            // Note traversal in reverse order - turns out tuple assignments happen right-to-left
+            for (let i = lhs.vOriginalComponents.length - 1; i >= 0; i--) {
+                const lhsComp = lhs.vOriginalComponents[i];
 
-                    if (lhsComp === null) {
-                        continue;
-                    }
-
-                    const rhsComp = rhs.vOriginalComponents[i];
-                    assert(rhsComp !== null, ``);
-                    replaceLHS(lhsComp, rhsComp, tuplePath.concat(i));
+                if (lhsComp === null) {
+                    continue;
                 }
-            } else {
-                assert(rhs instanceof FunctionCall, ``);
-                const lhsT = getMaterialExprType(lhs, ctx.compilerVersion, updateNode);
-                const rhsT = getMaterialExprType(rhs, ctx.compilerVersion, updateNode, lhsT);
 
-                assert(
-                    rhsT instanceof TupleType &&
-                        rhsT.elements.length === lhs.vOriginalComponents.length,
-                    `Type mismatch between lhs tuple ${pp(lhs)} with ${
-                        lhs.vOriginalComponents.length
-                    } elements and rhs ${pp(rhs)}`
-                );
-
-                for (let i = lhs.vOriginalComponents.length - 1; i >= 0; i--) {
-                    const lhsComp = lhs.vOriginalComponents[i];
-                    const rhsCompT = rhsT.elements[i];
-
-                    if (lhsComp === null) {
-                        continue;
-                    }
-
-                    assert(
-                        !(lhsComp instanceof TupleExpression),
-                        `Functions can't return nested tuples`
-                    );
-
-                    replaceLHSComp(lhsComp, rhsCompT, tuplePath.concat(i));
-                }
+                replaceLHS(lhsComp, tuplePath.concat(i));
             }
         } else {
-            const lhsT = getMaterialExprType(lhs, ctx.compilerVersion, updateNode);
-            const rhsT = getMaterialExprType(rhs, ctx.compilerVersion, updateNode, lhsT);
+            const rawLhsT = getMaterialExprType(lhs, ctx.compilerVersion, updateNode);
+            // Note that if the LHS is a storage pointer, we don't want to create temporary pointers to storage,
+            // since the RHS may come from memory. So the resulting code wouldn't compile. So we always convert the
+            // LHS types to memory (if they are aliasable)
+            const lhsT = specializeType(generalizeType(rawLhsT)[0], DataLocation.Memory);
 
-            assert(
-                !(rhsT instanceof TupleType),
-                `Unexpected rhs type ${rhsT.pp()}(${rhs.typeString}) in assignment.`
-            );
-            replaceLHSComp(lhs, rhsT, tuplePath);
+            replaceLHSComp(lhs, lhsT, tuplePath);
         }
     };
 
     assert(updateNode.vLeftHandSide instanceof TupleExpression, ``);
-    replaceLHS(updateNode.vLeftHandSide, updateNode.vRightHandSide, []);
+    replaceLHS(updateNode.vLeftHandSide, []);
 
     const containingStmt = updateNode.parent as ExpressionStatement;
     const containingBlock = containingStmt.parent as Block | UncheckedBlock;
@@ -939,7 +928,8 @@ export function interposeInlineInitializer(
 
     ctx.addGeneralInstrumentation(wrapperCallStmt);
 
-    const constr = getOrAddConstructor(containingContract, factory);
+    const constr = factory.getOrAddConstructor(containingContract);
+
     assert(
         constr.vBody !== undefined,
         `We don't support instrumenting the state var ${containingContract.name}.${updateNode.name} with inline initializer in a contract with an abstract constructor.`
@@ -1138,7 +1128,7 @@ export function instrumentStateVars(
             node.vFunctionName === "push" &&
             node.vArguments.length === 0
         ) {
-            // There is a weird edge case where `.push()` returns a refernce that can be updated.
+            // There is a weird edge case where `.push()` returns a reference that can be updated.
             // E.g.: `arr.push() = 10;`.
             // Is tricky to support this so for now throw if we see it used this way
             assert(

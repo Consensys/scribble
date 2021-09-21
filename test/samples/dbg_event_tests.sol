@@ -28,7 +28,7 @@ contract Foo {
 		return 2;
 	}
 
-	/// #if_succeeds let x := x+1 in let x := x+1 in let x := x+1 in x == 4;
+	/// #if_succeeds let x := x+1 in let x := x+1 in let x := x+1 in x + x == 8;
 	function shadowing(uint x) public {
 	}
 

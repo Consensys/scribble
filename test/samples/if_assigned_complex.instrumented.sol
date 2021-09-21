@@ -1,4 +1,4 @@
-pragma solidity 0.8.6;
+pragma solidity 0.8.7;
 
 contract Base {
     event AssertionFailed(string message);
@@ -161,12 +161,13 @@ contract Base {
     }
 }
 
+/// Utility contract holding a stack counter
+contract __scribble_ReentrancyUtils {
+    bool __scribble_out_of_contract = true;
+}
+
 contract Child is Base {
     function moo() public {
         Base_arr_idx_uint256_uint256_assign(0, 10);
     }
-}
-/// Utility contract holding a stack counter
-contract __scribble_ReentrancyUtils {
-    bool __scribble_out_of_contract = true;
 }

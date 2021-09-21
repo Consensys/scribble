@@ -1,4 +1,4 @@
-pragma solidity 0.8.6;
+pragma solidity 0.8.7;
 
 /// #define id(uint x) uint = x + 1 - 1;
 contract TestUnchecked {
@@ -95,6 +95,7 @@ contract TestUnchecked {
         }
     }
 }
+
 /// Utility contract holding a stack counter
 contract __scribble_ReentrancyUtils {
     bool __scribble_out_of_contract = true;

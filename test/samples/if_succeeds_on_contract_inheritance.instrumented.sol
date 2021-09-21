@@ -30,6 +30,11 @@ contract Foo {
     function _original_Foo_inc2(uint x) private returns (uint y) {}
 }
 
+/// Utility contract holding a stack counter
+contract __scribble_ReentrancyUtils {
+    bool __scribble_out_of_contract = true;
+}
+
 contract Bar is Foo {
     function inc2(uint x) override public returns (uint y) {
         y = _original_Bar_inc2(x);
@@ -46,8 +51,4 @@ contract Bar is Foo {
     function inc3(uint x) public pure returns (uint y) {
         return x + 5;
     }
-}
-/// Utility contract holding a stack counter
-contract __scribble_ReentrancyUtils {
-    bool __scribble_out_of_contract = true;
 }

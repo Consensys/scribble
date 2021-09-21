@@ -1,164 +1,247 @@
 import {
-    FunctionVisibility,
+    AddressType,
+    ArrayType,
+    assert,
+    ASTNodeFactory,
+    Block,
+    BoolType,
+    BytesType,
     ContractDefinition,
-    SourceUnit,
+    DataLocation,
+    Expression,
     FunctionDefinition,
     FunctionKind,
     FunctionStateMutability,
-    Block,
-    ASTNodeFactory,
-    Statement,
-    StatementWithChildren,
-    Expression,
-    StructDefinition,
-    MemberAccess,
-    assert,
-    TypeNode,
-    AddressType,
-    ArrayType,
-    BoolType,
-    BytesType,
+    FunctionVisibility,
+    Identifier,
     IntType,
     MappingType,
-    PointerType,
-    StringType,
-    UserDefinedType,
-    DataLocation,
+    MemberAccess,
     Mutability,
+    PointerType,
+    SourceUnit,
+    Statement,
+    StatementWithChildren,
     StateVariableVisibility,
-    VariableDeclaration,
-    Identifier
+    StringType,
+    StructDefinition,
+    TypeName,
+    TypeNode,
+    UserDefinedType,
+    VariableDeclaration
 } from "solc-typed-ast";
 import { single, transpileType } from "..";
 import { InstrumentationContext } from "./instrumentation_context";
 
-export function addEmptyFun(
-    ctx: InstrumentationContext,
-    name: string,
-    visiblity: FunctionVisibility,
-    container: ContractDefinition | SourceUnit
-): FunctionDefinition {
-    const factory = ctx.factory;
-    const fun = factory.makeFunctionDefinition(
-        container.id,
-        FunctionKind.Function,
-        name,
-        false,
-        visiblity,
-        FunctionStateMutability.NonPayable,
-        false,
-        factory.makeParameterList([]),
-        factory.makeParameterList([]),
-        [],
-        undefined,
-        factory.makeBlock([])
+export function needsLocation(type: TypeNode): boolean {
+    return (
+        type instanceof ArrayType ||
+        type instanceof StringType ||
+        type instanceof BytesType ||
+        type instanceof MappingType ||
+        (type instanceof UserDefinedType && type.definition instanceof StructDefinition)
     );
-    container.appendChild(fun);
-
-    ctx.addGeneralInstrumentation(fun.vBody as Block);
-    return fun;
 }
 
-export function addStmt(
-    factory: ASTNodeFactory,
-    loc: FunctionDefinition | Block,
-    arg: Statement | StatementWithChildren<any> | Expression
-): Statement {
-    const body = loc instanceof FunctionDefinition ? (loc.vBody as Block) : loc;
-    const stmt =
-        arg instanceof Statement || arg instanceof StatementWithChildren
-            ? arg
-            : factory.makeExpressionStatement(arg);
-    body.appendChild(stmt);
-    return stmt;
+export function getTypeLocation(type: TypeNode, location?: DataLocation): DataLocation {
+    if (type instanceof PointerType) {
+        return type.location;
+    }
+
+    if (!needsLocation(type)) {
+        return DataLocation.Default;
+    }
+
+    if (location === undefined) {
+        throw new Error(`Type ${type.pp()} requires other location than "${location}"`);
+    }
+
+    return location;
 }
 
-export function mkStructFieldAcc(
-    factory: ASTNodeFactory,
-    base: Expression,
-    struct: StructDefinition,
-    idxArg: number | string
-): MemberAccess {
-    const field =
-        typeof idxArg === "number"
-            ? struct.vMembers[idxArg]
-            : single(struct.vMembers.filter((field) => field.name === idxArg));
-    return factory.makeMemberAccess("<missing>", base, field.name, field.id);
-}
+export class ScribbleFactory extends ASTNodeFactory {
+    /**
+     * Creates and returns empty public constructor of `contract`
+     */
+    addConstructor(contract: ContractDefinition): FunctionDefinition {
+        const emptyConstructor = this.makeFunctionDefinition(
+            contract.id,
+            FunctionKind.Constructor,
+            "",
+            false,
+            FunctionVisibility.Public,
+            FunctionStateMutability.NonPayable,
+            true,
+            this.makeParameterList([]),
+            this.makeParameterList([]),
+            [],
+            undefined,
+            this.makeBlock([])
+        );
 
-export function addStructField(
-    factory: ASTNodeFactory,
-    name: string,
-    typ: TypeNode,
-    struct: StructDefinition
-): VariableDeclaration {
-    const field = factory.makeVariableDeclaration(
-        false,
-        false,
-        name,
-        struct.id,
-        false,
-        DataLocation.Default,
-        StateVariableVisibility.Default,
-        Mutability.Mutable,
-        "<missing>",
-        undefined,
-        transpileType(typ, factory)
-    );
-    struct.appendChild(field);
-    return field;
-}
+        contract.appendChild(emptyConstructor);
 
-export function addFunArg(
-    factory: ASTNodeFactory,
-    name: string,
-    typ: TypeNode,
-    location: DataLocation,
-    fun: FunctionDefinition
-): VariableDeclaration {
-    const arg = factory.makeVariableDeclaration(
-        false,
-        false,
-        name,
-        fun.id,
-        false,
-        location,
-        StateVariableVisibility.Default,
-        Mutability.Mutable,
-        "<missing>",
-        undefined,
-        transpileType(typ, factory)
-    );
+        return emptyConstructor;
+    }
 
-    fun.vParameters.appendChild(arg);
-    return arg;
-}
+    /**
+     * Return the constructor of `contract`.
+     *
+     * If there is no constructor defined,
+     * add an empty public constructor and return it.
+     */
+    getOrAddConstructor(contract: ContractDefinition): FunctionDefinition {
+        return contract.vConstructor ? contract.vConstructor : this.addConstructor(contract);
+    }
 
-export function addFunRet(
-    ctx: InstrumentationContext,
-    name: string,
-    typ: TypeNode,
-    location: DataLocation,
-    fun: FunctionDefinition
-): VariableDeclaration {
-    const factory = ctx.factory;
-    const arg = factory.makeVariableDeclaration(
-        false,
-        false,
-        name,
-        fun.id,
-        false,
-        location,
-        StateVariableVisibility.Default,
-        Mutability.Mutable,
-        "<missing>",
-        undefined,
-        transpileType(typ, factory)
-    );
+    addEmptyFun(
+        ctx: InstrumentationContext,
+        name: string,
+        visiblity: FunctionVisibility,
+        container: ContractDefinition | SourceUnit
+    ): FunctionDefinition {
+        const body = this.makeBlock([]);
+        const fn = this.makeFunctionDefinition(
+            container.id,
+            FunctionKind.Function,
+            name,
+            false,
+            visiblity,
+            FunctionStateMutability.NonPayable,
+            false,
+            this.makeParameterList([]),
+            this.makeParameterList([]),
+            [],
+            undefined,
+            body
+        );
 
-    fun.vReturnParameters.appendChild(arg);
-    ctx.addGeneralInstrumentation(arg);
-    return arg;
+        container.appendChild(fn);
+
+        ctx.addGeneralInstrumentation(body);
+
+        return fn;
+    }
+
+    addStmt(
+        loc: FunctionDefinition | Block,
+        arg: Statement | StatementWithChildren<any> | Expression
+    ): Statement {
+        const body = loc instanceof FunctionDefinition ? (loc.vBody as Block) : loc;
+        const stmt =
+            arg instanceof Statement || arg instanceof StatementWithChildren
+                ? arg
+                : this.makeExpressionStatement(arg);
+
+        body.appendChild(stmt);
+
+        return stmt;
+    }
+
+    mkStructFieldAcc(
+        base: Expression,
+        struct: StructDefinition,
+        idxArg: number | string
+    ): MemberAccess {
+        const field =
+            typeof idxArg === "number"
+                ? struct.vMembers[idxArg]
+                : single(struct.vMembers.filter((field) => field.name === idxArg));
+
+        return this.makeMemberAccess("<missing>", base, field.name, field.id);
+    }
+
+    addStructField(name: string, type: TypeNode, struct: StructDefinition): VariableDeclaration {
+        const field = this.makeVariableDeclaration(
+            false,
+            false,
+            name,
+            struct.id,
+            false,
+            DataLocation.Default,
+            StateVariableVisibility.Default,
+            Mutability.Mutable,
+            "<missing>",
+            undefined,
+            transpileType(type, this)
+        );
+
+        struct.appendChild(field);
+
+        return field;
+    }
+
+    addFunArg(
+        name: string,
+        type: TypeNode | TypeName,
+        location: DataLocation,
+        fn: FunctionDefinition
+    ): VariableDeclaration {
+        const arg = this.makeVariableDeclaration(
+            false,
+            false,
+            name,
+            fn.id,
+            false,
+            location,
+            StateVariableVisibility.Default,
+            Mutability.Mutable,
+            "<missing>",
+            undefined,
+            type instanceof TypeName ? type : transpileType(type, this)
+        );
+
+        fn.vParameters.appendChild(arg);
+
+        return arg;
+    }
+
+    addFunRet(
+        ctx: InstrumentationContext,
+        name: string,
+        type: TypeNode | TypeName,
+        location: DataLocation,
+        fn: FunctionDefinition
+    ): VariableDeclaration {
+        const arg = this.makeVariableDeclaration(
+            false,
+            false,
+            name,
+            fn.id,
+            false,
+            location,
+            StateVariableVisibility.Default,
+            Mutability.Mutable,
+            "<missing>",
+            undefined,
+            type instanceof TypeName ? type : transpileType(type, this)
+        );
+
+        fn.vReturnParameters.appendChild(arg);
+
+        ctx.addGeneralInstrumentation(arg);
+
+        return arg;
+    }
+
+    mkLibraryFunRef(
+        ctx: InstrumentationContext,
+        fn: FunctionDefinition
+    ): MemberAccess | Identifier {
+        const ref =
+            fn.visibility === FunctionVisibility.Private
+                ? this.makeIdentifierFor(fn)
+                : this.makeMemberAccess(
+                      "<missing>",
+                      this.makeIdentifierFor(fn.vScope as ContractDefinition),
+                      fn.name,
+                      fn.id
+                  );
+
+        ctx.addGeneralInstrumentation(ref);
+
+        return ref;
+    }
 }
 
 /**
@@ -181,38 +264,39 @@ export abstract class BaseStructMap<Args extends any[], KeyT extends string | nu
         this.name = name;
     }
 
-    public get(...args: Args): ResT | undefined {
+    get(...args: Args): ResT | undefined {
         const name = this.getName(...args);
+
         return this._cache.get(name);
     }
 
-    public has(...args: Args): boolean {
+    has(...args: Args): boolean {
         const name = this.getName(...args);
+
         return this._cache.has(name);
     }
 
-    public mustGet(...args: Args): ResT {
+    mustGet(...args: Args): ResT {
         const name = this.getName(...args);
         const res = this._cache.get(name);
 
-        if (res === undefined) {
-            assert(
-                false,
-                `Missing entry for ${name} in map ${this.name !== undefined ? this.name : ""}`
-            );
-        }
+        assert(
+            res !== undefined,
+            `Missing entry for ${name} in map ${this.name !== undefined ? this.name : ""}`
+        );
+
         return res;
     }
 
-    public keys(): Iterable<Args> {
+    keys(): Iterable<Args> {
         return this._keys.values();
     }
 
-    public values(): Iterable<ResT> {
+    values(): Iterable<ResT> {
         return this._cache.values();
     }
 
-    public entries(): Iterable<[Args, ResT]> {
+    entries(): Iterable<[Args, ResT]> {
         const res: Array<[Args, ResT]> = [];
 
         for (const [key, value] of this._cache.entries()) {
@@ -228,15 +312,18 @@ export abstract class StructMap<
     KeyT extends string | number,
     ResT
 > extends BaseStructMap<Args, KeyT, ResT> {
-    public set(res: ResT, ...args: Args): void {
+    set(res: ResT, ...args: Args): void {
         const key = this.getName(...args);
+
         this._cache.set(key, res);
         this._keys.set(key, args);
     }
 
-    public setExclusive(res: ResT, ...args: Args): void {
+    setExclusive(res: ResT, ...args: Args): void {
         const name = this.getName(...args);
+
         assert(!this._cache.has(name), `Name ${name} already appears in cache`);
+
         this._cache.set(name, res);
         this._keys.set(name, args);
     }
@@ -249,11 +336,14 @@ export abstract class FactoryMap<
 > extends BaseStructMap<Args, KeyT, ResT> {
     protected abstract makeNew(...args: Args): ResT;
 
-    public get(...args: Args): ResT {
+    get(...args: Args): ResT {
         const name = this.getName(...args);
+
         let res = this._cache.get(name);
+
         if (res === undefined) {
             res = this.makeNew(...args);
+
             this._cache.set(name, res);
             this._keys.set(name, args);
         }
@@ -266,55 +356,37 @@ export abstract class FactoryMap<
  * Helper function to generate valid function/variable/contract names based on
  * types.
  */
-export function getTypeDesc(typ: TypeNode): string {
+export function getTypeDesc(type: TypeNode): string {
     if (
-        typ instanceof IntType ||
-        typ instanceof StringType ||
-        typ instanceof BytesType ||
-        typ instanceof BoolType
+        type instanceof IntType ||
+        type instanceof StringType ||
+        type instanceof BytesType ||
+        type instanceof BoolType
     ) {
-        return typ.pp();
+        return type.pp();
     }
 
-    if (typ instanceof AddressType) {
-        return "address" + (typ.payable ? "_payable" : "");
+    if (type instanceof AddressType) {
+        return "address" + (type.payable ? "_payable" : "");
     }
 
-    if (typ instanceof ArrayType) {
-        return `${getTypeDesc(typ.elementT)}_arr` + (typ.size !== undefined ? `_${typ.size}` : "");
-    }
-
-    if (typ instanceof UserDefinedType) {
-        return `${typ.name.replace(".", "_")}_${typ.definition.id}`;
-    }
-
-    if (typ instanceof MappingType) {
-        return `mapping_${getTypeDesc(typ.keyType)}_to_${getTypeDesc(typ.valueType)}`;
-    }
-
-    if (typ instanceof PointerType) {
-        return getTypeDesc(typ.to);
-    }
-
-    throw new Error(`Unknown type ${typ.pp()} in getTypeDesc`);
-}
-
-export function mkLibraryFunRef(
-    ctx: InstrumentationContext,
-    fn: FunctionDefinition
-): MemberAccess | Identifier {
-    const factory = ctx.factory;
-    let ref: MemberAccess | Identifier;
-    if (fn.visibility === FunctionVisibility.Private) {
-        ref = factory.makeIdentifierFor(fn);
-    } else {
-        ref = factory.makeMemberAccess(
-            "<missing>",
-            factory.makeIdentifierFor(fn.vScope as ContractDefinition),
-            fn.name,
-            fn.id
+    if (type instanceof ArrayType) {
+        return (
+            `${getTypeDesc(type.elementT)}_arr` + (type.size !== undefined ? `_${type.size}` : "")
         );
     }
-    ctx.addGeneralInstrumentation(ref);
-    return ref;
+
+    if (type instanceof UserDefinedType) {
+        return `${type.name.replace(".", "_")}_${type.definition.id}`;
+    }
+
+    if (type instanceof MappingType) {
+        return `mapping_${getTypeDesc(type.keyType)}_to_${getTypeDesc(type.valueType)}`;
+    }
+
+    if (type instanceof PointerType) {
+        return getTypeDesc(type.to);
+    }
+
+    throw new Error(`Unknown type ${type.pp()} in getTypeDesc`);
 }

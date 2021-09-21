@@ -24,10 +24,6 @@ describe(`Command "scribble <filename>" is failing as expected`, () => {
             /^test\/samples\/invalid\/if_updated_length.invalid.sol:7:2 Error: Cannot instrument state var LengthAssigned.a due to unsupported assignments to .length./m
         ],
         [
-            ["test/samples/invalid/if_updated_tuple_pointer_05.invalid.sol"],
-            /^test\/samples\/invalid\/if_updated_tuple_pointer_05.invalid.sol:9:2 Error: Scribble cannot instrument certain tuple assignments with storage pointers on compilers older than 0.6.0./m
-        ],
-        [
             ["test/samples/invalid/if_updated_push_ref.invalid.sol"],
             /.*Error: Scribble doesn't support instrumenting assignments where the LHS is a push\(\). Problematic LHS: a.push\(\)/m
         ],
@@ -40,12 +36,28 @@ describe(`Command "scribble <filename>" is failing as expected`, () => {
             /^test\/samples\/invalid\/if_updated_aliasing2.invalid.sol:7:2 Error: Cannot instrument state var BadAliasing.a as it may be aliased by a storage pointer/m
         ],
         [
+            ["test/samples/invalid/if_updated_aliasing3.invalid.sol"],
+            /^test\/samples\/invalid\/if_updated_aliasing3.invalid.sol:9:3 Error: Cannot instrument state var BadAliasing.a1 as it may be aliased by a storage pointer/m
+        ],
+        [
+            ["test/samples/invalid/if_updated_aliasing4.invalid.sol"],
+            /^test\/samples\/invalid\/if_updated_aliasing4.invalid.sol:4:13 Error: Cannot instrument state var BadAliasing.a as it may be aliased by a storage pointer/m
+        ],
+        [
+            ["test/samples/invalid/if_updated_aliasing5.invalid.sol"],
+            /^test\/samples\/invalid\/if_updated_aliasing5.invalid.sol:4:13 Error: Cannot instrument state var BadAliasing.a as it may be aliased by a storage pointer/m
+        ],
+        [
             ["test/samples/invalid/forall_maps_aliasing1.invalid.sol"],
             /^test\/samples\/invalid\/forall_maps_aliasing1.invalid.sol:7:2 Error: Cannot instrument state var BadAliasing.a as it may be aliased by a storage pointer/m
         ],
         [
             ["test/samples/invalid/forall_maps_aliasing2.invalid.sol"],
             /^test\/samples\/invalid\/forall_maps_aliasing2.invalid.sol:12:2 Error: Cannot instrument state var BadAliasing.s as it may be aliased by a storage pointer/m
+        ],
+        [
+            ["test/samples/invalid/assert_try_catch.invalid.sol"],
+            /^test\/samples\/invalid\/assert_try_catch.invalid.sol:7:9 UnsupportedByTargetError: The "assert" annotation is not applicable to try-catch clauses/m
         ]
     ];
 
