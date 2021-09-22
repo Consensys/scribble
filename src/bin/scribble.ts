@@ -5,6 +5,7 @@ import {
     ASTContext,
     ASTNodeFactory,
     ASTReader,
+    CompilationOutput,
     CompileFailedError,
     compileJson,
     compileJsonData,
@@ -141,6 +142,13 @@ function compile(
     remapping: string[],
     compilerSettings: any
 ): CompileResult {
+    const astOnlyOutput = [
+        CompilationOutput.AST,
+        CompilationOutput.ABI,
+        CompilationOutput.DEVDOC,
+        CompilationOutput.USERDOC
+    ];
+
     if (fileName === "--") {
         const content = fse.readFileSync(0, { encoding: "utf-8" });
 
@@ -152,9 +160,17 @@ function compile(
                   JSON.parse(content),
                   compilerVersion,
                   remapping,
+                  astOnlyOutput,
                   compilerSettings
               )
-            : compileSourceString(fileName, content, compilerVersion, remapping, compilerSettings);
+            : compileSourceString(
+                  fileName,
+                  content,
+                  compilerVersion,
+                  remapping,
+                  astOnlyOutput,
+                  compilerSettings
+              );
     }
 
     if (!fileName || !fse.existsSync(fileName)) {
@@ -168,8 +184,8 @@ function compile(
     }
 
     return type === "json"
-        ? compileJson(fileName, compilerVersion, remapping, compilerSettings)
-        : compileSol(fileName, compilerVersion, remapping, compilerSettings);
+        ? compileJson(fileName, compilerVersion, remapping, astOnlyOutput, compilerSettings)
+        : compileSol(fileName, compilerVersion, remapping, astOnlyOutput, compilerSettings);
 }
 
 /**
@@ -800,6 +816,7 @@ if ("version" in options) {
                         flatContents,
                         version,
                         pathRemapping,
+                        [CompilationOutput.ALL],
                         compilerSettings
                     );
                 } catch (e) {
