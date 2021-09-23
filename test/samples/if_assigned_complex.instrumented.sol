@@ -21,13 +21,13 @@ contract Base {
         uint256 old_0;
     }
 
-    uint internal x = 1;
+    uint internal x;
     uint[] internal arr;
     uint[][] internal arr2;
     S internal s;
 
     constructor() {
-        Base_x_inline_initializer();
+        Base_x_uint256_assign(1);
     }
 
     function main() public {
@@ -60,11 +60,13 @@ contract Base {
         assert(s.arr2[0][1] == 14);
     }
 
-    function Base_x_inline_initializer() internal {
+    function Base_x_uint256_assign(uint256 ARG0) internal returns (uint256 RET0) {
         vars1 memory _v;
         unchecked {
             _v.old_0 = x;
         }
+        x = ARG0;
+        RET0 = x;
         unchecked {
             if (!(x >= _v.old_0)) {
                 emit AssertionFailed("0: ");
@@ -73,75 +75,75 @@ contract Base {
         }
     }
 
-    function Base_arr_idx_uint256_uint256_assign(uint256 ARG0, uint256 ARG1) internal returns (uint256 RET0) {
-        arr[ARG0] = ARG1;
-        RET0 = arr[ARG0];
+    function Base_arr_idx_uint256_uint256_assign(uint256 ARG1, uint256 ARG2) internal returns (uint256 RET1) {
+        arr[ARG1] = ARG2;
+        RET1 = arr[ARG1];
         unchecked {
             if (!(arr.length > 0)) {
                 emit AssertionFailed("1: ");
                 emit AssertionFailedData(1, abi.encode(arr));
             }
-            if (!((0 <= ARG0) && (ARG0 <= arr.length))) {
+            if (!((0 <= ARG1) && (ARG1 <= arr.length))) {
                 emit AssertionFailed("2: ");
-                emit AssertionFailedData(2, abi.encode(ARG0, arr));
+                emit AssertionFailedData(2, abi.encode(ARG1, arr));
             }
         }
     }
 
-    function Base_arr2_idx_uint256_idx_uint256_uint256_assign(uint256 ARG2, uint256 ARG3, uint256 ARG4) internal returns (uint256 RET1) {
-        arr2[ARG2][ARG3] = ARG4;
-        RET1 = arr2[ARG2][ARG3];
+    function Base_arr2_idx_uint256_idx_uint256_uint256_assign(uint256 ARG3, uint256 ARG4, uint256 ARG5) internal returns (uint256 RET2) {
+        arr2[ARG3][ARG4] = ARG5;
+        RET2 = arr2[ARG3][ARG4];
         unchecked {
             if (!(arr2.length > 0)) {
                 emit AssertionFailed("3: ");
                 emit AssertionFailedData(3, abi.encode(arr2));
             }
-            if (!((0 <= ARG3) && (ARG3 <= arr2[ARG2].length))) {
+            if (!((0 <= ARG4) && (ARG4 <= arr2[ARG3].length))) {
                 emit AssertionFailed("5: ");
-                emit AssertionFailedData(5, abi.encode(ARG3, arr2, ARG2));
+                emit AssertionFailedData(5, abi.encode(ARG4, arr2, ARG3));
             }
         }
     }
 
-    function Base_arr2_idx_uint256_ptr_arr_uint256_storage_assign(uint256 ARG5, uint256[] storage ARG6) internal returns (uint256[] storage RET2) {
-        arr2[ARG5] = ARG6;
-        RET2 = arr2[ARG5];
+    function Base_arr2_idx_uint256_ptr_arr_uint256_storage_assign(uint256 ARG6, uint256[] storage ARG7) internal returns (uint256[] storage RET3) {
+        arr2[ARG6] = ARG7;
+        RET3 = arr2[ARG6];
         unchecked {
             if (!(arr2.length > 0)) {
                 emit AssertionFailed("3: ");
                 emit AssertionFailedData(3, abi.encode(arr2));
             }
-            if (!((0 <= ARG5) && (ARG5 <= arr2.length))) {
+            if (!((0 <= ARG6) && (ARG6 <= arr2.length))) {
                 emit AssertionFailed("4: ");
-                emit AssertionFailedData(4, abi.encode(ARG5, arr2));
+                emit AssertionFailedData(4, abi.encode(ARG6, arr2));
             }
         }
     }
 
-    function Base_s_arr_idx_uint256_uint256_assign(uint256 ARG7, uint256 ARG8) internal returns (uint256 RET3) {
-        s.arr[ARG7] = ARG8;
-        RET3 = s.arr[ARG7];
+    function Base_s_arr_idx_uint256_uint256_assign(uint256 ARG8, uint256 ARG9) internal returns (uint256 RET4) {
+        s.arr[ARG8] = ARG9;
+        RET4 = s.arr[ARG8];
         unchecked {
-            if (!((0 <= ARG7) && (ARG7 <= s.arr.length))) {
+            if (!((0 <= ARG8) && (ARG8 <= s.arr.length))) {
                 emit AssertionFailed("6: ");
-                emit AssertionFailedData(6, abi.encode(ARG7));
+                emit AssertionFailedData(6, abi.encode(ARG8));
             }
         }
     }
 
-    function Base_s_arr2_idx_uint256_idx_uint256_uint256_assign(uint256 ARG9, uint256 ARG10, uint256 ARG11) internal returns (uint256 RET4) {
-        s.arr2[ARG9][ARG10] = ARG11;
-        RET4 = s.arr2[ARG9][ARG10];
+    function Base_s_arr2_idx_uint256_idx_uint256_uint256_assign(uint256 ARG10, uint256 ARG11, uint256 ARG12) internal returns (uint256 RET5) {
+        s.arr2[ARG10][ARG11] = ARG12;
+        RET5 = s.arr2[ARG10][ARG11];
         unchecked {
-            if (!((0 <= ARG10) && (ARG10 <= s.arr2[ARG9].length))) {
+            if (!((0 <= ARG11) && (ARG11 <= s.arr2[ARG10].length))) {
                 emit AssertionFailed("7: ");
-                emit AssertionFailedData(7, abi.encode(ARG10, ARG9));
+                emit AssertionFailedData(7, abi.encode(ARG11, ARG10));
             }
         }
     }
 
-    function Base_arr_uint256_push(uint256 ARG12) internal {
-        arr.push(ARG12);
+    function Base_arr_uint256_push(uint256 ARG13) internal {
+        arr.push(ARG13);
         unchecked {
             if (!(arr.length > 0)) {
                 emit AssertionFailed("1: ");
@@ -150,8 +152,8 @@ contract Base {
         }
     }
 
-    function Base_arr2_ptr_arr_uint256_storage_push(uint256[] storage ARG13) internal {
-        arr2.push(ARG13);
+    function Base_arr2_ptr_arr_uint256_storage_push(uint256[] storage ARG14) internal {
+        arr2.push(ARG14);
         unchecked {
             if (!(arr2.length > 0)) {
                 emit AssertionFailed("3: ");

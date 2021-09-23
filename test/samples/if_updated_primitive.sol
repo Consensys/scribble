@@ -4,7 +4,7 @@ contract Base {
 	//// #if_updated x >=1;
 	uint x = 1;
 	//// #if_updated y >= old(y);
-	uint y = 2;
+	uint y;
 
 	uint z;
 
@@ -17,6 +17,7 @@ contract Base {
 	uint[] arr;
 	constructor() {
 		x = 2;
+		y = 2;
 		a = address(0x2);
 	}
 
