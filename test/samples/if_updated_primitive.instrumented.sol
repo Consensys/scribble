@@ -3,20 +3,16 @@ pragma solidity 0.8.7;
 contract Base {
     event AssertionFailed(string message);
 
-    struct vars1 {
+    struct vars3 {
         uint256 old_0;
     }
 
-    struct vars5 {
+    struct vars6 {
         uint256 old_1;
     }
 
-    struct vars7 {
-        uint256 old_2;
-    }
-
     uint internal x = 1;
-    uint internal y = 2;
+    uint internal y;
     uint internal z;
     uint internal t;
     address internal a = address(0x1);
@@ -24,9 +20,9 @@ contract Base {
 
     constructor() {
         Base_a_inline_initializer();
-        Base_y_inline_initializer();
         Base_x_inline_initializer();
         Base_x_uint256_assign(2);
+        Base_y_uint256_assign(2);
         Base_a_address_assign(address(0x2));
     }
 
@@ -58,19 +54,6 @@ contract Base {
         }
     }
 
-    function Base_y_inline_initializer() internal {
-        vars1 memory _v;
-        unchecked {
-            _v.old_0 = y;
-        }
-        unchecked {
-            if (!(y >= _v.old_0)) {
-                emit AssertionFailed("1: ");
-                assert(false);
-            }
-        }
-    }
-
     function Base_a_inline_initializer() internal {
         unchecked {
             if (!(uint160(a) >= 1)) {
@@ -91,27 +74,27 @@ contract Base {
         }
     }
 
-    function Base_a_address_assign(address ARG1) internal returns (address RET1) {
-        a = ARG1;
-        RET1 = a;
+    function Base_y_uint256_assign(uint256 ARG1) internal returns (uint256 RET1) {
+        vars3 memory _v;
         unchecked {
-            if (!(uint160(a) >= 1)) {
-                emit AssertionFailed("3: ");
+            _v.old_0 = y;
+        }
+        y = ARG1;
+        RET1 = y;
+        unchecked {
+            if (!(y >= _v.old_0)) {
+                emit AssertionFailed("1: ");
                 assert(false);
             }
         }
     }
 
-    function Base_y_uint256_assign(uint256 ARG2) internal returns (uint256 RET2) {
-        vars5 memory _v;
+    function Base_a_address_assign(address ARG2) internal returns (address RET2) {
+        a = ARG2;
+        RET2 = a;
         unchecked {
-            _v.old_1 = y;
-        }
-        y = ARG2;
-        RET2 = y;
-        unchecked {
-            if (!(y >= _v.old_1)) {
-                emit AssertionFailed("1: ");
+            if (!(uint160(a) >= 1)) {
+                emit AssertionFailed("3: ");
                 assert(false);
             }
         }
@@ -129,14 +112,14 @@ contract Base {
     }
 
     function Base_y_inc_postfix() internal returns (uint256 RET4) {
-        vars7 memory _v;
+        vars6 memory _v;
         unchecked {
-            _v.old_2 = y;
+            _v.old_1 = y;
         }
         RET4 = y;
         y++;
         unchecked {
-            if (!(y >= _v.old_2)) {
+            if (!(y >= _v.old_1)) {
                 emit AssertionFailed("1: ");
                 assert(false);
             }

@@ -3,28 +3,24 @@ pragma solidity 0.8.7;
 contract Base {
     event AssertionFailed(string message);
 
-    struct vars1 {
+    struct vars2 {
         uint256 old_0;
     }
 
-    struct vars5 {
+    struct vars6 {
         uint256 old_1;
     }
 
-    struct vars7 {
-        uint256 old_2;
-    }
-
     uint internal x = 1;
-    uint internal y = 2;
+    uint internal y;
     uint internal z;
     address internal a = address(0x1);
     uint[] internal arr;
 
     constructor() {
         Base_a_inline_initializer();
-        Base_y_inline_initializer();
         Base_x_inline_initializer();
+        Base_y_uint256_assign(2);
         Base_x_uint256_assign(2);
         Base_a_address_assign(address(0x2));
     }
@@ -63,19 +59,6 @@ contract Base {
         }
     }
 
-    function Base_y_inline_initializer() internal {
-        vars1 memory _v;
-        unchecked {
-            _v.old_0 = y;
-        }
-        unchecked {
-            if (!(y >= _v.old_0)) {
-                emit AssertionFailed("1: ");
-                assert(false);
-            }
-        }
-    }
-
     function Base_a_inline_initializer() internal {
         unchecked {
             if (!(uint160(a) >= 1)) {
@@ -85,9 +68,24 @@ contract Base {
         }
     }
 
-    function Base_x_uint256_assign(uint256 ARG0) internal returns (uint256 RET0) {
-        x = ARG0;
-        RET0 = x;
+    function Base_y_uint256_assign(uint256 ARG0) internal returns (uint256 RET0) {
+        vars2 memory _v;
+        unchecked {
+            _v.old_0 = y;
+        }
+        y = ARG0;
+        RET0 = y;
+        unchecked {
+            if (!(y >= _v.old_0)) {
+                emit AssertionFailed("1: ");
+                assert(false);
+            }
+        }
+    }
+
+    function Base_x_uint256_assign(uint256 ARG1) internal returns (uint256 RET1) {
+        x = ARG1;
+        RET1 = x;
         unchecked {
             if (!(x >= 1)) {
                 emit AssertionFailed("0: ");
@@ -96,27 +94,12 @@ contract Base {
         }
     }
 
-    function Base_a_address_assign(address ARG1) internal returns (address RET1) {
-        a = ARG1;
-        RET1 = a;
+    function Base_a_address_assign(address ARG2) internal returns (address RET2) {
+        a = ARG2;
+        RET2 = a;
         unchecked {
             if (!(uint160(a) >= 1)) {
                 emit AssertionFailed("2: ");
-                assert(false);
-            }
-        }
-    }
-
-    function Base_y_uint256_assign(uint256 ARG2) internal returns (uint256 RET2) {
-        vars5 memory _v;
-        unchecked {
-            _v.old_1 = y;
-        }
-        y = ARG2;
-        RET2 = y;
-        unchecked {
-            if (!(y >= _v.old_1)) {
-                emit AssertionFailed("1: ");
                 assert(false);
             }
         }
@@ -134,14 +117,14 @@ contract Base {
     }
 
     function Base_y_inc_postfix() internal returns (uint256 RET4) {
-        vars7 memory _v;
+        vars6 memory _v;
         unchecked {
-            _v.old_2 = y;
+            _v.old_1 = y;
         }
         RET4 = y;
         y++;
         unchecked {
-            if (!(y >= _v.old_2)) {
+            if (!(y >= _v.old_1)) {
                 emit AssertionFailed("1: ");
                 assert(false);
             }

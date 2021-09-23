@@ -377,7 +377,12 @@ describe("SemanticChecker Expression Unit Tests", () => {
                     expect(eq(type, expectedType)).toEqual(true);
                     const semInfo = sc(
                         parsed,
-                        { isOld: false, annotation, interposingQueue: [] },
+                        {
+                            isOld: false,
+                            annotation,
+                            interposingQueue: [],
+                            annotationTarget: target
+                        },
                         typeEnv
                     );
                     Logger.debug(`[${parsed.pp()}] sem info: ${JSON.stringify(semInfo)}`);
@@ -416,7 +421,12 @@ describe("SemanticChecker Expression Unit Tests", () => {
                         sc.bind(
                             sc,
                             parsed,
-                            { isOld: false, annotation, interposingQueue: [] },
+                            {
+                                isOld: false,
+                                annotation,
+                                interposingQueue: [],
+                                annotationTarget: target
+                            },
                             typeEnv
                         )
                     ).toThrowError(SemError as any);
@@ -510,6 +520,7 @@ describe("SemanticChecker Annotation Unit Tests", () => {
                     scAnnotation(annotation, typeEnv, new Map(), {
                         isOld: false,
                         annotation,
+                        annotationTarget: target,
                         interposingQueue: []
                     });
                 });
@@ -539,7 +550,8 @@ describe("SemanticChecker Annotation Unit Tests", () => {
                         scAnnotation.bind(scAnnotation, annotation, typeEnv, new Map(), {
                             isOld: false,
                             annotation,
-                            interposingQueue: []
+                            interposingQueue: [],
+                            annotationTarget: target
                         })
                     ).toThrowError(SemError as any);
                 });
