@@ -2,6 +2,7 @@ import {
     AddressType,
     ArrayType,
     assert,
+    ASTNode,
     ASTNodeFactory,
     Block,
     BoolType,
@@ -9,12 +10,16 @@ import {
     ContractDefinition,
     DataLocation,
     Expression,
+    FixedBytesType,
     FunctionDefinition,
     FunctionKind,
     FunctionStateMutability,
+    FunctionType,
     FunctionVisibility,
+    generalizeType,
     Identifier,
     IntType,
+    LiteralKind,
     MappingType,
     MemberAccess,
     Mutability,
@@ -30,7 +35,7 @@ import {
     UserDefinedType,
     VariableDeclaration
 } from "solc-typed-ast";
-import { single, transpileType } from "..";
+import { getFQName, single, transpileType } from "..";
 import { InstrumentationContext } from "./instrumentation_context";
 
 export function needsLocation(type: TypeNode): boolean {
@@ -59,6 +64,11 @@ export function getTypeLocation(type: TypeNode, location?: DataLocation): DataLo
     return location;
 }
 
+/**
+ * A sub-class of ASTNodeFactory containing some Scribble-specific AST building helpers.
+ *
+ * @todo Move to own file. This will likely grow
+ */
 export class ScribbleFactory extends ASTNodeFactory {
     /**
      * Creates and returns empty public constructor of `contract`
@@ -241,6 +251,97 @@ export class ScribbleFactory extends ASTNodeFactory {
         ctx.addGeneralInstrumentation(ref);
 
         return ref;
+    }
+
+    generalizedTypeToTypeName(typ: TypeNode, atUseSite: ASTNode): TypeName {
+        if (
+            typ instanceof IntType ||
+            typ instanceof BoolType ||
+            typ instanceof AddressType ||
+            typ instanceof BytesType ||
+            typ instanceof StringType ||
+            typ instanceof FixedBytesType
+        ) {
+            const payable = typ instanceof AddressType && typ.payable;
+            return this.makeElementaryTypeName(
+                "<missing>",
+                typ.pp(),
+                payable ? "payable" : "nonpayable"
+            );
+        }
+
+        if (typ instanceof ArrayType) {
+            return this.makeArrayTypeName(
+                "<missing>",
+                this.generalizedTypeToTypeName(typ.elementT, atUseSite),
+                typ.size
+                    ? this.makeLiteral("<misisng>", LiteralKind.Number, "", typ.size.toString(10))
+                    : undefined
+            );
+        }
+
+        if (typ instanceof MappingType) {
+            return this.makeMapping(
+                "<missing>",
+                this.generalizedTypeToTypeName(typ.keyType, atUseSite),
+                this.generalizedTypeToTypeName(typ.valueType, atUseSite)
+            );
+        }
+
+        if (typ instanceof UserDefinedType) {
+            return this.makeUserDefinedTypeName(
+                "<missing>",
+                getFQName(typ.definition, atUseSite),
+                typ.definition.id
+            );
+        }
+
+        if (typ instanceof FunctionType) {
+            const params = typ.parameters.map((paramT) =>
+                this.typeNodeToVariableDecl(paramT, "", atUseSite)
+            );
+            const rets = typ.returns.map((retT) =>
+                this.typeNodeToVariableDecl(retT, "", atUseSite)
+            );
+
+            return this.makeFunctionTypeName(
+                "<missing>",
+                typ.visibility,
+                typ.mutability,
+                this.makeParameterList(params),
+                this.makeParameterList(rets)
+            );
+        }
+
+        assert(false, `generalizedTypeToTypeName: Unexpected generalized type ${typ.pp()}`);
+    }
+
+    typeNodeToVariableDecl(
+        typ: TypeNode,
+        name: string,
+        atUseSite: ASTNode,
+        constant = false,
+        indexed = false,
+        scope = -1,
+        stateVar = false,
+        visibility: StateVariableVisibility = StateVariableVisibility.Default,
+        mutability: Mutability = Mutability.Mutable
+    ): VariableDeclaration {
+        const [generalTyp, loc] = generalizeType(typ);
+
+        return this.makeVariableDeclaration(
+            constant,
+            indexed,
+            name,
+            scope,
+            stateVar,
+            loc ? loc : DataLocation.Default,
+            visibility,
+            mutability,
+            generalTyp.pp(),
+            undefined,
+            this.generalizedTypeToTypeName(generalTyp, atUseSite)
+        );
     }
 }
 

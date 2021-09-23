@@ -371,7 +371,7 @@ contract Foo is __scribble_ReentrancyUtils {
     }
 
     function mainView(uint y) public view returns (uint) {
-        return _callsite_30(this.viewF) + this.pureF(y);
+        return _callsite_30(this) + this.pureF(y);
     }
 
     /// Check only the current contract's state invariants
@@ -388,9 +388,9 @@ contract Foo is __scribble_ReentrancyUtils {
         __scribble_out_of_contract = true;
     }
 
-    function _callsite_30(function() external view returns (uint) fPtr) private view returns (uint ret0) {
+    function _callsite_30(Foo receiver) private view returns (uint256 ret0) {
         __scribble_check_state_invariants();
-        (ret0) = fPtr();
+        (ret0) = receiver.viewF();
     }
 }`
         ]
@@ -449,11 +449,11 @@ contract Foo {
     function foo() public {}
 
     function main() public {
-        _callsite_11(this.foo);
+        _callsite_11(this);
     }
 
-    function _callsite_11(function() external fPtr) private {
-        fPtr();
+    function _callsite_11(Foo receiver) private {
+        receiver.foo();
     }
 }`
         ],
@@ -475,11 +475,11 @@ contract Foo {
     function foo() public returns (uint) {}
 
     function main() public returns (uint) {
-        return _callsite_14(this.foo);
+        return _callsite_14(this);
     }
 
-    function _callsite_14(function() external returns (uint) fPtr) private returns (uint ret0) {
-        (ret0) = fPtr();
+    function _callsite_14(Foo receiver) private returns (uint256 ret0) {
+        (ret0) = receiver.foo();
     }
 }`
         ],
@@ -504,11 +504,11 @@ contract Foo {
     }
 
     function main() public returns (int) {
-        return _callsite_21(this.inc, 1) + 1;
+        return _callsite_21(this, 1) + 1;
     }
 
-    function _callsite_21(function(int) external returns (int) fPtr, int arg0) private returns (int ret0) {
-        (ret0) = fPtr(arg0);
+    function _callsite_21(Foo receiver, int256 arg0) private returns (int256 ret0) {
+        (ret0) = receiver.inc(arg0);
     }
 }`
         ],
@@ -534,12 +534,12 @@ contract Foo {
     }
 
     function main() public returns (int) {
-        (int a, int b) = _callsite_31(this.dup, 4);
+        (int a, int b) = _callsite_31(this, 4);
         return a + b;
     }
 
-    function _callsite_31(function(int) external returns (int, int) fPtr, int arg0) private returns (int ret0, int ret1) {
-        (ret0, ret1) = fPtr(arg0);
+    function _callsite_31(Foo receiver, int256 arg0) private returns (int256 ret0, int256 ret1) {
+        (ret0, ret1) = receiver.dup(arg0);
     }
 }`
         ],
@@ -598,11 +598,11 @@ contract Foo {
     }
 
     function main() public {
-        _callsite_20(this.pureF, 1);
+        _callsite_20(this, 1);
     }
 
-    function _callsite_20(function(uint) external pure returns (uint) fPtr, uint arg0) private pure returns (uint ret0) {
-        (ret0) = fPtr(arg0);
+    function _callsite_20(Foo receiver, uint256 arg0) private pure returns (uint256 ret0) {
+        (ret0) = receiver.pureF(arg0);
     }
 }`
         ]

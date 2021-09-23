@@ -2,7 +2,6 @@ import {
     SourceUnit,
     ExportedSymbol,
     ImportDirective,
-    ASTNode,
     ContractDefinition,
     FunctionDefinition,
     ASTNodeFactory,
@@ -18,7 +17,7 @@ import {
     assert,
     PragmaDirective
 } from "solc-typed-ast";
-import { getOrInit, topoSort } from "../util";
+import { getFQName, getOrInit, topoSort } from "../util";
 
 /**
  * When flattening units, we may introduce two definitions with the same name.
@@ -59,41 +58,6 @@ function fixNameConflicts(units: SourceUnit[]): Set<ExportedSymbol> {
     }
 
     return renamed;
-}
-
-function getTypeScope(n: ASTNode): SourceUnit | ContractDefinition {
-    const typeScope = n.getClosestParentBySelector(
-        (p: ASTNode) => p instanceof SourceUnit || p instanceof ContractDefinition
-    ) as SourceUnit | ContractDefinition;
-    return typeScope;
-}
-
-function getFQName(def: ExportedSymbol, atUseSite: ASTNode): string {
-    if (def instanceof ImportDirective) {
-        return def.unitAlias;
-    }
-
-    if (def instanceof ContractDefinition) {
-        return def.name;
-    }
-
-    const scope = def.vScope;
-    assert(
-        scope instanceof SourceUnit || scope instanceof ContractDefinition,
-        `Unexpected scope ${
-            scope.constructor.name
-        } for def ${def.print()} at site ${atUseSite.print()}}`
-    );
-
-    if (scope instanceof SourceUnit) {
-        return def.name;
-    }
-
-    if (def instanceof FunctionDefinition && getTypeScope(def) === getTypeScope(atUseSite)) {
-        return def.name;
-    }
-
-    return scope.name + "." + def.name;
 }
 
 /**

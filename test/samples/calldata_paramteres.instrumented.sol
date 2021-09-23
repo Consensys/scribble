@@ -35,7 +35,7 @@ contract Test is __scribble_ReentrancyUtils {
 
     function _original_Test_moo() private {
         bytes memory m = "abc";
-        bytes memory n = _callsite_27(this.foo, m);
+        bytes memory n = _callsite_27(this, m);
         assert(n[0] == "a");
         assert(n[1] == "b");
         assert(n[2] == "c");
@@ -60,10 +60,10 @@ contract Test is __scribble_ReentrancyUtils {
         __scribble_out_of_contract = true;
     }
 
-    function _callsite_27(function(bytes memory) external returns (bytes memory) fPtr, bytes memory arg0) private returns (bytes memory ret0) {
+    function _callsite_27(Test receiver, bytes memory arg0) private returns (bytes memory ret0) {
         __scribble_check_state_invariants();
         __scribble_out_of_contract = true;
-        (ret0) = fPtr(arg0);
+        (ret0) = receiver.foo(arg0);
         __scribble_out_of_contract = false;
     }
 }

@@ -14,7 +14,6 @@ import {
     FunctionKind,
     FunctionStateMutability,
     FunctionType,
-    FunctionTypeName,
     FunctionVisibility,
     getNodeType,
     MemberAccess,
@@ -23,9 +22,10 @@ import {
     StateVariableVisibility,
     TypeName,
     TypeNode,
+    UserDefinedType,
     VariableDeclaration
 } from "solc-typed-ast";
-import { assert, getScopeFun, isChangingState, single } from "../util";
+import { assert, getFQName, getScopeFun, isChangingState, single } from "../util";
 import { FunSet } from "./callgraph";
 import { changesMutability } from "./instrument";
 import { InstrumentationContext } from "./instrumentation_context";
@@ -233,51 +233,6 @@ export function interpose(
     return stub;
 }
 
-function copyDefs(
-    defs: VariableDeclaration[],
-    newParent: ASTNode,
-    factory: ASTNodeFactory
-): VariableDeclaration[] {
-    return defs.map((def) =>
-        factory.makeVariableDeclaration(
-            false,
-            false,
-            "",
-            newParent.id,
-            false,
-            def.storageLocation === DataLocation.CallData
-                ? DataLocation.Memory
-                : def.storageLocation,
-            StateVariableVisibility.Default,
-            Mutability.Mutable,
-            def.typeString,
-            undefined,
-            factory.copy(def.vType as TypeName)
-        )
-    );
-}
-
-function makeFunPtrType(f: FunctionDefinition, factory: ASTNodeFactory): FunctionTypeName {
-    const funT = factory.makeFunctionTypeName(
-        "<missing>",
-        FunctionVisibility.External,
-        f.stateMutability,
-        factory.makeParameterList([]),
-        factory.makeParameterList([])
-    );
-
-    const params = copyDefs(f.vParameters.vParameters, funT, factory);
-    const returns = copyDefs(f.vReturnParameters.vParameters, funT, factory);
-
-    funT.vParameterTypes.vParameters.push(...params);
-    funT.vParameterTypes.acceptChildren();
-
-    funT.vReturnParameterTypes.vParameters.push(...returns);
-    funT.vReturnParameterTypes.acceptChildren();
-
-    return funT;
-}
-
 /**
  * Given a `FunctionCall` `s`, extract the following from the callee:
  *  - gas option (if any)
@@ -352,7 +307,11 @@ export function interposeCall(
     assert(call.kind === FunctionCallKind.FunctionCall, "");
     assert(
         calleeT instanceof FunctionType,
-        `Expected function type, not ${calleeT.pp()} for callee in ${call.print()}`
+        `Expected external function type, not ${calleeT.pp()} for callee in ${call.print()}`
+    );
+    assert(
+        callee instanceof MemberAccess,
+        `Expected a MemberAccess as external call callee, not ${callee.print()}`
     );
 
     let wrapperMut: FunctionStateMutability;
@@ -391,79 +350,56 @@ export function interposeCall(
 
     let receiver: Expression;
     let callOriginalExp: Expression;
+    const baseT = getNodeType(callee.vExpression, ctx.compilerVersion);
 
     if (call.vFunctionCallType === ExternalReferenceType.UserDefined) {
-        const calleeDef = call.vReferencedDeclaration;
-
-        assert(calleeDef !== undefined && calleeDef instanceof FunctionDefinition, ``);
-
-        const fPtrT = makeFunPtrType(calleeDef, factory);
+        assert(
+            baseT instanceof UserDefinedType && baseT.definition instanceof ContractDefinition,
+            `Expected base to be a reference to a contract, not ${baseT.pp()}`
+        );
 
         params.push(
             factory.makeVariableDeclaration(
                 false,
                 false,
-                `fPtr`,
+                `receiver`,
                 wrapper.id,
                 false,
                 DataLocation.Default,
                 StateVariableVisibility.Default,
                 Mutability.Mutable,
-                calleeT.pp(),
+                baseT.pp(),
                 undefined,
-                fPtrT
+                factory.makeUserDefinedTypeName(
+                    "<missing>",
+                    getFQName(baseT.definition, call),
+                    baseT.definition.id
+                )
             )
         );
 
         params.push(
-            ...calleeDef.vParameters.vParameters.map((originalDef, idx) =>
-                factory.makeVariableDeclaration(
-                    false,
-                    false,
-                    `arg${idx}`,
-                    wrapper.id,
-                    false,
-                    originalDef.storageLocation === DataLocation.CallData
-                        ? DataLocation.Memory
-                        : originalDef.storageLocation,
-                    StateVariableVisibility.Default,
-                    Mutability.Mutable,
-                    originalDef.typeString,
-                    undefined,
-                    factory.copy(originalDef.vType as TypeName)
-                )
+            ...calleeT.parameters.map((paramT, idx) =>
+                factory.typeNodeToVariableDecl(paramT, `arg${idx}`, call)
             )
         );
 
         returns.push(
-            ...calleeDef.vReturnParameters.vParameters.map((originalDef, idx) =>
-                factory.makeVariableDeclaration(
-                    false,
-                    false,
-                    `ret${idx}`,
-                    wrapper.id,
-                    false,
-                    originalDef.storageLocation === DataLocation.CallData
-                        ? DataLocation.Memory
-                        : originalDef.storageLocation,
-                    StateVariableVisibility.Default,
-                    Mutability.Mutable,
-                    originalDef.typeString,
-                    undefined,
-                    factory.copy(originalDef.vType as TypeName)
-                )
+            ...calleeT.returns.map((retT, idx) =>
+                factory.typeNodeToVariableDecl(retT, `ret${idx}`, call)
             )
         );
 
-        receiver = factory.copy(callee);
-        copySrc(callee, receiver);
+        receiver = factory.copy(callee.vExpression);
+        copySrc(callee.vExpression, receiver);
 
-        callOriginalExp = factory.makeIdentifierFor(params[0]);
+        callOriginalExp = factory.makeMemberAccess(
+            call.vExpression.typeString,
+            factory.makeIdentifierFor(params[0]),
+            callee.memberName,
+            callee.referencedDeclaration
+        );
     } else {
-        assert(callee instanceof MemberAccess, ``);
-
-        const baseT = getNodeType(callee.vExpression, ctx.compilerVersion);
-
         assert(baseT instanceof AddressType, ``);
         assert(["call", "delegatecall", "staticcall"].includes(callee.memberName), ``);
 
