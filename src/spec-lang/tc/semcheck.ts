@@ -8,7 +8,7 @@ import {
     TypeNameType,
     VariableDeclaration
 } from "solc-typed-ast";
-import { AbsDatastructurePath, AnnotationMap, AnnotationMetaData } from "../..";
+import { AbsDatastructurePath, AnnotationMap, AnnotationMetaData, AnnotationTarget } from "../..";
 import { single } from "../../util";
 import {
     Range,
@@ -57,6 +57,7 @@ export type SemMap = Map<SNode, SemInfo>;
 interface SemCtx {
     isOld: boolean;
     annotation: SAnnotation;
+    annotationTarget: AnnotationTarget;
     interposingQueue: Array<[VariableDeclaration, AbsDatastructurePath]>;
 }
 
@@ -83,6 +84,7 @@ export function scUnits(
             scAnnotation(annotationMD.parsedAnnot, typeEnv, semMap, {
                 isOld: false,
                 annotation: annotationMD.parsedAnnot,
+                annotationTarget: annotationMD.target,
                 interposingQueue
             });
         } catch (e) {
@@ -286,6 +288,18 @@ export function scUnary(
                 expr
             );
         }
+
+        if (
+            (ctx.annotation.type === AnnotationType.IfAssigned ||
+                ctx.annotation.type === AnnotationType.IfUpdated) &&
+            ctx.annotationTarget instanceof VariableDeclaration &&
+            ctx.annotationTarget.vValue
+        ) {
+            throw new SemError(
+                `old() expressions not yet supported for state variable ${ctx.annotationTarget.name} with an ininine-initializer`,
+                expr
+            );
+        }
     }
 
     return sc(
@@ -293,6 +307,7 @@ export function scUnary(
         {
             isOld: expr.op === "old",
             annotation: ctx.annotation,
+            annotationTarget: ctx.annotationTarget,
             interposingQueue: ctx.interposingQueue
         },
         typeEnv,
