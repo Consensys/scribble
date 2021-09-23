@@ -7,7 +7,10 @@ import {
     PrettyFormatter,
     FunctionVisibility,
     SourceUnit,
-    LatestCompilerVersion
+    LatestCompilerVersion,
+    ContractDefinition,
+    ExportedSymbol,
+    ImportDirective
 } from "solc-typed-ast";
 import { pp } from ".";
 import { AnnotationTarget } from "..";
@@ -298,4 +301,39 @@ export function filterByType<Base, Child extends Base>(
     }
 
     return result;
+}
+
+function getTypeScope(n: ASTNode): SourceUnit | ContractDefinition {
+    const typeScope = n.getClosestParentBySelector(
+        (p: ASTNode) => p instanceof SourceUnit || p instanceof ContractDefinition
+    ) as SourceUnit | ContractDefinition;
+    return typeScope;
+}
+
+export function getFQName(def: ExportedSymbol, atUseSite: ASTNode): string {
+    if (def instanceof ImportDirective) {
+        return def.unitAlias;
+    }
+
+    if (def instanceof ContractDefinition) {
+        return def.name;
+    }
+
+    const scope = def.vScope;
+    assert(
+        scope instanceof SourceUnit || scope instanceof ContractDefinition,
+        `Unexpected scope ${
+            scope.constructor.name
+        } for def ${def.print()} at site ${atUseSite.print()}}`
+    );
+
+    if (scope instanceof SourceUnit) {
+        return def.name;
+    }
+
+    if (def instanceof FunctionDefinition && getTypeScope(def) === getTypeScope(atUseSite)) {
+        return def.name;
+    }
+
+    return scope.name + "." + def.name;
 }

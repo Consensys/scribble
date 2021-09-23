@@ -38,11 +38,11 @@ contract Foo is __scribble_ReentrancyUtils {
 
     function fail_int() internal {
         x = 0;
-        _callsite_23(this.inc, 0);
+        _callsite_23(this, 0);
         x = 0;
-        _callsite_34(this.inc, 10000);
+        _callsite_34(this, 10000);
         x = 0;
-        _callsite_45(this.inc, 0, 10000);
+        _callsite_45(this, 0, 10000);
     }
 
     function fail() public {
@@ -91,24 +91,24 @@ contract Foo is __scribble_ReentrancyUtils {
         __scribble_out_of_contract = true;
     }
 
-    function _callsite_23(function() external payable fPtr, uint256 _value) private {
+    function _callsite_23(Foo receiver, uint256 _value) private {
         __scribble_check_state_invariants();
         __scribble_out_of_contract = true;
-        fPtr.value(_value)();
+        receiver.inc.value(_value)();
         __scribble_out_of_contract = false;
     }
 
-    function _callsite_34(function() external payable fPtr, uint256 _gas) private {
+    function _callsite_34(Foo receiver, uint256 _gas) private {
         __scribble_check_state_invariants();
         __scribble_out_of_contract = true;
-        fPtr.gas(_gas)();
+        receiver.inc.gas(_gas)();
         __scribble_out_of_contract = false;
     }
 
-    function _callsite_45(function() external payable fPtr, uint256 _value, uint256 _gas) private {
+    function _callsite_45(Foo receiver, uint256 _value, uint256 _gas) private {
         __scribble_check_state_invariants();
         __scribble_out_of_contract = true;
-        fPtr.gas(_gas).value(_value)();
+        receiver.inc.gas(_gas).value(_value)();
         __scribble_out_of_contract = false;
     }
 

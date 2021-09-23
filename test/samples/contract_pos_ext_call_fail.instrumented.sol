@@ -34,7 +34,7 @@ contract Foo is __scribble_ReentrancyUtils {
 
     function fail_int() internal {
         x = 0;
-        _callsite_23(this.inc);
+        _callsite_23(this);
     }
 
     function fail() public {
@@ -69,10 +69,10 @@ contract Foo is __scribble_ReentrancyUtils {
         __scribble_out_of_contract = true;
     }
 
-    function _callsite_23(function() external fPtr) private {
+    function _callsite_23(Foo receiver) private {
         __scribble_check_state_invariants();
         __scribble_out_of_contract = true;
-        fPtr();
+        receiver.inc();
         __scribble_out_of_contract = false;
     }
 }

@@ -69,6 +69,7 @@ import { TranspilingContext } from "./transpiling_context";
 
 /**
  * Transpile the `TypeNode` `type` (using the passed in `ASTNodeFactory`).
+ * @todo (dimo,pavel): Remove this and replace all uses with ScribbleFactory.typeNodeToVariableDecl.
  */
 export function transpileType(type: TypeNode, factory: ASTNodeFactory): TypeName {
     if (
