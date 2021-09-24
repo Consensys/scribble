@@ -1,7 +1,7 @@
 pragma solidity 0.7.0;
 
 
-/// #if_succeeds {:msg ""} b == a + 1; 
+/// #if_succeeds {:msg ""} b == a + old(1);
 /// #if_succeeds {:msg ""} b == a&1; 
 contract Foo  {
     uint a;
