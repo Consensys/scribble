@@ -481,8 +481,13 @@ function transpileUnaryOperation(expr: SUnaryOperation, ctx: TranspilingContext)
     const subExp = transpile(expr.subexp, ctx);
 
     if (expr.op === "old") {
-        const bindingName = ctx.getOldVar(expr);
         const type = ctx.typeEnv.typeOf(expr.subexp);
+
+        if (type instanceof IntLiteralType) {
+            return subExp;
+        }
+
+        const bindingName = ctx.getOldVar(expr);
 
         ctx.addBinding(bindingName, transpileType(type, ctx.factory));
 

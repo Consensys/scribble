@@ -62,6 +62,14 @@ describe(`Command "scribble <filename>" is failing as expected`, () => {
         [
             ["test/samples/invalid/if_updated_old_inline_initializer.invalid.sol"],
             /^test\/samples\/invalid\/if_updated_old_inline_initializer.invalid.sol:2:26 TypeError: old\(\) expressions not yet supported for state variable x with an ininine-initializer/m
+        ],
+        [
+            ["test/samples/invalid/ambiguous_binding1.invalid.sol"],
+            /^test\/samples\/invalid\/ambiguous_binding1.invalid.sol:1:19 TypeError: Type of let-var a is not uniquely defined from the right hand side. Please add a type cast on the right-hand side to set it \(e.g. uint\(1\)\)/m
+        ],
+        [
+            ["test/samples/invalid/ambiguous_binding2.invalid.sol"],
+            /^test\/samples\/invalid\/ambiguous_binding2.invalid.sol:1:16 TypeError: Type of let expression is not uniquely defined from its body. Please add a type cast around the body to define it. \(e.g. uint\(0\)\)/m
         ]
     ];
 
