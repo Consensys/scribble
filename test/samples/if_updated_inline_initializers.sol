@@ -2,7 +2,7 @@ pragma solidity 0.8.7;
 
 contract Base {
 	//// #if_updated x >= old(x);
-	uint x = 1;
+	uint x;
 	//// #if_updated arr.length > 0;
 	uint[] arr = [1];
 
@@ -16,6 +16,10 @@ contract Base {
 
 	//// #if_updated s.arr.length > 0;
 	S s = S({arr:arr, arr2: arr2});
+
+	constructor() {
+		x = 1;
+	}
 }
 
 contract Child is Base {

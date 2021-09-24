@@ -29,15 +29,10 @@ contract Foo {
         uint256 old_2;
     }
 
-    struct vars9 {
-        uint256[] dbg_3;
-        uint256 old_3;
-    }
-
     uint[] internal x = [1, 2];
     uint internal t = 1;
     uint[] internal arr = [0, 0, 0, 0];
-    uint[] internal arr1 = [0, 0, 0, 7];
+    uint[] internal arr1;
     mapping(string => uint[]) internal m;
 
     function changesArg1(uint x) public {
@@ -143,6 +138,11 @@ contract Foo {
         Foo_arr_idx_uint256_uint256_assign(1, 2);
     }
 
+    constructor() {
+        Foo_arr_inline_initializer();
+        arr1 = [0, 0, 0, 7];
+    }
+
     function updArrOld() public {
         Foo_arr1_idx_uint256_uint256_assign(3, 8);
     }
@@ -165,11 +165,6 @@ contract Foo {
         }
     }
 
-    constructor() {
-        Foo_arr1_inline_initializer();
-        Foo_arr_inline_initializer();
-    }
-
     function Foo_arr_idx_uint256_uint256_assign(uint256 ARG0, uint256 ARG1) internal returns (uint256 RET0) {
         arr[ARG0] = ARG1;
         RET0 = arr[ARG0];
@@ -181,32 +176,18 @@ contract Foo {
         }
     }
 
-    function Foo_arr1_inline_initializer() internal {
+    function Foo_arr1_idx_uint256_uint256_assign(uint256 ARG2, uint256 ARG3) internal returns (uint256 RET1) {
         vars8 memory _v;
         unchecked {
             _v.dbg_2 = arr1;
             _v.old_2 = arr1[3];
         }
+        arr1[ARG2] = ARG3;
+        RET1 = arr1[ARG2];
         unchecked {
             if (!(_v.old_2 == 3)) {
                 emit AssertionFailed("1: ");
                 emit AssertionFailedData(1, abi.encode(_v.dbg_2));
-            }
-        }
-    }
-
-    function Foo_arr1_idx_uint256_uint256_assign(uint256 ARG2, uint256 ARG3) internal returns (uint256 RET1) {
-        vars9 memory _v;
-        unchecked {
-            _v.dbg_3 = arr1;
-            _v.old_3 = arr1[3];
-        }
-        arr1[ARG2] = ARG3;
-        RET1 = arr1[ARG2];
-        unchecked {
-            if (!(_v.old_3 == 3)) {
-                emit AssertionFailed("1: ");
-                emit AssertionFailedData(1, abi.encode(_v.dbg_3));
             }
         }
     }

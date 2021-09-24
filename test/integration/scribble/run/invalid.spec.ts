@@ -58,6 +58,10 @@ describe(`Command "scribble <filename>" is failing as expected`, () => {
         [
             ["test/samples/invalid/assert_try_catch.invalid.sol"],
             /^test\/samples\/invalid\/assert_try_catch.invalid.sol:7:9 UnsupportedByTargetError: The "assert" annotation is not applicable to try-catch clauses/m
+        ],
+        [
+            ["test/samples/invalid/if_updated_old_inline_initializer.invalid.sol"],
+            /^test\/samples\/invalid\/if_updated_old_inline_initializer.invalid.sol:2:26 TypeError: old\(\) expressions not yet supported for state variable x with an ininine-initializer/m
         ]
     ];
 

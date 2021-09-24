@@ -40,8 +40,12 @@ contract Foo {
 		arr[1] = 2;
 	}
 
-	/// #if_updated old(arr1[3]) == 3;
-	uint[] arr1 = [0,0,0,7];
+	/// #if_assigned[i] old(arr1[3]) == 3;
+	uint[] arr1;
+
+	constructor() {
+		arr1 = [0,0,0,7];
+	}
 
 	function updArrOld() public {
 		arr1[3] = 8;

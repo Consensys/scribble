@@ -2,7 +2,7 @@ pragma solidity 0.8.7;
 
 contract Base {
 	//// #if_assigned x >= old(x);
-	uint x = 1;
+	uint x;
 	//// #if_updated arr.length > 0;
 	//// #if_assigned[x] 0 <= x && x <= arr.length;
 	uint[] arr;
@@ -22,6 +22,7 @@ contract Base {
 	S s;
 
 	constructor() {
+		x = 1;
 	}
 
 	function main() public {

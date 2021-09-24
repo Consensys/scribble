@@ -1195,7 +1195,8 @@ export function tcBinary(expr: SBinaryOperation, ctx: STypingCtx, typeEnv: TypeE
             !(
                 lhsT instanceof IntType ||
                 lhsT instanceof IntLiteralType ||
-                lhsT instanceof FixedBytesType
+                lhsT instanceof FixedBytesType ||
+                lhsT instanceof AddressType
             )
         ) {
             throw new SWrongType(
@@ -1209,7 +1210,8 @@ export function tcBinary(expr: SBinaryOperation, ctx: STypingCtx, typeEnv: TypeE
             !(
                 rhsT instanceof IntType ||
                 rhsT instanceof IntLiteralType ||
-                rhsT instanceof FixedBytesType
+                rhsT instanceof FixedBytesType ||
+                rhsT instanceof AddressType
             )
         ) {
             throw new SWrongType(

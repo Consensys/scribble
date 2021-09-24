@@ -8,37 +8,20 @@ contract Base {
         uint[][] arr2;
     }
 
-    struct vars0 {
+    struct vars3 {
         uint256 old_0;
     }
 
-    struct vars4 {
-        uint256 old_1;
-    }
-
-    uint internal x = 1;
+    uint internal x;
     uint[] internal arr = [1];
     uint[][] internal arr2 = [[1, 2], [3, 4]];
     S internal s = S({arr: arr, arr2: arr2});
-
-    function Base_x_inline_initializer() internal {
-        vars0 memory _v;
-        unchecked {
-            _v.old_0 = x;
-        }
-        unchecked {
-            if (!(x >= _v.old_0)) {
-                emit AssertionFailed("0: ");
-                assert(false);
-            }
-        }
-    }
 
     constructor() {
         Base_s_inline_initializer();
         Base_arr2_inline_initializer();
         Base_arr_inline_initializer();
-        Base_x_inline_initializer();
+        Base_x_uint256_assign(1);
     }
 
     function Base_arr_inline_initializer() internal {
@@ -69,14 +52,14 @@ contract Base {
     }
 
     function Base_x_uint256_assign(uint256 ARG0) internal returns (uint256 RET0) {
-        vars4 memory _v;
+        vars3 memory _v;
         unchecked {
-            _v.old_1 = x;
+            _v.old_0 = x;
         }
         x = ARG0;
         RET0 = x;
         unchecked {
-            if (!(x >= _v.old_1)) {
+            if (!(x >= _v.old_0)) {
                 emit AssertionFailed("0: ");
                 assert(false);
             }
