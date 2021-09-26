@@ -10,6 +10,7 @@ import {
     BoolType,
     BytesType,
     ContractDefinition,
+    ContractKind,
     DataLocation,
     DoWhileStatement,
     Expression,
@@ -149,10 +150,22 @@ function getKeysAndTheirTypes(
             if (typ instanceof ArrayTypeName) {
                 keyTypes.push([factory.makeElementaryTypeName("<missing>", "uint256"), comp]);
                 typ = typ.vBaseType;
-            } else {
-                assert(typ instanceof Mapping, ``);
+            } else if (typ instanceof Mapping) {
                 keyTypes.push([typ.vKeyType, comp]);
                 typ = typ.vValueType;
+            } else {
+                assert(
+                    typ instanceof UserDefinedTypeName &&
+                        typ.vReferencedDeclaration instanceof StructDefinition &&
+                        typ.vReferencedDeclaration.vScope instanceof ContractDefinition &&
+                        typ.vReferencedDeclaration.vScope.kind === ContractKind.Library,
+                    `Expected a reference to a custom library struct, not ${typ.print()}`
+                );
+
+                const lib = typ.vReferencedDeclaration.vScope;
+                const getLHSDef = single(lib.vFunctions.filter((fDef) => fDef.name === "get_lhs"));
+                keyTypes.push([getLHSDef.vParameters.vParameters[1].vType as TypeName, comp]);
+                typ = getLHSDef.vReturnParameters.vParameters[0].vType as TypeName;
             }
         } else {
             if (typ instanceof UserDefinedTypeName) {

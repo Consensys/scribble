@@ -59,7 +59,7 @@ describe("SemanticChecker Expression Unit Tests", () => {
                     { isOld: false, isConst: true, canFail: false }
                 ],
                 [
-                    "forall (uint i in 1...10) let i := 10 in old(i) > 100",
+                    "forall (uint i in 1...10) let i := uint(10) in old(i) > 100",
                     ["Foo", "pId"],
                     new BoolType(),
                     { isOld: false, isConst: true, canFail: false }
@@ -71,7 +71,7 @@ describe("SemanticChecker Expression Unit Tests", () => {
                     { isOld: true, isConst: false, canFail: false }
                 ],
                 [
-                    "forall (uint i in 1...10) let i := 10 in old(sV) > 100",
+                    "forall (uint i in 1...10) let i := uint(10) in old(sV) > 100",
                     ["Foo", "pId"],
                     new BoolType(),
                     { isOld: false, isConst: false, canFail: false }
@@ -93,7 +93,7 @@ describe("SemanticChecker Expression Unit Tests", () => {
                     "old(true)",
                     ["Foo", "add"],
                     new BoolType(),
-                    { isOld: true, isConst: true, canFail: false }
+                    { isOld: false, isConst: true, canFail: false }
                 ],
                 [
                     "1",
@@ -147,7 +147,7 @@ describe("SemanticChecker Expression Unit Tests", () => {
                     "old(1)",
                     ["Foo", "add"],
                     new IntLiteralType(),
-                    { isOld: true, isConst: true, canFail: false }
+                    { isOld: false, isConst: true, canFail: false }
                 ],
                 [
                     "sV",
@@ -165,7 +165,7 @@ describe("SemanticChecker Expression Unit Tests", () => {
                     "old(sV1)",
                     ["Foo", "add"],
                     new IntType(128, true),
-                    { isOld: true, isConst: true, canFail: false }
+                    { isOld: false, isConst: true, canFail: false }
                 ],
                 [
                     "x",
@@ -216,10 +216,10 @@ describe("SemanticChecker Expression Unit Tests", () => {
                     { isOld: true, isConst: false, canFail: true }
                 ],
                 [
-                    "let x := 1 in old(x)",
+                    "let x := uint(1) in old(x)",
                     ["Foo", "add"],
-                    new IntLiteralType(),
-                    { isOld: true, isConst: true, canFail: false }
+                    new IntType(256, false),
+                    { isOld: false, isConst: true, canFail: false }
                 ],
                 [
                     "let x := y in x",
@@ -234,7 +234,7 @@ describe("SemanticChecker Expression Unit Tests", () => {
                     { isOld: true, isConst: false, canFail: false }
                 ],
                 [
-                    "let x := old(y) in let z := 1 in old(x+z)",
+                    "let x := old(y) in let z := uint64(1) in old(x+z)",
                     ["Foo", "add"],
                     new IntType(64, false),
                     { isOld: true, isConst: false, canFail: false }
@@ -341,7 +341,7 @@ describe("SemanticChecker Expression Unit Tests", () => {
                 ["forall(uint x in 1...old(y)) old(x > 0)", ["Foo", "add"]],
                 ["old(old(x))", ["Foo", "add"]],
                 ["let x := y in old(x)", ["Foo", "add"]],
-                ["let x := y in let z := old(1) in old(x+z)", ["Foo", "add"]],
+                ["let x := y in let z := uint(old(1)) in old(x+z)", ["Foo", "add"]],
                 ["vId()", ["Foo", "add"]],
                 ["old($result)", ["Foo", "add"]],
                 ["old(7)", ["Foo"]]

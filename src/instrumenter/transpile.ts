@@ -482,8 +482,10 @@ function transpileUnaryOperation(expr: SUnaryOperation, ctx: TranspilingContext)
 
     if (expr.op === "old") {
         const type = ctx.typeEnv.typeOf(expr.subexp);
+        const semInfo = ctx.semInfo.get(expr);
+        assert(semInfo !== undefined, `Missing semantic info for ${expr.pp()}`);
 
-        if (type instanceof IntLiteralType) {
+        if (semInfo.isConst) {
             return subExp;
         }
 

@@ -302,7 +302,7 @@ export function scUnary(
         }
     }
 
-    return sc(
+    const res = sc(
         expr.subexp,
         {
             isOld: expr.op === "old",
@@ -313,6 +313,13 @@ export function scUnary(
         typeEnv,
         semMap
     );
+
+    // If the inner expression is constant we don't actually treat it as old when transpiling
+    if (res.isConst) {
+        res.isOld = false;
+    }
+
+    return res;
 }
 
 export function scBinary(

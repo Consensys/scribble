@@ -549,6 +549,20 @@ export function decomposeLHS(
             continue;
         }
 
+        if (
+            e instanceof FunctionCall &&
+            e.vFunctionName === "get_lhs" &&
+            e.vReferencedDeclaration instanceof FunctionDefinition &&
+            e.vReferencedDeclaration.vScope instanceof ContractDefinition &&
+            e.vReferencedDeclaration.vScope.kind === ContractKind.Library
+        ) {
+            assert(e.vArguments.length === 2, `Unexpected args for get_lhs: ${pp(e.vArguments)}`);
+
+            path.unshift(e.vArguments[1]);
+            e = e.vArguments[0];
+            continue;
+        }
+
         break;
     }
 
@@ -568,7 +582,7 @@ export function decomposeLHS(
         );
     }
 
-    assert(e instanceof Identifier || e instanceof MemberAccess, ``);
+    assert(e instanceof Identifier || e instanceof MemberAccess, `Unexpcted LHS ${e.print()}`);
     return [e, path];
 }
 
