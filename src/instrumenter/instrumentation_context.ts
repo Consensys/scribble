@@ -277,7 +277,10 @@ export class InstrumentationContext {
      * List of statements added for general instrumentation, not tied to any
      * particular annotation.
      */
-    public readonly generalInstrumentationNodes: ASTNode[] = [];
+    private _generalInstrumentationNodes: ASTNode[] = [];
+    public get generalInstrumentationNodes(): ASTNode[] {
+        return this._generalInstrumentationNodes;
+    }
 
     /**
      * Map containing debug event associated with a given annotation.
@@ -439,10 +442,12 @@ export class InstrumentationContext {
     }
 
     finalize(): void {
+        // Finalize all TranspilingContexts
         for (const transCtx of this.transCtxMap.values()) {
             transCtx.finalize();
         }
 
+        // Add imports in all units that need the ReentrancyUtils contract
         for (const unit of this.unitsNeedingUtils) {
             const path = relative(dirname(unit.absolutePath), this.utilsUnit.absolutePath);
             unit.appendChild(
@@ -456,6 +461,20 @@ export class InstrumentationContext {
                 )
             );
         }
+
+        // Finally scan all nodes in generalInsturmentation for any potential orphans, and remove them
+        // Orphans can happen during insturmentation, when we replace some node with a re-written copy
+        const orphans = new Set<ASTNode>();
+
+        for (const nd of this._generalInstrumentationNodes) {
+            if (nd.getClosestParentByType(SourceUnit) === undefined) {
+                orphans.add(nd);
+            }
+        }
+
+        this._generalInstrumentationNodes = this._generalInstrumentationNodes.filter(
+            (nd) => !orphans.has(nd)
+        );
     }
 
     /**
