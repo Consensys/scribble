@@ -1570,14 +1570,41 @@ export function tcLet(expr: SLet, ctx: STypingCtx, typeEnv: TypeEnv): TypeNode {
                 expr
             );
         }
+        for (let i = 0; i < rhsT.elements.length; i++) {
+            const elT = rhsT.elements[i];
+            if (elT instanceof IntLiteralType) {
+                const id = expr.lhs[i];
+                throw new SGenericTypeError(
+                    `Type of let-var ${id.name} is not uniquely defined from the right hand side. Please add a type cast on the right-hand side to set it`,
+                    id
+                );
+            }
+        }
     } else if (expr.lhs.length !== 1) {
         throw new SExprCountMismatch(
             `Wrong number of let bindings: expected 1 got ${expr.lhs.length}`,
             expr
         );
+    } else if (rhsT instanceof IntLiteralType) {
+        const id = single(expr.lhs);
+        throw new SGenericTypeError(
+            `Type of let-var ${
+                id.name
+            } is not uniquely defined from the right hand side. Please add a type cast on the right-hand side to set it (e.g. uint(${expr.rhs.pp()}))`,
+            id
+        );
     }
 
-    return tc(expr.in, ctx.concat(expr), typeEnv);
+    const res = tc(expr.in, ctx.concat(expr), typeEnv);
+
+    if (res instanceof IntLiteralType) {
+        throw new SGenericTypeError(
+            `Type of let expression is not uniquely defined from its body. Please add a type cast around the body to define it. (e.g. uint(${expr.in.pp()}))`,
+            expr
+        );
+    }
+
+    return res;
 }
 
 function getFunDefType(fun: FunctionDefinition): FunctionType {

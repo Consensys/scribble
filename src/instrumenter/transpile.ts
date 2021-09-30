@@ -481,8 +481,15 @@ function transpileUnaryOperation(expr: SUnaryOperation, ctx: TranspilingContext)
     const subExp = transpile(expr.subexp, ctx);
 
     if (expr.op === "old") {
-        const bindingName = ctx.getOldVar(expr);
         const type = ctx.typeEnv.typeOf(expr.subexp);
+        const semInfo = ctx.semInfo.get(expr);
+        assert(semInfo !== undefined, `Missing semantic info for ${expr.pp()}`);
+
+        if (semInfo.isConst) {
+            return subExp;
+        }
+
+        const bindingName = ctx.getOldVar(expr);
 
         ctx.addBinding(bindingName, transpileType(type, ctx.factory));
 
