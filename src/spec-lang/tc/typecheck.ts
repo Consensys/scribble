@@ -1226,7 +1226,17 @@ export function tcBinary(expr: SBinaryOperation, ctx: STypingCtx, typeEnv: TypeE
 
     if (["==", "!="].includes(expr.op)) {
         // Equality operators allow for the same or implicitly castable types.
-        unifyTypes(expr.left, lhsT, expr.right, rhsT, expr);
+        const commonType = unifyTypes(expr.left, lhsT, expr.right, rhsT, expr);
+
+        if (commonType instanceof PointerType) {
+            throw new SWrongType(
+                `Operator ${
+                    expr.op
+                } doesn't apply to expression ${expr.left.pp()} of non-value type ${lhsT.pp()}`,
+                expr.left,
+                lhsT
+            );
+        }
         return new BoolType();
     }
 

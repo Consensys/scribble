@@ -385,6 +385,10 @@ export function findAliasedStateVars(units: SourceUnit[]): Map<VariableDeclarati
             return [rhs.vReferencedDeclaration as VariableDeclaration];
         }
 
+        if (rhs instanceof Identifier) {
+            return [];
+        }
+
         if (rhs instanceof MemberAccess) {
             return gatherRHSVars(rhs.vExpression);
         }

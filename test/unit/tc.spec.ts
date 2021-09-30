@@ -570,6 +570,11 @@ describe("TypeChecker Expression Unit Tests", () => {
                 bool b;
                 using Lib2 for *;
 
+                struct S {
+                    uint x;
+                }
+
+                S sSa;
                 mapping (uint32 => int64) sM;
 
                 function add(uint x, uint y) public returns(uint add) {
@@ -599,6 +604,7 @@ describe("TypeChecker Expression Unit Tests", () => {
                 ["y<=sV1", ["Foo", "add"]],
                 ["sA>sA", ["Foo", "add"]],
                 ["sA==x", ["Foo", "add"]],
+                ["sSa==sSa", ["Foo", "add"]],
                 ["sA!=1", ["Foo", "add"]],
                 ["x==sV1", ["Foo", "add"]],
                 ["x&sV1", ["Foo", "add"]],
