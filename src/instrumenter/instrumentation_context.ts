@@ -160,6 +160,10 @@ class TypesToLibraryMap extends ContextFactoryMap<
 
         return res;
     }
+
+    public isCustomMapLibrary(node: ContractDefinition): boolean {
+        return this._inverseMap.has(node);
+    }
 }
 
 class MapGetterMap extends ContextFactoryMap<

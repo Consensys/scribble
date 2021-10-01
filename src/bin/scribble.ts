@@ -350,7 +350,7 @@ function instrumentFiles(
     }
 
     if (stateVarsWithAnnot.length > 0) {
-        const stateVarUpdates = findStateVarUpdates(ctx.units);
+        const stateVarUpdates = findStateVarUpdates(ctx.units, ctx);
 
         instrumentStateVars(ctx, annotMap, stateVarUpdates);
     }

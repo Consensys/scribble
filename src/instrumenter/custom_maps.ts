@@ -305,7 +305,7 @@ export function interposeMap(
     targets: Array<[VariableDeclaration, AbsDatastructurePath]>,
     units: SourceUnit[]
 ): void {
-    const allUpdates = findStateVarUpdates(units);
+    const allUpdates = findStateVarUpdates(units, instrCtx);
     const allRefs = findAllStateVarReferences(units);
     const allRefsMap = new Map<Expression, StateVarRefDesc>(allRefs.map((x) => [x[0], x]));
 
