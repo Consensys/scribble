@@ -7,11 +7,13 @@ import {
     LHS,
     RHS,
     findStateVarUpdates,
-    StateVarUpdateDesc
+    StateVarUpdateDesc,
+    ScribbleFactory
 } from "../../src/instrumenter";
 import { Logger } from "../../src/logger";
 import { ASTNode, Expression } from "solc-typed-ast";
 import { print as printNode } from "../../src/util";
+import { makeInstrumentationCtx } from "./utils";
 
 export type LocationDesc = [string, string];
 
@@ -734,10 +736,12 @@ describe("Finding all state variable updates.", () => {
 
     for (const [fileName, content, expectedStateVarUpdates] of samples) {
         it(`Sample #${fileName}`, () => {
-            const { units } = toAst(fileName, content);
+            const { units, reader, files, compilerVersion } = toAst(fileName, content);
             const unit = single(units);
+            const factory = new ScribbleFactory(reader.context);
+            const ctx = makeInstrumentationCtx(units, factory, files, "log", compilerVersion);
 
-            const assignments = findStateVarUpdates([unit]);
+            const assignments = findStateVarUpdates([unit], ctx);
             const assignmentDescs = new Set([...assignments].map(printStateVarUpdateDesc));
             Logger.debug(
                 `Expected aliased set ${pp(expectedStateVarUpdates)} got ${pp([

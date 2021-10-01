@@ -1,0 +1,122 @@
+{
+    "file": "test/samples/mixing_if_updated_and_forall.instrumented.sol",
+    "steps": [
+        {
+            "act": "createUser",
+            "alias": "owner",
+            "options": {
+                "balance": 1000e18
+            }
+        },
+        {
+            "act": "deployContract",
+            "contract": "Foo",
+            "user": "owner",
+            "alias": "instance1"
+        },
+        {
+            "act": "txCall",
+            "user": "owner",
+            "contract": "instance1",
+
+            "method": "assign_m",
+
+            "args": {
+                "types": ["uint", "uint"],
+                "values": ["1", "2"]
+            },
+            "returns": ["uint"],
+            "onReturns": {
+                "expect": "2"
+            }
+        },
+        {
+            "act": "txCall",
+            "user": "owner",
+            "contract": "instance1",
+
+            "method": "assign_m",
+
+            "args": {
+                "types": ["uint", "uint"],
+                "values": ["1", "0"]
+            },
+            "returns": ["uint"],
+            "failure": "*"
+        },
+        {
+            "act": "txCall",
+            "user": "owner",
+            "contract": "instance1",
+
+            "method": "assign_m1",
+
+            "args": {
+                "types": ["address", "string", "uint"],
+                "values": ["0x0", "abcd", "4"]
+            },
+            "returns": ["uint"],
+            "onReturns": {
+                "expect": "4"
+            }
+        },
+        {
+            "act": "txCall",
+            "user": "owner",
+            "contract": "instance1",
+
+            "method": "assign_m1",
+
+            "args": {
+                "types": ["address", "string", "uint"],
+                "values": ["0x0", "abcd", "5"]
+            },
+            "returns": ["uint"],
+            "failure": "*"
+        },
+        {
+            "act": "txCall",
+            "user": "owner",
+            "contract": "instance1",
+
+            "method": "assign_m1",
+
+            "args": {
+                "types": ["address", "string", "uint"],
+                "values": ["0x0", "def", "5"]
+            },
+            "returns": ["uint"],
+            "onReturns": {
+                "expect": "5"
+            }
+        },
+        {
+            "act": "txCall",
+            "user": "owner",
+            "contract": "instance1",
+
+            "method": "assign_m1",
+
+            "args": {
+                "types": ["address", "string", "uint"],
+                "values": ["0x1", "abcd", "4"]
+            },
+            "returns": ["uint"],
+            "failure": "*"
+        },
+        {
+            "act": "txCall",
+            "user": "owner",
+            "contract": "instance1",
+
+            "method": "assign_m1",
+
+            "args": {
+                "types": ["address", "string", "uint"],
+                "values": ["0x0", "abcd", "1"]
+            },
+            "returns": ["uint"],
+            "failure": "*"
+        }
+    ]
+}

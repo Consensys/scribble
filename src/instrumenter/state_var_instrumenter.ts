@@ -351,26 +351,44 @@ function getWrapperName(
  */
 function decomposeStateVarUpdated(
     updateNode: Assignment | FunctionCall | UnaryOperation,
-    factory: ASTNodeFactory
+    ctx: InstrumentationContext
 ): [Expression, Array<[Expression, TypeName]>] {
     let stateVarExp: Expression;
     const additionalArgs: Array<[Expression, TypeName]> = [];
+    const factory = ctx.factory;
 
     if (updateNode instanceof FunctionCall) {
         const callee = updateNode.vFunctionName;
-        assert(
-            (updateNode.vFunctionCallType === ExternalReferenceType.Builtin && callee === "push") ||
-                callee === "pop",
-            ""
-        );
+        if (
+            updateNode.vFunctionCallType === ExternalReferenceType.Builtin &&
+            (callee === "push" || callee === "pop")
+        ) {
+            stateVarExp = (updateNode.vExpression as MemberAccess).vExpression;
 
-        stateVarExp = (updateNode.vExpression as MemberAccess).vExpression;
+            if (callee == "push" && updateNode.vArguments.length > 0) {
+                const [baseExp, , compT] = decomposeLHSWithTypes(stateVarExp, factory);
+                assert(isStateVarRef(baseExp), ``);
+                assert(compT instanceof ArrayTypeName, ``);
+                additionalArgs.push([single(updateNode.vArguments), compT.vBaseType]);
+            }
+        } else {
+            assert(
+                updateNode.vFunctionName === "set" &&
+                    updateNode.vReferencedDeclaration instanceof FunctionDefinition &&
+                    updateNode.vReferencedDeclaration.vScope instanceof ContractDefinition &&
+                    updateNode.vReferencedDeclaration?.vScope.kind === ContractKind.Library,
+                `decomposeStateVarUpdated(): Unexpected update node ${pp(updateNode)} in`
+            );
 
-        if (callee == "push" && updateNode.vArguments.length > 0) {
-            const [baseExp, , compT] = decomposeLHSWithTypes(stateVarExp, factory);
-            assert(isStateVarRef(baseExp), ``);
-            assert(compT instanceof ArrayTypeName, ``);
-            additionalArgs.push([single(updateNode.vArguments), compT.vBaseType]);
+            const [keyT, valueT] = ctx.typesToLibraryMap.getKVTypes(
+                updateNode.vReferencedDeclaration.vScope
+            );
+
+            stateVarExp = updateNode.vArguments[0];
+            // Adding the last part of the path as an additional argument here
+            // to avoid modifying decomposeLHS
+            additionalArgs.push([updateNode.vArguments[1], transpileType(keyT, factory)]);
+            additionalArgs.push([updateNode.vArguments[2], transpileType(valueT, factory)]);
         }
     } else if (updateNode instanceof UnaryOperation) {
         stateVarExp = updateNode.vSubExpression;
@@ -408,7 +426,7 @@ function makeWrapper(
 
     // Decomposing is a 2 step process.
     // 1) Call decomposeStateVarUpdated to decompose the various update statements - assignments, function calls, unaries..
-    const [stateVarExp, additionalArgs] = decomposeStateVarUpdated(rewrittenNode, factory);
+    const [stateVarExp, additionalArgs] = decomposeStateVarUpdated(rewrittenNode, ctx);
     // 2) Call decomposeLHS to identify the actuall state variable, and the path of the part of it which is updated
     const [baseExp, path] = decomposeLHSWithTypes(stateVarExp, factory);
     assert(isStateVarRef(baseExp), ``);
@@ -965,7 +983,7 @@ export function interposeSimpleStateVarUpdate(
     updateNode: Assignment | FunctionCall | UnaryOperation
 ): [FunctionCall, FunctionDefinition] {
     const factory = ctx.factory;
-    const [stateVarExp, additionalArgs] = decomposeStateVarUpdated(updateNode, factory);
+    const [stateVarExp, additionalArgs] = decomposeStateVarUpdated(updateNode, ctx);
     const [baseExp, path] = decomposeLHS(stateVarExp);
     assert(isStateVarRef(baseExp), ``);
 

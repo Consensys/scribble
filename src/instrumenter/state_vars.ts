@@ -35,6 +35,7 @@ import {
 } from "solc-typed-ast";
 import { assert, pp, print, single, zip } from "..";
 import { ppArr } from "../util";
+import { InstrumentationContext } from "./instrumentation_context";
 
 export type LHS = Expression | VariableDeclaration | [Expression, string];
 export type RHS = Expression | [Expression, number];
@@ -598,6 +599,31 @@ export function isStateVarRef(node: ASTNode): node is Identifier | MemberAccess 
 }
 
 /**
+ * Given a context `ctx` and the left-hand side of an assignment pair `lhs` (as
+ * returned from `getAssignments`), return true IFF the original assignment from
+ * which `lhs` comes is an call to a custom map library setter function. I.e.
+ * this was an assignment that was instrumented due to a `forall` annotation.
+ */
+function isAssignmentCustomMapSet(ctx: InstrumentationContext, lhs: LHS): boolean {
+    if (
+        !(
+            lhs instanceof VariableDeclaration &&
+            lhs.vScope instanceof FunctionDefinition &&
+            lhs.vScope.name === "set" &&
+            lhs === lhs.vScope.vParameters.vParameters[0]
+        )
+    ) {
+        return false;
+    }
+
+    const contract = lhs.vScope.vScope;
+
+    return (
+        contract instanceof ContractDefinition && ctx.typesToLibraryMap.isCustomMapLibrary(contract)
+    );
+}
+
+/**
  * Given a set of units, find all locations in the AST where state variables are updated directly.
  * (NOTE: This doesn't find locations where state variables are updated through pointers!!)
  *
@@ -623,7 +649,10 @@ export function isStateVarRef(node: ASTNode): node is Identifier | MemberAccess 
  *     elements of the array refer to indexing, and string elements refer to field lookups in structs.
  *  - `newValue` is the new expression that is being assigned. In the above example its `1`.
  */
-export function findStateVarUpdates(units: SourceUnit[]): StateVarUpdateDesc[] {
+export function findStateVarUpdates(
+    units: SourceUnit[],
+    ctx: InstrumentationContext
+): StateVarUpdateDesc[] {
     const res: StateVarUpdateDesc[] = [];
 
     /**
@@ -675,6 +704,38 @@ export function findStateVarUpdates(units: SourceUnit[]): StateVarUpdateDesc[] {
         for (const [lhs, rhs] of getAssignments(unit)) {
             // Assignments to struct constructor fields - ignore
             if (lhs instanceof Array) {
+                continue;
+            }
+
+            if (isAssignmentCustomMapSet(ctx, lhs)) {
+                assert(
+                    rhs instanceof Expression,
+                    `Cannot have a tuple as second argument to library.set()`
+                );
+
+                const funCall = rhs.parent;
+
+                assert(
+                    funCall instanceof FunctionCall &&
+                        funCall.vFunctionName === "set" &&
+                        funCall.vArguments.length === 3 &&
+                        rhs === funCall.vArguments[0],
+                    `RHS parent must be a call to library.set() not ${pp(funCall)}`
+                );
+
+                const [baseExp, path] = decomposeLHS(funCall.vArguments[0]);
+
+                // Skip assignments where the base of the LHS is not a direct reference to a state variable
+                if (!isStateVarRef(baseExp)) {
+                    continue;
+                }
+
+                path.push(funCall.vArguments[1]);
+
+                const stateVarDecl: VariableDeclaration =
+                    baseExp.vReferencedDeclaration as VariableDeclaration;
+
+                res.push([funCall, stateVarDecl, path, funCall.vArguments[2]]);
                 continue;
             }
 
