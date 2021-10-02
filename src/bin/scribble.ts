@@ -18,6 +18,7 @@ import {
     FunctionKind,
     FunctionStateMutability,
     FunctionVisibility,
+    getABIEncoderVersion,
     isSane,
     SourceUnit,
     SrcRangeMap,
@@ -358,6 +359,24 @@ function instrumentFiles(
     ctx.finalize();
 }
 
+/**
+ * After the merge of https://github.com/ConsenSys/scribble/issues/80 I started experience segfaults at exit in nodejs
+ * with the following stack trace:
+ *
+ * #0  0x00000000009d047c in v8impl::(anonymous namespace)::RefBase::Finalize(bool) ()
+ * #1  0x00000000009ee13f in node_napi_env__::~node_napi_env__() ()
+ * #2  0x00000000009c729a in node::Environment::RunCleanup() ()
+ * #3  0x0000000000986b77 in node::FreeEnvironment(node::Environment*) ()
+ * #4  0x0000000000a5a9df in node::NodeMainInstance::Run() ()
+ * #5  0x00000000009e85cc in node::Start(int, char**) ()
+ * #6  0x00007fdd1ab43b25 in __libc_start_main () from /usr/lib/libc.so.6
+ * #7  0x00000000009819b5 in _start ()
+ *
+ * The closest reference to this found was this issue: https://github.com/node-webrtc/node-webrtc/issues/636
+ * which suggested the below workaround to exit the process without waiting for all cleanups to run.
+ */
+process.on("beforeExit", (code) => process.exit(code));
+
 const params = cli as any;
 
 let options = params[1].optionList;
@@ -670,11 +689,12 @@ if ("version" in options) {
             }
         }
 
-        const cha = getCHA(mergedUnits);
-        const callgraph = getCallGraph(mergedUnits);
-        let annotMap: AnnotationMap;
-
         const compilerVersionUsed = pickVersion(compilerVersionUsedMap);
+
+        const encoderVer = getABIEncoderVersion(mergedUnits, compilerVersionUsed);
+        const cha = getCHA(mergedUnits);
+        const callgraph = getCallGraph(mergedUnits, encoderVer);
+        let annotMap: AnnotationMap;
 
         try {
             annotMap = buildAnnotationMap(
@@ -695,7 +715,7 @@ if ("version" in options) {
 
         printDeprecationNotices(annotMap);
 
-        const typeEnv = new TypeEnv(compilerVersionUsed);
+        const typeEnv = new TypeEnv(compilerVersionUsed, encoderVer);
         const semMap: SemMap = new Map();
         let interposingQueue: Array<[VariableDeclaration, AbsDatastructurePath]>;
 

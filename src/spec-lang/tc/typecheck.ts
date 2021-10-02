@@ -1846,8 +1846,8 @@ export function tcFunctionCall(expr: SFunctionCall, ctx: STypingCtx, typeEnv: Ty
                     calleeT.definitions
                         .map((def) =>
                             def instanceof FunctionDefinition
-                                ? def.canonicalSignature
-                                : def.getterCanonicalSignature
+                                ? def.canonicalSignature(typeEnv.encoderVersion)
+                                : def.getterCanonicalSignature(typeEnv.encoderVersion)
                         )
                         .join("\n"),
                 expr

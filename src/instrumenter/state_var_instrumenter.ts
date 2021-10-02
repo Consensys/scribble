@@ -367,8 +367,14 @@ function decomposeStateVarUpdated(
 
             if (callee == "push" && updateNode.vArguments.length > 0) {
                 const [baseExp, , compT] = decomposeLHSWithTypes(stateVarExp, factory);
-                assert(isStateVarRef(baseExp), ``);
-                assert(compT instanceof ArrayTypeName, ``);
+                assert(
+                    isStateVarRef(baseExp),
+                    `Expected base to be a state var ref not ${pp(baseExp)}`
+                );
+                assert(
+                    compT instanceof ArrayTypeName,
+                    `Expected base to be of array type not ${pp(compT)}`
+                );
                 additionalArgs.push([single(updateNode.vArguments), compT.vBaseType]);
             }
         } else {
