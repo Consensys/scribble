@@ -2,6 +2,9 @@
 
 Annotation =
     StartingWhiteSpace
+    __
+    tag: '@custom:scribble'?
+    __
     prefix: '#'?
     annotation: (
         Invariant
