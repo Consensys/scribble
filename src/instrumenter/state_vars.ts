@@ -1,5 +1,6 @@
 import {
     ArrayTypeName,
+    assert,
     Assignment,
     ASTNode,
     Conditional,
@@ -33,8 +34,7 @@ import {
     VariableDeclaration,
     VariableDeclarationStatement
 } from "solc-typed-ast";
-import { assert, pp, print, single, zip } from "..";
-import { ppArr } from "../util";
+import { single, zip } from "../util/misc";
 import { InstrumentationContext } from "./instrumentation_context";
 
 export type LHS = Expression | VariableDeclaration | [Expression, string];
@@ -66,9 +66,9 @@ function* getAssignmentComponents(
         } else if (rhs instanceof TupleExpression) {
             assert(
                 assignedDecls.length === rhs.vOriginalComponents.length,
-                `Mismatch in declarations: ${ppArr(assignedDecls)} and ${ppArr(
-                    rhs.vOriginalComponents
-                )}`
+                "Mismatch in declarations: {0} and {1}",
+                assignedDecls,
+                rhs.vOriginalComponents
             );
 
             for (let i = 0; i < assignedDecls.length; i++) {
@@ -80,7 +80,7 @@ function* getAssignmentComponents(
 
                 const rhsComp = rhs.vOriginalComponents[i];
                 // Skip assignments where LHS is omitted
-                assert(rhsComp !== null, `Unexpected null in rhs of ${pp(rhs)} in position ${i}`);
+                assert(rhsComp !== null, "Unexpected null in rhs of {0} in position {1}", rhs, i);
 
                 yield* getAssignmentComponents(lhsComp, rhsComp);
             }
@@ -98,7 +98,7 @@ function* getAssignmentComponents(
             yield* getAssignmentComponents(lhs, rhs.vTrueExpression);
             yield* getAssignmentComponents(lhs, rhs.vFalseExpression);
         } else {
-            throw new Error(`Unexpected rhs in tuple assignment: ${pp(rhs)}`);
+            assert(false, "Unexpected rhs in tuple assignment", rhs);
         }
     } else {
         yield [lhs, rhs];
@@ -170,7 +170,12 @@ export function* getAssignments(node: ASTNode): Iterable<[LHS, RHS]> {
         }
 
         if (actuals instanceof TupleExpression) {
-            assert(actuals.vComponents.length === actuals.vOriginalComponents.length, ``);
+            assert(
+                actuals.vComponents.length === actuals.vOriginalComponents.length,
+                "Expected tuple to not have a placeholders",
+                actuals
+            );
+
             return zip(formals, actuals.vComponents);
         }
 
@@ -178,10 +183,11 @@ export function* getAssignments(node: ASTNode): Iterable<[LHS, RHS]> {
             const callRets: Array<[FunctionCall, number]> = (
                 actuals.vReferencedDeclaration as FunctionDefinition
             ).vReturnParameters.vParameters.map<[FunctionCall, number]>((decl, i) => [actuals, i]);
+
             return zip(formals, callRets);
         }
 
-        throw new Error(`Unexpected rhs ${pp(actuals)} for lhs ${pp(formals)}`);
+        assert(false, "Unexpected rhs {0} for lhs {1}", actuals, formals);
     };
 
     for (const candidate of node.getChildrenBySelector(
@@ -202,6 +208,7 @@ export function* getAssignments(node: ASTNode): Iterable<[LHS, RHS]> {
             }
 
             const rhs = candidate.vInitialValue;
+
             yield* getAssignmentComponents(candidate, rhs);
         } else if (candidate instanceof FunctionCall || candidate instanceof ModifierInvocation) {
             // Account for implicit assignments to callee formal parameters.
@@ -213,6 +220,7 @@ export function* getAssignments(node: ASTNode): Iterable<[LHS, RHS]> {
             ) {
                 const structDecl = (candidate.vExpression as UserDefinedTypeName)
                     .vReferencedDeclaration as StructDefinition;
+
                 const fieldNames =
                     candidate.fieldNames !== undefined
                         ? candidate.fieldNames
@@ -220,7 +228,10 @@ export function* getAssignments(node: ASTNode): Iterable<[LHS, RHS]> {
                               .filter((decl) => !(decl.vType instanceof Mapping))
                               .map((decl) => decl.name);
 
-                assert(fieldNames.length === candidate.vArguments.length, ``);
+                assert(
+                    fieldNames.length === candidate.vArguments.length,
+                    "Expected struct field names to correspond to call arguments"
+                );
 
                 for (let i = 0; i < fieldNames.length; i++) {
                     yield [[candidate, fieldNames[i]], candidate.vArguments[i]];
@@ -241,7 +252,7 @@ export function* getAssignments(node: ASTNode): Iterable<[LHS, RHS]> {
                     ? candidate.vReferencedDeclaration
                     : candidate.vModifier;
 
-            assert(decl !== undefined, `Should have a decl since we skip builtins`);
+            assert(decl !== undefined, "Should have a decl since builtins are skipped");
 
             // Compute formal VariableDeclarations
             let formals: VariableDeclaration[];
@@ -265,7 +276,8 @@ export function* getAssignments(node: ASTNode): Iterable<[LHS, RHS]> {
                 } else {
                     assert(
                         decl.vType instanceof FunctionTypeName,
-                        "Unexpected callee variable without function type"
+                        "Unexpected callee variable without function type",
+                        decl.vType
                     );
 
                     // The result in this case is not also quite correct. From a dataflow perspective
@@ -295,7 +307,8 @@ export function* getAssignments(node: ASTNode): Iterable<[LHS, RHS]> {
             ) {
                 assert(
                     candidate.vExpression instanceof MemberAccess,
-                    `Unexpected callee in library call ${pp(candidate)}`
+                    "Unexpected callee in library call",
+                    candidate
                 );
 
                 actuals.unshift(candidate.vExpression.vExpression);
@@ -325,7 +338,8 @@ export function* getAssignments(node: ASTNode): Iterable<[LHS, RHS]> {
 
             assert(
                 contract instanceof ContractDefinition,
-                `Unexpected base in inheritance specifier: ${pp(contract)}`
+                "Unexpected base in inheritance specifier",
+                contract
             );
 
             const formals = contract.vConstructor
@@ -340,7 +354,7 @@ export function* getAssignments(node: ASTNode): Iterable<[LHS, RHS]> {
 
             yield* helper(formals, candidate.vArguments);
         } else {
-            throw new Error(`NYI assignment candidate ${pp(candidate)}`);
+            assert(false, "NYI assignment candidate", candidate);
         }
     }
 }
@@ -420,7 +434,7 @@ export function findAliasedStateVars(units: SourceUnit[]): Map<VariableDeclarati
             return gatherRHSVars(rhs.vOriginalComponents[0] as Expression);
         }
 
-        throw new Error(`Unexpected RHS element ${print(rhs)} in assignment to state var pointer`);
+        assert(false, "Unexpected RHS element {0} in assignment to state var pointer", rhs);
     };
 
     for (const [lhs, rhs] of assignments) {
@@ -447,7 +461,7 @@ export function findAliasedStateVars(units: SourceUnit[]): Map<VariableDeclarati
         }
 
         // Dont support old-style `var`s (<0.5.0)
-        assert(lhsDecl.vType !== undefined, `Missing type for declaration ${pp(lhsDecl)}`);
+        assert(lhsDecl.vType !== undefined, "Missing type for declaration", lhsDecl);
 
         // Check that the LHS is a pointer to storage
         if (!(isTypeAliasable(lhsDecl.vType) && lhsDecl.storageLocation === DataLocation.Storage)) {
@@ -464,6 +478,7 @@ export function findAliasedStateVars(units: SourceUnit[]): Map<VariableDeclarati
 
         for (const decl of varDecls) {
             const lhsNode = lhs instanceof Array ? lhs[0] : lhs;
+
             res.set(decl, lhsNode);
         }
     }
@@ -534,19 +549,25 @@ export function decomposeLHS(
             )
         ) {
             path.unshift(e.memberName);
+
             e = e.vExpression;
+
             continue;
         }
 
         if (e instanceof IndexAccess) {
-            assert(e.vIndexExpression !== undefined, ``);
+            assert(e.vIndexExpression !== undefined, "Expected index expression to be defined", e);
+
             path.unshift(e.vIndexExpression);
+
             e = e.vBaseExpression;
+
             continue;
         }
 
         if (e instanceof TupleExpression && e.vOriginalComponents.length === 1) {
             e = e.vOriginalComponents[0] as Expression;
+
             continue;
         }
 
@@ -557,33 +578,32 @@ export function decomposeLHS(
             e.vReferencedDeclaration.vScope instanceof ContractDefinition &&
             e.vReferencedDeclaration.vScope.kind === ContractKind.Library
         ) {
-            assert(e.vArguments.length === 2, `Unexpected args for get_lhs: ${pp(e.vArguments)}`);
+            assert(e.vArguments.length === 2, "Unexpected args for get_lhs: {0}", e.vArguments);
 
             path.unshift(e.vArguments[1]);
+
             e = e.vArguments[0];
+
             continue;
         }
 
         break;
     }
 
-    if (e instanceof FunctionCall && e.vFunctionName === "push") {
-        throw new Error(
-            `Scribble doesn't support instrumenting assignments where the LHS is a push(). Problematic LHS: ${print(
-                originalExp
-            )}`
-        );
-    }
+    assert(
+        !(e instanceof FunctionCall && e.vFunctionName === "push"),
+        "Scribble doesn't support instrumenting assignments where the LHS is a push(). Problematic LHS: {0}",
+        originalExp
+    );
 
-    if (e instanceof Assignment) {
-        throw new Error(
-            `Scribble doesn't support instrumenting assignments where the LHS is an assignment itself. Problematic LHS: ${print(
-                originalExp
-            )}`
-        );
-    }
+    assert(
+        !(e instanceof Assignment),
+        "Scribble doesn't support instrumenting assignments where the LHS is an assignment itself. Problematic LHS: {0}",
+        originalExp
+    );
 
-    assert(e instanceof Identifier || e instanceof MemberAccess, `Unexpcted LHS ${e.print()}`);
+    assert(e instanceof Identifier || e instanceof MemberAccess, "Unexpected LHS", e);
+
     return [e, path];
 }
 
@@ -664,16 +684,22 @@ export function findStateVarUpdates(
 
         while (lhs.parent instanceof TupleExpression) {
             const idx = lhs.parent.vOriginalComponents.indexOf(lhs);
-            assert(idx !== -1, ``);
+
+            assert(
+                idx !== -1,
+                "Unable to detect LHS index in tuple expression components",
+                lhs,
+                lhs.parent
+            );
+
             idxPath.unshift(idx);
+
             lhs = lhs.parent;
         }
 
         const assignment = lhs.parent as ASTNode;
-        assert(
-            assignment instanceof Assignment,
-            `Unexpected state var LHS in ${assignment.constructor.name}#${lhs.id} - expected assignment`
-        );
+
+        assert(assignment instanceof Assignment, "Expected assignment, got {0}", assignment);
 
         return [assignment, idxPath];
     };
@@ -693,8 +719,7 @@ export function findStateVarUpdates(
             return;
         }
 
-        const stateVarDecl: VariableDeclaration =
-            baseExp.vReferencedDeclaration as VariableDeclaration;
+        const stateVarDecl = baseExp.vReferencedDeclaration as VariableDeclaration;
 
         res.push([node, stateVarDecl, path, rhs]);
     };
@@ -710,7 +735,7 @@ export function findStateVarUpdates(
             if (isAssignmentCustomMapSet(ctx, lhs)) {
                 assert(
                     rhs instanceof Expression,
-                    `Cannot have a tuple as second argument to library.set()`
+                    "Cannot have a tuple as second argument to library.set()"
                 );
 
                 const funCall = rhs.parent;
@@ -720,7 +745,8 @@ export function findStateVarUpdates(
                         funCall.vFunctionName === "set" &&
                         funCall.vArguments.length === 3 &&
                         rhs === funCall.vArguments[0],
-                    `RHS parent must be a call to library.set() not ${pp(funCall)}`
+                    "RHS parent must be a call to library.set() not {0}",
+                    funCall
                 );
 
                 const [baseExp, path] = decomposeLHS(funCall.vArguments[0]);
@@ -732,10 +758,10 @@ export function findStateVarUpdates(
 
                 path.push(funCall.vArguments[1]);
 
-                const stateVarDecl: VariableDeclaration =
-                    baseExp.vReferencedDeclaration as VariableDeclaration;
+                const stateVarDecl = baseExp.vReferencedDeclaration as VariableDeclaration;
 
                 res.push([funCall, stateVarDecl, path, funCall.vArguments[2]]);
+
                 continue;
             }
 
@@ -749,8 +775,10 @@ export function findStateVarUpdates(
                     rhs instanceof Expression,
                     `RHS cannot be a tuple/function with multiple returns.`
                 );
+
                 // State variable inline initializer
                 res.push([lhs, lhs, [], rhs]);
+
                 continue;
             }
 
@@ -758,29 +786,26 @@ export function findStateVarUpdates(
         }
 
         // Find all state var updates due to .push() and pop() calls
-        for (const candidate of unit.getChildrenBySelector(
+        for (const candidate of unit.getChildrenBySelector<FunctionCall>(
             (node) =>
                 node instanceof FunctionCall &&
                 node.vFunctionCallType === ExternalReferenceType.Builtin &&
                 (node.vFunctionName === "push" || node.vFunctionName === "pop")
         )) {
-            const funCall = candidate as FunctionCall;
-
             addStateVarUpdateLocDesc(
-                funCall,
-                (funCall.vExpression as MemberAccess).vExpression,
+                candidate,
+                (candidate.vExpression as MemberAccess).vExpression,
                 undefined
             );
         }
 
         // Find all state var updates due to unary operations (delete, ++, --)
-        for (const candidate of unit.getChildrenBySelector(
+        for (const candidate of unit.getChildrenBySelector<UnaryOperation>(
             (node) =>
                 node instanceof UnaryOperation &&
                 (node.operator === "delete" || node.operator === "++" || node.operator === "--")
         )) {
-            const unop = candidate as UnaryOperation;
-            addStateVarUpdateLocDesc(unop, unop.vSubExpression, undefined);
+            addStateVarUpdateLocDesc(candidate, candidate.vSubExpression, undefined);
         }
     }
 

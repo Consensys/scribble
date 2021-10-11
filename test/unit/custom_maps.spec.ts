@@ -12,6 +12,7 @@ import {
     forAll,
     IntType,
     PointerType,
+    pp,
     PrettyFormatter,
     SourceUnit,
     StringType,
@@ -22,7 +23,7 @@ import {
 } from "solc-typed-ast";
 import { generateUtilsContract, interposeMap, ScribbleFactory } from "../../src";
 import { InstrumentationContext } from "../../src/instrumenter/instrumentation_context";
-import { pp, single } from "../../src/util";
+import { single } from "../../src/util";
 import { toAst } from "../integration/utils";
 import { Config, executeTestSuiteInternal } from "../integration/vm";
 import { makeInstrumentationCtx } from "./utils";

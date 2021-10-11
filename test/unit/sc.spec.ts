@@ -1,10 +1,8 @@
-import { parseAnnotation, parseExpression as parse } from "../../src/spec-lang/expr_parser";
 import expect from "expect";
-import { eq } from "../../src/util/struct_equality";
-import { SProperty, AnnotationType } from "../../src/spec-lang/ast";
 import {
     BoolType,
     ContractDefinition,
+    eq,
     FunctionDefinition,
     IntLiteralType,
     IntType,
@@ -12,11 +10,19 @@ import {
     StringLiteralType,
     TypeNode
 } from "solc-typed-ast";
-import { getTarget, LocationDesc, toAst } from "../integration/utils";
-import { tc, SemInfo, SemError, TypeEnv, tcAnnotation, scAnnotation } from "../../src/spec-lang/tc";
-import { sc } from "../../src/spec-lang/tc";
 import { Logger } from "../../src/logger";
-import { getTypeCtxAndTarget } from "../integration/utils";
+import { AnnotationType, SProperty } from "../../src/spec-lang/ast";
+import { parseAnnotation, parseExpression as parse } from "../../src/spec-lang/expr_parser";
+import {
+    sc,
+    scAnnotation,
+    SemError,
+    SemInfo,
+    tc,
+    tcAnnotation,
+    TypeEnv
+} from "../../src/spec-lang/tc";
+import { getTarget, getTypeCtxAndTarget, LocationDesc, toAst } from "../integration/utils";
 
 describe("SemanticChecker Expression Unit Tests", () => {
     const goodSamples: Array<[string, string, Array<[string, LocationDesc, TypeNode, SemInfo]>]> = [

@@ -1,18 +1,17 @@
 import expect from "expect";
-import { pp, single } from "../../src/util";
-import { toAst } from "../integration/utils";
+import { ASTNode, Expression, pp } from "solc-typed-ast";
 import {
     findAliasedStateVars,
+    findStateVarUpdates,
     getAssignments,
     LHS,
     RHS,
-    findStateVarUpdates,
-    StateVarUpdateDesc,
-    ScribbleFactory
+    ScribbleFactory,
+    StateVarUpdateDesc
 } from "../../src/instrumenter";
 import { Logger } from "../../src/logger";
-import { ASTNode, Expression } from "solc-typed-ast";
-import { print as printNode } from "../../src/util";
+import { print as printNode, single } from "../../src/util";
+import { toAst } from "../integration/utils";
 import { makeInstrumentationCtx } from "./utils";
 
 export type LocationDesc = [string, string];

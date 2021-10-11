@@ -1,6 +1,5 @@
-import bigInt from "big-integer";
 import expect from "expect";
-import { ASTNode, BoolType, IntType } from "solc-typed-ast";
+import { ASTNode, BoolType, eq, IntType } from "solc-typed-ast";
 import { Logger } from "../../src/logger";
 import {
     AnnotationType,
@@ -24,51 +23,50 @@ import {
     SUserFunctionDefinition
 } from "../../src/spec-lang/ast";
 import { parseAnnotation, parseExpression as parseExpr } from "../../src/spec-lang/expr_parser";
-import { eq } from "../../src/util/struct_equality";
 
 describe("Expression Parser Unit Tests", () => {
     const goodSamples: Array<[string, SNode]> = [
         // Literals
         ["abcd", new SId("abcd")],
-        ["1234", new SNumber(bigInt(1234), 10)],
-        ["10 wei", new SNumber(bigInt(10), 10)],
-        ["10 gwei", new SNumber(bigInt(1e10), 10)],
+        ["1234", new SNumber(BigInt(1234), 10)],
+        ["10 wei", new SNumber(BigInt(10), 10)],
+        ["10 gwei", new SNumber(BigInt(1e10), 10)],
 
-        ["1 ether", new SNumber(bigInt(1e18), 10)],
-        ["100 seconds", new SNumber(bigInt(100), 10)],
-        ["100 \n\n\n minutes", new SNumber(bigInt(6000), 10)],
-        ["100 hours", new SNumber(bigInt(360000), 10)],
-        ["100 days", new SNumber(bigInt(8640000), 10)],
-        ["100 weeks", new SNumber(bigInt(60480000), 10)],
+        ["1 ether", new SNumber(BigInt(1e18), 10)],
+        ["100 seconds", new SNumber(BigInt(100), 10)],
+        ["100 \n\n\n minutes", new SNumber(BigInt(6000), 10)],
+        ["100 hours", new SNumber(BigInt(360000), 10)],
+        ["100 days", new SNumber(BigInt(8640000), 10)],
+        ["100 weeks", new SNumber(BigInt(60480000), 10)],
         ["true", new SBooleanLiteral(true)],
         ["false", new SBooleanLiteral(false)],
         // ops
-        ["-1", new SUnaryOperation("-", new SNumber(bigInt(1), 10))],
+        ["-1", new SUnaryOperation("-", new SNumber(BigInt(1), 10))],
         ["--a", new SUnaryOperation("-", new SUnaryOperation("-", new SId("a")))],
         ["!-a", new SUnaryOperation("!", new SUnaryOperation("-", new SId("a")))],
         // Binary ops
         // Power
         [
             "43**0x9",
-            new SBinaryOperation(new SNumber(bigInt(43), 10), "**", new SNumber(bigInt(9), 16))
+            new SBinaryOperation(new SNumber(BigInt(43), 10), "**", new SNumber(BigInt(9), 16))
         ],
         [
             "2**2**3",
             new SBinaryOperation(
-                new SBinaryOperation(new SNumber(bigInt(2), 10), "**", new SNumber(bigInt(2), 10)),
+                new SBinaryOperation(new SNumber(BigInt(2), 10), "**", new SNumber(BigInt(2), 10)),
                 "**",
-                new SNumber(bigInt(3), 10)
+                new SNumber(BigInt(3), 10)
             )
         ],
         // Multiplicative
         [
             "43*0x9",
-            new SBinaryOperation(new SNumber(bigInt(43), 10), "*", new SNumber(bigInt(9), 16))
+            new SBinaryOperation(new SNumber(BigInt(43), 10), "*", new SNumber(BigInt(9), 16))
         ],
         [
             "43*0x9*a",
             new SBinaryOperation(
-                new SBinaryOperation(new SNumber(bigInt(43), 10), "*", new SNumber(bigInt(9), 16)),
+                new SBinaryOperation(new SNumber(BigInt(43), 10), "*", new SNumber(BigInt(9), 16)),
                 "*",
                 new SId("a")
             )
@@ -76,7 +74,7 @@ describe("Expression Parser Unit Tests", () => {
         [
             "43*0x9/a",
             new SBinaryOperation(
-                new SBinaryOperation(new SNumber(bigInt(43), 10), "*", new SNumber(bigInt(9), 16)),
+                new SBinaryOperation(new SNumber(BigInt(43), 10), "*", new SNumber(BigInt(9), 16)),
                 "/",
                 new SId("a")
             )
@@ -84,7 +82,7 @@ describe("Expression Parser Unit Tests", () => {
         [
             "43%0x9/a",
             new SBinaryOperation(
-                new SBinaryOperation(new SNumber(bigInt(43), 10), "%", new SNumber(bigInt(9), 16)),
+                new SBinaryOperation(new SNumber(BigInt(43), 10), "%", new SNumber(BigInt(9), 16)),
                 "/",
                 new SId("a")
             )
@@ -93,38 +91,38 @@ describe("Expression Parser Unit Tests", () => {
         [
             "13%7/2",
             new SBinaryOperation(
-                new SBinaryOperation(new SNumber(bigInt(13), 10), "%", new SNumber(bigInt(7), 10)),
+                new SBinaryOperation(new SNumber(BigInt(13), 10), "%", new SNumber(BigInt(7), 10)),
                 "/",
-                new SNumber(bigInt(2), 10)
+                new SNumber(BigInt(2), 10)
             )
         ],
         // Additive
         [
             "43+0x9",
-            new SBinaryOperation(new SNumber(bigInt(43), 10), "+", new SNumber(bigInt(9), 16))
+            new SBinaryOperation(new SNumber(BigInt(43), 10), "+", new SNumber(BigInt(9), 16))
         ],
         [
             "43-5",
-            new SBinaryOperation(new SNumber(bigInt(43), 10), "-", new SNumber(bigInt(5), 10))
+            new SBinaryOperation(new SNumber(BigInt(43), 10), "-", new SNumber(BigInt(5), 10))
         ],
         [
             "43-5*6",
             new SBinaryOperation(
-                new SNumber(bigInt(43), 10),
+                new SNumber(BigInt(43), 10),
                 "-",
-                new SBinaryOperation(new SNumber(bigInt(5), 10), "*", new SNumber(bigInt(6), 10))
+                new SBinaryOperation(new SNumber(BigInt(5), 10), "*", new SNumber(BigInt(6), 10))
             )
         ],
         //assert(43-5*-6==73);
         [
             "43-5*-6",
             new SBinaryOperation(
-                new SNumber(bigInt(43), 10),
+                new SNumber(BigInt(43), 10),
                 "-",
                 new SBinaryOperation(
-                    new SNumber(bigInt(5), 10),
+                    new SNumber(BigInt(5), 10),
                     "*",
-                    new SUnaryOperation("-", new SNumber(bigInt(6), 10))
+                    new SUnaryOperation("-", new SNumber(BigInt(6), 10))
                 )
             )
         ],
@@ -132,28 +130,28 @@ describe("Expression Parser Unit Tests", () => {
         [
             "43-5+6",
             new SBinaryOperation(
-                new SBinaryOperation(new SNumber(bigInt(43), 10), "-", new SNumber(bigInt(5), 10)),
+                new SBinaryOperation(new SNumber(BigInt(43), 10), "-", new SNumber(BigInt(5), 10)),
                 "+",
-                new SNumber(bigInt(6), 10)
+                new SNumber(BigInt(6), 10)
             )
         ],
         // Bitwise
         //assert(256 >> 4 == 16);
         [
             "256>>4",
-            new SBinaryOperation(new SNumber(bigInt(256), 10), ">>", new SNumber(bigInt(4), 10))
+            new SBinaryOperation(new SNumber(BigInt(256), 10), ">>", new SNumber(BigInt(4), 10))
         ],
         //assert(256 >> 4 >> 1 == 8);
         [
             "256>>4>>1",
             new SBinaryOperation(
                 new SBinaryOperation(
-                    new SNumber(bigInt(256), 10),
+                    new SNumber(BigInt(256), 10),
                     ">>",
-                    new SNumber(bigInt(4), 10)
+                    new SNumber(BigInt(4), 10)
                 ),
                 ">>",
-                new SNumber(bigInt(1), 10)
+                new SNumber(BigInt(1), 10)
             )
         ],
         // assert(256 << 4 << 1 == 2 ** 13);
@@ -161,12 +159,12 @@ describe("Expression Parser Unit Tests", () => {
             "256<<4<<1",
             new SBinaryOperation(
                 new SBinaryOperation(
-                    new SNumber(bigInt(256), 10),
+                    new SNumber(BigInt(256), 10),
                     "<<",
-                    new SNumber(bigInt(4), 10)
+                    new SNumber(BigInt(4), 10)
                 ),
                 "<<",
-                new SNumber(bigInt(1), 10)
+                new SNumber(BigInt(1), 10)
             )
         ],
         // assert(3+4 << 1 == 14);
@@ -174,9 +172,9 @@ describe("Expression Parser Unit Tests", () => {
         [
             "3+4<<1",
             new SBinaryOperation(
-                new SBinaryOperation(new SNumber(bigInt(3), 10), "+", new SNumber(bigInt(4), 10)),
+                new SBinaryOperation(new SNumber(BigInt(3), 10), "+", new SNumber(BigInt(4), 10)),
                 "<<",
-                new SNumber(bigInt(1), 10)
+                new SNumber(BigInt(1), 10)
             )
         ],
         // assert(3+2*2 << 1 == 14);
@@ -184,76 +182,76 @@ describe("Expression Parser Unit Tests", () => {
             "3+2*2<<1",
             new SBinaryOperation(
                 new SBinaryOperation(
-                    new SNumber(bigInt(3), 10),
+                    new SNumber(BigInt(3), 10),
                     "+",
                     new SBinaryOperation(
-                        new SNumber(bigInt(2), 10),
+                        new SNumber(BigInt(2), 10),
                         "*",
-                        new SNumber(bigInt(2), 10)
+                        new SNumber(BigInt(2), 10)
                     )
                 ),
                 "<<",
-                new SNumber(bigInt(1), 10)
+                new SNumber(BigInt(1), 10)
             )
         ],
         // assert(3*3 << 1 == 18);
         [
             "3*3<<1",
             new SBinaryOperation(
-                new SBinaryOperation(new SNumber(bigInt(3), 10), "*", new SNumber(bigInt(3), 10)),
+                new SBinaryOperation(new SNumber(BigInt(3), 10), "*", new SNumber(BigInt(3), 10)),
                 "<<",
-                new SNumber(bigInt(1), 10)
+                new SNumber(BigInt(1), 10)
             )
         ],
         // relational operators
-        ["4>0", new SBinaryOperation(new SNumber(bigInt(4), 10), ">", new SNumber(bigInt(0), 10))],
+        ["4>0", new SBinaryOperation(new SNumber(BigInt(4), 10), ">", new SNumber(BigInt(0), 10))],
         [
             "4+4<=8",
             new SBinaryOperation(
-                new SBinaryOperation(new SNumber(bigInt(4), 10), "+", new SNumber(bigInt(4), 10)),
+                new SBinaryOperation(new SNumber(BigInt(4), 10), "+", new SNumber(BigInt(4), 10)),
                 "<=",
-                new SNumber(bigInt(8), 10)
+                new SNumber(BigInt(8), 10)
             )
         ],
         [
             "-1*5>=-6",
             new SBinaryOperation(
                 new SBinaryOperation(
-                    new SUnaryOperation("-", new SNumber(bigInt(1), 10)),
+                    new SUnaryOperation("-", new SNumber(BigInt(1), 10)),
                     "*",
-                    new SNumber(bigInt(5), 10)
+                    new SNumber(BigInt(5), 10)
                 ),
                 ">=",
-                new SUnaryOperation("-", new SNumber(bigInt(6), 10))
+                new SUnaryOperation("-", new SNumber(BigInt(6), 10))
             )
         ],
         [
             "3<<2>=6",
             new SBinaryOperation(
-                new SBinaryOperation(new SNumber(bigInt(3), 10), "<<", new SNumber(bigInt(2), 10)),
+                new SBinaryOperation(new SNumber(BigInt(3), 10), "<<", new SNumber(BigInt(2), 10)),
                 ">=",
-                new SNumber(bigInt(6), 10)
+                new SNumber(BigInt(6), 10)
             )
         ],
         // Equality operators
         [
             "4 == 4",
-            new SBinaryOperation(new SNumber(bigInt(4), 10), "==", new SNumber(bigInt(4), 10))
+            new SBinaryOperation(new SNumber(BigInt(4), 10), "==", new SNumber(BigInt(4), 10))
         ],
         [
             "3+1 == 2+2",
             new SBinaryOperation(
-                new SBinaryOperation(new SNumber(bigInt(3), 10), "+", new SNumber(bigInt(1), 10)),
+                new SBinaryOperation(new SNumber(BigInt(3), 10), "+", new SNumber(BigInt(1), 10)),
                 "==",
-                new SBinaryOperation(new SNumber(bigInt(2), 10), "+", new SNumber(bigInt(2), 10))
+                new SBinaryOperation(new SNumber(BigInt(2), 10), "+", new SNumber(BigInt(2), 10))
             )
         ],
         [
             "3>1 == 2>=2",
             new SBinaryOperation(
-                new SBinaryOperation(new SNumber(bigInt(3), 10), ">", new SNumber(bigInt(1), 10)),
+                new SBinaryOperation(new SNumber(BigInt(3), 10), ">", new SNumber(BigInt(1), 10)),
                 "==",
-                new SBinaryOperation(new SNumber(bigInt(2), 10), ">=", new SNumber(bigInt(2), 10))
+                new SBinaryOperation(new SNumber(BigInt(2), 10), ">=", new SNumber(BigInt(2), 10))
             )
         ],
         [
@@ -267,38 +265,38 @@ describe("Expression Parser Unit Tests", () => {
         // Bitwise binary operators
         [
             "3 & 4",
-            new SBinaryOperation(new SNumber(bigInt(3), 10), "&", new SNumber(bigInt(4), 10))
+            new SBinaryOperation(new SNumber(BigInt(3), 10), "&", new SNumber(BigInt(4), 10))
         ],
         [
             "3 | 4",
-            new SBinaryOperation(new SNumber(bigInt(3), 10), "|", new SNumber(bigInt(4), 10))
+            new SBinaryOperation(new SNumber(BigInt(3), 10), "|", new SNumber(BigInt(4), 10))
         ],
         [
             "3 ^ 4",
-            new SBinaryOperation(new SNumber(bigInt(3), 10), "^", new SNumber(bigInt(4), 10))
+            new SBinaryOperation(new SNumber(BigInt(3), 10), "^", new SNumber(BigInt(4), 10))
         ],
         [
             "3 + 4 ^ 4",
             new SBinaryOperation(
-                new SBinaryOperation(new SNumber(bigInt(3), 10), "+", new SNumber(bigInt(4), 10)),
+                new SBinaryOperation(new SNumber(BigInt(3), 10), "+", new SNumber(BigInt(4), 10)),
                 "^",
-                new SNumber(bigInt(4), 10)
+                new SNumber(BigInt(4), 10)
             )
         ],
         [
             "3 ^ 4 & 4",
             new SBinaryOperation(
-                new SNumber(bigInt(3), 10),
+                new SNumber(BigInt(3), 10),
                 "^",
-                new SBinaryOperation(new SNumber(bigInt(4), 10), "&", new SNumber(bigInt(4), 10))
+                new SBinaryOperation(new SNumber(BigInt(4), 10), "&", new SNumber(BigInt(4), 10))
             )
         ],
         [
             "3 | 4 ^ 4",
             new SBinaryOperation(
-                new SNumber(bigInt(3), 10),
+                new SNumber(BigInt(3), 10),
                 "|",
-                new SBinaryOperation(new SNumber(bigInt(4), 10), "^", new SNumber(bigInt(4), 10))
+                new SBinaryOperation(new SNumber(BigInt(4), 10), "^", new SNumber(BigInt(4), 10))
             )
         ],
         [
@@ -312,16 +310,16 @@ describe("Expression Parser Unit Tests", () => {
         [
             "3<4 && 3^4 > 3",
             new SBinaryOperation(
-                new SBinaryOperation(new SNumber(bigInt(3), 10), "<", new SNumber(bigInt(4), 10)),
+                new SBinaryOperation(new SNumber(BigInt(3), 10), "<", new SNumber(BigInt(4), 10)),
                 "&&",
                 new SBinaryOperation(
                     new SBinaryOperation(
-                        new SNumber(bigInt(3), 10),
+                        new SNumber(BigInt(3), 10),
                         "^",
-                        new SNumber(bigInt(4), 10)
+                        new SNumber(BigInt(4), 10)
                     ),
                     ">",
-                    new SNumber(bigInt(3), 10)
+                    new SNumber(BigInt(3), 10)
                 )
             )
         ],
@@ -334,12 +332,12 @@ describe("Expression Parser Unit Tests", () => {
             new SBinaryOperation(
                 new SBinaryOperation(
                     new SBinaryOperation(
-                        new SNumber(bigInt(3), 10),
+                        new SNumber(BigInt(3), 10),
                         "+",
-                        new SNumber(bigInt(4), 10)
+                        new SNumber(BigInt(4), 10)
                     ),
                     ">",
-                    new SNumber(bigInt(1), 10)
+                    new SNumber(BigInt(1), 10)
                 ),
                 "==>",
                 new SBooleanLiteral(true)
@@ -351,21 +349,21 @@ describe("Expression Parser Unit Tests", () => {
             new SBinaryOperation(
                 new SBinaryOperation(
                     new SBinaryOperation(
-                        new SNumber(bigInt(3), 10),
+                        new SNumber(BigInt(3), 10),
                         "+",
-                        new SNumber(bigInt(4), 10)
+                        new SNumber(BigInt(4), 10)
                     ),
                     ">",
-                    new SNumber(bigInt(1), 10)
+                    new SNumber(BigInt(1), 10)
                 ),
                 "==>",
                 new SBinaryOperation(
                     new SBooleanLiteral(true),
                     "==>",
                     new SBinaryOperation(
-                        new SNumber(bigInt(1), 10),
+                        new SNumber(BigInt(1), 10),
                         "==",
-                        new SNumber(bigInt(1), 10)
+                        new SNumber(BigInt(1), 10)
                     )
                 )
             )
@@ -376,7 +374,7 @@ describe("Expression Parser Unit Tests", () => {
         [
             "1<a.b.c",
             new SBinaryOperation(
-                new SNumber(bigInt(1), 10),
+                new SNumber(BigInt(1), 10),
                 "<",
                 new SMemberAccess(new SMemberAccess(new SId("a"), "b"), "c")
             )
@@ -414,31 +412,31 @@ describe("Expression Parser Unit Tests", () => {
         ],
         // Function calls
         ["a()", new SFunctionCall(new SId("a"), [])],
-        ["a(1)", new SFunctionCall(new SId("a"), [new SNumber(bigInt(1), 10)])],
+        ["a(1)", new SFunctionCall(new SId("a"), [new SNumber(BigInt(1), 10)])],
         [
             "a(1, 0x2+c)",
             new SFunctionCall(new SId("a"), [
-                new SNumber(bigInt(1), 10),
-                new SBinaryOperation(new SNumber(bigInt(2), 16), "+", new SId("c"))
+                new SNumber(BigInt(1), 10),
+                new SBinaryOperation(new SNumber(BigInt(2), 16), "+", new SId("c"))
             ])
         ],
         [
             "a(1, 0x2+c, x.f)",
             new SFunctionCall(new SId("a"), [
-                new SNumber(bigInt(1), 10),
-                new SBinaryOperation(new SNumber(bigInt(2), 16), "+", new SId("c")),
+                new SNumber(BigInt(1), 10),
+                new SBinaryOperation(new SNumber(BigInt(2), 16), "+", new SId("c")),
                 new SMemberAccess(new SId("x"), "f")
             ])
         ],
         [
             "a.f(1)",
-            new SFunctionCall(new SMemberAccess(new SId("a"), "f"), [new SNumber(bigInt(1), 10)])
+            new SFunctionCall(new SMemberAccess(new SId("a"), "f"), [new SNumber(BigInt(1), 10)])
         ],
         [
             "a.f[b](1)",
             new SFunctionCall(
                 new SIndexAccess(new SMemberAccess(new SId("a"), "f"), new SId("b")),
-                [new SNumber(bigInt(1), 10)]
+                [new SNumber(BigInt(1), 10)]
             )
         ],
         [
@@ -448,7 +446,7 @@ describe("Expression Parser Unit Tests", () => {
                     new SMemberAccess(new SFunctionCall(new SId("a"), []), "f"),
                     new SId("b")
                 ),
-                [new SNumber(bigInt(1), 10)]
+                [new SNumber(BigInt(1), 10)]
             )
         ],
         // Old expression (looks like a function call but is treated as a unary operation)
@@ -466,7 +464,7 @@ describe("Expression Parser Unit Tests", () => {
             "a?b+1:c-d",
             new SConditional(
                 new SId("a"),
-                new SBinaryOperation(new SId("b"), "+", new SNumber(bigInt(1), 10)),
+                new SBinaryOperation(new SId("b"), "+", new SNumber(BigInt(1), 10)),
                 new SBinaryOperation(new SId("c"), "-", new SId("d"))
             )
         ],
@@ -482,8 +480,8 @@ describe("Expression Parser Unit Tests", () => {
             "false || true ? 1 : 2",
             new SConditional(
                 new SBinaryOperation(new SBooleanLiteral(false), "||", new SBooleanLiteral(true)),
-                new SNumber(bigInt(1), 10),
-                new SNumber(bigInt(2), 10)
+                new SNumber(BigInt(1), 10),
+                new SNumber(BigInt(2), 10)
             )
         ],
         [
@@ -509,7 +507,7 @@ describe("Expression Parser Unit Tests", () => {
             )
         ],
         // Let expressions
-        ["let a := 1 in a", new SLet([new SId("a")], new SNumber(bigInt(1), 10), new SId("a"))],
+        ["let a := 1 in a", new SLet([new SId("a")], new SNumber(BigInt(1), 10), new SId("a"))],
         [
             "let a := b+c in a",
             new SLet(
@@ -532,7 +530,7 @@ describe("Expression Parser Unit Tests", () => {
                 [new SId("a")],
                 new SLet(
                     [new SId("b")],
-                    new SNumber(bigInt(1), 10),
+                    new SNumber(BigInt(1), 10),
                     new SBinaryOperation(new SId("b"), "+", new SId("b"))
                 ),
                 new SBinaryOperation(new SId("a"), "*", new SId("a"))
@@ -544,13 +542,13 @@ describe("Expression Parser Unit Tests", () => {
                 [new SId("a")],
                 new SLet(
                     [new SId("b")],
-                    new SNumber(bigInt(1), 10),
+                    new SNumber(BigInt(1), 10),
                     new SBinaryOperation(new SId("b"), "+", new SId("b"))
                 ),
                 new SLet(
                     [new SId("c")],
                     new SBinaryOperation(new SId("a"), "*", new SId("a")),
-                    new SBinaryOperation(new SId("c"), "+", new SNumber(bigInt(1), 10))
+                    new SBinaryOperation(new SId("c"), "+", new SNumber(BigInt(1), 10))
                 )
             )
         ],
@@ -570,7 +568,7 @@ describe("Expression Parser Unit Tests", () => {
                 new SBinaryOperation(
                     new SIndexAccess(new SId("a"), new SId("x")),
                     ">",
-                    new SNumber(bigInt(10), 10)
+                    new SNumber(BigInt(10), 10)
                 ),
                 undefined,
                 undefined,
@@ -585,10 +583,10 @@ describe("Expression Parser Unit Tests", () => {
                 new SBinaryOperation(
                     new SIndexAccess(new SId("a"), new SId("x")),
                     ">",
-                    new SNumber(bigInt(10), 10)
+                    new SNumber(BigInt(10), 10)
                 ),
-                new SNumber(bigInt(1), 10),
-                new SNumber(bigInt(10), 10)
+                new SNumber(BigInt(1), 10),
+                new SNumber(BigInt(10), 10)
             )
         ],
         ["$result", new SResult()]
@@ -651,7 +649,7 @@ describe("Annotation Parser Unit Tests", () => {
                      ;`,
             new SProperty(
                 AnnotationType.IfSucceeds,
-                new SBinaryOperation(new SNumber(bigInt(1), 10), "-", new SNumber(bigInt(2), 10)),
+                new SBinaryOperation(new SNumber(BigInt(1), 10), "-", new SNumber(BigInt(2), 10)),
                 "hi"
             )
         ],
@@ -664,7 +662,7 @@ describe("Annotation Parser Unit Tests", () => {
                      2
                      ;`,
             new SIfUpdated(
-                new SBinaryOperation(new SNumber(bigInt(1), 10), "-", new SNumber(bigInt(2), 10)),
+                new SBinaryOperation(new SNumber(BigInt(1), 10), "-", new SNumber(BigInt(2), 10)),
                 [],
                 "hi"
             )
@@ -710,7 +708,7 @@ describe("Annotation Parser Unit Tests", () => {
                      ;`,
             new SProperty(
                 AnnotationType.Invariant,
-                new SBinaryOperation(new SNumber(bigInt(1), 10), "-", new SNumber(bigInt(2), 10)),
+                new SBinaryOperation(new SNumber(BigInt(1), 10), "-", new SNumber(BigInt(2), 10)),
                 "hi"
             )
         ],
@@ -802,10 +800,10 @@ describe("Annotation Parser Unit Tests", () => {
                     new SBinaryOperation(
                         new SIndexAccess(new SId("a"), new SId("x")),
                         ">",
-                        new SNumber(bigInt(10), 10)
+                        new SNumber(BigInt(10), 10)
                     ),
-                    new SNumber(bigInt(1), 10),
-                    new SNumber(bigInt(10), 10)
+                    new SNumber(BigInt(1), 10),
+                    new SNumber(BigInt(10), 10)
                 )
             )
         ],
@@ -819,7 +817,7 @@ describe("Annotation Parser Unit Tests", () => {
                     new SBinaryOperation(
                         new SIndexAccess(new SId("a"), new SId("x")),
                         ">",
-                        new SNumber(bigInt(10), 10)
+                        new SNumber(BigInt(10), 10)
                     ),
                     undefined,
                     undefined,
@@ -838,7 +836,7 @@ describe("Annotation Parser Unit Tests", () => {
                     new SBinaryOperation(
                         new SIndexAccess(new SId("a"), new SId("x")),
                         ">",
-                        new SNumber(bigInt(10), 10)
+                        new SNumber(BigInt(10), 10)
                     ),
                     undefined,
                     undefined,

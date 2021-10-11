@@ -1,4 +1,3 @@
-import bigInt from "big-integer";
 import { gte } from "semver";
 import {
     AddressType,
@@ -770,7 +769,7 @@ function transpileForAll(expr: SForAll, ctx: TranspilingContext): Expression {
                 ctx,
                 internalCounter,
                 new IntType(256, false),
-                new SNumber(bigInt(1), 10),
+                new SNumber(BigInt(1), 10),
                 len
             );
 
@@ -797,7 +796,7 @@ function transpileForAll(expr: SForAll, ctx: TranspilingContext): Expression {
                 ctx,
                 iterVarName,
                 expr.iteratorType,
-                new SNumber(bigInt(0), 10),
+                new SNumber(BigInt(0), 10),
                 factory.makeMemberAccess("<missing>", astContainer, "length", -1)
             );
         }

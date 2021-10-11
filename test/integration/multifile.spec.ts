@@ -1,23 +1,24 @@
 import expect from "expect";
 import fse from "fs-extra";
-import { searchRecursive } from "./utils";
-import { scribble } from "./utils";
 import { join } from "path";
+import { assert } from "solc-typed-ast";
 import { contains, InstrumentationMetaData, parseSrcTriple } from "../../src/util";
-import { assert, pp } from "../../src";
+import { scribble, searchRecursive } from "./utils";
 
 function checkSrc(src: string, fileList: string[], fileContents: Map<string, string>): void {
     const [off, len, fileIdx] = parseSrcTriple(src);
 
     assert(
         fileIdx >= 0 && fileIdx < fileList.length,
-        `Invalid file index ${fileIdx} for source list ${fileList}`
+        "Invalid file index {0} for source list {1}",
+        fileIdx,
+        fileList
     );
 
     const fileName = fileList[fileIdx];
     const contents = fileContents.get(fileName) as string;
 
-    assert(contents !== undefined, `File ${fileName} missing from file map ${pp(fileContents)}`);
+    assert(contents !== undefined, "File {0} missing from file map {1}", fileName, fileContents);
 
     assert(
         off >= 0 && off < contents.length && len > 0 && off + len <= contents.length,

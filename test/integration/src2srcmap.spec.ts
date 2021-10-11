@@ -1,5 +1,6 @@
 import expect from "expect";
 import {
+    assert,
     Assignment,
     ASTKind,
     ASTNode,
@@ -23,14 +24,11 @@ import {
     UnaryOperation
 } from "solc-typed-ast";
 import {
-    assert,
     contains,
     forAll,
     forAny,
     InstrumentationMetaData,
     parseSrcTriple,
-    pp,
-    print,
     PropertyMap,
     reNumber,
     single
@@ -47,14 +45,15 @@ function buildSrc2NodeMap(units: SourceUnit[], newSrcList?: string[]): Src2NodeM
         if (newSrcList) {
             newIdx = newSrcList.indexOf(unit.absolutePath);
 
-            assert(newIdx !== -1, `No entry for ${unit.absolutePath} in ${pp(newSrcList)}`);
+            assert(newIdx !== -1, "No entry for {0} in {1}", unit.absolutePath, newSrcList);
         }
 
         unit.walk((node) => {
             const src = newSrcList ? reNumber(node.src, newIdx) : node.src;
+            const set = res.get(src);
 
-            if (res.has(src)) {
-                (res.get(src) as Set<ASTNode>).add(node);
+            if (set) {
+                set.add(node);
             } else {
                 res.set(src, new Set([node]));
             }
@@ -173,13 +172,11 @@ describe("Src2src map test", () => {
                     if (instrNodes === undefined) {
                         assert(
                             false,
-                            `Instrumented range ${instrRange} (instr: "${fragment(
-                                instrRange,
-                                instrContents
-                            )}", original ${originalRange}: "${fragment(
-                                originalRange,
-                                contents
-                            )}") doesn't map to an ast node in instrumented code`
+                            'Instrumented range {0} (instr: "{1}", original {2}: "{3}") doesn\'t map to an ast node in instrumented code',
+                            instrRange,
+                            fragment(instrRange, instrContents),
+                            originalRange,
+                            fragment(originalRange, contents)
                         );
                     }
 
@@ -195,10 +192,9 @@ describe("Src2src map test", () => {
 
                         assert(
                             containingProp !== undefined,
-                            `Missing original node for ${originalRange} ${fragment(
-                                originalRange,
-                                contents
-                            )}`
+                            "Missing original node for {0} {1}",
+                            originalRange,
+                            fragment(originalRange, contents)
                         );
 
                         continue;
@@ -248,7 +244,7 @@ describe("Src2src map test", () => {
                                     } else if (node instanceof UnaryOperation) {
                                         assert(
                                             ["++", "--", "delete"].includes(node.operator),
-                                            `Only ++/--/delete may be interposed for state vars`
+                                            "Only ++/--/delete may be interposed for state vars"
                                         );
                                         for (const child of node.vSubExpression.getChildren(true)) {
                                             coveredOriginalNodes.add(child);
@@ -260,9 +256,8 @@ describe("Src2src map test", () => {
                                     } else {
                                         assert(
                                             false,
-                                            `Unexpected original node ${print(
-                                                node
-                                            )} in state var update site`
+                                            "Unexpected original node {0} in state var update site",
+                                            node
                                         );
                                     }
 
@@ -292,30 +287,33 @@ describe("Src2src map test", () => {
                                 originalNodes.size === 1
                             ) {
                                 const originalNode = single([...originalNodes]);
+
                                 assert(
                                     originalNode instanceof Identifier &&
                                         instrNode.memberName === originalNode.name &&
                                         instrNode.vExpression instanceof Identifier &&
                                         instrNode.vExpression.vReferencedDeclaration instanceof
                                             ContractDefinition,
-                                    `For nodes ${pp(instrNodes)} in ${instrRange} (${fragment(
-                                        instrRange,
-                                        instrContents
-                                    )}), no matching original node from ${pp(
-                                        originalNodes
-                                    )} in ${originalRange} (${fragment(originalRange, contents)})`
+                                    "For nodes {0} in {1} ({2}), no matching original node from {3} in {4} ({5})",
+                                    instrNodes,
+                                    instrRange,
+                                    fragment(instrRange, instrContents),
+                                    originalNodes,
+                                    originalRange,
+                                    fragment(originalRange, contents)
                                 );
 
                                 coveredOriginalNodes.add(originalNode);
                             } else {
                                 assert(
                                     false,
-                                    `For nodes ${pp(instrNodes)} in ${instrRange} (${fragment(
-                                        instrRange,
-                                        instrContents
-                                    )}), no matching original node from ${pp(
-                                        originalNodes
-                                    )} in ${originalRange} (${fragment(originalRange, contents)})`
+                                    "For nodes {0} in {1} ({2}), no matching original node from {3} in {4} ({5})",
+                                    instrNodes,
+                                    instrRange,
+                                    fragment(instrRange, instrContents),
+                                    originalNodes,
+                                    originalRange,
+                                    fragment(originalRange, contents)
                                 );
                             }
                         } else {
@@ -360,10 +358,9 @@ describe("Src2src map test", () => {
                             ) {
                                 assert(
                                     false,
-                                    `Node ${pp(node)} (${fragment(
-                                        node.src,
-                                        contents
-                                    )}) from original not covered by AST map.`
+                                    "Node {0} ({1}) from original not covered by AST map.",
+                                    node,
+                                    fragment(node.src, contents)
                                 );
                             }
                         }
@@ -520,12 +517,10 @@ describe("Src2src map test", () => {
                         if (!propertyChecksHit.has(key)) {
                             assert(
                                 false,
-                                `Instrumented check location ${checkRange} (${fragment(
-                                    checkRange,
-                                    instrContents
-                                )}) for property ${
-                                    prop.id
-                                } is not found anywhere in the bytecode map`
+                                "Instrumented check location {0} ({1}) for property {2} is not found anywhere in the bytecode map",
+                                checkRange,
+                                fragment(checkRange, instrContents),
+                                prop.id
                             );
                         }
                     });
