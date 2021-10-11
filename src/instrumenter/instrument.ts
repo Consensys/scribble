@@ -120,7 +120,7 @@ export function findExternalCalls(
 
             assert(
                 calleeType instanceof FunctionType,
-                `Expected function type not {0} for calee in {1}`,
+                `Expected function type not {0} for callee in {1}`,
                 calleeType,
                 call
             );
@@ -825,7 +825,7 @@ function replaceExternalCallSites(
 
         assert(
             calleeType instanceof FunctionType,
-            "Expected function type not {0} for calee in {1}",
+            "Expected function type not {0} for callee in {1}",
             calleeType,
             callSite
         );

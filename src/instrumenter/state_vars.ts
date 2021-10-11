@@ -34,7 +34,7 @@ import {
     VariableDeclaration,
     VariableDeclarationStatement
 } from "solc-typed-ast";
-import { single, zip } from "../util/misc";
+import { single, zip, print } from "../util/misc";
 import { InstrumentationContext } from "./instrumentation_context";
 
 export type LHS = Expression | VariableDeclaration | [Expression, string];
@@ -172,7 +172,7 @@ export function* getAssignments(node: ASTNode): Iterable<[LHS, RHS]> {
         if (actuals instanceof TupleExpression) {
             assert(
                 actuals.vComponents.length === actuals.vOriginalComponents.length,
-                "Expected tuple to not have a placeholders",
+                "Expected tuple to not have placeholders",
                 actuals
             );
 
@@ -434,7 +434,7 @@ export function findAliasedStateVars(units: SourceUnit[]): Map<VariableDeclarati
             return gatherRHSVars(rhs.vOriginalComponents[0] as Expression);
         }
 
-        assert(false, "Unexpected RHS element {0} in assignment to state var pointer", rhs);
+        assert(false, `Unexpected RHS element ${print(rhs)} in assignment to state var pointer`);
     };
 
     for (const [lhs, rhs] of assignments) {
@@ -590,17 +590,21 @@ export function decomposeLHS(
         break;
     }
 
-    assert(
-        !(e instanceof FunctionCall && e.vFunctionName === "push"),
-        "Scribble doesn't support instrumenting assignments where the LHS is a push(). Problematic LHS: {0}",
-        originalExp
-    );
+    if (e instanceof FunctionCall && e.vFunctionName === "push") {
+        throw new Error(
+            `Scribble doesn't support instrumenting assignments where the LHS is a push(). Problematic LHS: ${print(
+                originalExp
+            )}`
+        );
+    }
 
-    assert(
-        !(e instanceof Assignment),
-        "Scribble doesn't support instrumenting assignments where the LHS is an assignment itself. Problematic LHS: {0}",
-        originalExp
-    );
+    if (e instanceof Assignment) {
+        throw new Error(
+            `Scribble doesn't support instrumenting assignments where the LHS is an assignment itself. Problematic LHS: ${print(
+                originalExp
+            )}`
+        );
+    }
 
     assert(e instanceof Identifier || e instanceof MemberAccess, "Unexpected LHS", e);
 

@@ -818,7 +818,7 @@ function locateElementType(type: TypeName, path: DatastructurePath): TypeNode {
  * corresponds to some index variable, find the type of that index variable.
  */
 function locateKeyType(type: TypeName, idx: number, path: Array<SId | string>): TypeNode {
-    assert(idx < path.length, "Index {0} exceets path length {1}", idx, path);
+    assert(idx < path.length, "Index {0} exceeds path length {1}", idx, path);
 
     const idxCompT = locateElementType(type, path.slice(0, idx));
 
