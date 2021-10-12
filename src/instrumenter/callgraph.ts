@@ -5,6 +5,7 @@ import {
     resolveCallable,
     SourceUnit
 } from "solc-typed-ast";
+import { ABIEncoderVersion } from "solc-typed-ast/dist/types/abi";
 import { getOr, single } from "../util";
 
 export type FunSet = Set<FunctionDefinition>;
@@ -85,7 +86,9 @@ export function getCallGraph(srcs: SourceUnit[]): CallGraph {
                         const contract = contractT.vReferencedDeclaration as ContractDefinition;
                         const overridenFun = single(
                             contract.vFunctions.filter(
-                                (fd) => fd.canonicalSignature === fun.canonicalSignature
+                                (fd) =>
+                                    fd.canonicalSignature(ABIEncoderVersion.V2) ===
+                                    fun.canonicalSignature(ABIEncoderVersion.V2)
                             )
                         );
                         overrideSet.add(overridenFun);

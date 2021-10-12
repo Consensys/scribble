@@ -7,6 +7,7 @@ import {
     StateVariableVisibility,
     VariableDeclaration
 } from "solc-typed-ast";
+import { ABIEncoderVersion } from "solc-typed-ast/dist/types/abi";
 import { removeProcWd, scribble, searchRecursive, toAst, toAstUsingCache } from "./utils";
 
 function extractExportSymbols(units: SourceUnit[]): Map<string, ContractDefinition> {
@@ -24,8 +25,11 @@ function extractExportSymbols(units: SourceUnit[]): Map<string, ContractDefiniti
 function compareVars(a: VariableDeclaration, b: VariableDeclaration | FunctionDefinition): boolean {
     // In some cases we may re-write a public state var into an internal state var with a getter function
     const bSig =
-        b instanceof VariableDeclaration ? b.getterCanonicalSignature : b.canonicalSignature;
-    return a.getterCanonicalSignature === bSig;
+        b instanceof VariableDeclaration
+            ? b.getterCanonicalSignature(ABIEncoderVersion.V2)
+            : b.canonicalSignature(ABIEncoderVersion.V2);
+
+    return a.getterCanonicalSignature(ABIEncoderVersion.V2) === bSig;
 }
 
 function extractAccessibleMembers(
@@ -69,7 +73,8 @@ function findCorrespondigFn(
             member instanceof FunctionDefinition &&
             fn.name === member.name &&
             fn.kind === member.kind &&
-            fn.canonicalSignature === member.canonicalSignature
+            fn.canonicalSignature(ABIEncoderVersion.V2) ===
+                member.canonicalSignature(ABIEncoderVersion.V2)
         ) {
             return member;
         }
@@ -135,7 +140,7 @@ describe("Interface compatibility test", () => {
     });
 
     for (const sample of samples) {
-        describe(`Sample ${sample}`, () => {
+        describe(sample, () => {
             let artefact: string | undefined;
             let compilerVersion: string;
             let inAst: SourceUnit[];
