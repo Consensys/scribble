@@ -10,11 +10,13 @@ import {
     TryCatchClause,
     VariableDeclaration
 } from "solc-typed-ast";
+import { MacroDefinition } from "../macros";
 import {
     AnnotationType,
     Location,
     Range,
     SAnnotation,
+    SMacro,
     SNode,
     SProperty,
     SUserFunctionDefinition
@@ -237,6 +239,24 @@ export class PropertyMetaData extends AnnotationMetaData<SProperty> {
     }
 }
 
+export class MacroMetaData extends AnnotationMetaData<SMacro> {
+    readonly macroDefinition: MacroDefinition;
+
+    constructor(
+        raw: StructuredDocumentation,
+        target: AnnotationTarget,
+        originalSlice: string,
+        parsedAnnot: SMacro,
+        annotationDocstringOff: number,
+        source: string,
+        macroDefinition: MacroDefinition
+    ) {
+        super(raw, target, originalSlice, parsedAnnot, annotationDocstringOff, source);
+
+        this.macroDefinition = macroDefinition;
+    }
+}
+
 export class PPAbleError extends Error {
     readonly range: Range;
     constructor(msg: string, range: Range) {
@@ -276,13 +296,15 @@ class AnnotationExtractor {
     private makeAnnotationFromMatch(
         match: RegExpExecArray,
         meta: RawMetaData,
-        source: string
+        source: string,
+        macros: Map<string, MacroDefinition>
     ): AnnotationMetaData {
         const slice = meta.text.slice(match.index);
-        let parsedAnnot: SAnnotation;
+
+        let annotation: SAnnotation;
 
         try {
-            parsedAnnot = parseAnnotation(slice, meta.node, this.version);
+            annotation = parseAnnotation(slice, meta.node, this.version);
         } catch (e) {
             if (e instanceof ExprPEGSSyntaxError) {
                 // Compute the syntax error offset relative to the start of the file
@@ -303,29 +325,45 @@ class AnnotationExtractor {
             throw e;
         }
 
-        if (parsedAnnot instanceof SProperty) {
+        if (annotation instanceof SProperty) {
             return new PropertyMetaData(
                 meta.node,
                 meta.target,
                 slice,
-                parsedAnnot,
+                annotation,
                 match.index,
                 source
             );
         }
 
-        if (parsedAnnot instanceof SUserFunctionDefinition) {
+        if (annotation instanceof SUserFunctionDefinition) {
             return new UserFunctionDefinitionMetaData(
                 meta.node,
                 meta.target,
                 slice,
-                parsedAnnot,
+                annotation,
                 match.index,
                 source
             );
         }
 
-        throw new Error(`NYI annotation ${parsedAnnot.pp()}`);
+        if (annotation instanceof SMacro) {
+            const macroDef = macros.get(annotation.name.pp());
+
+            if (macroDef) {
+                return new MacroMetaData(
+                    meta.node,
+                    meta.target,
+                    slice,
+                    annotation,
+                    match.index,
+                    source,
+                    macroDef
+                );
+            }
+        }
+
+        throw new Error(`Unknown annotation ${annotation.pp()}`);
     }
 
     /**
@@ -338,7 +376,8 @@ class AnnotationExtractor {
             const contractApplicableTypes = [
                 AnnotationType.Invariant,
                 AnnotationType.Define,
-                AnnotationType.IfSucceeds
+                AnnotationType.IfSucceeds,
+                AnnotationType.Macro
             ];
 
             if (!contractApplicableTypes.includes(annotation.type)) {
@@ -423,7 +462,8 @@ class AnnotationExtractor {
         raw: StructuredDocumentation,
         target: AnnotationTarget,
         source: string,
-        filters: AnnotationFilterOptions
+        filters: AnnotationFilterOptions,
+        macros: Map<string, MacroDefinition>
     ): AnnotationMetaData[] {
         const rxType = filters.type === undefined ? undefined : new RegExp(filters.type);
         const rxMsg = filters.message === undefined ? undefined : new RegExp(filters.message);
@@ -440,12 +480,12 @@ class AnnotationExtractor {
         const result: AnnotationMetaData[] = [];
 
         const rx =
-            /\s*(\*|\/\/\/)\s*#?(if_succeeds|if_updated|if_assigned|invariant|assert|define\s*[a-zA-Z0-9_]*\s*\([^)]*\))/g;
+            /\s*(\*|\/\/\/)\s*#(if_succeeds|if_updated|if_assigned|invariant|assert|define\s*[a-zA-Z0-9_]*\s*\([^)]*\)|[a-zA-Z0-9_]*\s*\([^)]*\))/g;
 
         let match = rx.exec(meta.text);
 
         while (match !== null) {
-            const annotation = this.makeAnnotationFromMatch(match, meta, source);
+            const annotation = this.makeAnnotationFromMatch(match, meta, source, macros);
 
             if (
                 (rxType === undefined || rxType.test(annotation.type)) &&
@@ -467,7 +507,8 @@ class AnnotationExtractor {
     extract(
         target: AnnotationTarget,
         sources: Map<string, string>,
-        filters: AnnotationFilterOptions
+        filters: AnnotationFilterOptions,
+        macros: Map<string, MacroDefinition>
     ): AnnotationMetaData[] {
         const result: AnnotationMetaData[] = [];
 
@@ -484,7 +525,7 @@ class AnnotationExtractor {
         const unit = getScopeUnit(target);
 
         const source = sources.get(unit.absolutePath) as string;
-        const annotations = this.findAnnotations(raw, target, source, filters);
+        const annotations = this.findAnnotations(raw, target, source, filters, macros);
 
         result.push(...annotations);
 
@@ -548,7 +589,8 @@ export function buildAnnotationMap(
     units: SourceUnit[],
     sources: Map<string, string>,
     filters: AnnotationFilterOptions,
-    version: string
+    version: string,
+    macros: Map<string, MacroDefinition>
 ): AnnotationMap {
     const res: AnnotationMap = new Map();
     const extractor = new AnnotationExtractor(version);
@@ -556,7 +598,7 @@ export function buildAnnotationMap(
     for (const unit of units) {
         // Check no annotations on free functions
         for (const freeFun of unit.vFunctions) {
-            const annots = extractor.extract(freeFun, sources, filters);
+            const annots = extractor.extract(freeFun, sources, filters, macros);
             if (annots.length !== 0) {
                 throw new UnsupportedByTargetError(
                     `The "${annots[0].type}" annotation is not applicable to free functions`,
@@ -569,7 +611,7 @@ export function buildAnnotationMap(
 
         // Check no annotations on file-level constants.
         for (const fileLevelConst of unit.vVariables) {
-            const annots = extractor.extract(fileLevelConst, sources, filters);
+            const annots = extractor.extract(fileLevelConst, sources, filters, macros);
             if (annots.length !== 0) {
                 throw new UnsupportedByTargetError(
                     `The "${annots[0].type}" annotation is not applicable to file-level constants`,
@@ -581,13 +623,13 @@ export function buildAnnotationMap(
         }
 
         for (const contract of unit.vContracts) {
-            res.set(contract, extractor.extract(contract, sources, filters));
+            res.set(contract, extractor.extract(contract, sources, filters, macros));
             for (const stateVar of contract.vStateVariables) {
-                res.set(stateVar, extractor.extract(stateVar, sources, filters));
+                res.set(stateVar, extractor.extract(stateVar, sources, filters, macros));
             }
 
             for (const method of contract.vFunctions) {
-                res.set(method, extractor.extract(method, sources, filters));
+                res.set(method, extractor.extract(method, sources, filters, macros));
             }
         }
 
@@ -597,7 +639,7 @@ export function buildAnnotationMap(
         )) {
             res.set(
                 stmt as Statement | StatementWithChildren<any>,
-                extractor.extract(stmt, sources, filters)
+                extractor.extract(stmt, sources, filters, macros)
             );
         }
     }

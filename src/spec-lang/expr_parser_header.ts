@@ -29,7 +29,8 @@ import {
     SUserFunctionDefinition,
     SAnnotation,
     SIfUpdated,
-    SIfAssigned
+    SIfAssigned,
+    SMacro
 } from "./ast";
 import {
     BoolType,

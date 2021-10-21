@@ -54,6 +54,7 @@ import { getCallGraph } from "../instrumenter/callgraph";
 import { CHA, getCHA } from "../instrumenter/cha";
 import { InstrumentationContext } from "../instrumenter/instrumentation_context";
 import { instrumentStateVars } from "../instrumenter/state_var_instrumenter";
+import { MacroDefinition, readMacroDefinitions } from "../macros";
 import { flattenUnits } from "../rewriter/flatten";
 import { merge } from "../rewriter/merge";
 import { AnnotationType, Location, Range } from "../spec-lang/ast";
@@ -230,6 +231,13 @@ function computeContractsNeedingInstr(
     }
 
     return visited;
+}
+
+function detectMacroDefinitions(): Map<string, MacroDefinition> {
+    const fileName = "../macros.scribble.yaml";
+    const data = fse.readFileSync(fileName, { encoding: "utf-8" });
+
+    return readMacroDefinitions(data);
 }
 
 function instrumentFiles(
@@ -635,6 +643,8 @@ if ("version" in options) {
     } else {
         // Without --disarm we need to instrument and output something.
 
+        const macros = detectMacroDefinitions();
+
         /**
          * Merge the CHAs and file maps computed for each target
          */
@@ -681,7 +691,8 @@ if ("version" in options) {
                 mergedUnits,
                 contentsMap,
                 filterOptions,
-                compilerVersionUsed
+                compilerVersionUsed,
+                macros
             );
         } catch (e) {
             if (e instanceof SyntaxError || e instanceof UnsupportedByTargetError) {
@@ -698,6 +709,10 @@ if ("version" in options) {
         const typeEnv = new TypeEnv(compilerVersionUsed);
         const semMap: SemMap = new Map();
         let interposingQueue: Array<[VariableDeclaration, AbsDatastructurePath]>;
+
+        /**
+         * @todo figure out how to handle Macro annotations before type-checking.
+         */
 
         try {
             // Type check

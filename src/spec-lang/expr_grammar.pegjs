@@ -10,6 +10,7 @@ Annotation =
         / If_Assigned
         / UserFunctionDefinition
         / Assert
+        / Macro
     )
     .* {
         annotation.prefix = prefix === null ? undefined : prefix;
@@ -135,6 +136,29 @@ UserFunctionDefinition =
             args === null ? [] : args,
             returnType,
             body,
+            label === null ? undefined : label,
+            location()
+        );
+    }
+
+IdentiferList =
+    head: (Identifier)
+    tail: (__ "," __ Identifier)* {
+        return tail.reduce(
+            (acc, el) => {
+                acc.push(el[3]);
+
+                return acc;
+            },
+            [head]
+        );
+    }
+
+Macro = 
+    name: Identifier __ "(" __ args: IdentiferList? __ ")" __ label: AnnotationLabel? ";" {
+        return new SMacro(
+            name,
+            args === null ? [] : args,
             label === null ? undefined : label,
             location()
         );

@@ -5,7 +5,8 @@ export enum AnnotationType {
     IfAssigned = "if_assigned",
     Invariant = "invariant",
     Define = "define",
-    Assert = "assert"
+    Assert = "assert",
+    Macro = "macro"
 }
 
 export abstract class SAnnotation extends SNode {
