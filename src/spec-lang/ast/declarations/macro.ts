@@ -6,8 +6,8 @@ export class SMacro extends SAnnotation {
     public readonly name: SId;
     public readonly parameters: SId[];
 
-    constructor(name: SId, params: SId[], label?: string, src?: Range) {
-        super(AnnotationType.Macro, label, src);
+    constructor(name: SId, params: SId[], src?: Range) {
+        super(AnnotationType.Macro, undefined, src);
 
         this.name = name;
         this.parameters = params;

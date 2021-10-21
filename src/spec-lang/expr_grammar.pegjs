@@ -155,11 +155,10 @@ IdentiferList =
     }
 
 Macro = 
-    name: Identifier __ "(" __ args: IdentiferList? __ ")" __ label: AnnotationLabel? ";" {
+    name: Identifier __ "(" __ args: IdentiferList? __ ")" ";" {
         return new SMacro(
             name,
             args === null ? [] : args,
-            label === null ? undefined : label,
             location()
         );
     }
