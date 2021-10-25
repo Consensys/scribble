@@ -1,10 +1,9 @@
 import expect from "expect";
 import fse from "fs-extra";
-import { searchRecursive } from "./utils";
-import { scribble } from "./utils";
 import { join } from "path";
-import { contains, InstrumentationMetaData, parseSrcTriple } from "../../src/util";
 import { assert, pp } from "../../src";
+import { contains, InstrumentationMetaData, parseSrcTriple, searchRecursive } from "../../src/util";
+import { scribble } from "./utils";
 
 function checkSrc(src: string, fileList: string[], fileContents: Map<string, string>): void {
     const [off, len, fileIdx] = parseSrcTriple(src);
@@ -69,16 +68,17 @@ describe("Multiple-file project instrumentation", () => {
             let expectedInstrMetadata: any;
 
             before(() => {
-                const expectedInstrumentedFiles = searchRecursive(
-                    dirName,
-                    /.+\.sol.instrumented.expected$/
+                const expectedInstrumentedFiles = searchRecursive(dirName, (fileName) =>
+                    fileName.endsWith(".sol.instrumented.expected")
                 );
+
                 expectedInstrumented = new Map(
                     expectedInstrumentedFiles.map((fileName) => [
                         fileName,
                         fse.readFileSync(fileName, "utf-8")
                     ])
                 );
+
                 expectedFlat = fse.readFileSync(`${dirName}/flat.sol.expected`, {
                     encoding: "utf-8"
                 });

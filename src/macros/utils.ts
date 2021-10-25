@@ -31,9 +31,8 @@ export interface MacroDefinition {
     properties: Map<string, MacroProperty[]>;
 }
 
-export function readMacroDefinitions(source: string): Map<string, MacroDefinition> {
+export function readMacroDefinitions(source: string, defs: Map<string, MacroDefinition>): void {
     const schema: MacroSchema = YAML.parse(source);
-    const macroDefs = new Map<string, MacroDefinition>();
 
     for (const [name, macro] of Object.entries(schema)) {
         const variables = new Map<string, MacroVariable>();
@@ -55,8 +54,6 @@ export function readMacroDefinitions(source: string): Map<string, MacroDefinitio
             properties.set(signature, props);
         }
 
-        macroDefs.set(name, { variables, properties });
+        defs.set(name, { variables, properties });
     }
-
-    return macroDefs;
 }

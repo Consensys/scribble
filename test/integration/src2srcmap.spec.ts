@@ -33,9 +33,10 @@ import {
     print,
     PropertyMap,
     reNumber,
+    searchRecursive,
     single
 } from "../../src/util";
-import { removeProcWd, scribble, searchRecursive, toAstUsingCache } from "./utils";
+import { removeProcWd, scribble, toAstUsingCache } from "./utils";
 
 type Src2NodeMap = Map<string, Set<ASTNode>>;
 function buildSrc2NodeMap(units: SourceUnit[], newSrcList?: string[]): Src2NodeMap {
@@ -107,9 +108,9 @@ function parseBytecodeSourceMapping(sourceMap: string): DecodedBytecodeSourceMap
 
 describe("Src2src map test", () => {
     const samplesDir = "test/samples/";
-    const samples = searchRecursive(samplesDir, /(?<=\.instrumented)\.sol$/).map((fileName) =>
-        removeProcWd(fileName).replace(".instrumented.sol", ".sol")
-    );
+    const samples = searchRecursive(samplesDir, (fileName) =>
+        fileName.endsWith(".instrumented.sol")
+    ).map((fileName) => removeProcWd(fileName).replace(".instrumented.sol", ".sol"));
 
     it(`Source samples are present in ${samplesDir}`, () => {
         expect(samples.length).toBeGreaterThan(0);

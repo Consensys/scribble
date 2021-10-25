@@ -1,13 +1,15 @@
 import expect from "expect";
 import fse from "fs-extra";
-import { removeProcWd, scribble, searchRecursive } from "../../utils";
 import { basename } from "path";
+import { searchRecursive } from "../../../../src";
+import { removeProcWd, scribble } from "../../utils";
 
 describe(`Command "scribble <filename>" is working properly`, () => {
     const samplesDir = "test/samples/";
-    const samples = searchRecursive(samplesDir, /(?<=\.instrumented)\.sol$/).map((fileName) =>
-        removeProcWd(fileName)
-    );
+
+    const samples = searchRecursive(samplesDir, (fileName) =>
+        fileName.endsWith(".instrumented.sol")
+    ).map((fileName) => removeProcWd(fileName));
 
     const argMap: Map<string, string[]> = new Map([
         ["contract_pos.sol", ["--debug-events", "--no-assert"]],

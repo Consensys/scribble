@@ -1,6 +1,5 @@
 import { spawnSync } from "child_process";
 import fse from "fs-extra";
-import path from "path";
 import {
     ASTKind,
     ASTNode,
@@ -22,25 +21,6 @@ export interface ExtendedCompileResult extends CompileResult {
     artefact?: string;
     units: SourceUnit[];
     reader: ASTReader;
-}
-
-export function searchRecursive(directory: string, pattern: RegExp): string[] {
-    let results: string[] = [];
-
-    fse.readdirSync(directory).forEach((entry: string) => {
-        const resolvedEntry = path.resolve(directory, entry);
-        const stat = fse.statSync(resolvedEntry);
-
-        if (stat.isDirectory()) {
-            results = results.concat(searchRecursive(resolvedEntry, pattern));
-        }
-
-        if (stat.isFile() && pattern.test(resolvedEntry)) {
-            results.push(resolvedEntry);
-        }
-    });
-
-    return results;
 }
 
 export function removeProcWd(path: string): string {

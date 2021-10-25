@@ -35,6 +35,7 @@ import {
     instrumentStatement,
     interposeMap,
     ScribbleFactory,
+    searchRecursive,
     UnsupportedConstruct
 } from "..";
 import { rewriteImports } from "../ast_to_source_printer";
@@ -233,11 +234,14 @@ function computeContractsNeedingInstr(
     return visited;
 }
 
-function detectMacroDefinitions(): Map<string, MacroDefinition> {
-    const fileName = "../macros.scribble.yaml";
-    const data = fse.readFileSync(fileName, { encoding: "utf-8" });
+function detectMacroDefinitions(dir: string, defs: Map<string, MacroDefinition>): void {
+    const fileNames = searchRecursive(dir, (fileName) => fileName.endsWith(".scribble.yaml"));
 
-    return readMacroDefinitions(data);
+    for (const fileName of fileNames) {
+        const data = fse.readFileSync(fileName, { encoding: "utf-8" });
+
+        readMacroDefinitions(data, defs);
+    }
 }
 
 function instrumentFiles(
@@ -643,7 +647,11 @@ if ("version" in options) {
     } else {
         // Without --disarm we need to instrument and output something.
 
-        const macros = detectMacroDefinitions();
+        const macros = new Map<string, MacroDefinition>();
+
+        if (options["macro-directory"]) {
+            detectMacroDefinitions(options["macro-directory"], macros);
+        }
 
         /**
          * Merge the CHAs and file maps computed for each target

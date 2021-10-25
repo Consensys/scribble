@@ -63,6 +63,11 @@
                 "description": "If specified, output instrumentation metadata (src-to-src maps, property maps) to the specified file."
             },
             {
+                "name": "macro-directory",
+                "type": "String",
+                "description": "Path to look for a macro definition files"
+            },
+            {
                 "name": "path-remapping",
                 "type": "String",
                 "description": "Path remapping input for Solc. A semicolon separate list of remappings 'prefix=target'"

@@ -8,8 +8,8 @@ import {
     StructuredDocumentation,
     VariableDeclaration
 } from "solc-typed-ast";
-import { assert, InstrumentationMetaData, pp } from "../../src/util";
-import { removeProcWd, scribble, searchRecursive, toAstUsingCache } from "./utils";
+import { assert, InstrumentationMetaData, pp, searchRecursive } from "../../src/util";
+import { removeProcWd, scribble, toAstUsingCache } from "./utils";
 
 function findPredicates(inAST: SourceUnit[]): Map<number, Set<string>> {
     const res: Map<number, Set<string>> = new Map();
@@ -66,7 +66,9 @@ describe("Property map test", () => {
         "increment_inherited_collision.sol"
     ];
 
-    const samples = searchRecursive(samplesDir, /(?<=\.instrumented)\.sol$/)
+    const samples = searchRecursive(samplesDir, (fileName) =>
+        fileName.endsWith(".instrumented.sol")
+    )
         .map((fileName) => removeProcWd(fileName).replace(".instrumented.sol", ".sol"))
         .filter((fileName) => !skip.some((needle) => fileName.includes(needle)));
 
