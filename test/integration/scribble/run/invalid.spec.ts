@@ -8,6 +8,10 @@ describe(`Command "scribble <filename>" is failing as expected`, () => {
             /^test\/samples\/invalid\/missing_terminator_semicolon.invalid.sol:12:23 SyntaxError: Expected "@custom:scribble" or \[\^@\] but end of input found/m
         ],
         [
+            ["test/samples/invalid/invalid_annotation.invalid.sol"],
+            /^test\/samples\/invalid\/invalid_annotation.invalid.sol:9:8 SyntaxError: Expected "!=", "%", "&", "&&", "\*", "\*\*", "\+", "-", "\.", "\/", ";", "<<", "==", "==>", ">>", "\?", "\[", "\^", "days", "ether", "gwei", "hours", "minutes", "seconds", "weeks", "wei", "\|", "\|\|", or whitespace but "d" found/m
+        ],
+        [
             ["test/samples/invalid/annotation_syntax_error.invalid.sol"],
             /^test\/samples\/invalid\/annotation_syntax_error.invalid.sol:7:23 SyntaxError: Expected "@custom:scribble" or \[\^@\] but end of input found/m
         ],
