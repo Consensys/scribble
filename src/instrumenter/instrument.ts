@@ -490,16 +490,45 @@ export function insertAnnotations(annotations: PropertyMetaData[], ctx: Transpil
 
     const debugInfos = ctx.instrCtx.debugEvents ? getDebugInfo(annotations, ctx) : [];
 
-    const checkStmts: Statement[] = predicates.map(([annotation, predicate], i) => {
-        const event = getAssertionFailedEvent(factory, contract);
+    const checkStmts: Array<[Statement, boolean]> = predicates.map(([annotation, predicate], i) => {
         const dbgInfo = debugInfos[i];
         const emitStmt = dbgInfo !== undefined ? dbgInfo[1] : undefined;
 
-        return emitAssert(ctx, predicate, annotation, event, emitStmt);
+        if (annotation.type === AnnotationType.Hint || annotation.type === AnnotationType.Limit) {
+            if (!ctx.hasBinding(ctx.instrCtx.scratchField)) {
+                ctx.addBinding(
+                    ctx.instrCtx.scratchField,
+                    factory.makeElementaryTypeName("<missing>", "uint256")
+                );
+            }
+
+            const lhs = ctx.refBinding(ctx.instrCtx.scratchField);
+            const scratchAssign = factory.makeAssignment(
+                "<missing>",
+                "=",
+                lhs,
+                factory.makeLiteral("uint256", LiteralKind.Number, "", "42")
+            );
+
+            const stmt =
+                annotation.type === AnnotationType.Hint
+                    ? factory.makeIfStatement(predicate, scratchAssign)
+                    : factory.makeFunctionCall(
+                          "<mising>",
+                          FunctionCallKind.FunctionCall,
+                          factory.makeIdentifier("<missing>", "require", -1),
+                          [predicate]
+                      );
+
+            return [stmt, true];
+        } else {
+            const event = getAssertionFailedEvent(factory, contract);
+            return [emitAssert(ctx, predicate, annotation, event, emitStmt), false];
+        }
     });
 
-    for (const check of checkStmts) {
-        ctx.insertStatement(check, false);
+    for (const [check, isOld] of checkStmts) {
+        ctx.insertStatement(check, isOld);
     }
 
     for (const dbgInfo of debugInfos) {
@@ -1129,7 +1158,7 @@ export function instrumentStatement(
 
     for (const annot of allAnnotations) {
         assert(
-            annot.type === AnnotationType.Assert,
+            annot.type === AnnotationType.Assert || annot.type === AnnotationType.Hint,
             `Unexpected non-assert annotaiton ${annot.original}`
         );
     }
