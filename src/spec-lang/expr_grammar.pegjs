@@ -2,9 +2,7 @@
 
 Annotation =
     StartingWhiteSpace
-    __
-    tag: '@custom:scribble'?
-    __
+    comment: (([^@])*'@custom:scribble' PrimitiveWhiteSpace*)? 
     prefix: '#'?
     annotation: (
         Invariant
