@@ -4,7 +4,7 @@ import path from "path";
 export function searchRecursive(directory: string, filter: (entry: string) => boolean): string[] {
     const results: string[] = [];
 
-    fse.readdirSync(directory).forEach((entry: string) => {
+    for (const entry of fse.readdirSync(directory)) {
         const resolvedEntry = path.resolve(directory, entry);
         const stat = fse.statSync(resolvedEntry);
 
@@ -13,7 +13,7 @@ export function searchRecursive(directory: string, filter: (entry: string) => bo
         } else if (stat.isFile() && filter(resolvedEntry)) {
             results.push(resolvedEntry);
         }
-    });
+    }
 
     return results;
 }
