@@ -294,7 +294,8 @@ function instrumentFiles(
                 if (
                     (fun.visibility == FunctionVisibility.External ||
                         fun.visibility == FunctionVisibility.Public) &&
-                    fun.stateMutability !== FunctionStateMutability.Pure
+                    fun.stateMutability !== FunctionStateMutability.Pure &&
+                    fun.stateMutability !== FunctionStateMutability.View
                 ) {
                     annotations = annotations.concat(allowedFuncProp);
                 }

@@ -503,21 +503,25 @@ export function insertAnnotations(annotations: PropertyMetaData[], ctx: Transpil
             }
 
             const lhs = ctx.refBinding(ctx.instrCtx.scratchField);
-            const scratchAssign = factory.makeAssignment(
-                "<missing>",
-                "=",
-                lhs,
-                factory.makeLiteral("uint256", LiteralKind.Number, "", "42")
+            const scratchAssign = factory.makeExpressionStatement(
+                factory.makeAssignment(
+                    "<missing>",
+                    "=",
+                    lhs,
+                    factory.makeLiteral("uint256", LiteralKind.Number, "", "42")
+                )
             );
 
             const stmt =
                 annotation.type === AnnotationType.Hint
                     ? factory.makeIfStatement(predicate, scratchAssign)
-                    : factory.makeFunctionCall(
-                          "<mising>",
-                          FunctionCallKind.FunctionCall,
-                          factory.makeIdentifier("<missing>", "require", -1),
-                          [predicate]
+                    : factory.makeExpressionStatement(
+                          factory.makeFunctionCall(
+                              "<mising>",
+                              FunctionCallKind.FunctionCall,
+                              factory.makeIdentifier("<missing>", "require", -1),
+                              [predicate]
+                          )
                       );
 
             return [stmt, true];

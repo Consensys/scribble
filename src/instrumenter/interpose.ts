@@ -17,6 +17,7 @@ import {
     FunctionVisibility,
     getNodeType,
     MemberAccess,
+    ModifierDefinition,
     Mutability,
     PointerType,
     StateVariableVisibility,
@@ -199,7 +200,18 @@ export function interpose(
     fun.visibility = FunctionVisibility.Private;
     fun.isConstructor = false;
     renameReturns(stub);
-    stub.vModifiers = [];
+
+    if (stub.kind === FunctionKind.Constructor) {
+        fun.vModifiers = fun.vModifiers.filter(
+            (mod) => mod.vModifier instanceof ModifierDefinition
+        );
+
+        stub.vModifiers = stub.vModifiers.filter(
+            (mod) => mod.vModifier instanceof ContractDefinition
+        );
+    } else {
+        stub.vModifiers = [];
+    }
     stub.vBody?.appendChild(callOriginal(ctx, stub, fun));
     fun.vOverrideSpecifier = undefined;
     fun.virtual = false;
