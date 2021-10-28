@@ -303,7 +303,13 @@ function instrumentFiles(
                     fun.stateMutability !== FunctionStateMutability.Pure &&
                     fun.stateMutability !== FunctionStateMutability.View
                 ) {
-                    annotations = annotations.concat(allowedFuncProp);
+                    if (fun.isConstructor) {
+                        annotations = annotations.concat(
+                            allowedFuncProp.filter((annot) => !annot.parsedAnnot.skipConstructor)
+                        );
+                    } else {
+                        annotations = annotations.concat(allowedFuncProp);
+                    }
                 }
 
                 /**

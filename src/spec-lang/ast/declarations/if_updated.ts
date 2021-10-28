@@ -1,6 +1,7 @@
 import { AnnotationType } from ".";
 import { SNode, Range } from "..";
 import { assert } from "../../../util/misc";
+import { AnnotationMD } from "./annotation";
 import { DatastructurePath, SStateVarProp } from "./state_var_prop";
 
 /**
@@ -17,8 +18,8 @@ import { DatastructurePath, SStateVarProp } from "./state_var_prop";
  *
  */
 export class SIfUpdated extends SStateVarProp {
-    constructor(expression: SNode, path: DatastructurePath, label?: string, src?: Range) {
+    constructor(expression: SNode, path: DatastructurePath, md?: AnnotationMD, src?: Range) {
         assert(path.length === 0, `Not yet support if_updated with a path`);
-        super(AnnotationType.IfUpdated, expression, path, label, src);
+        super(AnnotationType.IfUpdated, expression, path, md, src);
     }
 }
