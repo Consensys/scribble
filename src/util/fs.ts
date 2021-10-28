@@ -1,11 +1,18 @@
 import fse from "fs-extra";
 import path from "path";
 
-export function searchRecursive(directory: string, filter: (entry: string) => boolean): string[] {
+export function searchRecursive(targetPath: string, filter: (entry: string) => boolean): string[] {
+    const stat = fse.statSync(targetPath);
     const results: string[] = [];
 
-    for (const entry of fse.readdirSync(directory)) {
-        const resolvedEntry = path.resolve(directory, entry);
+    if (stat.isFile()) {
+        results.push(path.resolve(targetPath));
+
+        return results;
+    }
+
+    for (const entry of fse.readdirSync(targetPath)) {
+        const resolvedEntry = path.resolve(targetPath, entry);
         const stat = fse.statSync(resolvedEntry);
 
         if (stat.isDirectory()) {

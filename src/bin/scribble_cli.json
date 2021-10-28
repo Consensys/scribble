@@ -63,9 +63,9 @@
                 "description": "If specified, output instrumentation metadata (src-to-src maps, property maps) to the specified file."
             },
             {
-                "name": "macro-directory",
+                "name": "macro-path",
                 "type": "String",
-                "description": "Path to look for a macro definition files"
+                "description": "Path to look for a macro definition file. If path is a directory, then it would be recusively scanned for macro files."
             },
             {
                 "name": "path-remapping",

@@ -200,8 +200,8 @@ function computeContractsNeedingInstr(
     return visited;
 }
 
-function detectMacroDefinitions(dir: string, defs: Map<string, MacroDefinition>): void {
-    const fileNames = searchRecursive(dir, (fileName) => fileName.endsWith(".scribble.yaml"));
+function detectMacroDefinitions(path: string, defs: Map<string, MacroDefinition>): void {
+    const fileNames = searchRecursive(path, (fileName) => fileName.endsWith(".scribble.yaml"));
 
     for (const fileName of fileNames) {
         const data = fse.readFileSync(fileName, { encoding: "utf-8" });
@@ -615,8 +615,8 @@ if ("version" in options) {
 
         const macros = new Map<string, MacroDefinition>();
 
-        if (options["macro-directory"]) {
-            detectMacroDefinitions(options["macro-directory"], macros);
+        if (options["macro-path"]) {
+            detectMacroDefinitions(options["macro-path"], macros);
         }
 
         /**
