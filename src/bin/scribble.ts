@@ -346,7 +346,7 @@ for (const option of options) {
 
 try {
     options = commandLineArgs(params[1].optionList);
-} catch (e) {
+} catch (e: any) {
     console.error(e.message);
 
     process.exit(1);
@@ -517,7 +517,7 @@ if ("version" in options) {
                     pathRemapping,
                     compilerSettings
                 );
-            } catch (e) {
+            } catch (e: any) {
                 if (e instanceof CompileFailedError) {
                     console.error(`Compile errors encountered for ${target}:`);
 
@@ -691,7 +691,7 @@ if ("version" in options) {
             tcUnits(mergedUnits, annotMap, typeEnv);
             // Semantic check
             interposingQueue = scUnits(mergedUnits, annotMap, typeEnv, semMap);
-        } catch (err) {
+        } catch (err: any) {
             if (err instanceof STypeError || err instanceof SemError) {
                 const annotation = err.annotationMetaData;
                 const unit = annotation.target.getClosestParentByType(SourceUnit) as SourceUnit;
@@ -806,7 +806,7 @@ if ("version" in options) {
                         [CompilationOutput.ALL],
                         compilerSettings
                     );
-                } catch (e) {
+                } catch (e: any) {
                     if (e instanceof CompileFailedError) {
                         console.error(`Compile errors encountered for flattend instrumetned file:`);
 
