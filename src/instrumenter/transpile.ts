@@ -375,6 +375,8 @@ function transpileId(expr: SId, ctx: TranspilingContext): Expression {
         referrencedDef = exprT.definition;
     } else if (exprT instanceof ImportRefType) {
         referrencedDef = exprT.impStatement;
+    } else if (exprT instanceof TypeNameType && exprT.type instanceof UserDefinedType) {
+        referrencedDef = exprT.type.definition;
     } else {
         throw new Error(`Unknown id type ${exprT.pp()}`);
     }

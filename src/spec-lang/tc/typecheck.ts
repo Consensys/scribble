@@ -42,7 +42,8 @@ import {
     UserDefinedType,
     UserDefinedTypeName,
     VariableDeclaration,
-    VariableDeclarationStatement
+    VariableDeclarationStatement,
+    variableDeclarationToTypeNode
 } from "solc-typed-ast";
 import { AnnotationMap, AnnotationMetaData, AnnotationTarget } from "../../instrumenter";
 import { Logger } from "../../logger";
@@ -1472,6 +1473,13 @@ export function tcMemberAccess(expr: SMemberAccess, ctx: STypingCtx, typeEnv: Ty
 
         if (funDefs.length > 0) {
             return new FunctionSetType(funDefs);
+        }
+
+        // Next check if this is a library constant
+        const def = lookupVarDef(expr.member, [baseT.type.definition], typeEnv.compilerVersion);
+
+        if (def !== undefined && def instanceof VariableDeclaration && def.constant) {
+            return variableDeclarationToTypeNode(def);
         }
     }
 
