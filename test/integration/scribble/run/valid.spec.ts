@@ -15,7 +15,12 @@ describe(`Command "scribble <filename>" is working properly`, () => {
         ["contract_pos.sol", ["--debug-events", "--no-assert"]],
         ["if_assigned_complex.sol", ["--debug-events", "--no-assert"]],
         ["contract_multi_arg_debug.sol", ["--debug-events", "--no-assert"]],
-        ["dbg_event_tests.sol", ["--debug-events", "--no-assert"]]
+        ["dbg_event_tests.sol", ["--debug-events", "--no-assert"]],
+
+        /**
+         * Macros
+         */
+        ["simple_macro.sol", ["--macro-path", "test/samples/macros/ownable.scribble.yaml"]]
     ]);
 
     it(`Instrumented source samples are present in ${samplesDir}`, () => {
