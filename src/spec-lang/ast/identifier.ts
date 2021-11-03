@@ -21,11 +21,12 @@ export type IdDefSite =
     | ImportDirective;
 
 export class SId extends SNode {
-    public readonly name: string;
+    name: string;
+
     /**
      * AST Node corresponding to the definition for this SId. This is set during type-checking
      */
-    public defSite?: IdDefSite;
+    defSite?: IdDefSite;
 
     constructor(name: string, src?: Range) {
         super(src);

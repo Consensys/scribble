@@ -1,4 +1,5 @@
 import { Range, SNode } from "../node";
+
 export enum AnnotationType {
     IfSucceeds = "if_succeeds",
     IfUpdated = "if_updated",
@@ -10,9 +11,9 @@ export enum AnnotationType {
 }
 
 export abstract class SAnnotation extends SNode {
-    public readonly type: AnnotationType;
-    public readonly label?: string;
+    readonly type: AnnotationType;
 
+    label?: string;
     prefix: string | undefined;
 
     constructor(type: AnnotationType, label?: string, src?: Range) {

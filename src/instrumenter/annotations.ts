@@ -1,8 +1,10 @@
 import {
+    assert,
     ContractDefinition,
     ContractKind,
     FunctionDefinition,
     resolve,
+    resolveAny,
     SourceUnit,
     Statement,
     StatementWithChildren,
@@ -16,13 +18,14 @@ import {
     Location,
     Range,
     SAnnotation,
+    SId,
     SMacro,
     SNode,
     SProperty,
     SUserFunctionDefinition
 } from "../spec-lang/ast";
 import { parseAnnotation, SyntaxError as ExprPEGSSyntaxError } from "../spec-lang/expr_parser";
-import { getOr, getScopeUnit } from "../util/misc";
+import { getOr, getScopeUnit, single } from "../util/misc";
 
 const srcLocation = require("src-location");
 
@@ -63,8 +66,10 @@ export type AnnotationTarget =
     | VariableDeclaration
     | Statement
     | StatementWithChildren<any>;
+
 /// File byte range: [start, length]
 export type SrcTriple = [number, number, number];
+
 type OffsetRange = [number, number];
 
 function offsetBy<T extends OffsetRange | SrcTriple>(a: T, b: number | OffsetRange | SrcTriple): T {
@@ -255,6 +260,24 @@ export class MacroMetaData extends AnnotationMetaData<SMacro> {
 
         this.macroDefinition = macroDefinition;
     }
+
+    getVariableRemappingMap(): Map<string, string> {
+        const result = new Map<string, string>();
+
+        const formal = Array.from(this.macroDefinition.variables.keys());
+        const actual = this.parsedAnnot.parameters.map((node) => node.name);
+
+        assert(
+            formal.length === actual.length,
+            `Macro call arguments count ${actual.length} mismatchin match macro definition variables count ${formal.length}`
+        );
+
+        for (let i = 0; i < formal.length; i++) {
+            result.set(formal[i], actual[i]);
+        }
+
+        return result;
+    }
 }
 
 export class PPAbleError extends Error {
@@ -304,7 +327,7 @@ class AnnotationExtractor {
         let annotation: SAnnotation;
 
         try {
-            annotation = parseAnnotation(slice, meta.node, this.version);
+            annotation = parseAnnotation(slice, meta.target, this.version);
         } catch (e) {
             if (e instanceof ExprPEGSSyntaxError) {
                 // Compute the syntax error offset relative to the start of the file
@@ -577,6 +600,91 @@ export function gatherContractAnnotations(
     return result;
 }
 
+function processMacroAnnotations(annotationMap: AnnotationMap, compilerVersion: string): void {
+    const injections: AnnotationMap = new Map();
+
+    for (const [target, metas] of annotationMap) {
+        if (!(target instanceof ContractDefinition)) {
+            continue;
+        }
+
+        for (let m = 0; m < metas.length; m++) {
+            const meta = metas[m];
+
+            if (!(meta instanceof MacroMetaData)) {
+                continue;
+            }
+
+            const variableRemapping = meta.getVariableRemappingMap();
+            const walker = (node: SNode) => {
+                if (node instanceof SId) {
+                    const actualName = variableRemapping.get(node.name);
+
+                    if (actualName !== undefined) {
+                        node.name = actualName;
+                    }
+                }
+            };
+
+            for (const [formalName, properties] of meta.macroDefinition.properties) {
+                /**
+                 * @todo What about method signatures?
+                 */
+                const actualName = variableRemapping.get(formalName);
+                const name = actualName === undefined ? formalName : actualName;
+
+                /**
+                 * @todo Using `inclusive = true` here seems to be a design oversight.
+                 * Better to fix this in **solc-typed-ast**.
+                 */
+                const resolved = resolveAny(name, meta.target, compilerVersion, true);
+                const target = single([...resolved]);
+
+                for (const { expression, message } of properties) {
+                    const annotation = parseAnnotation(expression, target, compilerVersion);
+
+                    assert(
+                        annotation instanceof SProperty,
+                        `Only properties are allowed to be defined in macros. Unsupported annotation: ${expression}`
+                    );
+
+                    annotation.expression.walk(walker);
+                    annotation.label = message;
+
+                    // console.log(`name [${message}] -> ${expression}`);
+                    // console.log(target.type + " #" + target.id);
+                    // console.log(annotation.pp());
+
+                    /**
+                     * @todo Wrap produced annotations with annotation metadata.
+                     */
+                }
+            }
+
+            metas.splice(m, 1);
+        }
+    }
+
+    for (const [target, macroMetas] of injections) {
+        const manualMetas = annotationMap.get(target);
+
+        if (manualMetas === undefined) {
+            annotationMap.set(target, macroMetas);
+        } else {
+            manualMetas.push(...macroMetas);
+        }
+    }
+
+    /**
+     * @todo figure out how to handle Macro annotations before type-checking.
+     *
+     * [DONE]       1. Replace macro var names by real var names and parse annotations "on fly".
+     * [TODO]       2. Wrap produced annotations with annotation metadata.
+     * [PARTIAL]    3. Detect target properties / method signatures and inject annotations.
+     * [TODO]       4. Source locations are needed for property maps.
+     */
+}
+
 /**
  * Find all annotations in the list of `SourceUnit`s `units` and combine them in a
  * map from ASTNode to its annotations. Return the resulting map.
@@ -643,6 +751,8 @@ export function buildAnnotationMap(
             );
         }
     }
+
+    processMacroAnnotations(res, version);
 
     return res;
 }

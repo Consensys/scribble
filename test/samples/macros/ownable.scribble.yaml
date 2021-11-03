@@ -1,7 +1,7 @@
 ownable:
     variables:
-        owner: address
+        _owner: address
     properties:
-        owner:
+        _owner:
             - msg: "can only be updated by an owner"
-              prop: if_updated old(owner) == msg.sender;
+              prop: if_updated old(_owner) == msg.sender;

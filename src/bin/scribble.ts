@@ -682,10 +682,6 @@ if ("version" in options) {
         const semMap: SemMap = new Map();
         let interposingQueue: Array<[VariableDeclaration, AbsDatastructurePath]>;
 
-        /**
-         * @todo figure out how to handle Macro annotations before type-checking.
-         */
-
         try {
             // Type check
             tcUnits(mergedUnits, annotMap, typeEnv);
