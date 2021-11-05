@@ -57,3 +57,14 @@ export function readMacroDefinitions(source: string, defs: Map<string, MacroDefi
         defs.set(name, { variables, properties });
     }
 }
+
+export function parseMacroMethodSignature(signature: string): [string, string[]] {
+    const idxOpen = signature.indexOf("(");
+    const idxClose = signature.indexOf(")", idxOpen);
+
+    const name = signature.slice(0, idxOpen);
+    const argsSlice = signature.slice(idxOpen + 1, idxClose).trim();
+    const args = argsSlice.length === 0 ? [] : argsSlice.split(",").map((arg) => arg.trim());
+
+    return [name, args];
+}

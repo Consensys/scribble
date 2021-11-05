@@ -12,7 +12,7 @@ import {
     TryCatchClause,
     VariableDeclaration
 } from "solc-typed-ast";
-import { MacroDefinition } from "../macros";
+import { MacroDefinition, parseMacroMethodSignature } from "../macros";
 import {
     AnnotationType,
     Location,
@@ -25,7 +25,7 @@ import {
     SUserFunctionDefinition
 } from "../spec-lang/ast";
 import { parseAnnotation, SyntaxError as ExprPEGSSyntaxError } from "../spec-lang/expr_parser";
-import { getOr, getScopeUnit, single } from "../util/misc";
+import { getOr, getScopeUnit } from "../util/misc";
 
 const srcLocation = require("src-location");
 
@@ -267,7 +267,7 @@ export class MacroMetaData extends AnnotationMetaData<SMacro> {
      * Computes a mapping where keys are formal variable names from macro definition
      * and values are actual names from macro instruction on contract.
      */
-    getVariableRemappingMap(): Map<string, string> {
+    getAliasingMap(): Map<string, string> {
         const result = new Map<string, string>();
 
         const formal = Array.from(this.macroDefinition.variables.keys());
@@ -598,6 +598,29 @@ export function gatherContractAnnotations(
     return result;
 }
 
+function mapArgsToParams(
+    signature: string,
+    args: string[],
+    params: VariableDeclaration[],
+    aliases: Map<string, string>
+): void {
+    assert(
+        params.length === args.length,
+        `${signature}: arguments count ${args.length} in macro definition exceeds method arguments count ${params.length}`
+    );
+
+    for (let i = 0; i < args.length; i++) {
+        const arg = args[i];
+
+        /**
+         * Do not map empty/placeholder arg names
+         */
+        if (arg.length > 0) {
+            aliases.set(arg, params[i].name);
+        }
+    }
+}
+
 /**
  * Detects macro annotations, produces annotations that are defined by macro
  * and injects them target nodes. Macro annotations are removed afterwards.
@@ -605,7 +628,7 @@ export function gatherContractAnnotations(
 function processMacroAnnotations(annotationMap: AnnotationMap, compilerVersion: string): void {
     const injections: AnnotationMap = new Map();
 
-    for (const [target, metas] of annotationMap) {
+    for (const [scope, metas] of annotationMap) {
         for (let m = 0; m < metas.length; m++) {
             const meta = metas[m];
 
@@ -613,33 +636,51 @@ function processMacroAnnotations(annotationMap: AnnotationMap, compilerVersion: 
                 continue;
             }
 
-            const variableRemapping = meta.getVariableRemappingMap();
-            const walker = (node: SNode) => {
-                if (node instanceof SId) {
-                    const actualName = variableRemapping.get(node.name);
+            const globalAliases = meta.getAliasingMap();
 
-                    if (actualName !== undefined) {
-                        node.name = actualName;
-                    }
+            for (const [signature, properties] of meta.macroDefinition.properties) {
+                let name: string;
+                let args: string[];
+
+                if (signature.includes("(")) {
+                    /**
+                     * Signature with method
+                     */
+                    [name, args] = parseMacroMethodSignature(signature);
+                } else {
+                    /**
+                     * Signature with variable
+                     */
+                    name = getOr(globalAliases, signature, signature);
+                    args = [];
                 }
-            };
 
-            for (const [formalName, properties] of meta.macroDefinition.properties) {
-                /**
-                 * @todo What about method signatures?
-                 */
-                const actualName = variableRemapping.get(formalName);
-                const name = actualName === undefined ? formalName : actualName;
+                const localAliases = new Map(globalAliases);
+                const walker = (node: SNode) => {
+                    if (node instanceof SId) {
+                        const actualName = localAliases.get(node.name);
+
+                        if (actualName !== undefined) {
+                            node.name = actualName;
+                        }
+                    }
+                };
 
                 /**
                  * @todo Using `inclusive = true` here seems to be a design oversight.
                  * Better to fix this in **solc-typed-ast**.
                  */
-                const resolvedTargets = resolveAny(name, target, compilerVersion, true);
-                const resolvedTarget = single([...resolvedTargets]);
+                const targets = resolveAny(name, scope, compilerVersion, true);
+                const target = [...targets][0];
+
+                if (target instanceof FunctionDefinition && args.length > 0) {
+                    const params = target.vParameters.vParameters;
+
+                    mapArgsToParams(signature, args, params, localAliases);
+                }
 
                 for (const { expression, message } of properties) {
-                    const annotation = parseAnnotation(expression, resolvedTarget, compilerVersion);
+                    const annotation = parseAnnotation(expression, target, compilerVersion);
 
                     assert(
                         annotation instanceof SProperty,
@@ -663,23 +704,23 @@ function processMacroAnnotations(annotationMap: AnnotationMap, compilerVersion: 
                         annotation.prefix + annotation.pp()
                     );
 
-                    const producedMeta = new PropertyMetaData(
+                    const metaToInject = new PropertyMetaData(
                         dummyDoc,
-                        resolvedTarget,
+                        target,
                         dummyDoc.text,
                         annotation,
                         0,
                         dummyDoc.text
                     );
 
-                    validateAnnotation(resolvedTarget, producedMeta);
+                    validateAnnotation(target, metaToInject);
 
-                    const macroMetas = injections.get(resolvedTarget);
+                    const metasToInject = injections.get(target);
 
-                    if (macroMetas === undefined) {
-                        injections.set(resolvedTarget, [producedMeta]);
+                    if (metasToInject === undefined) {
+                        injections.set(target, [metaToInject]);
                     } else {
-                        macroMetas.push(producedMeta);
+                        metasToInject.push(metaToInject);
                     }
                 }
             }
@@ -708,12 +749,9 @@ function processMacroAnnotations(annotationMap: AnnotationMap, compilerVersion: 
 
     /**
      * @todo list:
-     * [DONE]       1. Replace macro var names by real var names and parse annotations "on fly".
-     * [PARTIAL]    2. Wrap produced annotations with annotation metadata.
-     * [PARTIAL]    3. Detect target properties / method signatures and inject annotations.
-     * [TODO]       4. Source locations are needed for property maps.
-     * [TODO]       5. Figure out how to use macro variable types.
-     * [TODO]       6. Figure out if macros can use other macros.
+     * [TODO]   1. Source locations are needed for property maps.
+     * [TODO]   2. Figure out how to use macro variable types.
+     * [TODO]   3. Figure out if macros can use other macros.
      */
 }
 

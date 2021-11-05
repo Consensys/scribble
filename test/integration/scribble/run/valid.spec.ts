@@ -20,7 +20,8 @@ describe(`Command "scribble <filename>" is working properly`, () => {
         /**
          * Macros
          */
-        ["simple_macro.sol", ["--macro-path", "test/samples/macros/ownable.scribble.yaml"]]
+        ["ownable_macro.sol", ["--macro-path", "test/samples/macros/ownable.scribble.yaml"]],
+        ["erc20_macro.sol", ["--macro-path", "test/samples/macros"]]
     ]);
 
     it(`Instrumented source samples are present in ${samplesDir}`, () => {
