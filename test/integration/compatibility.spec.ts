@@ -3,10 +3,12 @@ import {
     ContractDefinition,
     FunctionDefinition,
     FunctionVisibility,
+    getABIEncoderVersion,
     SourceUnit,
     StateVariableVisibility,
     VariableDeclaration
 } from "solc-typed-ast";
+import { ABIEncoderVersion } from "solc-typed-ast/dist/types/abi";
 import { removeProcWd, scribble, searchRecursive, toAst, toAstUsingCache } from "./utils";
 
 function extractExportSymbols(units: SourceUnit[]): Map<string, ContractDefinition> {
@@ -21,11 +23,17 @@ function extractExportSymbols(units: SourceUnit[]): Map<string, ContractDefiniti
     return result;
 }
 
-function compareVars(a: VariableDeclaration, b: VariableDeclaration | FunctionDefinition): boolean {
+function compareVars(
+    a: VariableDeclaration,
+    b: VariableDeclaration | FunctionDefinition,
+    encVer: ABIEncoderVersion
+): boolean {
     // In some cases we may re-write a public state var into an internal state var with a getter function
     const bSig =
-        b instanceof VariableDeclaration ? b.getterCanonicalSignature : b.canonicalSignature;
-    return a.getterCanonicalSignature === bSig;
+        b instanceof VariableDeclaration
+            ? b.getterCanonicalSignature(encVer)
+            : b.canonicalSignature(encVer);
+    return a.getterCanonicalSignature(encVer) === bSig;
 }
 
 function extractAccessibleMembers(
@@ -62,14 +70,15 @@ function findCorrespondigVar(
 
 function findCorrespondigFn(
     fn: FunctionDefinition,
-    members: Array<FunctionDefinition | VariableDeclaration>
+    members: Array<FunctionDefinition | VariableDeclaration>,
+    encVer: ABIEncoderVersion
 ): FunctionDefinition | undefined {
     for (const member of members) {
         if (
             member instanceof FunctionDefinition &&
             fn.name === member.name &&
             fn.kind === member.kind &&
-            fn.canonicalSignature === member.canonicalSignature
+            fn.canonicalSignature(encVer) === member.canonicalSignature(encVer)
         ) {
             return member;
         }
@@ -78,7 +87,11 @@ function findCorrespondigFn(
     return undefined;
 }
 
-function checkCompatibility(a: ContractDefinition, b: ContractDefinition) {
+function checkCompatibility(
+    a: ContractDefinition,
+    b: ContractDefinition,
+    encVer: ABIEncoderVersion
+) {
     const membersA = extractAccessibleMembers(a);
     let membersB = extractAccessibleMembers(b);
 
@@ -103,7 +116,7 @@ function checkCompatibility(a: ContractDefinition, b: ContractDefinition) {
                 );
             }
 
-            if (!compareVars(memberA, memberB)) {
+            if (!compareVars(memberA, memberB, encVer)) {
                 throw new Error(
                     `State variable "${a.name}.${
                         memberA.name
@@ -111,7 +124,7 @@ function checkCompatibility(a: ContractDefinition, b: ContractDefinition) {
                 );
             }
         } else if (memberA instanceof FunctionDefinition) {
-            const memberB = findCorrespondigFn(memberA, membersB);
+            const memberB = findCorrespondigFn(memberA, membersB, encVer);
 
             if (memberB === undefined) {
                 throw new Error(
@@ -139,6 +152,7 @@ describe("Interface compatibility test", () => {
             let artefact: string | undefined;
             let compilerVersion: string;
             let inAst: SourceUnit[];
+            let encVer: ABIEncoderVersion;
 
             before(() => {
                 const result = toAstUsingCache(sample);
@@ -146,6 +160,7 @@ describe("Interface compatibility test", () => {
                 artefact = result.artefact;
                 compilerVersion = result.compilerVersion;
                 inAst = result.units;
+                encVer = getABIEncoderVersion(inAst, compilerVersion);
             });
 
             const compareSourceUnits = (inAst: SourceUnit[], outAst: SourceUnit[]) => {
@@ -162,7 +177,7 @@ describe("Interface compatibility test", () => {
                         throw new Error(`Unable to find contract "${name}" in instrumented AST`);
                     }
 
-                    checkCompatibility(inContract, outContract);
+                    checkCompatibility(inContract, outContract, encVer);
                 }
             };
 

@@ -18,6 +18,7 @@ import {
     FunctionKind,
     FunctionStateMutability,
     FunctionVisibility,
+    getABIEncoderVersion,
     isSane,
     SourceUnit,
     SrcRangeMap,
@@ -672,10 +673,12 @@ if ("version" in options) {
         }
 
         const cha = getCHA(mergedUnits);
-        const callgraph = getCallGraph(mergedUnits);
-        let annotMap: AnnotationMap;
 
         const compilerVersionUsed = pickVersion(compilerVersionUsedMap);
+        const abiEncoderVersion = getABIEncoderVersion(mergedUnits, compilerVersionUsed);
+        const callgraph = getCallGraph(mergedUnits, abiEncoderVersion);
+
+        let annotMap: AnnotationMap;
 
         try {
             annotMap = buildAnnotationMap(
@@ -696,7 +699,7 @@ if ("version" in options) {
 
         printDeprecationNotices(annotMap);
 
-        const typeEnv = new TypeEnv(compilerVersionUsed);
+        const typeEnv = new TypeEnv(compilerVersionUsed, abiEncoderVersion);
         const semMap: SemMap = new Map();
         let interposingQueue: Array<[VariableDeclaration, AbsDatastructurePath]>;
 
