@@ -105,6 +105,7 @@
             {
                 "name": "debug-events",
                 "type": "Boolean",
+                "defaultValue": false,
                 "description": "When specified for every failure an additional debug event with values of variables in the failing predicate is emitted."
             },
             {
@@ -112,6 +113,11 @@
                 "type": "String",
                 "defaultValue": "log",
                 "description": "Describe how scribble signals user assertion failures to Myhtril/Harvey. Must be either 'log' or 'mstore'. See wiki for more details."
+            },
+            {
+                "name": "cov-assertions",
+                "type": "Boolean",
+                "description": "When specified emit an extra user-assertion for each property whenever its reached. This allows an easy (albeit noisy) way to check which propterties were reached."
             },
             {
                 "name": "solFiles",
