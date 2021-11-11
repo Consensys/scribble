@@ -1165,9 +1165,7 @@ export function instrumentStatement(
 
     for (const annot of allAnnotations) {
         assert(
-            annot.type === AnnotationType.Assert ||
-                annot.type === AnnotationType.Hint ||
-                annot.type === AnnotationType.Limit,
+            annot.type === AnnotationType.Assert || annot.type === AnnotationType.Hint,
             `Unexpected non-assert annotaiton ${annot.original}`
         );
     }
