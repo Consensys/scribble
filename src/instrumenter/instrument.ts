@@ -494,7 +494,19 @@ export function insertAnnotations(annotations: PropertyMetaData[], ctx: Transpil
         const dbgInfo = debugInfos[i];
         const emitStmt = dbgInfo !== undefined ? dbgInfo[1] : undefined;
 
-        if (annotation.type === AnnotationType.Hint || annotation.type === AnnotationType.Limit) {
+        if (annotation.type === AnnotationType.Limit) {
+            return [
+                factory.makeExpressionStatement(
+                    factory.makeFunctionCall(
+                        "<mising>",
+                        FunctionCallKind.FunctionCall,
+                        factory.makeIdentifier("<missing>", "require", -1),
+                        [predicate]
+                    )
+                ),
+                true
+            ];
+        } else if (annotation.type === AnnotationType.Hint) {
             if (!ctx.hasBinding(ctx.instrCtx.scratchField)) {
                 ctx.addBinding(
                     ctx.instrCtx.scratchField,
@@ -512,17 +524,8 @@ export function insertAnnotations(annotations: PropertyMetaData[], ctx: Transpil
                 )
             );
 
-            const stmt =
-                annotation.type === AnnotationType.Hint
-                    ? factory.makeIfStatement(predicate, scratchAssign)
-                    : factory.makeExpressionStatement(
-                          factory.makeFunctionCall(
-                              "<mising>",
-                              FunctionCallKind.FunctionCall,
-                              factory.makeIdentifier("<missing>", "require", -1),
-                              [predicate]
-                          )
-                      );
+            const stmt = factory.makeIfStatement(predicate, scratchAssign);
+            annotation.type === AnnotationType.Hint;
 
             return [stmt, true];
         } else {
