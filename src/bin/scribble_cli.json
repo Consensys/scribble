@@ -105,7 +105,6 @@
             {
                 "name": "debug-events",
                 "type": "Boolean",
-                "defaultValue": false,
                 "description": "When specified for every failure an additional debug event with values of variables in the failing predicate is emitted."
             },
             {
@@ -117,6 +116,7 @@
             {
                 "name": "cov-assertions",
                 "type": "Boolean",
+                "defaultValue": false,
                 "description": "When specified emit an extra user-assertion for each property whenever its reached. This allows an easy (albeit noisy) way to check which propterties were reached."
             },
             {
