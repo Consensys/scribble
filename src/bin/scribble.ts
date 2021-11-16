@@ -282,7 +282,12 @@ function instrumentFiles(
             const allProperties = gatherContractAnnotations(contract, annotMap);
             const allowedFuncProp = allProperties.filter(
                 (annot) =>
-                    annot instanceof PropertyMetaData && annot.parsedAnnot.type == "if_succeeds"
+                    annot instanceof PropertyMetaData &&
+                    [
+                        AnnotationType.IfSucceeds,
+                        AnnotationType.Try,
+                        AnnotationType.Require
+                    ].includes(annot.parsedAnnot.type)
             );
 
             for (const fun of contract.vFunctions) {

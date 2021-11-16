@@ -27,6 +27,7 @@ import {
     resolveByName,
     SourceUnit,
     Statement,
+    StatementWithChildren,
     StateVariableVisibility,
     TypeNode,
     UncheckedBlock
@@ -495,6 +496,7 @@ function isPublic(fn: FunctionDefinition): boolean {
 export function insertAnnotations(annotations: PropertyMetaData[], ctx: TranspilingContext): void {
     const factory = ctx.factory;
     const contract = ctx.containerContract;
+    const instrCtx = ctx.instrCtx;
     const predicates: Array<[PropertyMetaData, Expression]> = [];
 
     for (const annotation of annotations) {
@@ -506,20 +508,24 @@ export function insertAnnotations(annotations: PropertyMetaData[], ctx: Transpil
     const checkStmts: Array<[Statement, boolean]> = predicates.map(([annotation, predicate], i) => {
         const dbgInfo = debugInfos[i];
         const emitStmt = dbgInfo !== undefined ? dbgInfo[1] : undefined;
+        const targetIsStmt =
+            annotation.target instanceof Statement ||
+            annotation.target instanceof StatementWithChildren;
 
-        if (annotation.type === AnnotationType.Limit) {
-            return [
-                factory.makeExpressionStatement(
-                    factory.makeFunctionCall(
-                        "<mising>",
-                        FunctionCallKind.FunctionCall,
-                        factory.makeIdentifier("<missing>", "require", -1),
-                        [predicate]
-                    )
-                ),
-                true
-            ];
-        } else if (annotation.type === AnnotationType.Hint) {
+        if (annotation.type === AnnotationType.Require) {
+            const reqStmt = factory.makeExpressionStatement(
+                factory.makeFunctionCall(
+                    "<mising>",
+                    FunctionCallKind.FunctionCall,
+                    factory.makeIdentifier("<missing>", "require", -1),
+                    [predicate]
+                )
+            );
+
+            instrCtx.addAnnotationInstrumentation(annotation, reqStmt);
+            instrCtx.addAnnotationCheck(annotation, predicate);
+            return [reqStmt, !targetIsStmt];
+        } else if (annotation.type === AnnotationType.Try) {
             if (!ctx.hasBinding(ctx.instrCtx.scratchField)) {
                 ctx.addBinding(
                     ctx.instrCtx.scratchField,
@@ -538,9 +544,12 @@ export function insertAnnotations(annotations: PropertyMetaData[], ctx: Transpil
             );
 
             const stmt = factory.makeIfStatement(predicate, scratchAssign);
-            annotation.type === AnnotationType.Hint;
+            annotation.type === AnnotationType.Try;
 
-            return [stmt, true];
+            instrCtx.addAnnotationInstrumentation(annotation, stmt);
+            instrCtx.addAnnotationCheck(annotation, predicate);
+
+            return [stmt, !targetIsStmt];
         } else {
             const event = getAssertionFailedEvent(factory, contract);
             return [emitAssert(ctx, predicate, annotation, event, emitStmt), false];
@@ -1178,8 +1187,10 @@ export function instrumentStatement(
 
     for (const annot of allAnnotations) {
         assert(
-            annot.type === AnnotationType.Assert || annot.type === AnnotationType.Hint,
-            `Unexpected non-assert annotaiton ${annot.original}`
+            annot.type === AnnotationType.Assert ||
+                annot.type === AnnotationType.Try ||
+                annot.type === AnnotationType.Require,
+            `Unexpected annotaiton on statement ${annot.original}`
         );
     }
 

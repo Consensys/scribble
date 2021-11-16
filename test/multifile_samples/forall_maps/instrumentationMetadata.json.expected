@@ -1019,6 +1019,7 @@
       "propertySource": "89:28:1",
       "annotationSource": "77:41:1",
       "target": "function",
+      "type": "if_succeeds",
       "targetName": "setA",
       "debugEventEncoding": [
         [
@@ -1054,6 +1055,7 @@
       "propertySource": "216:28:1",
       "annotationSource": "204:41:1",
       "target": "function",
+      "type": "if_succeeds",
       "targetName": "decA",
       "debugEventEncoding": [
         [
@@ -1089,6 +1091,7 @@
       "propertySource": "329:39:1",
       "annotationSource": "317:52:1",
       "target": "function",
+      "type": "if_succeeds",
       "targetName": "setC",
       "debugEventEncoding": [
         [
@@ -1124,6 +1127,7 @@
       "propertySource": "469:66:1",
       "annotationSource": "457:79:1",
       "target": "function",
+      "type": "if_succeeds",
       "targetName": "setD",
       "debugEventEncoding": [
         [
@@ -1170,6 +1174,7 @@
       "propertySource": "647:36:1",
       "annotationSource": "635:49:1",
       "target": "function",
+      "type": "if_succeeds",
       "targetName": "setE",
       "debugEventEncoding": [
         [
@@ -1205,6 +1210,7 @@
       "propertySource": "837:32:1",
       "annotationSource": "825:45:1",
       "target": "function",
+      "type": "if_succeeds",
       "targetName": "setF",
       "debugEventEncoding": [
         [
@@ -1240,6 +1246,7 @@
       "propertySource": "1026:35:1",
       "annotationSource": "1014:48:1",
       "target": "function",
+      "type": "if_succeeds",
       "targetName": "setG",
       "debugEventEncoding": [
         [
@@ -1282,6 +1289,7 @@
       "propertySource": "1163:41:1",
       "annotationSource": "1151:54:1",
       "target": "function",
+      "type": "if_succeeds",
       "targetName": "setH",
       "debugEventEncoding": [
         [
@@ -1317,6 +1325,7 @@
       "propertySource": "1316:36:1",
       "annotationSource": "1304:49:1",
       "target": "function",
+      "type": "if_succeeds",
       "targetName": "setI",
       "debugEventEncoding": [
         [
@@ -1359,6 +1368,7 @@
       "propertySource": "1523:60:1",
       "annotationSource": "1511:73:1",
       "target": "function",
+      "type": "if_succeeds",
       "targetName": "setJ",
       "debugEventEncoding": [
         [
@@ -1401,6 +1411,7 @@
       "propertySource": "1704:80:1",
       "annotationSource": "1692:93:1",
       "target": "function",
+      "type": "if_succeeds",
       "targetName": "setJ2",
       "debugEventEncoding": [
         [

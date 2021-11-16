@@ -70,6 +70,22 @@ describe(`Command "scribble <filename>" is failing as expected`, () => {
         [
             ["test/samples/invalid/ambiguous_binding2.invalid.sol"],
             /^test\/samples\/invalid\/ambiguous_binding2.invalid.sol:1:16 TypeError: Type of let expression is not uniquely defined from its body. Please add a type cast around the body to define it. \(e.g. uint\(0\)\)/m
+        ],
+        [
+            ["test/samples/invalid/try.old.invalid.sol"],
+            /^test\/samples\/invalid\/try.old.invalid.sol:5:13 TypeError: old\(\) expressions not allowed in 'try' annotations. try always executes before the function call./m
+        ],
+        [
+            ["test/samples/invalid/require.old.invalid.sol"],
+            /^test\/samples\/invalid\/require.old.invalid.sol:4:17 TypeError: old\(\) expressions not allowed in 'require' annotations. require always executes before the function call./m
+        ],
+        [
+            ["test/samples/invalid/require.svar.invalid.sol"],
+            /^test\/samples\/invalid\/require.svar.invalid.sol:2:9 UnsupportedByTargetError: The "require" annotation is not applicable to state variables/m
+        ],
+        [
+            ["test/samples/invalid/try.svar.invalid.sol"],
+            /^test\/samples\/invalid\/try.svar.invalid.sol:2:9 UnsupportedByTargetError: The "try" annotation is not applicable to state variables/m
         ]
     ];
 
