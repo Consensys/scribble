@@ -18,6 +18,7 @@ export function makeInstrumentationCtx(
         factory,
         sources,
         assertionMode,
+        assertionMode === "mstore",
         true,
         getCallGraph(sources, encVer),
         getCHA(sources),
