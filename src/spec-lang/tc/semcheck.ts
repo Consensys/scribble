@@ -113,6 +113,10 @@ export function scAnnotation(
     ctx: SemCtx
 ): void {
     if (node instanceof SProperty) {
+        // #limit and #hint are implicitly evaluated in the old-state
+        if (node.type === AnnotationType.Hint || node.type === AnnotationType.Limit) {
+            ctx.isOld = true;
+        }
         sc(node.expression, ctx, typings, semMap);
     } else if (node instanceof SUserFunctionDefinition) {
         sc(node.body, ctx, typings, semMap);
