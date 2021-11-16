@@ -351,6 +351,17 @@ function emitAssert(
                 [message]
             )
         );
+
+        if (instrCtx.covAssertions) {
+            userAssertionHit = factory.makeEmitStatement(
+                factory.makeFunctionCall(
+                    "<missing>",
+                    FunctionCallKind.FunctionCall,
+                    factory.makeIdentifier("<missing>", "AssertionFailed", 1000 + event.id),
+                    [factory.makeLiteral("<missing>", LiteralKind.String, "", `HIT: ${strMessage}`)]
+                )
+            );
+        }
     } else {
         const failBitPattern = getBitPattern(factory, annotation.id);
 
@@ -368,16 +379,18 @@ function emitAssert(
             `Can't instrument more than ${0x1000} ids currently in mstore mode.`
         );
 
-        const successBitPattern = getBitPattern(factory, annotation.id | 0x1000);
+        if (instrCtx.covAssertions) {
+            const successBitPattern = getBitPattern(factory, annotation.id | 0x1000);
 
-        userAssertionHit = factory.makeExpressionStatement(
-            factory.makeAssignment(
-                "<missing>",
-                "=",
-                transCtx.refBinding(instrCtx.scratchField),
-                successBitPattern
-            )
-        );
+            userAssertionHit = factory.makeExpressionStatement(
+                factory.makeAssignment(
+                    "<missing>",
+                    "=",
+                    transCtx.refBinding(instrCtx.scratchField),
+                    successBitPattern
+                )
+            );
+        }
     }
 
     const ifBody: Statement[] = [userAssertFailed];

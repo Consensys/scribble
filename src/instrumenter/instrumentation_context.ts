@@ -355,6 +355,7 @@ export class InstrumentationContext {
         public readonly factory: ScribbleFactory,
         public readonly units: SourceUnit[],
         public readonly assertionMode: "log" | "mstore",
+        public readonly covAssertions: boolean,
         public readonly addAssert: boolean,
         public readonly callgraph: CallGraph,
         public readonly cha: CHA<ContractDefinition>,
