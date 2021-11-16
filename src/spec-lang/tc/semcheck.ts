@@ -113,7 +113,7 @@ export function scAnnotation(
     ctx: SemCtx
 ): void {
     if (node instanceof SProperty) {
-        // #limit and #hint are implicitly evaluated in the old-state
+        // #try and #require are implicitly evaluated in the old-state
         if (node.type === AnnotationType.Try || node.type === AnnotationType.Require) {
             ctx.isOld = true;
         }
