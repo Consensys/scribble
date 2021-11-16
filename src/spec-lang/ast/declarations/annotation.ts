@@ -6,8 +6,8 @@ export enum AnnotationType {
     Invariant = "invariant",
     Define = "define",
     Assert = "assert",
-    Hint = "hint",
-    Limit = "limit"
+    Try = "try",
+    Require = "require"
 }
 
 export abstract class SAnnotation extends SNode {

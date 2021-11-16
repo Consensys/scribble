@@ -10,8 +10,8 @@ Annotation =
         / If_Assigned
         / UserFunctionDefinition
         / Assert
-        / Hint
-        / Limit 
+        / Try
+        / Require 
     )
     .* {
         annotation.prefix = prefix === null ? undefined : prefix;
@@ -78,8 +78,8 @@ Assert =
         );
     }
 
-Hint =
-    type: HINT __ label: AnnotationLabel? __ expr: Expression __ ";" {
+Try =
+    type: TRY __ label: AnnotationLabel? __ expr: Expression __ ";" {
         return new SProperty (
             type as AnnotationType,
             expr,
@@ -88,8 +88,8 @@ Hint =
         );
     }
 
-Limit =
-    type: LIMIT __ label: AnnotationLabel? __ expr: Expression __ ";" {
+Require =
+    type: REQUIRE __ label: AnnotationLabel? __ expr: Expression __ ";" {
         return new SProperty (
             type as AnnotationType,
             expr,
@@ -229,8 +229,8 @@ IF_UPDATED = "if_updated"
 IF_ASSIGNED = "if_assigned"
 DEFINE = "define"
 FORALL = "forall"
-HINT = "hint"
-LIMIT = "limit"
+TRY = "try"
+REQUIRE = "require"
 
 Keyword =
     TRUE

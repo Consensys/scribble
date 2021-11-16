@@ -380,6 +380,7 @@
       "propertySource": "57:9:1",
       "annotationSource": "47:20:1",
       "target": "contract",
+      "type": "invariant",
       "targetName": "Base",
       "debugEventEncoding": [
         [
@@ -411,6 +412,7 @@
       "propertySource": "101:20:1",
       "annotationSource": "90:32:1",
       "target": "variable",
+      "type": "if_updated",
       "targetName": "sum",
       "debugEventEncoding": [
         [
@@ -450,6 +452,7 @@
       "propertySource": "153:13:1",
       "annotationSource": "141:26:1",
       "target": "function",
+      "type": "if_succeeds",
       "targetName": "main",
       "debugEventEncoding": [
         [
@@ -481,6 +484,7 @@
       "propertySource": "223:31:1",
       "annotationSource": "216:39:1",
       "target": "statement",
+      "type": "assert",
       "targetName": "",
       "debugEventEncoding": [
         [
@@ -523,6 +527,7 @@
       "propertySource": "312:8:1",
       "annotationSource": "305:16:1",
       "target": "statement",
+      "type": "assert",
       "targetName": "",
       "debugEventEncoding": [
         [
@@ -566,6 +571,7 @@
       "propertySource": "219:54:2",
       "annotationSource": "212:62:2",
       "target": "statement",
+      "type": "assert",
       "targetName": "",
       "debugEventEncoding": [
         [
@@ -604,6 +610,7 @@
       "propertySource": "369:13:2",
       "annotationSource": "362:21:2",
       "target": "statement",
+      "type": "assert",
       "targetName": "",
       "debugEventEncoding": [],
       "message": "",

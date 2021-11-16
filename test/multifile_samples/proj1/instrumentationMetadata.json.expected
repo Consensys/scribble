@@ -154,6 +154,7 @@
       "propertySource": "53:5:0",
       "annotationSource": "31:28:0",
       "target": "contract",
+      "type": "invariant",
       "targetName": "Base",
       "debugEventEncoding": [
         [
@@ -185,6 +186,7 @@
       "propertySource": "118:15:1",
       "annotationSource": "94:40:1",
       "target": "function",
+      "type": "if_succeeds",
       "targetName": "add",
       "debugEventEncoding": [
         [
@@ -224,6 +226,7 @@
       "propertySource": "118:14:2",
       "annotationSource": "94:39:2",
       "target": "function",
+      "type": "if_succeeds",
       "targetName": "double",
       "debugEventEncoding": [
         [
