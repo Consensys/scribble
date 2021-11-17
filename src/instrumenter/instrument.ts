@@ -525,7 +525,9 @@ export function insertAnnotations(annotations: PropertyMetaData[], ctx: Transpil
             instrCtx.addAnnotationInstrumentation(annotation, reqStmt);
             instrCtx.addAnnotationCheck(annotation, predicate);
             return [reqStmt, !targetIsStmt];
-        } else if (annotation.type === AnnotationType.Try) {
+        }
+
+        if (annotation.type === AnnotationType.Try) {
             if (!ctx.hasBinding(ctx.instrCtx.scratchField)) {
                 ctx.addBinding(
                     ctx.instrCtx.scratchField,
@@ -550,10 +552,10 @@ export function insertAnnotations(annotations: PropertyMetaData[], ctx: Transpil
             instrCtx.addAnnotationCheck(annotation, predicate);
 
             return [stmt, !targetIsStmt];
-        } else {
-            const event = getAssertionFailedEvent(factory, contract);
-            return [emitAssert(ctx, predicate, annotation, event, emitStmt), false];
         }
+
+        const event = getAssertionFailedEvent(factory, contract);
+        return [emitAssert(ctx, predicate, annotation, event, emitStmt), false];
     });
 
     for (const [check, isOld] of checkStmts) {
