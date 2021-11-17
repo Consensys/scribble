@@ -834,12 +834,6 @@ describe("Annotation Parser Unit Tests", () => {
         ],
         ["/// assert true;", new SProperty(AnnotationType.Assert, new SBooleanLiteral(true))],
         [
-            "/// assert {:skipConstructor true} true;",
-            new SProperty(AnnotationType.Assert, new SBooleanLiteral(true), {
-                skipConstructor: new SBooleanLiteral(true)
-            })
-        ],
-        [
             "/// assert forall (uint x in a) a[x] > 10;",
             new SProperty(
                 AnnotationType.Assert,

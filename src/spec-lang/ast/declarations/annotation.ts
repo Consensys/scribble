@@ -16,16 +16,12 @@ export enum AnnotationType {
 export type AnnotationMDExpr = SNumber | SBooleanLiteral | SStringLiteral;
 export type AnnotationMD = { [key: string]: AnnotationMDExpr };
 
-const knownMDTypes = new Map<string, any>([
-    ["msg", SStringLiteral],
-    ["skipConstructor", SBooleanLiteral]
-]);
+const knownMDTypes = new Map<string, any>([["msg", SStringLiteral]]);
 
 export abstract class SAnnotation extends SNode {
     public readonly type: AnnotationType;
     public readonly md: AnnotationMD;
     public readonly label?: string;
-    public readonly skipConstructor: boolean = false;
 
     prefix: string | undefined;
 
@@ -50,10 +46,8 @@ export abstract class SAnnotation extends SNode {
 
             if (key === "msg") {
                 this.label = (val as SStringLiteral).val;
-            }
-
-            if (key === "skipConstructor") {
-                this.skipConstructor = (val as SBooleanLiteral).val;
+            } else {
+                throw new Error(`NYI metadata key ${key}`);
             }
         }
     }
