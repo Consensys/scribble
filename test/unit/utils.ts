@@ -1,4 +1,4 @@
-import { SourceUnit } from "solc-typed-ast";
+import { getABIEncoderVersion, SourceUnit } from "solc-typed-ast";
 import { generateUtilsContract, ScribbleFactory } from "../../src";
 import { getCallGraph } from "../../src/instrumenter/callgraph";
 import { getCHA } from "../../src/instrumenter/cha";
@@ -12,12 +12,15 @@ export function makeInstrumentationCtx(
     assertionMode: "log" | "mstore",
     compilerVersion: string
 ): InstrumentationContext {
+    const encVer = getABIEncoderVersion(sources, compilerVersion);
+
     const ctx = new InstrumentationContext(
         factory,
         sources,
         assertionMode,
+        assertionMode === "mstore",
         true,
-        getCallGraph(sources),
+        getCallGraph(sources, encVer),
         getCHA(sources),
         {},
         [],
@@ -27,7 +30,7 @@ export function makeInstrumentationCtx(
         false,
         new Map(),
         "flat",
-        new TypeEnv(compilerVersion),
+        new TypeEnv(compilerVersion, encVer),
         new Map(),
         []
     );

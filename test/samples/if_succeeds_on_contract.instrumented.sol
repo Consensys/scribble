@@ -24,23 +24,11 @@ contract Foo {
         }
     }
 
-    function _original_Foo_inc(uint x) private view returns (uint y) {
+    function _original_Foo_inc(uint x) private returns (uint y) {
         return x + 1;
     }
 
-    function inc2(uint x) external returns (uint y) {
-        y = _original_Foo_inc2(x);
-        if (!(b == (a + 1))) {
-            emit AssertionFailed("0: ");
-            assert(false);
-        }
-        if (!(b == (a & 1))) {
-            emit AssertionFailed("1: ");
-            assert(false);
-        }
-    }
-
-    function _original_Foo_inc2(uint x) private view returns (uint y) {
+    function inc2(uint x) external view returns (uint y) {
         return x + 1;
     }
 

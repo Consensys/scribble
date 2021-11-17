@@ -27,6 +27,7 @@ import {
     resolveByName,
     SourceUnit,
     Statement,
+    StatementWithChildren,
     StateVariableVisibility,
     TypeNode,
     UncheckedBlock
@@ -351,6 +352,17 @@ function emitAssert(
                 [message]
             )
         );
+
+        if (instrCtx.covAssertions) {
+            userAssertionHit = factory.makeEmitStatement(
+                factory.makeFunctionCall(
+                    "<missing>",
+                    FunctionCallKind.FunctionCall,
+                    factory.makeIdentifier("<missing>", "AssertionFailed", 1000 + event.id),
+                    [factory.makeLiteral("<missing>", LiteralKind.String, "", `HIT: ${strMessage}`)]
+                )
+            );
+        }
     } else {
         const failBitPattern = getBitPattern(factory, annotation.id);
 
@@ -368,16 +380,18 @@ function emitAssert(
             `Can't instrument more than ${0x1000} ids currently in mstore mode.`
         );
 
-        const successBitPattern = getBitPattern(factory, annotation.id | 0x1000);
+        if (instrCtx.covAssertions) {
+            const successBitPattern = getBitPattern(factory, annotation.id | 0x1000);
 
-        userAssertionHit = factory.makeExpressionStatement(
-            factory.makeAssignment(
-                "<missing>",
-                "=",
-                transCtx.refBinding(instrCtx.scratchField),
-                successBitPattern
-            )
-        );
+            userAssertionHit = factory.makeExpressionStatement(
+                factory.makeAssignment(
+                    "<missing>",
+                    "=",
+                    transCtx.refBinding(instrCtx.scratchField),
+                    successBitPattern
+                )
+            );
+        }
     }
 
     const ifBody: Statement[] = [userAssertFailed];
@@ -482,6 +496,7 @@ function isPublic(fn: FunctionDefinition): boolean {
 export function insertAnnotations(annotations: PropertyMetaData[], ctx: TranspilingContext): void {
     const factory = ctx.factory;
     const contract = ctx.containerContract;
+    const instrCtx = ctx.instrCtx;
     const predicates: Array<[PropertyMetaData, Expression]> = [];
 
     for (const annotation of annotations) {
@@ -490,16 +505,61 @@ export function insertAnnotations(annotations: PropertyMetaData[], ctx: Transpil
 
     const debugInfos = ctx.instrCtx.debugEvents ? getDebugInfo(annotations, ctx) : [];
 
-    const checkStmts: Statement[] = predicates.map(([annotation, predicate], i) => {
-        const event = getAssertionFailedEvent(factory, contract);
+    const checkStmts: Array<[Statement, boolean]> = predicates.map(([annotation, predicate], i) => {
         const dbgInfo = debugInfos[i];
         const emitStmt = dbgInfo !== undefined ? dbgInfo[1] : undefined;
+        const targetIsStmt =
+            annotation.target instanceof Statement ||
+            annotation.target instanceof StatementWithChildren;
 
-        return emitAssert(ctx, predicate, annotation, event, emitStmt);
+        if (annotation.type === AnnotationType.Require) {
+            const reqStmt = factory.makeExpressionStatement(
+                factory.makeFunctionCall(
+                    "<mising>",
+                    FunctionCallKind.FunctionCall,
+                    factory.makeIdentifier("<missing>", "require", -1),
+                    [predicate]
+                )
+            );
+
+            instrCtx.addAnnotationInstrumentation(annotation, reqStmt);
+            instrCtx.addAnnotationCheck(annotation, predicate);
+            return [reqStmt, !targetIsStmt];
+        }
+
+        if (annotation.type === AnnotationType.Try) {
+            if (!ctx.hasBinding(ctx.instrCtx.scratchField)) {
+                ctx.addBinding(
+                    ctx.instrCtx.scratchField,
+                    factory.makeElementaryTypeName("<missing>", "uint256")
+                );
+            }
+
+            const lhs = ctx.refBinding(ctx.instrCtx.scratchField);
+            const scratchAssign = factory.makeExpressionStatement(
+                factory.makeAssignment(
+                    "<missing>",
+                    "=",
+                    lhs,
+                    factory.makeLiteral("uint256", LiteralKind.Number, "", "42")
+                )
+            );
+
+            const stmt = factory.makeIfStatement(predicate, scratchAssign);
+            annotation.type === AnnotationType.Try;
+
+            instrCtx.addAnnotationInstrumentation(annotation, stmt);
+            instrCtx.addAnnotationCheck(annotation, predicate);
+
+            return [stmt, !targetIsStmt];
+        }
+
+        const event = getAssertionFailedEvent(factory, contract);
+        return [emitAssert(ctx, predicate, annotation, event, emitStmt), false];
     });
 
-    for (const check of checkStmts) {
-        ctx.insertStatement(check, false);
+    for (const [check, isOld] of checkStmts) {
+        ctx.insertStatement(check, isOld);
     }
 
     for (const dbgInfo of debugInfos) {
@@ -1129,8 +1189,10 @@ export function instrumentStatement(
 
     for (const annot of allAnnotations) {
         assert(
-            annot.type === AnnotationType.Assert,
-            `Unexpected non-assert annotaiton ${annot.original}`
+            annot.type === AnnotationType.Assert ||
+                annot.type === AnnotationType.Try ||
+                annot.type === AnnotationType.Require,
+            `Unexpected annotaiton on statement ${annot.original}`
         );
     }
 

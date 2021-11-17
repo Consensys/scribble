@@ -486,19 +486,19 @@ contract Foo {
         assert(bytes_to_Foo_E_5.get(u0, hex"abcd") == E.A);
     }
 
-    function y(uint256 ARG_0, uint256 ARG_1) public returns (uint256 RET_0) {
+    function y(uint256 ARG_0, uint256 ARG_1) public view returns (uint256 RET_0) {
         return uint256_to_uint256.get(uint256_to_uint256_to_uint256_S_141.get(y0, ARG_0), ARG_1);
     }
 
-    function x(uint256 ARG_2) public returns (uint256 RET_1) {
+    function x(uint256 ARG_2) public view returns (uint256 RET_1) {
         return uint256_to_uint256.get(x0, ARG_2);
     }
 
-    function z(string memory ARG_3, uint256 ARG_4) public returns (uint256 RET_2) {
+    function z(string memory ARG_3, uint256 ARG_4) public view returns (uint256 RET_2) {
         return string_to_uint256_arr.get(z0, ARG_3)[ARG_4];
     }
 
-    function u(bytes memory ARG_5) public returns (Foo.E RET_3) {
+    function u(bytes memory ARG_5) public view returns (Foo.E RET_3) {
         return bytes_to_Foo_E_5.get(u0, ARG_5);
     }
 }`,

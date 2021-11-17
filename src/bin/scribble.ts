@@ -18,6 +18,7 @@ import {
     FunctionKind,
     FunctionStateMutability,
     FunctionVisibility,
+    getABIEncoderVersion,
     isSane,
     SourceUnit,
     SrcRangeMap,
@@ -281,7 +282,12 @@ function instrumentFiles(
             const allProperties = gatherContractAnnotations(contract, annotMap);
             const allowedFuncProp = allProperties.filter(
                 (annot) =>
-                    annot instanceof PropertyMetaData && annot.parsedAnnot.type == "if_succeeds"
+                    annot instanceof PropertyMetaData &&
+                    [
+                        AnnotationType.IfSucceeds,
+                        AnnotationType.Try,
+                        AnnotationType.Require
+                    ].includes(annot.parsedAnnot.type)
             );
 
             for (const fun of contract.vFunctions) {
@@ -294,7 +300,8 @@ function instrumentFiles(
                 if (
                     (fun.visibility == FunctionVisibility.External ||
                         fun.visibility == FunctionVisibility.Public) &&
-                    fun.stateMutability !== FunctionStateMutability.Pure
+                    fun.stateMutability !== FunctionStateMutability.Pure &&
+                    fun.stateMutability !== FunctionStateMutability.View
                 ) {
                     annotations = annotations.concat(allowedFuncProp);
                 }
@@ -368,7 +375,7 @@ for (const option of options) {
 
 try {
     options = commandLineArgs(params[1].optionList);
-} catch (e) {
+} catch (e: any) {
     console.error(e.message);
 
     process.exit(1);
@@ -539,7 +546,7 @@ if ("version" in options) {
                     pathRemapping,
                     compilerSettings
                 );
-            } catch (e) {
+            } catch (e: any) {
                 if (e instanceof CompileFailedError) {
                     console.error(`Compile errors encountered for ${target}:`);
 
@@ -671,10 +678,12 @@ if ("version" in options) {
         }
 
         const cha = getCHA(mergedUnits);
-        const callgraph = getCallGraph(mergedUnits);
-        let annotMap: AnnotationMap;
 
         const compilerVersionUsed = pickVersion(compilerVersionUsedMap);
+        const abiEncoderVersion = getABIEncoderVersion(mergedUnits, compilerVersionUsed);
+        const callgraph = getCallGraph(mergedUnits, abiEncoderVersion);
+
+        let annotMap: AnnotationMap;
 
         try {
             annotMap = buildAnnotationMap(
@@ -695,7 +704,7 @@ if ("version" in options) {
 
         printDeprecationNotices(annotMap);
 
-        const typeEnv = new TypeEnv(compilerVersionUsed);
+        const typeEnv = new TypeEnv(compilerVersionUsed, abiEncoderVersion);
         const semMap: SemMap = new Map();
         let interposingQueue: Array<[VariableDeclaration, AbsDatastructurePath]>;
 
@@ -704,7 +713,7 @@ if ("version" in options) {
             tcUnits(mergedUnits, annotMap, typeEnv);
             // Semantic check
             interposingQueue = scUnits(mergedUnits, annotMap, typeEnv, semMap);
-        } catch (err) {
+        } catch (err: any) {
             if (err instanceof STypeError || err instanceof SemError) {
                 const annotation = err.annotationMetaData;
                 const unit = annotation.target.getClosestParentByType(SourceUnit) as SourceUnit;
@@ -755,6 +764,7 @@ if ("version" in options) {
             factory,
             mergedUnits,
             assertionMode,
+            options["cov-assertions"],
             addAssert,
             callgraph,
             cha,
@@ -819,7 +829,7 @@ if ("version" in options) {
                         [CompilationOutput.ALL],
                         compilerSettings
                     );
-                } catch (e) {
+                } catch (e: any) {
                     if (e instanceof CompileFailedError) {
                         console.error(`Compile errors encountered for flattend instrumetned file:`);
 

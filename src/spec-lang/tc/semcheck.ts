@@ -113,6 +113,10 @@ export function scAnnotation(
     ctx: SemCtx
 ): void {
     if (node instanceof SProperty) {
+        // #try and #require are implicitly evaluated in the old-state
+        if (node.type === AnnotationType.Try || node.type === AnnotationType.Require) {
+            ctx.isOld = true;
+        }
         sc(node.expression, ctx, typings, semMap);
     } else if (node instanceof SUserFunctionDefinition) {
         sc(node.body, ctx, typings, semMap);
@@ -268,14 +272,9 @@ export function scUnary(
     typeEnv: TypeEnv,
     semMap: SemMap
 ): SemInfo {
-    if (expr.op === "old") {
-        if (ctx.isOld) {
-            throw new SemError(
-                `Nested old() expressions not allowed: ${expr.pp()} is already inside an old()`,
-                expr
-            );
-        }
+    const annotType = ctx.annotation.type;
 
+    if (expr.op === "old") {
         if (
             !(
                 ctx.annotation.type === AnnotationType.IfSucceeds ||
@@ -283,8 +282,20 @@ export function scUnary(
                 ctx.annotation.type === AnnotationType.IfAssigned
             )
         ) {
+            let msgFollowup = "";
+            if (annotType === AnnotationType.Try || annotType === AnnotationType.Require) {
+                msgFollowup = ` ${annotType} always executes before the function call.`;
+            }
+
             throw new SemError(
-                `old() expressions not allowed in ${ctx.annotation.type} annotations`,
+                `old() expressions not allowed in '${ctx.annotation.type}' annotations.${msgFollowup}`,
+                expr
+            );
+        }
+
+        if (ctx.isOld) {
+            throw new SemError(
+                `Nested old() expressions not allowed: ${expr.pp()} is already inside an old()`,
                 expr
             );
         }
