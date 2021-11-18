@@ -14,9 +14,10 @@ export enum AnnotationType {
 }
 
 export type AnnotationMDExpr = SNumber | SBooleanLiteral | SStringLiteral;
+export type AnnotationMDExprConstructor<T extends AnnotationMDExpr> = new (...args: any[]) => T;
 export type AnnotationMD = { [key: string]: AnnotationMDExpr };
 
-const knownMDTypes = new Map<string, any>([["msg", SStringLiteral]]);
+const knownMDTypes = new Map<string, AnnotationMDExprConstructor<any>>([["msg", SStringLiteral]]);
 
 export abstract class SAnnotation extends SNode {
     public readonly type: AnnotationType;
@@ -40,7 +41,9 @@ export abstract class SAnnotation extends SNode {
 
             if (!(val instanceof expectedType)) {
                 throw new Error(
-                    `Expected key ${key} to be a ${expectedType}, not ${val} of type ${typeof val}`
+                    `Expected key ${key} to be a ${
+                        expectedType.constructor.name
+                    }, not ${val} of type ${typeof val}`
                 );
             }
 

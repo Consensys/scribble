@@ -63,7 +63,7 @@ MDExpressionList =
 
 
 AnnotationMD =
-    "{" __  exprs: MDExpressionList __ "}" { return exprs; }
+    "{" __  exprs: MDExpressionList? __ "}" { return exprs === null ? undefined : exprs; }
 
 Invariant =
     type: INVARIANT __ md: AnnotationMD? __ expr: Expression __ ";" {
@@ -143,21 +143,21 @@ IndexPath =
 // TODO: Eventually remove hacky '/' from if_updated rule. This is to work around
 // limitations in Solidity - it throws if it sees natspec on internal state vars
 If_Updated =
-    ("/" __)? type: IF_UPDATED __ label: AnnotationMD? __ expr: Expression __ ";" {
+    ("/" __)? type: IF_UPDATED __ md: AnnotationMD? __ expr: Expression __ ";" {
         return new SIfUpdated(
             expr,
             [],
-            label === null ? undefined : label,
+            md === null ? undefined : md,
             location()
         );
     }
 
 If_Assigned =
-    ("/" __)? type: IF_ASSIGNED path: IndexPath __ label: AnnotationMD? __ expr: Expression __ ";" {
+    ("/" __)? type: IF_ASSIGNED path: IndexPath __ md: AnnotationMD? __ expr: Expression __ ";" {
         return new SIfAssigned(
             expr,
             path,
-            label === null ? undefined : label,
+            md === null ? undefined : md,
             location()
         );
     }
@@ -184,13 +184,13 @@ TypedArgs =
     }
 
 UserFunctionDefinition =
-    type: DEFINE __ label: AnnotationMD? __ name: Identifier __ "(" __ args: TypedArgs? __ ")" __ returnType: Type __ "=" __ body: Expression {
+    type: DEFINE __ md: AnnotationMD? __ name: Identifier __ "(" __ args: TypedArgs? __ ")" __ returnType: Type __ "=" __ body: Expression {
         return new SUserFunctionDefinition(
             name,
             args === null ? [] : args,
             returnType,
             body,
-            label === null ? undefined : label,
+            md === null ? undefined : md,
             location()
         );
     }

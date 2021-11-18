@@ -833,6 +833,7 @@ describe("Annotation Parser Unit Tests", () => {
             )
         ],
         ["/// assert true;", new SProperty(AnnotationType.Assert, new SBooleanLiteral(true))],
+        ["/// assert {} true;", new SProperty(AnnotationType.Assert, new SBooleanLiteral(true))],
         [
             "/// assert forall (uint x in a) a[x] > 10;",
             new SProperty(
