@@ -82,7 +82,7 @@ import { BuiltinAddressMembers, BuiltinSymbols } from "./builtins";
 import { BuiltinStructType, FunctionSetType, ImportRefType } from "./internal_types";
 import { TypeEnv } from "./typeenv";
 
-export class StateVarScope {
+export class StateVarScope implements PPAble {
     constructor(
         public readonly target: VariableDeclaration,
         public readonly annotation: SStateVarProp
@@ -329,11 +329,7 @@ function lookupVarDef(name: string, ctx: STypingCtx, version: string): VarDefSit
 function lookupFun(name: string, ctx: STypingCtx, version: string): FunctionDefinition[] {
     const scope = ctx[0];
 
-    assert(
-        scope instanceof ASTNode,
-        "Expected root scope to be an ASTNode, not {0}",
-        scope as PPAble
-    );
+    assert(scope instanceof ASTNode, "Expected root scope to be an ASTNode, not {0}", scope);
 
     const res = resolveAnyOfType(name, scope, version, FunctionDefinition);
 
@@ -353,11 +349,7 @@ function lookupTypeDef(
 ): StructDefinition | EnumDefinition | ContractDefinition | undefined {
     const scope = ctx[0];
 
-    assert(
-        scope instanceof ASTNode,
-        "Expected root scope to be an ASTNode, not {0}",
-        scope as PPAble
-    );
+    assert(scope instanceof ASTNode, "Expected root scope to be an ASTNode, not {0}", scope);
 
     const res = [...resolveAny(name, scope, version, true)].filter(
         (x) =>
@@ -909,11 +901,7 @@ export function tcIdImportUnitRef(
 ): ImportRefType | undefined {
     const scope = ctx[0];
 
-    assert(
-        scope instanceof ASTNode,
-        "Expected root scope to be an ASTNode, not {0}",
-        scope as PPAble
-    );
+    assert(scope instanceof ASTNode, "Expected root scope to be an ASTNode, not {0}", scope);
 
     const res = resolveAnyOfType(expr.name, scope, typeEnv.compilerVersion, ImportDirective);
 

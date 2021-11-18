@@ -1,4 +1,4 @@
-import { assert, ContractDefinition, eq, pp, PPIsh, SourceUnit } from "solc-typed-ast";
+import { ContractDefinition, eq, pp, PPIsh, SourceUnit } from "solc-typed-ast";
 import { Logger } from "../logger";
 import { forAll, getOr, intersection } from "../util";
 
@@ -177,7 +177,9 @@ export function getCHA(srcs: SourceUnit[]): CHA<ContractDefinition> {
 
     const res = { parents, children, roots, leaves };
 
-    assert(checkCHA(res), "Built CHA {0} is malformed", ppCHA(res));
+    if (!checkCHA(res)) {
+        throw new Error("Built CHA is malformed: " + ppCHA(res));
+    }
 
     return res;
 }
@@ -199,12 +201,9 @@ export function chaDFS<T extends PPIsh>(cha: CHA<T>, cb: (node: T) => void): voi
 
         const children = cha.children.get(cur);
 
-        assert(
-            children !== undefined,
-            "Node {0} is missing from children map in {1}",
-            cur,
-            ppCHA(cha)
-        );
+        if (children === undefined) {
+            throw new Error(`Node ${pp(cur)} is missing from children map in CHA ${ppCHA(cha)}`);
+        }
 
         children.forEach((child) => dfs(child));
     };

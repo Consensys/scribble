@@ -169,16 +169,14 @@ describe("Src2src map test", () => {
                 for (const [instrRange, originalRange] of instrMD.instrToOriginalMap) {
                     const instrNodes = instrSrc2Node.get(instrRange);
 
-                    if (instrNodes === undefined) {
-                        assert(
-                            false,
-                            'Instrumented range {0} (instr: "{1}", original {2}: "{3}") doesn\'t map to an ast node in instrumented code',
-                            instrRange,
-                            fragment(instrRange, instrContents),
-                            originalRange,
-                            fragment(originalRange, contents)
-                        );
-                    }
+                    assert(
+                        instrNodes !== undefined,
+                        'Instrumented range {0} (instr: "{1}", original {2}: "{3}") doesn\'t map to an ast node in instrumented code',
+                        instrRange,
+                        fragment(instrRange, instrContents),
+                        originalRange,
+                        fragment(originalRange, contents)
+                    );
 
                     const originalNodes = originalSrc2Node.get(originalRange);
 
