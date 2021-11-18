@@ -449,6 +449,10 @@ export class TranspilingContext {
         return res;
     }
 
+    hasBinding(name: string): boolean {
+        return this.bindingDefMap.has(name);
+    }
+
     /**
      * Add a new binding named `name` with type `type` to the temporary struct.
      */

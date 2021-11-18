@@ -362,6 +362,7 @@
       "propertySource": "114:46:0",
       "annotationSource": "102:59:0",
       "target": "function",
+      "type": "if_succeeds",
       "targetName": "pushA",
       "debugEventEncoding": [
         [
@@ -394,6 +395,7 @@
       "propertySource": "245:46:0",
       "annotationSource": "233:59:0",
       "target": "function",
+      "type": "if_succeeds",
       "targetName": "setA",
       "debugEventEncoding": [
         [
@@ -426,6 +428,7 @@
       "propertySource": "382:47:0",
       "annotationSource": "370:60:0",
       "target": "function",
+      "type": "if_succeeds",
       "targetName": "pushB",
       "debugEventEncoding": [
         [
@@ -458,6 +461,7 @@
       "propertySource": "514:47:0",
       "annotationSource": "502:60:0",
       "target": "function",
+      "type": "if_succeeds",
       "targetName": "setB",
       "debugEventEncoding": [
         [
@@ -490,6 +494,7 @@
       "propertySource": "657:47:0",
       "annotationSource": "645:60:0",
       "target": "function",
+      "type": "if_succeeds",
       "targetName": "memArr",
       "debugEventEncoding": [
         [
@@ -522,6 +527,7 @@
       "propertySource": "781:47:0",
       "annotationSource": "769:60:0",
       "target": "function",
+      "type": "if_succeeds",
       "targetName": "calldataArr",
       "debugEventEncoding": [
         [
@@ -554,6 +560,7 @@
       "propertySource": "914:21:0",
       "annotationSource": "902:34:0",
       "target": "function",
+      "type": "if_succeeds",
       "targetName": "overflowCheck",
       "debugEventEncoding": [
         [

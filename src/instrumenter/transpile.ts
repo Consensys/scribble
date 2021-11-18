@@ -37,6 +37,7 @@ import {
 } from "solc-typed-ast";
 import { AnnotationMetaData, PropertyMetaData, single, UserFunctionDefinitionMetaData } from "..";
 import {
+    AnnotationType,
     BuiltinFunctions,
     SAddressLiteral,
     SBinaryOperation,
@@ -193,6 +194,14 @@ function addTracingInfo(id: SId, transpiledExpr: Expression, ctx: TranspilingCon
     }
 
     if (!isTypeTraceable(exprT, ctx)) {
+        return;
+    }
+
+    // Skip try/require annotations as we don't emit assertion failed events for those
+    if (
+        ctx.curAnnotation.type === AnnotationType.Try ||
+        ctx.curAnnotation.type === AnnotationType.Require
+    ) {
         return;
     }
 
@@ -375,6 +384,8 @@ function transpileId(expr: SId, ctx: TranspilingContext): Expression {
         referrencedDef = exprT.definition;
     } else if (exprT instanceof ImportRefType) {
         referrencedDef = exprT.impStatement;
+    } else if (exprT instanceof TypeNameType && exprT.type instanceof UserDefinedType) {
+        referrencedDef = exprT.type.definition;
     } else {
         throw new Error(`Unknown id type ${exprT.pp()}`);
     }

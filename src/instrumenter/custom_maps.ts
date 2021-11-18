@@ -13,6 +13,7 @@ import {
     FunctionCall,
     FunctionCallKind,
     FunctionDefinition,
+    FunctionStateMutability,
     FunctionVisibility,
     getNodeType,
     Identifier,
@@ -507,7 +508,12 @@ export function interposeMap(
 
         sVar.visibility = StateVariableVisibility.Default;
 
-        interposeGetter(instrCtx, sVar, units);
+        const getter = interposeGetter(instrCtx, sVar, units);
+
+        if (sVar.vOverrideSpecifier) {
+            getter.vOverrideSpecifier = sVar.vOverrideSpecifier;
+            sVar.vOverrideSpecifier = undefined;
+        }
     }
 }
 
@@ -526,6 +532,7 @@ function interposeGetter(
     assert(typ !== undefined, `State var ${v.name} is missing a type`);
 
     const fn = factory.addEmptyFun(ctx, v.name, FunctionVisibility.Public, contract);
+    fn.stateMutability = FunctionStateMutability.View;
 
     let expr: Expression = factory.makeIdentifierFor(v);
 

@@ -394,6 +394,8 @@ function validateAnnotation(target: AnnotationTarget, annotation: AnnotationMeta
             AnnotationType.Invariant,
             AnnotationType.Define,
             AnnotationType.IfSucceeds,
+            AnnotationType.Try,
+            AnnotationType.Require,
             AnnotationType.Macro
         ];
 
@@ -416,7 +418,11 @@ function validateAnnotation(target: AnnotationTarget, annotation: AnnotationMeta
             );
         }
     } else if (target instanceof FunctionDefinition) {
-        if (annotation.type !== AnnotationType.IfSucceeds) {
+        if (
+            annotation.type !== AnnotationType.IfSucceeds &&
+            annotation.type !== AnnotationType.Try &&
+            annotation.type !== AnnotationType.Require
+        ) {
             throw new UnsupportedByTargetError(
                 `The "${annotation.type}" annotation is not applicable to functions`,
                 annotation.original,
@@ -434,7 +440,11 @@ function validateAnnotation(target: AnnotationTarget, annotation: AnnotationMeta
             );
         }
     } else if (target instanceof Statement || target instanceof StatementWithChildren) {
-        if (annotation.type !== AnnotationType.Assert) {
+        if (
+            annotation.type !== AnnotationType.Assert &&
+            annotation.type !== AnnotationType.Try &&
+            annotation.type !== AnnotationType.Require
+        ) {
             throw new UnsupportedByTargetError(
                 `The "${annotation.type}" annotation is not applicable inside functions`,
                 annotation.original,
@@ -503,7 +513,7 @@ function findAnnotations(
     const result: AnnotationMetaData[] = [];
 
     const rx =
-        /\s*(\*|\/\/\/)\s*#(if_succeeds|if_updated|if_assigned|invariant|assert|define\s*[a-zA-Z0-9_]*\s*\([^)]*\)|[a-zA-Z0-9_]*\s*\([^)]*\))/g;
+        /\s*(\*|\/\/\/)\s*#(if_succeeds|if_updated|if_assigned|invariant|assert|try|require|define\s*[a-zA-Z0-9_]*\s*\([^)]*\)|[a-zA-Z0-9_]*\s*\([^)]*\))/g;
 
     let match = rx.exec(meta.text);
 

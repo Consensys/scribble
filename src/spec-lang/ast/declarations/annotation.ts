@@ -7,6 +7,8 @@ export enum AnnotationType {
     Invariant = "invariant",
     Define = "define",
     Assert = "assert",
+    Try = "try",
+    Require = "require",
     Macro = "macro"
 }
 
