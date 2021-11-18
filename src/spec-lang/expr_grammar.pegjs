@@ -29,15 +29,48 @@ AnnotationStr =
     "'" chars: SingleStringChar* "'" { return chars.join(""); }
     / '"' chars: DoubleStringChar* '"' { return chars.join(""); }
 
-AnnotationLabel =
-    "{:msg" __  str: AnnotationStr __ "}" { return str; }
+MDExpression =
+    HexLiteral
+    / Identifier
+    / Number
+    / BooleanLiteral
+    / StringLiteral
+
+MDIdentifier = chars:([a-zA-Z_][a-zA-Z0-9_]*) { return text(); }
+
+MDExpressionList =
+    head: (
+        ":" key: MDIdentifier __ expr: MDExpression {
+            return [key, expr]
+        }
+    )
+    tail: (
+        __ "," __ ":" key: MDIdentifier __ expr: MDExpression {
+            return [key, expr];
+        }
+    )* {
+        const base = {};
+        base[head[0]] = head[1];
+
+        return tail.reduce(
+            (acc, el) => {
+                acc[el[0]] = el[1]
+                return acc;
+            },
+            base
+        );
+    }
+
+
+AnnotationMD =
+    "{" __  exprs: MDExpressionList? __ "}" { return exprs === null ? undefined : exprs; }
 
 Invariant =
-    type: INVARIANT __ label: AnnotationLabel? __ expr: Expression __ ";" {
+    type: INVARIANT __ md: AnnotationMD? __ expr: Expression __ ";" {
         return new SProperty(
             type as AnnotationType,
             expr,
-            label === null ? undefined : label,
+            md === null ? undefined : md,
             location()
         );
     }
@@ -59,41 +92,41 @@ For_All =
     }
 
 If_Succeeds =
-    type: IF_SUCCEEDS __ label: AnnotationLabel? __ expr: Expression __ ";" {
+    type: IF_SUCCEEDS __ md: AnnotationMD? __ expr: Expression __ ";" {
         return new SProperty(
             type as AnnotationType,
             expr,
-            label === null ? undefined : label,
+            md === null ? undefined : md,
             location()
         );
     }
 
 Assert =
-    type: ASSERT __ label: AnnotationLabel? __ expr: Expression __ ";" {
+    type: ASSERT __ md: AnnotationMD? __ expr: Expression __ ";" {
         return new SProperty (
             type as AnnotationType,
             expr,
-            label === null ? undefined : label,
+            md === null ? undefined : md,
             location()
         );
     }
 
 Try =
-    type: TRY __ label: AnnotationLabel? __ expr: Expression __ ";" {
+    type: TRY __ md: AnnotationMD? __ expr: Expression __ ";" {
         return new SProperty (
             type as AnnotationType,
             expr,
-            label === null ? undefined : label,
+            md === null ? undefined : md,
             location()
         );
     }
 
 Require =
-    type: REQUIRE __ label: AnnotationLabel? __ expr: Expression __ ";" {
+    type: REQUIRE __ md: AnnotationMD? __ expr: Expression __ ";" {
         return new SProperty (
             type as AnnotationType,
             expr,
-            label === null ? undefined : label,
+            md === null ? undefined : md,
             location()
         );
     }
@@ -110,21 +143,21 @@ IndexPath =
 // TODO: Eventually remove hacky '/' from if_updated rule. This is to work around
 // limitations in Solidity - it throws if it sees natspec on internal state vars
 If_Updated =
-    ("/" __)? type: IF_UPDATED __ label: AnnotationLabel? __ expr: Expression __ ";" {
+    ("/" __)? type: IF_UPDATED __ md: AnnotationMD? __ expr: Expression __ ";" {
         return new SIfUpdated(
             expr,
             [],
-            label === null ? undefined : label,
+            md === null ? undefined : md,
             location()
         );
     }
 
 If_Assigned =
-    ("/" __)? type: IF_ASSIGNED path: IndexPath __ label: AnnotationLabel? __ expr: Expression __ ";" {
+    ("/" __)? type: IF_ASSIGNED path: IndexPath __ md: AnnotationMD? __ expr: Expression __ ";" {
         return new SIfAssigned(
             expr,
             path,
-            label === null ? undefined : label,
+            md === null ? undefined : md,
             location()
         );
     }
@@ -151,13 +184,13 @@ TypedArgs =
     }
 
 UserFunctionDefinition =
-    type: DEFINE __ label: AnnotationLabel? __ name: Identifier __ "(" __ args: TypedArgs? __ ")" __ returnType: Type __ "=" __ body: Expression {
+    type: DEFINE __ md: AnnotationMD? __ name: Identifier __ "(" __ args: TypedArgs? __ ")" __ returnType: Type __ "=" __ body: Expression {
         return new SUserFunctionDefinition(
             name,
             args === null ? [] : args,
             returnType,
             body,
-            label === null ? undefined : label,
+            md === null ? undefined : md,
             location()
         );
     }
