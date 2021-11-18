@@ -682,10 +682,10 @@ StringType =
 
 UserDefinedType =
     base: Identifier "." field: Identifier {
-        return makeUserDefinedType(name, options, location());
+        return makeUserDefinedType(base.name + '.' + field.name, options, location());
     }
     / name: Identifier {
-        return makeUserDefinedType(name, options, location());
+        return makeUserDefinedType(name.name, options, location());
     }
 
 ArrayType =
