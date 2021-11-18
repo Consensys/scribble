@@ -33,6 +33,7 @@ function compareVars(
         b instanceof VariableDeclaration
             ? b.getterCanonicalSignature(encVer)
             : b.canonicalSignature(encVer);
+
     return a.getterCanonicalSignature(encVer) === bSig;
 }
 
@@ -148,7 +149,7 @@ describe("Interface compatibility test", () => {
     });
 
     for (const sample of samples) {
-        describe(`Sample ${sample}`, () => {
+        describe(sample, () => {
             let artefact: string | undefined;
             let compilerVersion: string;
             let inAst: SourceUnit[];

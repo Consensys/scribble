@@ -1,5 +1,6 @@
 import {
     ArrayTypeName,
+    assert,
     ContractDefinition,
     DataLocation,
     ElementaryTypeName,
@@ -9,7 +10,7 @@ import {
     TypeName,
     UserDefinedTypeName
 } from "solc-typed-ast";
-import { assert, print } from "..";
+import { print } from "..";
 
 function fqName(e: EnumDefinition | StructDefinition): string {
     return `${e.vScope instanceof ContractDefinition ? e.vScope.name + "." : ""}${e.name}`;
@@ -22,6 +23,7 @@ export function makeTypeString(typeName: TypeName, loc: DataLocation): string {
     if (typeName instanceof ElementaryTypeName) {
         if (["bytes", "string"].includes(typeName.name)) {
             assert(loc !== DataLocation.Default, `${typeName.name} requires location`);
+
             return `${typeName.name} ${loc} ref`;
         }
 

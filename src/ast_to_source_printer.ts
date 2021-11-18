@@ -1,4 +1,5 @@
 import {
+    assert,
     ASTNodeFactory,
     ASTWriter,
     DefaultASTWriterMapping,
@@ -11,7 +12,6 @@ import {
 } from "solc-typed-ast";
 import { ImportDirectiveDesc } from "./rewriter/import_directive_header";
 import { parse as parseImportDirective } from "./rewriter/import_directive_parser";
-import { assert } from "./util/misc";
 
 /**
  * Find an import named `name` imported from source unit `from`. This will
@@ -105,7 +105,11 @@ export function rewriteImports(
         const importDirSrc = importDir.extractSourceFragment(source);
         const importDesc: ImportDirectiveDesc = parseImportDirective(importDirSrc);
 
-        assert(importDesc.symbolAliases.length === importDir.symbolAliases.length, ``);
+        assert(
+            importDesc.symbolAliases.length === importDir.symbolAliases.length,
+            "Symbol aliases length mismatch when processing {0}",
+            importDir
+        );
 
         const newSymbolAliases: SymbolAlias[] = [];
 

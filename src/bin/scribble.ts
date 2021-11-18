@@ -2,6 +2,7 @@
 import fse from "fs-extra";
 import { dirname, join, relative } from "path";
 import {
+    assert,
     ASTContext,
     ASTNodeFactory,
     ASTReader,
@@ -60,7 +61,6 @@ import { merge } from "../rewriter/merge";
 import { AnnotationType, Location, Range } from "../spec-lang/ast";
 import { scUnits, SemError, SemMap, STypeError, tcUnits, TypeEnv } from "../spec-lang/tc";
 import {
-    assert,
     buildOutputJSON,
     dedup,
     flatten,
@@ -657,7 +657,7 @@ if ("version" in options) {
         for (const mergedUnit of mergedUnits) {
             assert(
                 isSane(mergedUnit, mergedCtx),
-                `Merged unit ${mergedUnit.absolutePath} is insante`
+                `Merged unit ${mergedUnit.absolutePath} is insane`
             );
         }
 

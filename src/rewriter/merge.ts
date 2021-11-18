@@ -1,4 +1,5 @@
 import {
+    assert,
     ArrayTypeName,
     Assignment,
     ASTContext,
@@ -57,7 +58,7 @@ import {
     WhileStatement
 } from "solc-typed-ast";
 import { reNumber } from "..";
-import { assert, getOrInit } from "../util/misc";
+import { getOrInit } from "../util/misc";
 
 /**
  * Given 2 ASTNodes with **identical** structure, build a mapping from the
@@ -69,13 +70,14 @@ import { assert, getOrInit } from "../util/misc";
  * @param m - map we are building
  */
 function buildMap(from: ASTNode, to: ASTNode, m: Map<number, number>): void {
-    assert(from.constructor.name === to.constructor.name, `Internal error: Mismatch in node types`);
+    assert(from.constructor.name === to.constructor.name, "Internal error: Mismatch in node types");
+
     const fromChildren = from.children;
     const toChildren = to.children;
 
     assert(
         fromChildren.length === toChildren.length,
-        `Internal error: Mismatch in number of children`
+        "Internal error: Mismatch in number of children"
     );
 
     m.set(from.id, to.id);
@@ -150,7 +152,8 @@ export function merge(groups: SourceUnit[][]): [SourceUnit[], ASTContext] {
         // Build the mapping for the nodes in all other duplicate units into this group,
         // into the new id space.
         for (const duplicate of group.slice(1)) {
-            assert(duplicate.requiredContext !== oldRepresentativeCtx, `Internal Error.`);
+            assert(duplicate.requiredContext !== oldRepresentativeCtx, "Internal Error");
+
             buildMap(
                 duplicate,
                 representative,
@@ -171,7 +174,9 @@ export function merge(groups: SourceUnit[][]): [SourceUnit[], ASTContext] {
 
     const hasMapping = (n: number, oldCtx: ASTContext): boolean => {
         const idMap = reNumberMap.get(oldCtx);
-        assert(idMap !== undefined, `Missing id map for ASTContext#${oldCtx.id}`);
+
+        assert(idMap !== undefined, "Missing id map for {0}", oldCtx);
+
         return idMap.has(n);
     };
 
@@ -183,9 +188,13 @@ export function merge(groups: SourceUnit[][]): [SourceUnit[], ASTContext] {
         // Helper: Given a node id from oldUnitCtx find its corresponding node id in newCtxt
         const getNew = (n: number): ASTNode => {
             const idMap = reNumberMap.get(oldUnitCtx);
-            assert(idMap !== undefined, `Missing id map for ASTContext#${oldUnitCtx.id}`);
+
+            assert(idMap !== undefined, "Missing id map for {0}", oldUnitCtx);
+
             const newId = idMap.get(n);
-            assert(newId !== undefined, `Missing id ${n} in map for ASTContext#${oldUnitCtx.id}`);
+
+            assert(newId !== undefined, "Missing id {0} in map for {1}", n, oldUnitCtx);
+
             return newCtxt.require(newId);
         };
 

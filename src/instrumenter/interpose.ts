@@ -1,5 +1,6 @@
 import {
     AddressType,
+    assert,
     ASTNode,
     ASTNodeFactory,
     ContractDefinition,
@@ -26,7 +27,7 @@ import {
     UserDefinedType,
     VariableDeclaration
 } from "solc-typed-ast";
-import { assert, getFQName, getScopeFun, isChangingState, single } from "../util";
+import { getFQName, getScopeFun, isChangingState, single } from "../util";
 import { FunSet } from "./callgraph";
 import { changesMutability } from "./instrument";
 import { InstrumentationContext } from "./instrumentation_context";
@@ -267,17 +268,14 @@ function decodeCallsite(s: FunctionCall): {
         callee = callee.vExpression;
     } else if (callee instanceof FunctionCall) {
         while (callee instanceof FunctionCall) {
-            assert(
-                callee.vExpression instanceof MemberAccess,
-                `Unexpected callee: ${callee.print()}`
-            );
+            assert(callee.vExpression instanceof MemberAccess, "Unexpected callee", callee);
 
             if (callee.vExpression.memberName === "gas") {
                 gas = gas ? gas : single(callee.vArguments);
             } else if (callee.vExpression.memberName === "value") {
                 value = value ? value : single(callee.vArguments);
             } else {
-                assert(false, `Unexpected callee: ${callee.print()}`);
+                assert(false, "Unexpected callee", callee);
             }
 
             callee = callee.vExpression.vExpression;
@@ -288,13 +286,20 @@ function decodeCallsite(s: FunctionCall): {
 }
 
 function copySrc(originalNode: ASTNode, newNode: ASTNode): void {
-    assert(originalNode.constructor === newNode.constructor, ``);
+    assert(
+        originalNode.constructor === newNode.constructor,
+        "New node and original node have different type"
+    );
+
     newNode.src = originalNode.src;
 
     const originalChildren = originalNode.children;
     const newChildren = newNode.children;
 
-    assert(originalChildren.length === newChildren.length, ``);
+    assert(
+        originalChildren.length === newChildren.length,
+        "New node children and original node children count differs"
+    );
 
     for (let i = 0; i < originalChildren.length; i++) {
         copySrc(originalChildren[i], newChildren[i]);
@@ -316,14 +321,25 @@ export function interposeCall(
     const callee = callsite.callee;
     const calleeT = getNodeType(callee, ctx.compilerVersion);
 
-    assert(call.kind === FunctionCallKind.FunctionCall, "");
+    assert(
+        call.kind === FunctionCallKind.FunctionCall,
+        'Expected call kind "{0}", not "{1}"',
+        FunctionCallKind.FunctionCall,
+        call.kind,
+        call
+    );
+
     assert(
         calleeT instanceof FunctionType,
-        `Expected external function type, not ${calleeT.pp()} for callee in ${call.print()}`
+        "Expected external function type, not {0} for callee in {1}",
+        calleeT,
+        call
     );
+
     assert(
         callee instanceof MemberAccess,
-        `Expected a MemberAccess as external call callee, not ${callee.print()}`
+        "Expected a MemberAccess as external call callee, not {0}",
+        callee
     );
 
     let wrapperMut: FunctionStateMutability;
@@ -362,19 +378,21 @@ export function interposeCall(
 
     let receiver: Expression;
     let callOriginalExp: Expression;
+
     const baseT = getNodeType(callee.vExpression, ctx.compilerVersion);
 
     if (call.vFunctionCallType === ExternalReferenceType.UserDefined) {
         assert(
             baseT instanceof UserDefinedType && baseT.definition instanceof ContractDefinition,
-            `Expected base to be a reference to a contract, not ${baseT.pp()}`
+            "Expected base to be a reference to a contract, not {0}",
+            baseT
         );
 
         params.push(
             factory.makeVariableDeclaration(
                 false,
                 false,
-                `receiver`,
+                "receiver",
                 wrapper.id,
                 false,
                 DataLocation.Default,
@@ -412,14 +430,24 @@ export function interposeCall(
             callee.referencedDeclaration
         );
     } else {
-        assert(baseT instanceof AddressType, ``);
-        assert(["call", "delegatecall", "staticcall"].includes(callee.memberName), ``);
+        assert(
+            baseT instanceof AddressType,
+            "Expected base to have an address type, not {0}",
+            baseT
+        );
+
+        assert(
+            ["call", "delegatecall", "staticcall"].includes(callee.memberName),
+            'Expected member name "call", "delegatecall" or "staticcall". Got {0}',
+            callee.memberName,
+            callee
+        );
 
         params.push(
             factory.makeVariableDeclaration(
                 false,
                 false,
-                `receiver`,
+                "receiver",
                 wrapper.id,
                 false,
                 DataLocation.Default,

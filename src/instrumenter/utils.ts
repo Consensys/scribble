@@ -313,7 +313,7 @@ export class ScribbleFactory extends ASTNodeFactory {
             );
         }
 
-        assert(false, `generalizedTypeToTypeName: Unexpected generalized type ${typ.pp()}`);
+        assert(false, "generalizedTypeToTypeName: Unexpected generalized type {0}", typ);
     }
 
     typeNodeToVariableDecl(

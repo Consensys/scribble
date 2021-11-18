@@ -1,6 +1,5 @@
-import { SNode, Range, SId } from ".";
-import { TypeNode } from "solc-typed-ast";
-import { assert } from "../../util";
+import { assert, TypeNode } from "solc-typed-ast";
+import { Range, SId, SNode } from ".";
 
 /**
  * The Node that stores the information for ForAll.
@@ -46,6 +45,7 @@ export class SForAll extends SNode {
                 start !== undefined && end !== undefined,
                 `When array is not passed in, must specify start and end for forall`
             );
+
             this.start = start;
             this.end = end;
         } else {

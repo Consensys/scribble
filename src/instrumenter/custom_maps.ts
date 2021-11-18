@@ -603,7 +603,9 @@ function interposeGetter(
             exprT instanceof MappingType ||
             exprT instanceof PointerType
         ) && !needsLocation(exprT),
-        `Unsupported return type for public getter of ${v.name}: ${exprT.pp()}`
+        "Unsupported return type for public getter of {0}: {1}",
+        v.name,
+        exprT
     );
 
     factory.addFunRet(ctx, ctx.nameGenerator.getFresh("RET_"), exprT, DataLocation.Default, fn);

@@ -321,7 +321,7 @@ HexNumber =
             return new SAddressLiteral('0x' + num, location());
         }
 
-        return new SNumber(bigInt(num, 16), 16, location());
+        return new SNumber(BigInt('0x' + num), 16, location());
     }
 
 DecDigit =
@@ -338,7 +338,11 @@ ExponentPart =
 
 DecNumber =
     DecDigit+ ExponentPart? {
-        return new SNumber(bigInt(text()), 10, location());
+        /**
+         * Note that bigInt(...).toString() is used here to support scientific notation (1e10).
+         * Native bigint is unable to parse such values yet.
+         */
+        return new SNumber(BigInt(bigInt(text()).toString()), 10, location());
     }
 
 Number =
@@ -351,7 +355,7 @@ Number =
             throw new Error(`Cannot use units with hex literals`);
         }
 
-        return new SNumber(bigInt(value.num), value.radix, location(), unit[1]);
+        return new SNumber(BigInt(value.num), value.radix, location(), unit[1]);
     }
 
 BooleanLiteral =
@@ -653,7 +657,7 @@ AddressType =
 IntType =
     unsigned: ("u"?) "int" width: (Number?) {
         const isSigned = unsigned === null;
-        const bitWidth = width === null ? 256 : width.num.toJSNumber();
+        const bitWidth = width === null ? 256 : Number(width.num);
 
         return new IntType(bitWidth, isSigned, location());
     }
@@ -693,7 +697,7 @@ ArrayType =
 
                 return new ArrayType(
                     acc,
-                    size === null ? undefined : BigInt(size.num.toJSNumber()),
+                    size === null ? undefined : BigInt(size.num),
                     location()
                 );
             },

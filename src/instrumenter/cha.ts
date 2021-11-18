@@ -1,7 +1,6 @@
-import { ContractDefinition, SourceUnit } from "solc-typed-ast";
-import { getOr, intersection, assert, eq, forAll } from "../util";
+import { ContractDefinition, eq, pp, PPIsh, SourceUnit } from "solc-typed-ast";
 import { Logger } from "../logger";
-import { pp } from "../util/pp";
+import { forAll, getOr, intersection } from "../util";
 
 type ParentMap<T> = Map<T, T[]>;
 type ChildrenMap<T> = Map<T, Set<T>>;
@@ -14,7 +13,7 @@ export interface CHA<T> {
     leaves: Set<T>; // The set of leaves (contract with no subclass) in the CHA
 }
 
-export function ppCHA<T>(c: CHA<T>): string {
+export function ppCHA<T extends PPIsh>(c: CHA<T>): string {
     return `{parents: ${pp(c.parents)}, children: ${pp(c.children)}, roots: ${pp(
         c.roots
     )}, leaves: ${pp(c.leaves)} }`;
@@ -34,8 +33,6 @@ export function ppCHA<T>(c: CHA<T>): string {
  * 6. All leaves are reachable from roots
  *
  * Note: The properties are checked out-of-order to avoid spurious exceptions on malformed CHAs.
- *
- * @param cha
  */
 export function checkCHA(cha: CHA<ContractDefinition>): boolean {
     const reachable: Set<ContractDefinition> = new Set();
@@ -179,16 +176,18 @@ export function getCHA(srcs: SourceUnit[]): CHA<ContractDefinition> {
     }
 
     const res = { parents, children, roots, leaves };
-    assert(checkCHA(res), `Built CHA ${res} is malformed`);
+
+    if (!checkCHA(res)) {
+        throw new Error("Built CHA is malformed: " + ppCHA(res));
+    }
+
     return res;
 }
 
 /**
  * Walk over the class hierarchy `cha` in DFS order invoking `cb` for each node
- * @param cha
- * @param cb
  */
-export function chaDFS<T>(cha: CHA<T>, cb: (node: T) => void): void {
+export function chaDFS<T extends PPIsh>(cha: CHA<T>, cb: (node: T) => void): void {
     const seen: Set<T> = new Set();
 
     const dfs = (cur: T): void => {
@@ -197,13 +196,15 @@ export function chaDFS<T>(cha: CHA<T>, cb: (node: T) => void): void {
         }
 
         seen.add(cur);
+
         cb(cur);
 
         const children = cha.children.get(cur);
-        assert(
-            children !== undefined,
-            `Node ${pp(cur)} is missing from children map in ${ppCHA(cha)}`
-        );
+
+        if (children === undefined) {
+            throw new Error(`Node ${pp(cur)} is missing from children map in CHA ${ppCHA(cha)}`);
+        }
+
         children.forEach((child) => dfs(child));
     };
 

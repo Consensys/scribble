@@ -4,6 +4,7 @@ import {
     AnyResolvable,
     ArrayType,
     ArrayTypeName,
+    assert,
     ASTNode,
     ASTNodeConstructor,
     BoolType,
@@ -11,6 +12,7 @@ import {
     ContractDefinition,
     DataLocation,
     EnumDefinition,
+    eq,
     FixedBytesType,
     FunctionDefinition,
     FunctionStateMutability,
@@ -24,6 +26,8 @@ import {
     MappingType,
     ParameterList,
     PointerType,
+    pp,
+    PPAble,
     resolveAny,
     resolveByName,
     SourceUnit,
@@ -47,8 +51,7 @@ import {
 } from "solc-typed-ast";
 import { AnnotationMap, AnnotationMetaData, AnnotationTarget } from "../../instrumenter";
 import { Logger } from "../../logger";
-import { assert, last, pp, single, topoSort } from "../../util";
-import { eq } from "../../util/struct_equality";
+import { last, single, topoSort } from "../../util";
 import {
     BuiltinFunctions,
     DatastructurePath,
@@ -79,12 +82,17 @@ import { BuiltinAddressMembers, BuiltinSymbols } from "./builtins";
 import { BuiltinStructType, FunctionSetType, ImportRefType } from "./internal_types";
 import { TypeEnv } from "./typeenv";
 
-export class StateVarScope {
+export class StateVarScope implements PPAble {
     constructor(
         public readonly target: VariableDeclaration,
         public readonly annotation: SStateVarProp
     ) {}
+
+    pp(): string {
+        return `StateVarScope(${pp(this.target)} => ${pp(this.annotation)})`;
+    }
 }
+
 export type SScope =
     | SourceUnit
     | ContractDefinition
@@ -320,8 +328,11 @@ function lookupVarDef(name: string, ctx: STypingCtx, version: string): VarDefSit
  */
 function lookupFun(name: string, ctx: STypingCtx, version: string): FunctionDefinition[] {
     const scope = ctx[0];
-    assert(scope instanceof ASTNode, `Expected root scope to be an ASTNode, not ${scope}`);
+
+    assert(scope instanceof ASTNode, "Expected root scope to be an ASTNode, not {0}", scope);
+
     const res = resolveAnyOfType(name, scope, version, FunctionDefinition);
+
     return res as FunctionDefinition[];
 }
 
@@ -337,7 +348,9 @@ function lookupTypeDef(
     version: string
 ): StructDefinition | EnumDefinition | ContractDefinition | undefined {
     const scope = ctx[0];
-    assert(scope instanceof ASTNode, `Expected root scope to be an ASTNode, not ${scope}`);
+
+    assert(scope instanceof ASTNode, "Expected root scope to be an ASTNode, not {0}", scope);
+
     const res = [...resolveAny(name, scope, version, true)].filter(
         (x) =>
             x instanceof StructDefinition ||
@@ -392,12 +405,10 @@ function getVarLocation(astV: VariableDeclaration, baseLoc?: DataLocation): Data
 }
 
 export function astVarToTypeNode(astV: VariableDeclaration, baseLoc?: DataLocation): TypeNode {
-    assert(
-        astV.vType !== undefined,
-        "Unsupported variable declaration without a type: " + astV.print()
-    );
+    assert(astV.vType !== undefined, "Unsupported variable declaration without a type: {0}", astV);
 
     const type = typeNameToTypeNode(astV.vType);
+
     return specializeType(type, getVarLocation(astV, baseLoc));
 }
 
@@ -490,9 +501,12 @@ export function tcAnnotation(
         if (annot instanceof SStateVarProp) {
             assert(
                 target instanceof VariableDeclaration,
-                `Unexpected if_updated target: ${pp(target)}`
+                `Unexpected if_updated target: {0}`,
+                target
             );
+
             predCtx = [...ctx, new StateVarScope(target, annot)];
+
             assert(target.vType !== undefined, `State var ${target.name} is missing a type.`);
 
             // Check to make sure the datastructure path matches the type of the
@@ -775,12 +789,14 @@ function locateElementType(type: TypeName, path: DatastructurePath): TypeNode {
             const structDef = type.vReferencedDeclaration;
             const field = single(
                 structDef.vMembers.filter((def) => def.name === element),
-                `Expected a single field with name ${element} on struct  ${pp(structDef)}`
+                `Expected a single field with name ${element} on struct ${structDef.name}`
             );
 
             assert(
                 field.vType !== undefined,
-                `Missing type on field ${field.name} of struct ${pp(structDef)}`
+                "Missing type on field {0} of struct {1}",
+                field.name,
+                structDef
             );
 
             type = field.vType;
@@ -795,30 +811,26 @@ function locateElementType(type: TypeName, path: DatastructurePath): TypeNode {
  * corresponds to some index variable, find the type of that index variable.
  */
 function locateKeyType(type: TypeName, idx: number, path: Array<SId | string>): TypeNode {
-    assert(idx < path.length, ``);
+    assert(idx < path.length, "Index {0} exceeds path length {1}", idx, path);
 
     const idxCompT = locateElementType(type, path.slice(0, idx));
 
-    if (!(idxCompT instanceof PointerType)) {
-        throw new Error(
-            `Can't compute key type for field ${idx} in path ${pp(
-                path
-            )}: arrive at non-indexable type ${idxCompT.pp()}`
-        );
+    if (idxCompT instanceof PointerType) {
+        if (idxCompT.to instanceof ArrayType) {
+            return new IntType(256, false);
+        }
+
+        if (idxCompT.to instanceof MappingType) {
+            return idxCompT.to.keyType;
+        }
     }
 
-    if (idxCompT.to instanceof ArrayType) {
-        return new IntType(256, false);
-    }
-
-    if (idxCompT.to instanceof MappingType) {
-        return idxCompT.to.keyType;
-    }
-
-    throw new Error(
-        `Can't compute key type for field ${idx} in path ${pp(
-            path
-        )}: arrive at non-indexable type ${idxCompT.pp()}`
+    assert(
+        false,
+        "Can't compute key type for field {0} in path {1}: arrive at non-indexable type {2}",
+        idx,
+        path,
+        idxCompT
     );
 }
 
@@ -867,7 +879,8 @@ function tcIdVariable(expr: SId, ctx: STypingCtx, typeEnv: TypeEnv): TypeNode | 
     if (defNode instanceof StateVarScope) {
         assert(
             defNode.target.vType !== undefined,
-            `Expected target ${pp(defNode.target)} for if_updated to have a vType.`
+            "Expected target {0} for if_updated to have a vType.",
+            defNode.target
         );
 
         return locateKeyType(
@@ -887,7 +900,9 @@ export function tcIdImportUnitRef(
     typeEnv: TypeEnv
 ): ImportRefType | undefined {
     const scope = ctx[0];
-    assert(scope instanceof ASTNode, `Expected root scope to be an ASTNode, not ${scope}`);
+
+    assert(scope instanceof ASTNode, "Expected root scope to be an ASTNode, not {0}", scope);
+
     const res = resolveAnyOfType(expr.name, scope, typeEnv.compilerVersion, ImportDirective);
 
     return res.length > 0 ? new ImportRefType(single(res)) : undefined;
@@ -900,6 +915,7 @@ export function tcId(expr: SId, ctx: STypingCtx, typeEnv: TypeEnv): TypeNode {
         if (contract === undefined) {
             throw new SUnknownId(expr);
         }
+
         expr.defSite = "this";
 
         return mkUserDefinedType(contract);
@@ -1027,6 +1043,7 @@ export function tcUnary(expr: SUnaryOperation, ctx: STypingCtx, typeEnv: TypeEnv
     }
 
     assert(expr.op === "old", `Internal error: NYI unary op ${expr.op}`);
+
     return tc(expr.subexp, ctx, typeEnv);
 }
 
@@ -1123,7 +1140,7 @@ export function tcBinary(expr: SBinaryOperation, ctx: STypingCtx, typeEnv: TypeE
         if (
             !(rhsT instanceof IntType || rhsT instanceof IntLiteralType) ||
             (rhsT instanceof IntType && rhsT.signed) ||
-            (expr.right instanceof SNumber && expr.right.num.lt(0))
+            (expr.right instanceof SNumber && expr.right.num < 0)
         ) {
             throw new SWrongType(
                 `Type of ${expr.right.pp()} (${rhsT.pp()}) incompatible with ${expr.op} operator.`,

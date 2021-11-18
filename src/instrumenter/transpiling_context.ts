@@ -1,5 +1,6 @@
 import { gte } from "semver";
 import {
+    assert,
     ASTNode,
     Block,
     ContractDefinition,
@@ -9,6 +10,7 @@ import {
     FunctionVisibility,
     MemberAccess,
     Mutability,
+    PPIsh,
     Statement,
     StateVariableVisibility,
     StructDefinition,
@@ -17,7 +19,7 @@ import {
     UncheckedBlock,
     VariableDeclaration
 } from "solc-typed-ast";
-import { AnnotationMetaData, pp, ScribbleFactory } from "..";
+import { AnnotationMetaData, ScribbleFactory } from "..";
 import {
     SForAll,
     SId,
@@ -27,7 +29,7 @@ import {
     VarDefSite
 } from "../spec-lang/ast";
 import { SemMap, StateVarScope, TypeEnv } from "../spec-lang/tc";
-import { assert, last } from "../util";
+import { last } from "../util";
 import { InstrumentationContext } from "./instrumentation_context";
 import { makeTypeString } from "./type_string";
 import { FactoryMap, StructMap } from "./utils";
@@ -62,7 +64,7 @@ export function defSiteToKey(defSite: VarDefSite): string {
         return `forall_${defSite.id}`;
     }
 
-    throw new Error(`NYI debug info for def site ${pp(defSite)}`);
+    assert(false, "NYI debug info for def site {0}", defSite as PPIsh);
 }
 
 export class DbgIdsMap extends StructMap<[VarDefSite], string, [SId[], Expression, TypeNode]> {
@@ -140,7 +142,9 @@ export class TranspilingContext {
 
     public get containerContract(): ContractDefinition {
         const fun = this.containerFun;
+
         assert(fun.vScope instanceof ContractDefinition, `Unexpected free function ${fun.name}`);
+
         return fun.vScope;
     }
 
@@ -153,9 +157,10 @@ export class TranspilingContext {
     ) {
         // Create the StructDefinition for temporary bindings.
         const contract = this.containerFun.vScope;
+
         assert(
             contract instanceof ContractDefinition,
-            `Can't put instrumentation into free functions.`
+            "Can't put instrumentation into free functions."
         );
 
         this.contract = contract;
@@ -288,7 +293,9 @@ export class TranspilingContext {
 
     popMarker(isOld: boolean): void {
         const stack = this.getMarkerStack(isOld);
-        assert(stack.length > 1, `Popping bottom marker - shouldn't happen`);
+
+        assert(stack.length > 1, "Popping bottom marker - shouldn't happen");
+
         stack.pop();
     }
 
@@ -387,9 +394,13 @@ export class TranspilingContext {
      */
     getLetVar(node: SLet): string {
         const key = `<let_${node.id}>`;
-        assert(!this.bindingMap.has(key), `getLetVar called more than once for ${node.pp()}`);
+
+        assert(!this.bindingMap.has(key), "getLetVar called more than once for {0}", node);
+
         const res = this.instrCtx.nameGenerator.getFresh("let_");
+
         this.bindingMap.set(key, res);
+
         return res;
     }
 
@@ -404,9 +415,13 @@ export class TranspilingContext {
      */
     getOldVar(node: SUnaryOperation): string {
         const key = `<old_${node.id}>`;
-        assert(!this.bindingMap.has(key), `getOldVar called more than once for ${node.pp()}`);
+
+        assert(!this.bindingMap.has(key), "getOldVar called more than once for {0}", node);
+
         const res = this.instrCtx.nameGenerator.getFresh("old_");
+
         this.bindingMap.set(key, res);
+
         return res;
     }
 
@@ -422,9 +437,13 @@ export class TranspilingContext {
      */
     getForAllVar(node: SForAll): string {
         const key = `<forall_${node.id}>`;
-        assert(!this.bindingMap.has(key), `getForAllVar called more than once for ${node.pp()}`);
+
+        assert(!this.bindingMap.has(key), "getForAllVar called more than once for {0}", node);
+
         const res = this.instrCtx.nameGenerator.getFresh("forall_");
+
         this.bindingMap.set(key, res);
+
         return res;
     }
 
@@ -439,10 +458,12 @@ export class TranspilingContext {
      */
     getForAllIterVar(node: SForAll): string {
         const key = `<forall_${node.id}_iter>`;
-        let res: string | undefined = this.bindingMap.get(key);
+
+        let res = this.bindingMap.get(key);
 
         if (res === undefined) {
             res = this.instrCtx.nameGenerator.getFresh(node.iteratorVariable.name);
+
             this.bindingMap.set(key, res);
         }
 
@@ -484,9 +505,11 @@ export class TranspilingContext {
      */
     refBinding(name: string): MemberAccess {
         const member = this.bindingDefMap.get(name);
+
         assert(member !== undefined, `No temp binding ${name} defined`);
 
         this.varRefc++;
+
         return this.factory.makeMemberAccess(
             makeTypeString(member.vType as TypeName, DataLocation.Memory),
             this.factory.makeIdentifierFor(this.bindingsVar),
@@ -513,7 +536,13 @@ export class TranspilingContext {
         for (const block of this.uncheckedBlocks) {
             if (block.vStatements.length === 0) {
                 const container = block.parent;
-                assert(container instanceof Block || container instanceof UncheckedBlock, ``);
+
+                assert(
+                    container instanceof Block || container instanceof UncheckedBlock,
+                    "Expected container to be a block or unchecked block, got {0}",
+                    container
+                );
+
                 container.removeChild(block);
             }
         }
@@ -538,9 +567,13 @@ export class TranspilingContext {
      */
     getDbgVar(node: SId): string {
         const key = `<dbg ${defSiteToKey(node.defSite as VarDefSite)}>`;
-        assert(!this.bindingMap.has(key), `getOldVar called more than once for ${node.pp()}`);
+
+        assert(!this.bindingMap.has(key), "getOldVar called more than once for {0}", node);
+
         const res = this.instrCtx.nameGenerator.getFresh("dbg_");
+
         this.bindingMap.set(key, res);
+
         return res;
     }
 }

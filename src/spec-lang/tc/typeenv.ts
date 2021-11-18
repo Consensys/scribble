@@ -1,6 +1,5 @@
-import { ContractDefinition, TypeNameType, TypeNode } from "solc-typed-ast";
+import { assert, ContractDefinition, TypeNameType, TypeNode } from "solc-typed-ast";
 import { ABIEncoderVersion } from "solc-typed-ast/dist/types/abi";
-import { assert } from "../../util";
 import { SNode, SUserFunctionDefinition } from "../ast";
 
 export type TypeMap = Map<SNode, TypeNode>;
@@ -36,7 +35,7 @@ export class TypeEnv {
 
         const res = this.typeMap.get(node);
 
-        assert(res !== undefined, `Missing type for ${node.pp()}`);
+        assert(res !== undefined, "Missing type for {0}", node);
 
         return res;
     }
