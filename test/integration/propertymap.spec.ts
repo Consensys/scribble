@@ -15,7 +15,7 @@ import { removeProcWd, scribble, searchRecursive, toAstUsingCache } from "./util
 function findPredicates(inAST: SourceUnit[]): Map<number, Set<string>> {
     const res: Map<number, Set<string>> = new Map();
     const rx =
-        /\s*(if_succeeds|if_aborts|invariant|if_updated|if_assigned|assert)[a-z0-9.[\])_]*\s*({:msg\s*"([^"]*)"\s*})?\s*([^;]*);/g;
+        /\s*(if_succeeds|if_aborts|invariant|if_updated|if_assigned|assert|try|require)[a-z0-9.[\])_]*\s*({:msg\s*"([^"]*)"\s*})?\s*([^;]*);/g;
 
     for (const unit of inAST) {
         const targets: Array<VariableDeclaration | FunctionDefinition | ContractDefinition> =

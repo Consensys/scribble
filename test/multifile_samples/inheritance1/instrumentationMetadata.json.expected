@@ -206,6 +206,7 @@
       "propertySource": "35:12:0",
       "annotationSource": "23:25:0",
       "target": "function",
+      "type": "if_succeeds",
       "targetName": "foo",
       "debugEventEncoding": [
         [
@@ -244,6 +245,7 @@
       "propertySource": "63:4:2",
       "annotationSource": "41:27:2",
       "target": "contract",
+      "type": "invariant",
       "targetName": "C",
       "debugEventEncoding": [],
       "message": "P1",
@@ -266,6 +268,7 @@
       "propertySource": "112:14:2",
       "annotationSource": "100:27:2",
       "target": "function",
+      "type": "if_succeeds",
       "targetName": "foo",
       "debugEventEncoding": [
         [

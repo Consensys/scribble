@@ -114,6 +114,12 @@
                 "description": "Describe how scribble signals user assertion failures to Myhtril/Harvey. Must be either 'log' or 'mstore'. See wiki for more details."
             },
             {
+                "name": "cov-assertions",
+                "type": "Boolean",
+                "defaultValue": false,
+                "description": "When specified emit an extra user-assertion for each property whenever its reached. This allows an easy (albeit noisy) way to check which propterties were reached."
+            },
+            {
                 "name": "solFiles",
                 "type": "String",
                 "defaultOption": true,

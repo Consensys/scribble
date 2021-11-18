@@ -13,6 +13,7 @@ import {
     FunctionStateMutability,
     FunctionType,
     FunctionVisibility,
+    getABIEncoderVersion,
     IntLiteralType,
     IntType,
     PointerType,
@@ -28,6 +29,7 @@ import {
     UserDefinedType,
     UserDefinition
 } from "solc-typed-ast";
+import { ABIEncoderVersion } from "solc-typed-ast/dist/types/abi";
 import { Logger } from "../../src/logger";
 import { SId, SUserFunctionDefinition } from "../../src/spec-lang/ast";
 import { parseAnnotation, parseExpression as parse } from "../../src/spec-lang/expr_parser";
@@ -662,12 +664,14 @@ describe("TypeChecker Expression Unit Tests", () => {
         describe(`Positive tests for #${fileName}`, () => {
             let units: SourceUnit[];
             let compilerVersion: string;
+            let encVer: ABIEncoderVersion;
 
             before(() => {
                 const result = toAst(fileName, content);
 
                 units = result.units;
                 compilerVersion = result.compilerVersion;
+                encVer = getABIEncoderVersion(units, compilerVersion);
             });
 
             for (const [specString, loc, expected] of testCases) {
@@ -675,7 +679,7 @@ describe("TypeChecker Expression Unit Tests", () => {
                     const expectedType = expected instanceof TypeNode ? expected : expected(units);
                     const [typeCtx, target] = getTypeCtxAndTarget(loc, units, compilerVersion);
                     const parsed = parse(specString, target, compilerVersion);
-                    const typeEnv = new TypeEnv(compilerVersion);
+                    const typeEnv = new TypeEnv(compilerVersion, encVer);
                     const type = tc(parsed, typeCtx, typeEnv);
                     Logger.debug(
                         `[${specString}]: Got: ${type.pp()} expected: ${expectedType.pp()}`
@@ -690,6 +694,7 @@ describe("TypeChecker Expression Unit Tests", () => {
         describe(`Negative tests for #${fileName}`, () => {
             let units: SourceUnit[];
             let compilerVersion: string;
+            let encVer: ABIEncoderVersion;
             let typeEnv: TypeEnv;
 
             before(() => {
@@ -697,8 +702,9 @@ describe("TypeChecker Expression Unit Tests", () => {
 
                 units = result.units;
                 compilerVersion = result.compilerVersion;
+                encVer = getABIEncoderVersion(units, compilerVersion);
 
-                typeEnv = new TypeEnv(compilerVersion);
+                typeEnv = new TypeEnv(compilerVersion, encVer);
             });
 
             for (const [specString, loc] of testCases) {
@@ -1315,14 +1321,16 @@ contract Statements08 {
             let units: SourceUnit[];
             let compilerVersion: string;
             let typeEnv: TypeEnv;
+            let encVer: ABIEncoderVersion;
 
             before(() => {
                 const result = toAst(fileName, content);
 
                 units = result.units;
                 compilerVersion = result.compilerVersion;
+                encVer = getABIEncoderVersion(units, compilerVersion);
 
-                typeEnv = new TypeEnv(compilerVersion);
+                typeEnv = new TypeEnv(compilerVersion, encVer);
             });
 
             for (const [specString, loc, expectedType, clearFunsBefore] of testCases) {
@@ -1332,7 +1340,7 @@ contract Statements08 {
                     const [ctx] = getTypeCtxAndTarget(loc, units, compilerVersion, parsed);
 
                     if (clearFunsBefore) {
-                        typeEnv = new TypeEnv(compilerVersion);
+                        typeEnv = new TypeEnv(compilerVersion, encVer);
                     }
 
                     tcAnnotation(parsed, ctx, target, typeEnv);
@@ -1356,14 +1364,16 @@ contract Statements08 {
             let units: SourceUnit[];
             let compilerVersion: string;
             let typeEnv: TypeEnv;
+            let encVer: ABIEncoderVersion;
 
             before(() => {
                 const result = toAst(fileName, content);
 
                 units = result.units;
                 compilerVersion = result.compilerVersion;
+                encVer = getABIEncoderVersion(units, compilerVersion);
 
-                typeEnv = new TypeEnv(compilerVersion);
+                typeEnv = new TypeEnv(compilerVersion, encVer);
 
                 // Setup any definitions
                 for (const [specString, loc] of setupSteps) {

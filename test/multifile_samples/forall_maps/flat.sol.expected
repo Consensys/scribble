@@ -21,7 +21,7 @@ contract Base {
     mapping(string => uint8_to_int8.S) internal i;
     SB internal j;
 
-    function c(string memory ARG_0) public returns (int16 RET_0) {
+    function c(string memory ARG_0) public view returns (int16 RET_0) {
         return string_to_int16.get(c0, ARG_0);
     }
 }

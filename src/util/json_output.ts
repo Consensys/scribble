@@ -16,6 +16,7 @@ import { getOr, rangeToOffsetRange, rangeToSrcTriple, SrcTriple } from "..";
 import { PropertyMetaData } from "../instrumenter/annotations";
 import { InstrumentationContext } from "../instrumenter/instrumentation_context";
 import { DbgIdsMap } from "../instrumenter/transpiling_context";
+import { AnnotationType } from "../spec-lang/ast/declarations/annotation";
 
 type TargetType = "function" | "variable" | "contract" | "statement";
 
@@ -26,6 +27,7 @@ interface PropertyDesc {
     propertySource: string;
     annotationSource: string;
     target: TargetType;
+    type: AnnotationType;
     targetName: string;
     debugEventEncoding: Array<[string[], string]>;
     message: string;
@@ -316,6 +318,7 @@ function generatePropertyMap(
             propertySource,
             annotationSource,
             target: targetType,
+            type: annotation.type,
             targetName,
             debugEventEncoding: srcEncoding,
             message: annotation.message,

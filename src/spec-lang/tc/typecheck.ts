@@ -46,9 +46,9 @@ import {
     UserDefinedType,
     UserDefinedTypeName,
     VariableDeclaration,
-    VariableDeclarationStatement
+    VariableDeclarationStatement,
+    variableDeclarationToTypeNode
 } from "solc-typed-ast";
-import { ABIEncoderVersion } from "solc-typed-ast/dist/types/abi";
 import { AnnotationMap, AnnotationMetaData, AnnotationTarget } from "../../instrumenter";
 import { Logger } from "../../logger";
 import { last, single, topoSort } from "../../util";
@@ -1503,6 +1503,13 @@ export function tcMemberAccess(expr: SMemberAccess, ctx: STypingCtx, typeEnv: Ty
         if (funDefs.length > 0) {
             return new FunctionSetType(funDefs);
         }
+
+        // Next check if this is a library constant
+        const def = lookupVarDef(expr.member, [baseT.type.definition], typeEnv.compilerVersion);
+
+        if (def !== undefined && def instanceof VariableDeclaration && def.constant) {
+            return variableDeclarationToTypeNode(def);
+        }
     }
 
     if (
@@ -1876,8 +1883,8 @@ export function tcFunctionCall(expr: SFunctionCall, ctx: STypingCtx, typeEnv: Ty
                     calleeT.definitions
                         .map((def) =>
                             def instanceof FunctionDefinition
-                                ? def.canonicalSignature(ABIEncoderVersion.V2)
-                                : def.getterCanonicalSignature(ABIEncoderVersion.V2)
+                                ? def.canonicalSignature(typeEnv.abiEncoderVersion)
+                                : def.getterCanonicalSignature(typeEnv.abiEncoderVersion)
                         )
                         .join("\n"),
                 expr

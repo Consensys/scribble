@@ -1,4 +1,5 @@
 import { assert, ContractDefinition, TypeNameType, TypeNode } from "solc-typed-ast";
+import { ABIEncoderVersion } from "solc-typed-ast/dist/types/abi";
 import { SNode, SUserFunctionDefinition } from "../ast";
 
 export type TypeMap = Map<SNode, TypeNode>;
@@ -13,12 +14,14 @@ export class TypeEnv {
     private userFunctions: Map<ContractDefinition, Map<string, SUserFunctionDefinition>>;
 
     public readonly compilerVersion: string;
+    public readonly abiEncoderVersion: ABIEncoderVersion;
 
-    constructor(compilerVersion: string) {
+    constructor(compilerVersion: string, abiEncoderVersion: ABIEncoderVersion) {
         this.typeMap = new Map();
         this.userFunctions = new Map();
 
         this.compilerVersion = compilerVersion;
+        this.abiEncoderVersion = abiEncoderVersion;
     }
 
     hasType(node: SNode): boolean {

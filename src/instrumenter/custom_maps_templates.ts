@@ -670,7 +670,9 @@ function setterNeedsSpecialization(formalT: TypeNode, newValT: TypeNode): newVal
 
     assert(
         newValT instanceof PointerType && newValT.to instanceof ArrayType,
-        `Invalid new val type ${newValT.pp()} in setter to ${formalT.pp()}`
+        "Invalid new val type {0} in setter to {1}",
+        newValT,
+        formalT
     );
 
     return formalT.size !== newValT.to.size || formalT.elementT.pp() !== newValT.to.elementT.pp();

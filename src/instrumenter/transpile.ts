@@ -36,6 +36,7 @@ import {
 } from "solc-typed-ast";
 import { AnnotationMetaData, PropertyMetaData, single, UserFunctionDefinitionMetaData } from "..";
 import {
+    AnnotationType,
     BuiltinFunctions,
     SAddressLiteral,
     SBinaryOperation,
@@ -195,6 +196,14 @@ function addTracingInfo(id: SId, transpiledExpr: Expression, ctx: TranspilingCon
         return;
     }
 
+    // Skip try/require annotations as we don't emit assertion failed events for those
+    if (
+        ctx.curAnnotation.type === AnnotationType.Try ||
+        ctx.curAnnotation.type === AnnotationType.Require
+    ) {
+        return;
+    }
+
     const idDebugMap = ctx.dbgInfo.get(ctx.curAnnotation);
     const defSite = id.defSite as VarDefSite;
 
@@ -237,19 +246,20 @@ function transpileId(expr: SId, ctx: TranspilingContext): Expression {
     }
 
     // Builtin symbols are the only identifiers with undefined `defSite`.
-    if (expr.defSite === undefined) {
-        throw new Error(
-            `Cannot generate AST for id ${expr.pp()} with no corresponding definition.`
-        );
-    }
+    assert(
+        expr.defSite !== undefined,
+        "Cannot generate AST for id {0} with no corresponding definition.",
+        expr
+    );
 
     // Normal solidity variable - function argument, return, state variable or global constant.
     if (expr.defSite instanceof VariableDeclaration) {
         if (expr.name !== expr.defSite.name) {
             assert(
                 expr.defSite.stateVariable || expr.defSite.vScope instanceof SourceUnit,
-                `Internal error: variable id ${expr.pp()} has different name from underlying variable ${expr.defSite.print()}` +
-                    `Variable renaming only allowed for public state vars with maps and imported global vars`
+                `Internal error: variable id {0} has different name from underlying variable {1}. Variable renaming only allowed for public state vars with maps and imported global vars.`,
+                expr,
+                expr.defSite
             );
         }
 
@@ -302,7 +312,8 @@ function transpileId(expr: SId, ctx: TranspilingContext): Expression {
 
         assert(
             transpiledUserFun !== undefined,
-            `Missing transpiled version of user function ${expr.defSite[0].pp()}`
+            "Missing transpiled version of user function {1}",
+            expr.defSite[0]
         );
 
         return factory.makeIdentifierFor(
@@ -340,7 +351,8 @@ function transpileId(expr: SId, ctx: TranspilingContext): Expression {
 
         assert(
             transpiledUserFun !== undefined,
-            `Missing transpiled version of user function ${expr.defSite.pp()}`
+            "Missing transpiled version of user function {0}",
+            expr.defSite
         );
 
         return factory.makeIdentifierFor(transpiledUserFun);
@@ -365,15 +377,18 @@ function transpileId(expr: SId, ctx: TranspilingContext): Expression {
     if (exprT instanceof FunctionSetType) {
         referrencedDef = single(exprT.definitions);
     } else if (exprT instanceof UserDefinedType) {
-        if (exprT.definition === undefined) {
-            throw new Error(
-                `Id ${expr.pp()} of user defined type ${exprT.pp()} is missing a definition.`
-            );
-        }
+        assert(
+            exprT.definition !== undefined,
+            `Id {0} of user defined type {1} is missing a definition.`,
+            expr,
+            exprT
+        );
 
         referrencedDef = exprT.definition;
     } else if (exprT instanceof ImportRefType) {
         referrencedDef = exprT.impStatement;
+    } else if (exprT instanceof TypeNameType && exprT.type instanceof UserDefinedType) {
+        referrencedDef = exprT.type.definition;
     } else {
         throw new Error(`Unknown id type ${exprT.pp()}`);
     }
@@ -414,16 +429,16 @@ function transpileIndexAccess(expr: SIndexAccess, ctx: TranspilingContext): Expr
 
     assert(
         base instanceof Expression,
-        `InternalError: Base of ${expr.pp()} transpiled to non-expression node ${
-            base.constructor.name
-        }`
+        "InternalError: Base of {0} transpiled to non-expression node {1}",
+        expr,
+        base.constructor.name
     );
 
     assert(
         index instanceof Expression,
-        `InternalError: Index of ${expr.pp()} transpiled to non-expression node ${
-            index.constructor.name
-        }`
+        "InternalError: Index of {0} transpiled to non-expression node {1}",
+        expr,
+        index.constructor.name
     );
 
     // Some maps inside state vars may have been re-writen as structs with library
@@ -482,7 +497,8 @@ function transpileUnaryOperation(expr: SUnaryOperation, ctx: TranspilingContext)
     if (expr.op === "old") {
         const type = ctx.typeEnv.typeOf(expr.subexp);
         const semInfo = ctx.semInfo.get(expr);
-        assert(semInfo !== undefined, `Missing semantic info for ${expr.pp()}`);
+
+        assert(semInfo !== undefined, "Missing semantic info for {0}", expr);
 
         if (semInfo.isConst) {
             return subExp;
@@ -545,14 +561,15 @@ function transpileFunctionCall(expr: SFunctionCall, ctx: TranspilingContext): Ex
         const arg = single(expr.args);
         const argT = ctx.typeEnv.typeOf(arg);
 
-        assert(argT instanceof PointerType, `sum expects a pointer to array/map, not ${argT.pp()}`);
+        assert(argT instanceof PointerType, "sum expects a pointer to array/map, not {0}", argT);
 
         if (argT.to instanceof MappingType) {
             const [sVar, path] = decomposeStateVarRef(arg);
 
             assert(
                 sVar !== undefined,
-                `sum argument should be a state var(or a part of it), not ${arg.pp()}`
+                "sum argument should be a state var(or a part of it), not {0}",
+                arg
             );
 
             const lib = ctx.instrCtx.sVarToLibraryMap.get(
@@ -567,10 +584,7 @@ function transpileFunctionCall(expr: SFunctionCall, ctx: TranspilingContext): Ex
             return factory.mkStructFieldAcc(transpile(arg, ctx), struct, "sum");
         }
 
-        assert(
-            argT.to instanceof ArrayType,
-            `sum expects a pointer to array/map, not ${argT.pp()}`
-        );
+        assert(argT.to instanceof ArrayType, "sum expects a pointer to array/map, not {0}", argT);
 
         const sumFun = ctx.instrCtx.arraySumFunMap.get(argT.to, argT.location);
 
@@ -751,7 +765,7 @@ function transpileForAll(expr: SForAll, ctx: TranspilingContext): Expression {
             const container = unwrapOld(expr.container);
             const [sVar, path] = decomposeStateVarRef(container);
 
-            assert(sVar !== undefined, `Unexpected undefined state var in ${expr.container.pp()}`);
+            assert(sVar !== undefined, "Unexpected undefined state var in {0}", expr.container);
 
             const astContainer = transpile(container, ctx);
             const lib = ctx.instrCtx.sVarToLibraryMap.get(
