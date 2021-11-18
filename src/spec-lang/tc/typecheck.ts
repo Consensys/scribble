@@ -1656,11 +1656,43 @@ function matchArguments(
 export function tcForAll(expr: SForAll, ctx: STypingCtx, typeEnv: TypeEnv): TypeNode {
     // Call tc on iterator variable to make sure its defSite is set
     const varT = tc(expr.iteratorVariable, ctx.concat(expr), typeEnv);
+    const uintT = new IntType(256, false);
 
-    // Helper function that checks that start and end are integer types, and the iter var is also
-    // an integer types. Used for the cases when expr.container is an array/fixed bytes, or when
-    // explicit start/end are provided.
-    const checkIntIterVar = (): void => {
+    if (expr.container !== undefined) {
+        // Case 1. Iterating over the keys/indices of a container
+        const containerT = tc(expr.container, ctx, typeEnv);
+
+        if (
+            (containerT instanceof PointerType && containerT.to instanceof ArrayType) ||
+            containerT instanceof FixedBytesType
+        ) {
+            if (!isImplicitlyCastable(expr.iteratorType, uintT)) {
+                throw new SWrongType(
+                    `The type ${expr.iteratorType.pp()} of the iterator variable ${expr.iteratorVariable.pp()} is not compatible with iterator type uint of ${expr.container.pp()}.`,
+                    expr.iteratorVariable,
+                    expr.iteratorType
+                );
+            }
+        } else if (containerT instanceof PointerType && containerT.to instanceof MappingType) {
+            const keyT = containerT.to.keyType;
+            if (!isImplicitlyCastable(keyT, varT)) {
+                throw new SWrongType(
+                    `The type for the iterator variable ${
+                        expr.iteratorVariable.name
+                    } ${varT.pp()} is not castable to the mapping key type ${keyT.pp()}.`,
+                    expr.iteratorVariable,
+                    varT
+                );
+            }
+        } else {
+            throw new SWrongType(
+                `Provided iterable ${expr.container.pp()} is not an array, fixed bytes or a mapping - instead got ${containerT.pp()}.`,
+                expr.container,
+                containerT
+            );
+        }
+    } else {
+        // Case 2. Iterating in a range [expr.start, expr.end]
         const startT = expr.start ? tc(expr.start, ctx, typeEnv) : new IntLiteralType();
 
         if (!(startT instanceof IntType || startT instanceof IntLiteralType)) {
@@ -1695,37 +1727,6 @@ export function tcForAll(expr: SForAll, ctx: STypingCtx, typeEnv: TypeEnv): Type
                 expr.iteratorType
             );
         }
-    };
-
-    // A more user-friendly error for the case when a non-array was passed
-    if (expr.container !== undefined) {
-        const containerT = tc(expr.container, ctx, typeEnv);
-
-        if (
-            (containerT instanceof PointerType && containerT.to instanceof ArrayType) ||
-            containerT instanceof FixedBytesType
-        ) {
-            checkIntIterVar();
-        } else if (containerT instanceof PointerType && containerT.to instanceof MappingType) {
-            const keyT = containerT.to.keyType;
-            if (!isImplicitlyCastable(keyT, varT)) {
-                throw new SWrongType(
-                    `The type for the iterator variable ${
-                        expr.iteratorVariable.name
-                    } ${varT.pp()} is not castable to the mapping key type ${keyT.pp()}.`,
-                    expr.iteratorVariable,
-                    varT
-                );
-            }
-        } else {
-            throw new SWrongType(
-                `Provided iterable ${expr.container.pp()} is not an array, fixed bytes or a mapping - instead got ${containerT.pp()}.`,
-                expr.container,
-                containerT
-            );
-        }
-    } else {
-        checkIntIterVar();
     }
 
     const exprT = tc(expr.expression, ctx.concat(expr), typeEnv);
