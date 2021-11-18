@@ -1,10 +1,10 @@
 import { Range, SNode } from "../node";
-import { AnnotationType, SAnnotation } from "./annotation";
+import { AnnotationMD, AnnotationType, SAnnotation } from "./annotation";
 
 export class SProperty extends SAnnotation {
     public readonly expression: SNode;
-    constructor(type: AnnotationType, expression: SNode, label?: string, src?: Range) {
-        super(type, label, src);
+    constructor(type: AnnotationType, expression: SNode, md?: AnnotationMD, src?: Range) {
+        super(type, md, src);
         this.expression = expression;
     }
 

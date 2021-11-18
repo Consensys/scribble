@@ -19,6 +19,7 @@ import {
     SNumber,
     SProperty,
     SResult,
+    SStringLiteral,
     SUnaryOperation,
     SUserFunctionDefinition
 } from "../../src/spec-lang/ast";
@@ -637,7 +638,9 @@ describe("Annotation Parser Unit Tests", () => {
 
         [
             '/// if_succeeds {:msg "hi"} true;',
-            new SProperty(AnnotationType.IfSucceeds, new SBooleanLiteral(true), "hi")
+            new SProperty(AnnotationType.IfSucceeds, new SBooleanLiteral(true), {
+                msg: new SStringLiteral("hi")
+            })
         ],
         [
             `* if_succeeds 
@@ -650,7 +653,7 @@ describe("Annotation Parser Unit Tests", () => {
             new SProperty(
                 AnnotationType.IfSucceeds,
                 new SBinaryOperation(new SNumber(BigInt(1), 10), "-", new SNumber(BigInt(2), 10)),
-                "hi"
+                { msg: new SStringLiteral("hi") }
             )
         ],
         [
@@ -664,7 +667,7 @@ describe("Annotation Parser Unit Tests", () => {
             new SIfUpdated(
                 new SBinaryOperation(new SNumber(BigInt(1), 10), "-", new SNumber(BigInt(2), 10)),
                 [],
-                "hi"
+                { msg: new SStringLiteral("hi") }
             )
         ],
         [
@@ -674,7 +677,9 @@ describe("Annotation Parser Unit Tests", () => {
                     }
                     true;
                      ;`,
-            new SIfAssigned(new SBooleanLiteral(true), [new SId("a")], "bye")
+            new SIfAssigned(new SBooleanLiteral(true), [new SId("a")], {
+                msg: new SStringLiteral("bye")
+            })
         ],
         [
             `* if_assigned.foo
@@ -683,7 +688,7 @@ describe("Annotation Parser Unit Tests", () => {
                     }
                     true;
                      ;`,
-            new SIfAssigned(new SBooleanLiteral(true), ["foo"], "bye")
+            new SIfAssigned(new SBooleanLiteral(true), ["foo"], { msg: new SStringLiteral("bye") })
         ],
         [
             `* if_assigned._bar0.boo[a][b].foo[c]
@@ -695,7 +700,7 @@ describe("Annotation Parser Unit Tests", () => {
             new SIfAssigned(
                 new SBooleanLiteral(false),
                 ["_bar0", "boo", new SId("a"), new SId("b"), "foo", new SId("c")],
-                "felicia"
+                { msg: new SStringLiteral("felicia") }
             )
         ],
         [
@@ -709,7 +714,7 @@ describe("Annotation Parser Unit Tests", () => {
             new SProperty(
                 AnnotationType.Invariant,
                 new SBinaryOperation(new SNumber(BigInt(1), 10), "-", new SNumber(BigInt(2), 10)),
-                "hi"
+                { msg: new SStringLiteral("hi") }
             )
         ],
         [
@@ -746,7 +751,7 @@ describe("Annotation Parser Unit Tests", () => {
                 [],
                 new BoolType(),
                 new SBooleanLiteral(true),
-                "tralala"
+                { msg: new SStringLiteral("tralala") }
             )
         ],
         [
@@ -766,7 +771,7 @@ describe("Annotation Parser Unit Tests", () => {
                 [],
                 new BoolType(),
                 new SBooleanLiteral(true),
-                "tralala"
+                { msg: new SStringLiteral("tralala") }
             )
         ],
         [
@@ -826,6 +831,7 @@ describe("Annotation Parser Unit Tests", () => {
             )
         ],
         ["/// assert true;", new SProperty(AnnotationType.Assert, new SBooleanLiteral(true))],
+        ["/// assert {} true;", new SProperty(AnnotationType.Assert, new SBooleanLiteral(true))],
         [
             "/// assert forall (uint x in a) a[x] > 10;",
             new SProperty(
@@ -882,7 +888,9 @@ describe("Annotation Parser Unit Tests", () => {
                        "bye"
                     }
                     true;
-                     ;`
+                     ;`,
+        `/// if_succeeds {bad: "true"} true;`,
+        `/// if_succeeds {msg: 1} true;`
     ];
 
     for (const [sample, expected] of goodSamples) {
