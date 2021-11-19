@@ -1668,7 +1668,7 @@ function matchArguments(
         if (formalT instanceof VariableTypes) {
             assert(
                 i === funT.parameters.length - 1,
-                `Unexpected variable type not in last position of fun {1}`,
+                `Unexpected variable type not in last position of fun {0}`,
                 funT
             );
             return true;
