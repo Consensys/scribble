@@ -1,6 +1,7 @@
 import { gte } from "semver";
 import {
     ArrayType,
+    assert,
     ASTNode,
     ASTNodeFactory,
     Block,
@@ -34,14 +35,7 @@ import {
 } from "solc-typed-ast";
 import { ensureStmtInBlock, filterByType, getTypeLocation, transpileAnnotation } from "..";
 import { AnnotationType, SId, SNode } from "../spec-lang/ast";
-import {
-    assert,
-    isChangingState,
-    isExternallyVisible,
-    parseSrcTriple,
-    print,
-    single
-} from "../util";
+import { isChangingState, isExternallyVisible, parseSrcTriple, print, single } from "../util";
 import {
     AnnotationMetaData,
     PPAbleError,
@@ -127,7 +121,9 @@ export function findExternalCalls(
 
             assert(
                 calleeType instanceof FunctionType,
-                `Expected function type not ${calleeType.pp()} for calee in ${call.print()}`
+                `Expected function type not {0} for callee in {1}`,
+                calleeType,
+                call
             );
 
             if (calleeType.visibility !== FunctionVisibility.External) {
@@ -784,7 +780,11 @@ function makeGeneralInvariantChecker(
     const body = checker.vBody as Block;
 
     for (const base of contract.vLinearizedBaseContracts) {
-        assert(base !== ctx.utilsContract, "");
+        assert(
+            base !== ctx.utilsContract,
+            "Expected base to not be a utility contract for {0}",
+            contract
+        );
 
         if (base.kind === ContractKind.Interface) {
             continue;
@@ -885,7 +885,9 @@ function replaceExternalCallSites(
 
         assert(
             calleeType instanceof FunctionType,
-            `Expected function type not ${calleeType.pp()} for calee in ${callSite.print()}`
+            "Expected function type not {0} for callee in {1}",
+            calleeType,
+            callSite
         );
 
         if (calleeType.mutability === FunctionStateMutability.Pure) {
@@ -1115,7 +1117,8 @@ export function makeArraySumFun(
 
     assert(
         arrT.elementT instanceof IntType,
-        `makeArraySum expects a numeric array type not ${arrT.pp()}`
+        "makeArraySum expects a numeric array type not {0}",
+        arrT
     );
 
     const name = `sum_arr_${getTypeDesc(arrT)}_${loc}`;
@@ -1208,8 +1211,11 @@ export function instrumentStatement(
     container.insertBefore(assertionBlock, stmt);
 
     const fun = stmt.getClosestParentByType(FunctionDefinition);
-    assert(fun !== undefined, `Unexpected orphan stmt ${stmt.print()}`);
+
+    assert(fun !== undefined, "Unexpected orphan stmt", stmt);
+
     const transCtx = ctx.transCtxMap.get(fun, InstrumentationSiteType.Assert);
+
     transCtx.resetMarkser([assertionBlock, "end"], false);
 
     insertAnnotations(allAnnotations as PropertyMetaData[], transCtx);

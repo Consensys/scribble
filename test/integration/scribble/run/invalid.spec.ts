@@ -21,7 +21,7 @@ describe(`Command "scribble <filename>" is failing as expected`, () => {
         ],
         [
             ["test/samples/invalid/if_updated_length.invalid.sol"],
-            /^test\/samples\/invalid\/if_updated_length.invalid.sol:7:2 Error: Cannot instrument state var LengthAssigned.a due to unsupported assignments to .length./m
+            /^test\/samples\/invalid\/if_updated_length.invalid.sol:7:2 Error: Cannot instrument state var LengthAssigned.a due to unsupported assignments to .length/m
         ],
         [
             ["test/samples/invalid/if_updated_push_ref.invalid.sol"],

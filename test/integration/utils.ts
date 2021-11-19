@@ -1,6 +1,7 @@
 import { spawnSync } from "child_process";
 import fse from "fs-extra";
 import {
+    assert,
     ASTKind,
     ASTNode,
     ASTReader,
@@ -12,7 +13,7 @@ import {
     Statement,
     XPath
 } from "solc-typed-ast";
-import { AnnotationTarget, assert, single } from "../../src";
+import { AnnotationTarget, single } from "../../src";
 import { SAnnotation, SStateVarProp } from "../../src/spec-lang/ast";
 import { StateVarScope, STypingCtx } from "../../src/spec-lang/tc";
 
@@ -188,7 +189,12 @@ export function getTypeCtxAndTarget(
 
                 for (const stateVar of contract.vStateVariables) {
                     if (stateVar.name == subTarget) {
-                        assert(annotation instanceof SStateVarProp, ``);
+                        assert(
+                            annotation instanceof SStateVarProp,
+                            "Expected state variable property, got {0}",
+                            annotation
+                        );
+
                         return [[contract, new StateVarScope(stateVar, annotation)], stateVar];
                     }
                 }

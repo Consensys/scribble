@@ -76,11 +76,11 @@ function makeUserDefinedType(
     const defs = [...resolveAny(name, ctx, version)];
 
     if (defs.length === 0) {
-        throw new Error(`Couldn't find ${constructor.name} ${name}`);
+        throw new Error(`Couldn't find ${name}`);
     }
 
     if (defs.length > 1) {
-        throw new Error(`Multiple matches for ${constructor.name} ${name}`);
+        throw new Error(`Multiple matches for ${name}`);
     }
 
     const def = defs[0];
@@ -89,7 +89,8 @@ function makeUserDefinedType(
         def instanceof ContractDefinition ||
         def instanceof StructDefinition ||
         def instanceof EnumDefinition,
-        `Expected ${name} to be a type name not ${def.constructor.name}`)
+        `Expected ${name} to be a type name, not ${def.type}`
+    );
 
     return new UserDefinedType(name, def, location);
 }

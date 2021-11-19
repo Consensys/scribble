@@ -1,5 +1,6 @@
 import expect from "expect";
 import {
+    assert,
     ContractDefinition,
     FunctionDefinition,
     SourceUnit,
@@ -8,7 +9,7 @@ import {
     StructuredDocumentation,
     VariableDeclaration
 } from "solc-typed-ast";
-import { assert, InstrumentationMetaData, pp, searchRecursive } from "../../src/util";
+import { InstrumentationMetaData, searchRecursive } from "../../src/util";
 import { removeProcWd, scribble, toAstUsingCache } from "./utils";
 
 function findPredicates(inAST: SourceUnit[]): Map<number, Set<string>> {
@@ -77,9 +78,7 @@ describe("Property map test", () => {
     const getSrcTripple = (raw: string): [number, number, number] => {
         const m = raw.match(rx);
 
-        expect(m).not.toEqual(null);
-
-        assert(m !== null, ``);
+        assert(m !== null, "Expected regexp {0} to match string {1}", rx.source, raw);
 
         const start = parseInt(m[1]);
         const len = parseInt(m[2]);
@@ -150,9 +149,9 @@ describe("Property map test", () => {
                     if (!predSet.has(extracted)) {
                         assert(
                             false,
-                            `Missing predicate ${extracted} in computed predicate set ${pp(
-                                predSet
-                            )}`
+                            "Missing predicate {0} in computed predicate set {1}",
+                            extracted,
+                            predSet
                         );
                     }
                 }

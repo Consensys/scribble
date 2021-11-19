@@ -3,6 +3,7 @@ import {
     AddressType,
     ArrayType,
     ArrayTypeName,
+    assert,
     Assignment,
     ASTNode,
     ASTNodeFactory,
@@ -66,7 +67,6 @@ import {
     isStateVarRef,
     isTypeAliasable,
     last,
-    pp,
     PropertyMetaData,
     single,
     StateVarUpdateDesc,
@@ -76,7 +76,6 @@ import {
     updateMap
 } from "..";
 import { SId, SIfUpdated, SStateVarProp } from "../spec-lang/ast";
-import { assert } from "../util";
 import { InstrumentationContext } from "./instrumentation_context";
 import { InstrumentationSiteType, TranspilingContext } from "./transpiling_context";
 import { makeTypeString } from "./type_string";
@@ -102,8 +101,11 @@ function getMaterialExprType(
         if (actualType instanceof IntLiteralType) {
             assert(
                 expectedType instanceof IntType,
-                `Expected ${expectedType.pp()} got ${actualType.pp()}`
+                "Expected {0} got {1}",
+                expectedType,
+                actualType
             );
+
             return expectedType;
         }
 
@@ -115,7 +117,9 @@ function getMaterialExprType(
             assert(
                 expectedType instanceof TupleType &&
                     expectedType.elements.length === actualType.elements.length,
-                `Expected ${expectedType.pp()} got ${actualType.pp()}`
+                "Expected {0} got {1}",
+                expectedType,
+                actualType
             );
 
             return new TupleType(
@@ -159,24 +163,38 @@ function getKeysAndTheirTypes(
                         typ.vReferencedDeclaration instanceof StructDefinition &&
                         typ.vReferencedDeclaration.vScope instanceof ContractDefinition &&
                         typ.vReferencedDeclaration.vScope.kind === ContractKind.Library,
-                    `Expected a reference to a custom library struct, not ${typ.print()}`
+                    "Expected a reference to a custom library struct, not {0}",
+                    typ
                 );
 
                 const lib = typ.vReferencedDeclaration.vScope;
                 const getLHSDef = single(lib.vFunctions.filter((fDef) => fDef.name === "get_lhs"));
+
                 keyTypes.push([getLHSDef.vParameters.vParameters[1].vType as TypeName, comp]);
+
                 typ = getLHSDef.vReturnParameters.vParameters[0].vType as TypeName;
             }
         } else {
             if (typ instanceof UserDefinedTypeName) {
-                assert(typ.vReferencedDeclaration instanceof StructDefinition, ``);
+                assert(
+                    typ.vReferencedDeclaration instanceof StructDefinition,
+                    "Expected struct type, got {0}",
+                    typ.vReferencedDeclaration
+                );
+
                 typ = single(
                     typ.vReferencedDeclaration.vMembers.filter((member) => member.name === comp)
                 ).vType as TypeName;
 
                 keyTypes.push(comp);
             } else {
-                assert(typ instanceof ArrayTypeName && comp === "length", ``);
+                assert(
+                    typ instanceof ArrayTypeName && comp === "length",
+                    'Expected array type and "length" and, got {0} and "{1}"',
+                    typ,
+                    comp
+                );
+
                 typ = factory.makeElementaryTypeName("<missing>", "uint256");
             }
         }
@@ -190,7 +208,13 @@ function decomposeLHSWithTypes(
     factory: ASTNodeFactory
 ): [Identifier | MemberAccess, ConcreteDatastructurePathWTypes, TypeName] {
     const [base, concretePath] = decomposeLHS(lhs);
-    assert(base.vReferencedDeclaration instanceof VariableDeclaration, ``);
+
+    assert(
+        base.vReferencedDeclaration instanceof VariableDeclaration,
+        "Expected LHS to be decomposed to variable reference, got {0}",
+        base.vReferencedDeclaration
+    );
+
     const [concretePathWithTypes, exprType] = getKeysAndTheirTypes(
         factory,
         base.vReferencedDeclaration,
@@ -359,6 +383,7 @@ function decomposeStateVarUpdated(
 
     if (updateNode instanceof FunctionCall) {
         const callee = updateNode.vFunctionName;
+
         if (
             updateNode.vFunctionCallType === ExternalReferenceType.Builtin &&
             (callee === "push" || callee === "pop")
@@ -367,8 +392,15 @@ function decomposeStateVarUpdated(
 
             if (callee == "push" && updateNode.vArguments.length > 0) {
                 const [baseExp, , compT] = decomposeLHSWithTypes(stateVarExp, factory);
-                assert(isStateVarRef(baseExp), ``);
-                assert(compT instanceof ArrayTypeName, ``);
+
+                assert(
+                    isStateVarRef(baseExp),
+                    "Expected {0} to be a state variable reference",
+                    baseExp
+                );
+
+                assert(compT instanceof ArrayTypeName, "Expected {0} to be an array type", compT);
+
                 additionalArgs.push([single(updateNode.vArguments), compT.vBaseType]);
             }
         } else {
@@ -377,7 +409,8 @@ function decomposeStateVarUpdated(
                     updateNode.vReferencedDeclaration instanceof FunctionDefinition &&
                     updateNode.vReferencedDeclaration.vScope instanceof ContractDefinition &&
                     updateNode.vReferencedDeclaration?.vScope.kind === ContractKind.Library,
-                `decomposeStateVarUpdated(): Unexpected update node ${pp(updateNode)} in`
+                "decomposeStateVarUpdated(): Unexpected update node {0}",
+                updateNode
             );
 
             const [keyT, valueT] = ctx.typesToLibraryMap.getKVTypes(
@@ -393,10 +426,17 @@ function decomposeStateVarUpdated(
     } else if (updateNode instanceof UnaryOperation) {
         stateVarExp = updateNode.vSubExpression;
     } else {
-        assert(!(updateNode.vLeftHandSide instanceof TupleExpression), `Tuples handled elsewhere`);
+        assert(
+            !(updateNode.vLeftHandSide instanceof TupleExpression),
+            "Tuples are handled elsewhere"
+        );
+
         stateVarExp = updateNode.vLeftHandSide;
+
         const [baseExp, , compT] = decomposeLHSWithTypes(stateVarExp, factory);
-        assert(isStateVarRef(baseExp), ``);
+
+        assert(isStateVarRef(baseExp), "Expected {0} to be a state variable reference", baseExp);
+
         additionalArgs.push([updateNode.vRightHandSide, compT]);
     }
 
@@ -429,7 +469,8 @@ function makeWrapper(
     const [stateVarExp, additionalArgs] = decomposeStateVarUpdated(rewrittenNode, ctx);
     // 2) Call decomposeLHS to identify the actuall state variable, and the path of the part of it which is updated
     const [baseExp, path] = decomposeLHSWithTypes(stateVarExp, factory);
-    assert(isStateVarRef(baseExp), ``);
+
+    assert(isStateVarRef(baseExp), "Expected {0} to be a state variable reference", baseExp);
 
     const varDecl = baseExp.vReferencedDeclaration as VariableDeclaration;
     const definingContract = varDecl.vScope as ContractDefinition;
@@ -437,6 +478,7 @@ function makeWrapper(
 
     // Check if we have already built a wrapper for this variable/path/update type. Otherwise build one now.
     const cached = ctx.wrapperCache.get(definingContract, funName);
+
     if (cached !== undefined) {
         return cached;
     }
@@ -453,24 +495,29 @@ function makeWrapper(
         }
 
         const [keyT, keyExp] = pathEl;
+
         replMap.set(keyExp.id, formalParamTs.length);
+
         const exprT = getMaterialExprType(
             keyExp,
             ctx.compilerVersion,
             updateNode,
             typeNameToTypeNode(keyT)
         );
+
         formalParamTs.push(exprT);
     }
 
     for (const [actual, formalT] of additionalArgs) {
         replMap.set(actual.id, formalParamTs.length);
+
         const exprT = getMaterialExprType(
             actual,
             ctx.compilerVersion,
             updateNode,
             typeNameToTypeNode(formalT)
         );
+
         formalParamTs.push(exprT);
     }
 
@@ -490,8 +537,11 @@ function makeWrapper(
     );
 
     definingContract.appendChild(wrapperFun);
+
     ctx.wrapperCache.set(wrapperFun, definingContract, funName);
+
     const body = wrapperFun.vBody as Block;
+
     ctx.addGeneralInstrumentation(body);
 
     // Add parameters to the wrapper
@@ -509,6 +559,7 @@ function makeWrapper(
     // Replace expressions in the `rewrittenNode` with their corresponding parameters according to `replMap`
     for (const [nodeId, argIdx] of replMap.entries()) {
         const node = rewrittenNode.requiredContext.locate(nodeId);
+
         replaceNode(node, factory.makeIdentifierFor(wrapperFun.vParameters.vParameters[argIdx]));
     }
 
@@ -531,7 +582,9 @@ function makeWrapper(
     if (rewrittenNode instanceof UnaryOperation) {
         if (["++", "--"].includes(rewrittenNode.operator)) {
             const retT = getMaterialExprType(rewrittenNode, ctx.compilerVersion, updateNode);
-            assert(retT instanceof IntType, ``);
+
+            assert(retT instanceof IntType, "Expected {0} to be an IntType", retT);
+
             retParamTs.push(retT);
         }
     } else if (rewrittenNode instanceof Assignment) {
@@ -540,10 +593,13 @@ function makeWrapper(
             ctx.compilerVersion,
             updateNode
         );
+
         assert(
             !(retT instanceof TupleType),
-            `makeWrapper should only be invoked on primitive assignments.`
+            "makeWrapper() should only be invoked on primitive assignments, got {0} return type",
+            retT
         );
+
         retParamTs.push(retT);
     } // Remaining update node types don't return
 
@@ -564,7 +620,8 @@ function makeWrapper(
             rewrittenNode instanceof Assignment ||
                 (rewrittenNode instanceof UnaryOperation &&
                     ["++", "--"].includes(rewrittenNode.operator)),
-            `Only assignments and ++/-- return values. Not: ${pp(rewrittenNode)}`
+            "Only assignments and ++/-- return values, not {0}",
+            rewrittenNode
         );
 
         const value = factory.copy(stateVarExp);
@@ -601,7 +658,7 @@ export function ensureStmtInBlock(
 ): void {
     const container = e.parent;
 
-    assert(container !== undefined, `Unexpected statement ${e.print()} with no parent`);
+    assert(container !== undefined, "Unexpected statement {0} with no parent", e);
 
     if (container instanceof Block || container instanceof UncheckedBlock) {
         return;
@@ -611,10 +668,8 @@ export function ensureStmtInBlock(
         if (container.vTrueBody === e) {
             container.vTrueBody = factory.makeBlock([e]);
         } else {
-            assert(
-                container.vFalseBody === e,
-                `Unexpected child ${e.print()} of ${container.print()}`
-            );
+            assert(container.vFalseBody === e, "Unexpected child {0} of {1}", e, container);
+
             container.vFalseBody = factory.makeBlock([e]);
         }
 
@@ -633,25 +688,26 @@ export function ensureStmtInBlock(
             const grandad = container.parent as Block;
 
             grandad.insertBefore(e, container);
+
             container.vInitializationExpression = undefined;
+
             grandad.acceptChildren();
         } else {
             /**
              * Convert `for(...;loopStmt) e` into `for(...;) { e; loopStmt; }`
              */
-            assert(
-                e === container.vLoopExpression,
-                `unexpected child ${e.print()} of ${container.print()}`
-            );
+            assert(e === container.vLoopExpression, "Unexpected child {0} of {1}", e, container);
 
             if (!(container.vBody instanceof StatementWithChildren)) {
                 ensureStmtInBlock(container.vBody, factory);
             }
 
             const body = container.vBody as Block;
+
             body.appendChild(container.vLoopExpression);
 
             container.vLoopExpression = undefined;
+
             body.acceptChildren();
         }
 
@@ -661,11 +717,12 @@ export function ensureStmtInBlock(
 
     if (container instanceof WhileStatement || container instanceof DoWhileStatement) {
         container.vBody = factory.makeBlock([e]);
+
         container.acceptChildren();
         return;
     }
 
-    assert(false, `NYI container type ${container.constructor.name}`);
+    assert(false, "Unhandled container type {0}", container);
 }
 
 /**
@@ -673,7 +730,12 @@ export function ensureStmtInBlock(
  * is contained in a `Block`. There are several cases where we may need to create the block itself
  */
 export function ensureTopLevelExprInBlock(e: Expression, factory: ASTNodeFactory): void {
-    assert(e.parent instanceof ExpressionStatement, ``);
+    assert(
+        e.parent instanceof ExpressionStatement,
+        "Exprected expression statement, got {0}",
+        e.parent
+    );
+
     ensureStmtInBlock(e.parent, factory);
 }
 
@@ -794,7 +856,13 @@ export function explodeTupleAssignment(
     const skipSingletons = (e: Expression): Expression => {
         while (e instanceof TupleExpression && e.vOriginalComponents.length === 1) {
             const innerT = e.vOriginalComponents[0];
-            assert(innerT !== null, ``);
+
+            assert(
+                innerT !== null,
+                "Unexpected tuple with sinle placeholder element for unnesting",
+                e
+            );
+
             e = innerT;
         }
 
@@ -828,7 +896,12 @@ export function explodeTupleAssignment(
         }
     };
 
-    assert(updateNode.vLeftHandSide instanceof TupleExpression, ``);
+    assert(
+        updateNode.vLeftHandSide instanceof TupleExpression,
+        "Expected LHS to be a tuple, got {0}",
+        updateNode.vLeftHandSide
+    );
+
     replaceLHS(updateNode.vLeftHandSide, []);
 
     const containingStmt = updateNode.parent as ExpressionStatement;
@@ -844,7 +917,9 @@ export function explodeTupleAssignment(
         );
 
         const temporaryUpdateStmt = factory.makeExpressionStatement(temporaryUpdate);
+
         containingBlock.insertBefore(temporaryUpdateStmt, containingStmt);
+
         ctx.addGeneralInstrumentation(temporaryUpdateStmt);
     }
 
@@ -919,13 +994,18 @@ export function interposeInlineInitializer(
 ): [FunctionCall, FunctionDefinition] {
     const factory = ctx.factory;
     const containingContract = updateNode.vScope;
-    assert(containingContract instanceof ContractDefinition, ``);
+
+    assert(
+        containingContract instanceof ContractDefinition,
+        "Expected variable scope to be a contract, got {0}",
+        containingContract
+    );
 
     const wrapperName = getWrapperName(updateNode, updateNode, [], [], ctx.compilerVersion);
 
     assert(
         !ctx.wrapperCache.has(containingContract, wrapperName),
-        `inline wrappers should be defined only once`
+        "Inline wrappers should be defined only once"
     );
 
     const wrapperFun = factory.makeFunctionDefinition(
@@ -944,7 +1024,9 @@ export function interposeInlineInitializer(
     );
 
     containingContract.appendChild(wrapperFun);
+
     ctx.wrapperCache.set(wrapperFun, containingContract, wrapperName);
+
     ctx.addGeneralInstrumentation(wrapperFun.vBody as Block);
 
     const actualParams: Expression[] = [];
@@ -955,6 +1037,7 @@ export function interposeInlineInitializer(
         factory.makeIdentifierFor(wrapperFun),
         actualParams
     );
+
     const wrapperCallStmt = factory.makeExpressionStatement(wrapperCall);
 
     ctx.addGeneralInstrumentation(wrapperCallStmt);
@@ -985,7 +1068,8 @@ export function interposeSimpleStateVarUpdate(
     const factory = ctx.factory;
     const [stateVarExp, additionalArgs] = decomposeStateVarUpdated(updateNode, ctx);
     const [baseExp, path] = decomposeLHS(stateVarExp);
-    assert(isStateVarRef(baseExp), ``);
+
+    assert(isStateVarRef(baseExp), "Expected {0} to be a state variable reference", baseExp);
 
     const wrapperFun = makeWrapper(ctx, updateNode);
 
@@ -1002,7 +1086,9 @@ export function interposeSimpleStateVarUpdate(
     );
 
     ctx.addGeneralInstrumentation(wrapperCall);
+
     replaceNode(updateNode, wrapperCall);
+
     wrapperCall.src = updateNode.src;
 
     return [wrapperCall, wrapperFun];
@@ -1040,7 +1126,12 @@ function updateLocMatchesAnnotation(loc: StateVarUpdateDesc, annot: AnnotationMe
 
     // Currently if_updated cannot have a path
     if (annot.parsedAnnot instanceof SIfUpdated) {
-        assert(annot.parsedAnnot.datastructurePath.length === 0, ``);
+        assert(
+            annot.parsedAnnot.datastructurePath.length === 0,
+            "Data structure paths are not supported for annotation type {0}",
+            annot.type
+        );
+
         return true;
     }
 
@@ -1057,11 +1148,12 @@ function updateLocMatchesAnnotation(loc: StateVarUpdateDesc, annot: AnnotationMe
         const formalEl = formalPath[i];
 
         if (formalEl instanceof SId) {
-            assert(concreteEl instanceof Expression, ``);
+            assert(concreteEl instanceof Expression, "Expected an expresion, got {0}", concreteEl);
+
             continue;
         }
 
-        assert(typeof concreteEl === "string", ``);
+        assert(typeof concreteEl === "string", "Expected string, got {0}", concreteEl);
 
         if (concreteEl !== formalEl) {
             return false;
@@ -1090,7 +1182,6 @@ function stateVarUpdateNode2Str(node: StateVarUpdateNode): string {
  *
  * @param ctx - instrumentation context
  * @param allAnnotations - map from ASTNodes->AnnotationMetadata containing all parsed annotations
- * @param aliasedStateVars - map containing all state vars that have been aliased. Each aliased state var is mapped to an expression where it may be aliased.
  * @param stateVarUpdates - list of all locations where state variables are updated
  */
 export function instrumentStateVars(
@@ -1147,7 +1238,7 @@ export function instrumentStateVars(
             throw new UnsupportedConstruct(
                 `Cannot instrument state var ${(varDecl.vScope as ContractDefinition).name}.${
                     varDecl.name
-                } due to unsupported assignments to .length.`,
+                } due to unsupported assignments to .length`,
                 node,
                 ctx.files
             );
@@ -1164,13 +1255,14 @@ export function instrumentStateVars(
             // Is tricky to support this so for now throw if we see it used this way
             assert(
                 node.parent instanceof ExpressionStatement,
-                `Scribble doesn't support instrumenting assignments to .push().`
+                "Scribble doesn't support instrumenting assignments to .push()"
             );
         }
 
         const locList = getOrInit(node, locInstrumentMap, []);
 
         locList.push([loc, varDecl, path, newVal]);
+
         annotMap.set(stateVarUpdateNode2Str(loc), matchingVarAnnots);
     }
 
@@ -1183,24 +1275,31 @@ export function instrumentStateVars(
         const containingFun = node.getClosestParentByType(FunctionDefinition) as FunctionDefinition;
 
         if (node instanceof VariableDeclaration) {
-            assert(locs.length === 1, ``);
+            assert(locs.length === 1, "Expected single updated var loc, not {0}", locs);
+
             const [, wrapper] = interposeInlineInitializer(ctx, node);
+
             wrapperMap.set(stateVarUpdateNode2Str(node), wrapper);
+
             continue;
         }
 
         if (node instanceof Assignment && node.vLeftHandSide instanceof TupleExpression) {
             const varsOfInterest = new Set(locs.map((loc) => loc[1]));
+
             const transCtx = ctx.transCtxMap.get(
                 containingFun,
                 InstrumentationSiteType.StateVarUpdated
             );
+
             const tupleWrappedMap = interposeTupleAssignment(transCtx, node, varsOfInterest);
 
             updateMap(wrapperMap, tupleWrappedMap);
         } else {
-            assert(locs.length === 1, `Expected single updated var loc, not ${pp(locs)}`);
+            assert(locs.length === 1, "Expected single updated var loc, not {0}", locs);
+
             const [, wrapper] = interposeSimpleStateVarUpdate(ctx, node);
+
             wrapperMap.set(stateVarUpdateNode2Str(locs[0][0]), wrapper);
         }
     }
@@ -1217,10 +1316,13 @@ export function instrumentStateVars(
         }
 
         seen.add(wrapper);
+
         const relevantAnnotats = annotMap.get(updateLocKey) as PropertyMetaData[];
-        assert(relevantAnnotats !== undefined, ``);
+
+        assert(relevantAnnotats !== undefined, "Expected relevant annotations to be defined");
 
         const transCtx = ctx.transCtxMap.get(wrapper, InstrumentationSiteType.StateVarUpdated);
+
         insertAnnotations(relevantAnnotats, transCtx);
     }
 

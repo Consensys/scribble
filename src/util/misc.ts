@@ -10,9 +10,10 @@ import {
     LatestCompilerVersion,
     ContractDefinition,
     ExportedSymbol,
-    ImportDirective
+    ImportDirective,
+    assert,
+    PPIsh
 } from "solc-typed-ast";
-import { pp } from ".";
 import { AnnotationTarget } from "..";
 
 export function nodeToSource(main: ASTNode, targetCompilerVersion = "0.6.0"): string {
@@ -20,14 +21,6 @@ export function nodeToSource(main: ASTNode, targetCompilerVersion = "0.6.0"): st
     const writer = new ASTWriter(DefaultASTWriterMapping, formatter, targetCompilerVersion);
 
     return writer.write(main);
-}
-
-export function assert(condition: boolean, message: string): asserts condition {
-    if (condition) {
-        return;
-    }
-
-    throw new Error(message);
 }
 
 export function isChangingState(fn: FunctionDefinition): boolean {
@@ -129,7 +122,9 @@ export function getOrInit<K, V>(key: K, m: Map<K, V>, def?: V): V {
 
 export function getScopeUnit(node: AnnotationTarget): SourceUnit {
     const res = node.getClosestParentByType(SourceUnit);
-    assert(res !== undefined, `Can't get source unit of node ${pp(node)}`);
+
+    assert(res !== undefined, "Can't get source unit of node", node);
+
     return res;
 }
 
@@ -159,6 +154,7 @@ export function dedup<T, U>(arr: T[], keyF?: (x: T) => U): T[] {
  */
 export function flatten<T>(arr: Iterable<T[]>): T[] {
     const res: T[] = [];
+
     for (const el of arr) {
         res.push(...el);
     }
@@ -171,7 +167,7 @@ export function flatten<T>(arr: Iterable<T[]>): T[] {
  * a topologically sorted version of `things`. For any pair `[a,b]` in `order` we assume
  * that `a` has to come before `b`.
  */
-export function topoSort<T>(things: T[], order: Array<[T, T]>): T[] {
+export function topoSort<T extends PPIsh>(things: T[], order: Array<[T, T]>): T[] {
     const successors = new Map<T, Set<T>>();
     const nPreds = new Map<T, number>();
 
@@ -189,13 +185,15 @@ export function topoSort<T>(things: T[], order: Array<[T, T]>): T[] {
 
     // Compute the initial roots and add them to res
     const res: T[] = [];
+
     for (const thing of things) {
         if ((nPreds.get(thing) as number) === 0) {
             res.push(thing);
         }
     }
 
-    assert(res.length > 0, `Order ${pp(order)} is not a proper partial order`);
+    assert(res.length > 0, "Order {0} is not a proper partial order", order);
+
     let i = 0;
 
     // Add nodes to the order until all are added
@@ -207,6 +205,7 @@ export function topoSort<T>(things: T[], order: Array<[T, T]>): T[] {
         for (; i < curLength; i++) {
             for (const successor of successors.get(res[i]) as Set<T>) {
                 const newCount = (nPreds.get(successor) as number) - 1;
+
                 nPreds.set(successor, newCount);
 
                 if (newCount === 0) {
@@ -217,9 +216,10 @@ export function topoSort<T>(things: T[], order: Array<[T, T]>): T[] {
 
         assert(
             res.length > curLength,
-            `Order ${pp(order)} is not a valid proper order. Topo sort stalled at ${
-                res.length
-            } out of ${things.length}`
+            "Order {0} is not a valid proper order. Topo sort stalled at {1} out of {2}",
+            order,
+            res.length,
+            things.length
         );
     }
 
@@ -229,13 +229,21 @@ export function topoSort<T>(things: T[], order: Array<[T, T]>): T[] {
 /**
  * Zips the two arrays `a1` and `a2` and return the result.
  */
-export function zip<T1, T2>(a1: readonly T1[], a2: readonly T2[]): Array<[T1, T2]> {
+export function zip<T1 extends PPIsh, T2 extends PPIsh>(
+    a1: readonly T1[],
+    a2: readonly T2[]
+): Array<[T1, T2]> {
     assert(
         a1.length === a2.length,
-        `Mismatch in length between ${pp(a1)} of len ${a1.length} and ${pp(a2)} of len ${a2.length}`
+        "Mismatch in length between {0} of len {1} and {2} of len {3}",
+        a1,
+        a1.length,
+        a2,
+        a2.length
     );
 
     const res: Array<[T1, T2]> = [];
+
     for (let i = 0; i < a1.length; i++) {
         res.push([a1[i], a2[i]]);
     }
@@ -250,8 +258,10 @@ const writersCache = new Map<string, ASTWriter>();
  */
 export function print(n: ASTNode, version = LatestCompilerVersion): string {
     let writer = writersCache.get(version);
+
     if (writer === undefined) {
         writer = new ASTWriter(DefaultASTWriterMapping, new PrettyFormatter(4), "0.8.0");
+
         writersCache.set(version, writer);
     }
 
@@ -280,7 +290,8 @@ export function last<T>(arr: T[]): T;
 export function last<T>(arr: T[], throwOnEmpty: true): T;
 export function last<T>(arr: T[], throwOnEmpty: false): T | undefined;
 export function last<T>(arr: T[], throwOnEmpty = true): T | undefined {
-    assert(!throwOnEmpty || arr.length > 0, `Internal Error: Unexpected empty array`);
+    assert(!throwOnEmpty || arr.length > 0, "Internal Error: Unexpected empty array");
+
     return arr[arr.length - 1];
 }
 
@@ -320,11 +331,13 @@ export function getFQName(def: ExportedSymbol, atUseSite: ASTNode): string {
     }
 
     const scope = def.vScope;
+
     assert(
         scope instanceof SourceUnit || scope instanceof ContractDefinition,
-        `Unexpected scope ${
-            scope.constructor.name
-        } for def ${def.print()} at site ${atUseSite.print()}}`
+        "Unexpected scope {0} for def {1} at site {2}",
+        scope.constructor.name,
+        def,
+        atUseSite
     );
 
     if (scope instanceof SourceUnit) {

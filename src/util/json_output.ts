@@ -1,20 +1,21 @@
 import {
-    SourceUnit,
-    SrcRangeMap,
-    ParameterList,
+    assert,
+    ASTNode,
+    CompileResult,
     ContractDefinition,
     FunctionDefinition,
-    VariableDeclaration,
-    CompileResult,
+    ParameterList,
+    PragmaDirective,
+    SourceUnit,
+    SrcRangeMap,
     StructuredDocumentation,
-    ASTNode,
-    PragmaDirective
+    VariableDeclaration
 } from "solc-typed-ast";
+import { dedup } from ".";
+import { getOr, rangeToOffsetRange, rangeToSrcTriple, SrcTriple } from "..";
 import { PropertyMetaData } from "../instrumenter/annotations";
 import { InstrumentationContext } from "../instrumenter/instrumentation_context";
-import { dedup, assert, pp } from ".";
 import { DbgIdsMap } from "../instrumenter/transpiling_context";
-import { getOr, rangeToOffsetRange, rangeToSrcTriple, SrcTriple } from "..";
 import { AnnotationType } from "../spec-lang/ast/declarations/annotation";
 
 type TargetType = "function" | "variable" | "contract" | "statement";
@@ -93,11 +94,16 @@ function getInstrFileIdx(
     }
 
     const unit = node instanceof SourceUnit ? node : node.getClosestParentByType(SourceUnit);
-    assert(unit !== undefined, `No source unit for ${pp(node)}`);
+
+    assert(unit !== undefined, "No source unit for {0}", node);
+
     const idx = instrSourceList.indexOf(unit.absolutePath);
+
     assert(
         idx !== -1,
-        `Unit ${unit.absolutePath} missing from instrumented source list ${pp(instrSourceList)}`
+        "Unit {0} missing from instrumented source list {1}",
+        unit.absolutePath,
+        instrSourceList
     );
 
     return idx;
@@ -166,7 +172,8 @@ function generateSrcMap2SrcMap(
         if (nodeSrc === undefined) {
             assert(
                 nodeSrc !== undefined,
-                `Missing new source for general instrumentation node ${pp(node)}`
+                "Missing new source for general instrumentation node",
+                node
             );
         }
 
@@ -246,6 +253,7 @@ function generatePropertyMap(
         const propertySource = ppSrcTripple(
             rangeToSrcTriple(predRange, annotation.annotationLoc[2])
         );
+
         const annotationSource = ppSrcTripple(
             rangeToSrcTriple(annotationRange, annotation.annotationLoc[2])
         );
@@ -257,12 +265,13 @@ function generatePropertyMap(
                 const src = newSrcMap.get(node);
                 assert(
                     src !== undefined,
-                    `Missing source for instrumentation node ${pp(node)} of annotation ${
-                        annotation.original
-                    }`
+                    "Missing source for instrumentation node {0} of annotation {1}",
+                    node,
+                    annotation.original
                 );
 
                 const instrFileIdx = getInstrFileIdx(node, ctx.outputMode, instrSourceList);
+
                 return `${src[0]}:${src[1]}:${instrFileIdx}`;
             })
         );
@@ -275,9 +284,9 @@ function generatePropertyMap(
 
                 assert(
                     range !== undefined,
-                    `Missing src range for annotation check node ${pp(check)} of ${
-                        annotation.original
-                    }`
+                    "Missing src range for annotation check node {0} of {1}",
+                    check,
+                    annotation.original
                 );
 
                 return `${range[0]}:${range[1]}:${annotationFileIdx}`;
@@ -293,10 +302,11 @@ function generatePropertyMap(
 
                 assert(
                     range !== undefined,
-                    `Missing src range for annotation check node ${pp(check)} of ${
-                        annotation.original
-                    }`
+                    "Missing src range for annotation check node {0} of {1}",
+                    check,
+                    annotation.original
                 );
+
                 return `${range[0]}:${range[1]}:${annotationFileIdx}`;
             })
         );

@@ -2,11 +2,13 @@ import expect from "expect";
 import {
     AddressType,
     ArrayType,
+    assert,
     BoolType,
     BytesType,
     ContractDefinition,
     DataLocation,
     EnumDefinition,
+    eq,
     FixedBytesType,
     FunctionStateMutability,
     FunctionType,
@@ -15,6 +17,8 @@ import {
     IntLiteralType,
     IntType,
     PointerType,
+    pp,
+    PPIsh,
     SourceUnit,
     StringLiteralType,
     StringType,
@@ -30,8 +34,6 @@ import { Logger } from "../../src/logger";
 import { SId, SUserFunctionDefinition } from "../../src/spec-lang/ast";
 import { parseAnnotation, parseExpression as parse } from "../../src/spec-lang/expr_parser";
 import { tc, tcAnnotation, TypeEnv } from "../../src/spec-lang/tc";
-import { assert, pp } from "../../src/util";
-import { eq } from "../../src/util/struct_equality";
 import { getTarget, getTypeCtxAndTarget, LocationDesc, toAst } from "../integration/utils";
 
 function findTypeDef(name: string, units: SourceUnit[]): UserDefinition {
@@ -46,7 +48,8 @@ function findTypeDef(name: string, units: SourceUnit[]): UserDefinition {
             return child as UserDefinition;
         }
     }
-    assert(false, ``);
+
+    assert(false, 'Unable to detect type def for name "{0}"', name);
 }
 
 describe("TypeChecker Expression Unit Tests", () => {
@@ -1388,7 +1391,7 @@ contract Statements08 {
                     const [ctx] = getTypeCtxAndTarget(loc, units, compilerVersion, parsed);
                     Logger.debug(
                         `[${specString}]: Expect typechecking of ${parsed.pp()} in ctx ${pp(
-                            ctx
+                            ctx as PPIsh
                         )} to throw`
                     );
                     expect(() => tcAnnotation(parsed, ctx, target, typeEnv)).toThrow();
