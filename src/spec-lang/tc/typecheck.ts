@@ -1409,7 +1409,10 @@ export function tcMemberAccess(expr: SMemberAccess, ctx: STypingCtx, typeEnv: Ty
         const baseLoc = baseT.location;
         const baseToT = baseT.to;
 
-        if (baseToT instanceof ArrayType && expr.member === "length") {
+        if (
+            (baseToT instanceof ArrayType || baseToT instanceof BytesType) &&
+            expr.member === "length"
+        ) {
             return new IntType(256, false);
         }
 
