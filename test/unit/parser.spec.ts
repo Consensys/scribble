@@ -590,7 +590,49 @@ describe("Expression Parser Unit Tests", () => {
                 new SNumber(BigInt(10), 10)
             )
         ],
-        ["$result", new SResult()]
+        ["$result", new SResult()],
+        [
+            "true && forall (uint x in 1...10) a[x]>10",
+            new SBinaryOperation(
+                new SBooleanLiteral(true),
+                "&&",
+                new SForAll(
+                    new IntType(256, false),
+                    new SId("x"),
+                    new SBinaryOperation(
+                        new SIndexAccess(new SId("a"), new SId("x")),
+                        ">",
+                        new SNumber(BigInt(10), 10)
+                    ),
+                    new SNumber(BigInt(1), 10),
+                    new SNumber(BigInt(10), 10)
+                )
+            )
+        ],
+        [
+            "true && forall (uint x in 1...10) true || forall (uint x in 1...10) false",
+            new SBinaryOperation(
+                new SBooleanLiteral(true),
+                "&&",
+                new SForAll(
+                    new IntType(256, false),
+                    new SId("x"),
+                    new SBinaryOperation(
+                        new SBooleanLiteral(true),
+                        "||",
+                        new SForAll(
+                            new IntType(256, false),
+                            new SId("x"),
+                            new SBooleanLiteral(false),
+                            new SNumber(BigInt(1), 10),
+                            new SNumber(BigInt(10), 10)
+                        )
+                    ),
+                    new SNumber(BigInt(1), 10),
+                    new SNumber(BigInt(10), 10)
+                )
+            )
+        ]
     ];
 
     const badSamples: string[] = [

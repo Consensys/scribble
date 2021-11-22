@@ -79,7 +79,7 @@ import {
     VarDefSite
 } from "../ast";
 import { BuiltinAddressMembers, BuiltinSymbols } from "./builtins";
-import { BuiltinStructType, FunctionSetType, ImportRefType } from "./internal_types";
+import { BuiltinStructType, FunctionSetType, ImportRefType, VariableTypes } from "./internal_types";
 import { TypeEnv } from "./typeenv";
 
 export class StateVarScope implements PPAble {
@@ -1409,7 +1409,10 @@ export function tcMemberAccess(expr: SMemberAccess, ctx: STypingCtx, typeEnv: Ty
         const baseLoc = baseT.location;
         const baseToT = baseT.to;
 
-        if (baseToT instanceof ArrayType && expr.member === "length") {
+        if (
+            (baseToT instanceof ArrayType || baseToT instanceof BytesType) &&
+            expr.member === "length"
+        ) {
             return new IntType(256, false);
         }
 
@@ -1648,13 +1651,31 @@ function matchArguments(
     callable: FunctionDefinition | FunctionType
 ) {
     const funT = callable instanceof FunctionDefinition ? getFunDefType(callable) : callable;
+    const isVariadic = funT.parameters.length > 0 && last(funT.parameters) instanceof VariableTypes;
 
-    if (argTs.length !== funT.parameters.length) {
+    // For non-variadic functions the number of arguments must match the number of formal parameters
+    if (!isVariadic && argTs.length !== funT.parameters.length) {
+        return false;
+    }
+
+    // For variadic functions the number of arguments must be at least the
+    // number of formal parameters minus one (the variable types can match 0
+    // types)
+    if (isVariadic && argTs.length < funT.parameters.length - 1) {
         return false;
     }
 
     for (let i = 0; i < funT.parameters.length; i++) {
         const formalT = funT.parameters[i];
+
+        if (formalT instanceof VariableTypes) {
+            assert(
+                i === funT.parameters.length - 1,
+                `Unexpected variable type not in last position of fun {0}`,
+                funT
+            );
+            return true;
+        }
 
         if (!isImplicitlyCastable(argTs[i], formalT)) {
             return false;

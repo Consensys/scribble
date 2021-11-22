@@ -9,12 +9,63 @@ import {
     FunctionVisibility,
     IntType,
     PointerType,
+    StringType,
     TypeNode
 } from "solc-typed-ast";
-import { BuiltinStructType } from "./internal_types";
+import { BuiltinStructType, VariableTypes } from "./internal_types";
 
 export const BuiltinSymbols = new Map<string, TypeNode | [TypeNode, string]>([
-    ["abi", new BuiltinStructType("abi", new Map())],
+    [
+        "abi",
+        new BuiltinStructType(
+            "abi",
+            new Map<string, TypeNode>([
+                [
+                    "encode",
+                    new FunctionType(
+                        "encode",
+                        [new VariableTypes()],
+                        [new PointerType(new BytesType(), DataLocation.Memory)],
+                        FunctionVisibility.Default,
+                        FunctionStateMutability.Pure
+                    )
+                ],
+                [
+                    "encodePacked",
+                    new FunctionType(
+                        "encodePacked",
+                        [new VariableTypes()],
+                        [new PointerType(new BytesType(), DataLocation.Memory)],
+                        FunctionVisibility.Default,
+                        FunctionStateMutability.Pure
+                    )
+                ],
+                [
+                    "encodeWithSelector",
+                    new FunctionType(
+                        "encodeWithSelector",
+                        [new FixedBytesType(4), new VariableTypes()],
+                        [new PointerType(new BytesType(), DataLocation.Memory)],
+                        FunctionVisibility.Default,
+                        FunctionStateMutability.Pure
+                    )
+                ],
+                [
+                    "encodeWithSignature",
+                    new FunctionType(
+                        "encodeWithSignature",
+                        [
+                            new PointerType(new StringType(), DataLocation.Memory),
+                            new VariableTypes()
+                        ],
+                        [new PointerType(new BytesType(), DataLocation.Memory)],
+                        FunctionVisibility.Default,
+                        FunctionStateMutability.Pure
+                    )
+                ]
+            ])
+        )
+    ],
     [
         "block",
         new BuiltinStructType(

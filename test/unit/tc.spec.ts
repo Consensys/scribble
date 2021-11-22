@@ -519,7 +519,49 @@ describe("TypeChecker Expression Unit Tests", () => {
                     new TupleType([new IntType(256, false), new IntType(256, false)])
                 ],
                 ["unchecked_sum(sM)", ["Foo"], new IntType(256, true)],
-                ["unchecked_sum(sI64Arr)", ["Foo"], new IntType(256, true)]
+                ["unchecked_sum(sI64Arr)", ["Foo"], new IntType(256, true)],
+                ["abi.encode()", ["Foo"], new PointerType(new BytesType(), DataLocation.Memory)],
+                ["abi.encode(sV)", ["Foo"], new PointerType(new BytesType(), DataLocation.Memory)],
+                [
+                    "abi.encode(sM, sI64Arr, gasleft())",
+                    ["Foo"],
+                    new PointerType(new BytesType(), DataLocation.Memory)
+                ],
+                [
+                    "abi.encodePacked()",
+                    ["Foo"],
+                    new PointerType(new BytesType(), DataLocation.Memory)
+                ],
+                [
+                    "abi.encodePacked(sV)",
+                    ["Foo"],
+                    new PointerType(new BytesType(), DataLocation.Memory)
+                ],
+                [
+                    "abi.encode(sM, sI64Arr, gasleft())",
+                    ["Foo"],
+                    new PointerType(new BytesType(), DataLocation.Memory)
+                ],
+                [
+                    "abi.encodeWithSelector(bytes4(0x01020304))",
+                    ["Foo"],
+                    new PointerType(new BytesType(), DataLocation.Memory)
+                ],
+                [
+                    "abi.encodeWithSelector(bytes4(0x01020304), sV, sV1)",
+                    ["Foo"],
+                    new PointerType(new BytesType(), DataLocation.Memory)
+                ],
+                [
+                    'abi.encodeWithSignature("foo")',
+                    ["Foo"],
+                    new PointerType(new BytesType(), DataLocation.Memory)
+                ],
+                [
+                    'abi.encodeWithSignature("foo", sV, sV1)',
+                    ["Foo"],
+                    new PointerType(new BytesType(), DataLocation.Memory)
+                ]
             ]
         ],
         [
@@ -645,7 +687,11 @@ describe("TypeChecker Expression Unit Tests", () => {
                 ["$result", ["Foo", "noReturn"]],
                 ["forall (string x in 0...100) x > 0", ["Foo"]],
                 ["forall (uint x in sV) x > 0", ["Foo"]],
-                ["unchecked_sum(sV)", ["Foo"]]
+                ["unchecked_sum(sV)", ["Foo"]],
+                ["abi.encodeWithSelector()", ["Foo"]],
+                ["abi.encodeWithSelector(sV)", ["Foo"]],
+                ["abi.encodeWithSignature()", ["Foo"]],
+                ["abi.encodeWithSignature(sV)", ["Foo"]]
             ]
         ],
         [
