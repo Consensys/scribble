@@ -20,9 +20,7 @@ Annotation =
         return annotation;
     }
 
-Expression =
-    For_All
-    / LetExpression
+Expression = LetExpression
 
 // Non-top-level rules
 
@@ -468,6 +466,7 @@ PrimaryExpression =
         "(" __ expr: Expression __ ")" { return expr; }
     )
     / (RESULT { return new SResult(location()); })
+    / For_All
 
 OldExpression =
     OLD __ "(" __ expr: Expression __ ")" {
