@@ -2,7 +2,7 @@
 pragma solidity ^0.8.0;
 
 /**
- * #ownable(owner);
+ * macro ownable(owner);
  */
 contract Ownable {
     address public owner;

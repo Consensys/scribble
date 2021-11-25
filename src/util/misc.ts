@@ -1,18 +1,18 @@
 import {
+    assert,
     ASTNode,
     ASTWriter,
+    ContractDefinition,
     DefaultASTWriterMapping,
+    ExportedSymbol,
     FunctionDefinition,
     FunctionStateMutability,
-    PrettyFormatter,
     FunctionVisibility,
-    SourceUnit,
-    LatestCompilerVersion,
-    ContractDefinition,
-    ExportedSymbol,
     ImportDirective,
-    assert,
-    PPIsh
+    LatestCompilerVersion,
+    PPIsh,
+    PrettyFormatter,
+    SourceUnit
 } from "solc-typed-ast";
 import { AnnotationTarget } from "..";
 
@@ -46,23 +46,23 @@ export function isExternallyVisible(fn: FunctionDefinition): boolean {
  * @param args  collection that should contain a single `T`
  * @param msg   optional error message
  */
-export function single<T>(args: T[] | readonly T[], msg?: string): T {
-    if (args.length === 1) {
-        return args[0];
-    }
-
+export function single<T>(args: T[] | readonly T[], msg?: string, ...params: PPIsh[]): T {
     if (msg === undefined) {
-        msg = `Expected a single entry, not ${args.length}: ${args}`;
+        msg = "Expected a single entry, not {0}: {1}";
+
+        params = [args.length, params];
     }
 
-    throw new Error(msg);
+    assert(args.length === 1, msg, ...params);
+
+    return args[0];
 }
 
 function stringify(o: any): string {
     try {
         return JSON.stringify(o);
     } catch {
-        return `${o}`;
+        return String(o);
     }
 }
 
@@ -231,16 +231,16 @@ export function topoSort<T extends PPIsh>(things: T[], order: Array<[T, T]>): T[
  */
 export function zip<T1 extends PPIsh, T2 extends PPIsh>(
     a1: readonly T1[],
-    a2: readonly T2[]
+    a2: readonly T2[],
+    msg?: string | undefined,
+    ...params: PPIsh[]
 ): Array<[T1, T2]> {
-    assert(
-        a1.length === a2.length,
-        "Mismatch in length between {0} of len {1} and {2} of len {3}",
-        a1,
-        a1.length,
-        a2,
-        a2.length
-    );
+    if (msg === undefined) {
+        msg = "Mismatch in length between {0} of len {1} and {2} of len {3}";
+        params = [a1, a1.length, a2, a2.length];
+    }
+
+    assert(a1.length === a2.length, msg, ...params);
 
     const res: Array<[T1, T2]> = [];
 

@@ -15,7 +15,7 @@ interface IERC20 {
 }
 
 /**
- * #erc20(balances, allowances);
+ * #macro erc20(balances, allowances);
  */
 contract ERC20Example is IERC20 {
     using SafeMath for uint256;

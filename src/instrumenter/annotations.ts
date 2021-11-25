@@ -25,7 +25,7 @@ import {
     SUserFunctionDefinition
 } from "../spec-lang/ast";
 import { parseAnnotation, SyntaxError as ExprPEGSSyntaxError } from "../spec-lang/expr_parser";
-import { getOr, getScopeUnit } from "../util/misc";
+import { getOr, getScopeUnit, single, zip } from "../util/misc";
 
 const srcLocation = require("src-location");
 
@@ -264,25 +264,21 @@ export class MacroMetaData extends AnnotationMetaData<SMacro> {
     }
 
     /**
-     * Computes a mapping where keys are formal variable names from macro definition
-     * and values are actual names from macro instruction on contract.
+     * Computes a mapping where "keys" are formal variable names from macro definition
+     * and "values" are actual names from macro annotation on contract.
      */
     getAliasingMap(): Map<string, string> {
-        const result = new Map<string, string>();
-
         const formal = Array.from(this.macroDefinition.variables.keys());
         const actual = this.parsedAnnot.parameters.map((node) => node.name);
-
-        assert(
-            formal.length === actual.length,
-            `Macro instruction arguments count ${actual.length} mismatches macro definition variables count ${formal.length}`
+        const pairs = zip(
+            formal,
+            actual,
+            "Macro annotation arguments count {0} mismatches macro definition variables count {1}",
+            actual.length,
+            formal.length
         );
 
-        for (let i = 0; i < formal.length; i++) {
-            result.set(formal[i], actual[i]);
-        }
-
-        return result;
+        return new Map(pairs);
     }
 }
 
@@ -513,7 +509,7 @@ function findAnnotations(
     const result: AnnotationMetaData[] = [];
 
     const rx =
-        /\s*(\*|\/\/\/)\s*#(if_succeeds|if_updated|if_assigned|invariant|assert|try|require|define\s*[a-zA-Z0-9_]*\s*\([^)]*\)|[a-zA-Z0-9_]*\s*\([^)]*\))/g;
+        /\s*(\*|\/\/\/)\s*#?(if_succeeds|if_updated|if_assigned|invariant|assert|try|require|define|macro\s*[a-zA-Z0-9_]*\s*\([^)]*\))/g;
 
     let match = rx.exec(meta.text);
 
@@ -602,33 +598,12 @@ export function gatherContractAnnotations(
     annotationMap: AnnotationMap
 ): AnnotationMetaData[] {
     const result: AnnotationMetaData[] = [];
+
     for (const base of contract.vLinearizedBaseContracts) {
         result.unshift(...(annotationMap.get(base) as AnnotationMetaData[]));
     }
+
     return result;
-}
-
-function mapArgsToParams(
-    signature: string,
-    args: string[],
-    params: VariableDeclaration[],
-    aliases: Map<string, string>
-): void {
-    assert(
-        params.length === args.length,
-        `${signature}: arguments count ${args.length} in macro definition exceeds method arguments count ${params.length}`
-    );
-
-    for (let i = 0; i < args.length; i++) {
-        const arg = args[i];
-
-        /**
-         * Do not map empty/placeholder arg names
-         */
-        if (arg.length > 0) {
-            aliases.set(arg, params[i].name);
-        }
-    }
 }
 
 /**
@@ -676,33 +651,78 @@ function processMacroAnnotations(annotationMap: AnnotationMap, compilerVersion: 
                     }
                 };
 
-                /**
-                 * @todo Using `inclusive = true` here seems to be a design oversight.
-                 * Better to fix this in **solc-typed-ast**.
-                 */
-                const targets = resolveAny(name, scope, compilerVersion, true);
-                const target = [...targets][0];
+                const targets = [...resolveAny(name, scope, compilerVersion, true)];
+                const target = single(
+                    targets,
+                    'Unable to pick single target entity for name "{0}" in scope of {1}',
+                    name,
+                    scope
+                );
 
                 if (target instanceof FunctionDefinition && args.length > 0) {
                     const params = target.vParameters.vParameters;
+                    const pairs = zip(
+                        args,
+                        params,
+                        `{0}: arguments count {1} in macro definition exceeds method arguments count {2}`,
+                        signature,
+                        args.length,
+                        params.length
+                    );
 
-                    mapArgsToParams(signature, args, params, localAliases);
+                    for (const [formalParam, actualParam] of pairs) {
+                        if (formalParam !== "") {
+                            /**
+                             * Note that it is allowed for global aliases to be SHADOWED by local aliases.
+                             * Other solution would require to throw an error in case of name clashing, i.e.:
+                             *
+                             * ```
+                             * assert(
+                             *     !localAliases.has(formalParam),
+                             *     "{0}: shadowing of globally defined alias {1}",
+                             *     signature,
+                             *     formalParam
+                             * );
+                             * ```
+                             */
+                            localAliases.set(formalParam, actualParam.name);
+                        }
+                    }
                 }
 
                 for (const { expression, message } of properties) {
-                    const annotation = parseAnnotation(expression, target, compilerVersion);
+                    let annotation: SAnnotation;
+
+                    try {
+                        annotation = parseAnnotation(expression, target, compilerVersion);
+                    } catch (e) {
+                        if (e instanceof ExprPEGSSyntaxError) {
+                            throw new SyntaxError(e.message, expression, e.location, target);
+                        }
+
+                        throw e;
+                    }
 
                     assert(
                         annotation instanceof SProperty,
-                        `Only properties are allowed to be defined in macros. Unsupported annotation: ${expression}`
+                        "Only properties are allowed to be defined in macros. Unsupported annotation: {0}",
+                        expression
                     );
 
                     /**
-                     * Update variable names with supplied values from macro instruction.
+                     * Replace macro aliases with supplied variable names in macro annotation
                      */
                     annotation.expression.walk(walker);
+
+                    /**
+                     * Use property message in macro definition as a label for injected annotation
+                     */
                     annotation.label = message;
-                    annotation.prefix = "#";
+
+                    /**
+                     * Inherit prefix usage as done in macro annotation
+                     */
+                    annotation.prefix = meta.parsedAnnot.prefix;
 
                     /**
                      * @todo This is temporary hack. Need to find a better way to do this.
@@ -761,7 +781,6 @@ function processMacroAnnotations(annotationMap: AnnotationMap, compilerVersion: 
      * @todo list:
      * [TODO]   1. Source locations are needed for property maps.
      * [TODO]   2. Figure out how to use macro variable types.
-     * [TODO]   3. Figure out if macros can use other macros.
      */
 }
 

@@ -208,10 +208,11 @@ IdentiferList =
     }
 
 Macro = 
-    name: Identifier __ "(" __ args: IdentiferList? __ ")" ";" {
+    type: MACRO __ md: AnnotationMD? name: Identifier __ "(" __ args: IdentiferList? __ ")" ";" {
         return new SMacro(
             name,
             args === null ? [] : args,
+            md === null ? undefined : md,
             location()
         );
     }
@@ -285,6 +286,7 @@ DEFINE = "define"
 FORALL = "forall"
 TRY = "try"
 REQUIRE = "require"
+MACRO = "macro"
 
 Keyword =
     TRUE

@@ -678,6 +678,9 @@ if ("version" in options) {
                 macros
             );
         } catch (e) {
+            /**
+             * @todo Need to respect if error occured in macro definition file instead
+             */
             if (e instanceof SyntaxError || e instanceof UnsupportedByTargetError) {
                 const unit = getScopeUnit(e.target);
 
