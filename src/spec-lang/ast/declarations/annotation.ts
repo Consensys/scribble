@@ -1,8 +1,8 @@
 import { SBooleanLiteral } from "../boolean_literal";
 import { Range, SNode } from "../node";
-
 import { SNumber } from "../number";
 import { SStringLiteral } from "../string_literal";
+
 export enum AnnotationType {
     IfSucceeds = "if_succeeds",
     IfUpdated = "if_updated",

@@ -34,8 +34,15 @@ export type AnnotationFilterOptions = {
     message?: string;
 };
 
+export type AnnotationExtractionContext = {
+    filterOptions: AnnotationFilterOptions;
+    compilerVersion: string;
+    macros: Map<string, MacroDefinition>;
+};
+
 function indexToLocation(contents: string, ind: number): Location {
     const t = srcLocation.indexToLocation(contents, ind, true);
+
     return { offset: ind, line: t.line, column: t.column };
 }
 
@@ -316,15 +323,14 @@ function makeAnnotationFromMatch(
     match: RegExpExecArray,
     meta: RawMetaData,
     source: string,
-    macros: Map<string, MacroDefinition>,
-    compilerVersion: string
+    ctx: AnnotationExtractionContext
 ): AnnotationMetaData {
     const slice = meta.text.slice(match.index);
 
     let annotation: SAnnotation;
 
     try {
-        annotation = parseAnnotation(slice, meta.target, compilerVersion);
+        annotation = parseAnnotation(slice, meta.target, ctx.compilerVersion);
     } catch (e) {
         if (e instanceof ExprPEGSSyntaxError) {
             // Compute the syntax error offset relative to the start of the file
@@ -361,7 +367,7 @@ function makeAnnotationFromMatch(
     }
 
     if (annotation instanceof SMacro) {
-        const macroDef = macros.get(annotation.name.pp());
+        const macroDef = ctx.macros.get(annotation.name.pp());
 
         if (macroDef) {
             return new MacroMetaData(
@@ -490,12 +496,13 @@ function findAnnotations(
     raw: StructuredDocumentation,
     target: AnnotationTarget,
     source: string,
-    compilerVersion: string,
-    filters: AnnotationFilterOptions,
-    macros: Map<string, MacroDefinition>
+    ctx: AnnotationExtractionContext
 ): AnnotationMetaData[] {
-    const rxType = filters.type === undefined ? undefined : new RegExp(filters.type);
-    const rxMsg = filters.message === undefined ? undefined : new RegExp(filters.message);
+    const rxType =
+        ctx.filterOptions.type === undefined ? undefined : new RegExp(ctx.filterOptions.type);
+
+    const rxMsg =
+        ctx.filterOptions.message === undefined ? undefined : new RegExp(ctx.filterOptions.message);
 
     const sourceInfo = raw.sourceInfo;
 
@@ -514,7 +521,7 @@ function findAnnotations(
     let match = rx.exec(meta.text);
 
     while (match !== null) {
-        const annotation = makeAnnotationFromMatch(match, meta, source, macros, compilerVersion);
+        const annotation = makeAnnotationFromMatch(match, meta, source, ctx);
 
         if (
             (rxType === undefined || rxType.test(annotation.type)) &&
@@ -536,9 +543,7 @@ function findAnnotations(
 export function extractAnnotations(
     target: AnnotationTarget,
     sources: Map<string, string>,
-    compilerVersion: string,
-    filters: AnnotationFilterOptions,
-    macros: Map<string, MacroDefinition>
+    ctx: AnnotationExtractionContext
 ): AnnotationMetaData[] {
     const result: AnnotationMetaData[] = [];
 
@@ -555,7 +560,7 @@ export function extractAnnotations(
     const unit = getScopeUnit(target);
 
     const source = sources.get(unit.absolutePath) as string;
-    const annotations = findAnnotations(raw, target, source, compilerVersion, filters, macros);
+    const annotations = findAnnotations(raw, target, source, ctx);
 
     result.push(...annotations);
 
@@ -610,7 +615,10 @@ export function gatherContractAnnotations(
  * Detects macro annotations, produces annotations that are defined by macro
  * and injects them target nodes. Macro annotations are removed afterwards.
  */
-function processMacroAnnotations(annotationMap: AnnotationMap, compilerVersion: string): void {
+function processMacroAnnotations(
+    annotationMap: AnnotationMap,
+    ctx: AnnotationExtractionContext
+): void {
     const injections: AnnotationMap = new Map();
 
     for (const [scope, metas] of annotationMap) {
@@ -651,7 +659,7 @@ function processMacroAnnotations(annotationMap: AnnotationMap, compilerVersion: 
                     }
                 };
 
-                const targets = [...resolveAny(name, scope, compilerVersion, true)];
+                const targets = [...resolveAny(name, scope, ctx.compilerVersion, true)];
                 const target = single(
                     targets,
                     'Unable to pick single target entity for name "{0}" in scope of {1}',
@@ -694,7 +702,7 @@ function processMacroAnnotations(annotationMap: AnnotationMap, compilerVersion: 
                     let annotation: SAnnotation;
 
                     try {
-                        annotation = parseAnnotation(expression, target, compilerVersion);
+                        annotation = parseAnnotation(expression, target, ctx.compilerVersion);
                     } catch (e) {
                         if (e instanceof ExprPEGSSyntaxError) {
                             throw new SyntaxError(e.message, expression, e.location, target);
@@ -720,12 +728,12 @@ function processMacroAnnotations(annotationMap: AnnotationMap, compilerVersion: 
                     annotation.label = message;
 
                     /**
-                     * Inherit prefix usage as done in macro annotation
+                     * Set prefix to "#" to avoid deprecation notices
                      */
-                    annotation.prefix = meta.parsedAnnot.prefix;
+                    annotation.prefix = "#";
 
                     /**
-                     * @todo This is temporary hack. Need to find a better way to do this.
+                     * @todo This is a temporary hack. Need to find a better way to do this.
                      */
                     const dummyDoc = new StructuredDocumentation(
                         0,
@@ -788,23 +796,21 @@ function processMacroAnnotations(annotationMap: AnnotationMap, compilerVersion: 
  * Find all annotations in the list of `SourceUnit`s `units` and combine them in a
  * map from ASTNode to its annotations. Return the resulting map.
  *
- * @param units - list of `SourceUnits`
- * @param sources - mapping from file-names to their contents. Used during annotation extraction
- * @param filters - any user provided filters for which annotations to consider
+ * @param units - List of `SourceUnit`s.
+ * @param sources - Mapping from file names to their contents. Used during annotation extraction.
+ * @param ctx - Annotation context to consider while processing annotations.
  */
 export function buildAnnotationMap(
     units: SourceUnit[],
     sources: Map<string, string>,
-    filters: AnnotationFilterOptions,
-    compilerVersion: string,
-    macros: Map<string, MacroDefinition>
+    ctx: AnnotationExtractionContext
 ): AnnotationMap {
     const res: AnnotationMap = new Map();
 
     for (const unit of units) {
         // Check no annotations on free functions
         for (const freeFun of unit.vFunctions) {
-            const annots = extractAnnotations(freeFun, sources, compilerVersion, filters, macros);
+            const annots = extractAnnotations(freeFun, sources, ctx);
 
             if (annots.length !== 0) {
                 throw new UnsupportedByTargetError(
@@ -818,13 +824,7 @@ export function buildAnnotationMap(
 
         // Check no annotations on file-level constants.
         for (const fileLevelConst of unit.vVariables) {
-            const annots = extractAnnotations(
-                fileLevelConst,
-                sources,
-                compilerVersion,
-                filters,
-                macros
-            );
+            const annots = extractAnnotations(fileLevelConst, sources, ctx);
 
             if (annots.length !== 0) {
                 throw new UnsupportedByTargetError(
@@ -837,23 +837,14 @@ export function buildAnnotationMap(
         }
 
         for (const contract of unit.vContracts) {
-            res.set(
-                contract,
-                extractAnnotations(contract, sources, compilerVersion, filters, macros)
-            );
+            res.set(contract, extractAnnotations(contract, sources, ctx));
 
             for (const stateVar of contract.vStateVariables) {
-                res.set(
-                    stateVar,
-                    extractAnnotations(stateVar, sources, compilerVersion, filters, macros)
-                );
+                res.set(stateVar, extractAnnotations(stateVar, sources, ctx));
             }
 
             for (const method of contract.vFunctions) {
-                res.set(
-                    method,
-                    extractAnnotations(method, sources, compilerVersion, filters, macros)
-                );
+                res.set(method, extractAnnotations(method, sources, ctx));
             }
         }
 
@@ -863,12 +854,12 @@ export function buildAnnotationMap(
         )) {
             res.set(
                 stmt as Statement | StatementWithChildren<any>,
-                extractAnnotations(stmt, sources, compilerVersion, filters, macros)
+                extractAnnotations(stmt, sources, ctx)
             );
         }
     }
 
-    processMacroAnnotations(res, compilerVersion);
+    processMacroAnnotations(res, ctx);
 
     return res;
 }
