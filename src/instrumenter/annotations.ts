@@ -466,12 +466,7 @@ function validateAnnotation(target: AnnotationTarget, annotation: AnnotationMeta
     } else {
         if (
             annotation.type !== AnnotationType.IfUpdated &&
-            annotation.type !== AnnotationType.IfAssigned &&
-            /**
-             * @todo Figure out handling the difference between syntax sugar macros for state vars
-             * and contract level macros. This is not yet clear.
-             */
-            annotation.type !== AnnotationType.Macro
+            annotation.type !== AnnotationType.IfAssigned
         ) {
             throw new UnsupportedByTargetError(
                 `The "${annotation.type}" annotation is not applicable to state variables`,
@@ -516,7 +511,7 @@ function findAnnotations(
     const result: AnnotationMetaData[] = [];
 
     const rx =
-        /\s*(\*|\/\/\/)\s*#?(if_succeeds|if_updated|if_assigned|invariant|assert|try|require|define|macro\s*[a-zA-Z0-9_]*\s*\([^)]*\))/g;
+        /\s*(\*|\/\/\/)\s*#?(if_succeeds|if_updated|if_assigned|invariant|assert|try|require|((macro|define)\s*[a-zA-Z0-9_]*\s*\([^)]*\)))/g;
 
     let match = rx.exec(meta.text);
 
@@ -672,7 +667,7 @@ function processMacroAnnotations(
                     const pairs = zip(
                         args,
                         params,
-                        `{0}: arguments count {1} in macro definition exceeds method arguments count {2}`,
+                        `{0}: arguments count {1} in macro definition mismatches method arguments count {2}`,
                         signature,
                         args.length,
                         params.length
