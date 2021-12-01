@@ -1,9 +1,10 @@
 import { getABIEncoderVersion, SourceUnit } from "solc-typed-ast";
-import { generateUtilsContract, ScribbleFactory } from "../../src";
+import { generateUtilsContract, ScribbleFactory, SourceMap } from "../../src";
 import { getCallGraph } from "../../src/instrumenter/callgraph";
 import { getCHA } from "../../src/instrumenter/cha";
 import { InstrumentationContext } from "../../src/instrumenter/instrumentation_context";
 import { TypeEnv } from "../../src/spec-lang/tc";
+import { SolFile } from "../../src/util/sources";
 
 export function makeInstrumentationCtx(
     sources: SourceUnit[],
@@ -13,6 +14,9 @@ export function makeInstrumentationCtx(
     compilerVersion: string
 ): InstrumentationContext {
     const encVer = getABIEncoderVersion(sources, compilerVersion);
+    const srcFileMap: SourceMap = new Map(
+        [...files.entries()].map(([name, contents]) => [name, new SolFile(name, contents)])
+    );
 
     const ctx = new InstrumentationContext(
         factory,
@@ -25,7 +29,7 @@ export function makeInstrumentationCtx(
         {},
         [],
         new Map(),
-        files,
+        srcFileMap,
         compilerVersion,
         false,
         new Map(),

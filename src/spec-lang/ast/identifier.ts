@@ -1,4 +1,4 @@
-import { SNode, Range } from "./node";
+import { NodeLocation, SNode } from "./node";
 import { ImportDirective, VariableDeclaration } from "solc-typed-ast";
 import { SLet, SForAll } from ".";
 import { SUserFunctionDefinition } from "./declarations";
@@ -28,7 +28,7 @@ export class SId extends SNode {
      */
     defSite?: IdDefSite;
 
-    constructor(name: string, src?: Range) {
+    constructor(name: string, src?: NodeLocation) {
         super(src);
         this.name = name;
     }

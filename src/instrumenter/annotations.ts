@@ -15,8 +15,6 @@ import {
 import { MacroDefinition, parseMacroMethodSignature } from "../macros";
 import {
     AnnotationType,
-    Location,
-    Range,
     SAnnotation,
     SId,
     SMacro,
@@ -25,9 +23,18 @@ import {
     SUserFunctionDefinition
 } from "../spec-lang/ast";
 import { parseAnnotation, SyntaxError as ExprPEGSSyntaxError } from "../spec-lang/expr_parser";
+import {
+    makeRange,
+    offsetBy,
+    OffsetRange,
+    Range,
+    rangeToLocRange,
+    rangeToOffsetRange,
+    rangeToSrcTriple,
+    SrcTriple
+} from "../util/location";
 import { getOr, getScopeUnit, single, zip } from "../util/misc";
-
-const srcLocation = require("src-location");
+import { SourceFile, SourceMap } from "../util/sources";
 
 export type AnnotationFilterOptions = {
     type?: string;
@@ -40,49 +47,12 @@ export type AnnotationExtractionContext = {
     macros: Map<string, MacroDefinition>;
 };
 
-function indexToLocation(contents: string, ind: number): Location {
-    const t = srcLocation.indexToLocation(contents, ind, true);
-
-    return { offset: ind, line: t.line, column: t.column };
-}
-
-export function rangeToLocRange(start: number, length: number, contents: string): Range {
-    return {
-        start: indexToLocation(contents, start),
-        end: indexToLocation(contents, start + length)
-    };
-}
-
-/**
- * Convert a line/column source range into an offset range
- */
-export function rangeToOffsetRange(r: Range): OffsetRange {
-    return [r.start.offset, r.end.offset - r.start.offset];
-}
-
-/**
- * Convert a line/column source range into an offset range
- */
-export function rangeToSrcTriple(r: Range, fileInd: number): SrcTriple {
-    return [r.start.offset, r.end.offset - r.start.offset, fileInd];
-}
-
 export type AnnotationTarget =
     | ContractDefinition
     | FunctionDefinition
     | VariableDeclaration
     | Statement
     | StatementWithChildren<any>;
-
-/// File byte range: [start, length]
-export type SrcTriple = [number, number, number];
-
-type OffsetRange = [number, number];
-
-function offsetBy<T extends OffsetRange | SrcTriple>(a: T, b: number | OffsetRange | SrcTriple): T {
-    const off = typeof b === "number" ? b : b[0];
-    return (a.length === 2 ? [a[0] + off, a[1]] : [a[0] + off, a[1], a[2]]) as T;
-}
 
 let numAnnotations = 0;
 
@@ -119,7 +89,7 @@ export class AnnotationMetaData<T extends SAnnotation = SAnnotation> {
 
     /// In flat mode we destructively modify SourceUnits and move definitions to a new unit.
     /// Remember the original source file name for the annotation for use in json_output
-    readonly originalFileName: string;
+    readonly originalSourceFile: SourceFile;
     /**
      * The line/column location of the whole annotation (relative to the begining of the file).
      */
@@ -135,7 +105,7 @@ export class AnnotationMetaData<T extends SAnnotation = SAnnotation> {
         originalSlice: string,
         parsedAnnot: T,
         annotationDocstringOff: number,
-        source: string
+        source: SourceFile
     ) {
         this.raw = raw;
         this.target = target;
@@ -155,7 +125,7 @@ export class AnnotationMetaData<T extends SAnnotation = SAnnotation> {
         this.parseOff = commentSrc.offset + annotationDocstringOff;
         /// Location of the annotation relative to the start of the file
         this.annotationLoc = offsetBy(
-            rangeToSrcTriple(parsedAnnot.requiredSrc, commentSrc.sourceIndex),
+            rangeToSrcTriple(parsedAnnot.requiredRange, commentSrc.sourceIndex),
             this.parseOff
         );
         this.annotationFileRange = rangeToLocRange(
@@ -163,8 +133,12 @@ export class AnnotationMetaData<T extends SAnnotation = SAnnotation> {
             this.annotationLoc[1],
             source
         );
-        const unit = this.target.getClosestParentByType(SourceUnit) as SourceUnit;
-        this.originalFileName = unit.sourceEntryKey;
+
+        this.originalSourceFile = source;
+    }
+
+    get originalFileName(): string {
+        return this.originalSourceFile.fileName;
     }
 }
 
@@ -191,21 +165,21 @@ export class UserFunctionDefinitionMetaData extends AnnotationMetaData<SUserFunc
         originalSlice: string,
         parsedAnnot: SUserFunctionDefinition,
         annotationDocstringOff: number,
-        source: string
+        source: SourceFile
     ) {
         super(raw, target, originalSlice, parsedAnnot, annotationDocstringOff, source);
         // Location of the predicate relative to the begining of the file
-        this.bodyLoc = offsetBy(rangeToOffsetRange(parsedAnnot.body.requiredSrc), this.parseOff);
+        this.bodyLoc = offsetBy(rangeToOffsetRange(parsedAnnot.body.requiredRange), this.parseOff);
         this.bodyFileLoc = rangeToLocRange(this.bodyLoc[0], this.bodyLoc[1], source);
     }
 
     /**
      * Convert a location relative to the predicate into a file-wide location
      */
-    bodyOffToFileLoc(arg: OffsetRange, source: string): Range {
+    bodyOffToFileLoc(arg: OffsetRange): Range {
         const fileOff = offsetBy(arg, this.bodyLoc);
 
-        return rangeToLocRange(fileOff[0], fileOff[1], source);
+        return rangeToLocRange(fileOff[0], fileOff[1], this.originalSourceFile);
     }
 }
 
@@ -231,13 +205,13 @@ export class PropertyMetaData extends AnnotationMetaData<SProperty> {
         originalSlice: string,
         parsedAnnot: SProperty,
         annotationDocstringOff: number,
-        source: string
+        source: SourceFile
     ) {
         super(raw, target, originalSlice, parsedAnnot, annotationDocstringOff, source);
 
         // Location of the predicate relative to the begining of the file
         this.exprLoc = offsetBy(
-            rangeToOffsetRange(parsedAnnot.expression.requiredSrc),
+            rangeToOffsetRange(parsedAnnot.expression.requiredRange),
             this.parseOff
         );
         this.predicateFileLoc = rangeToLocRange(this.exprLoc[0], this.exprLoc[1], source);
@@ -246,15 +220,19 @@ export class PropertyMetaData extends AnnotationMetaData<SProperty> {
     /**
      * Convert a location relative to the predicate into a file-wide location
      */
-    annotOffToFileLoc(arg: OffsetRange, source: string): Range {
+    annotOffToFileLoc(arg: OffsetRange): Range {
         const fileOff = offsetBy(arg, this.parseOff);
 
-        return rangeToLocRange(fileOff[0], fileOff[1], source);
+        return rangeToLocRange(fileOff[0], fileOff[1], this.originalSourceFile);
     }
 }
 
 export class MacroMetaData extends AnnotationMetaData<SMacro> {
     readonly macroDefinition: MacroDefinition;
+
+    get definitionFile(): SourceFile {
+        return this.macroDefinition.source;
+    }
 
     constructor(
         raw: StructuredDocumentation,
@@ -262,7 +240,7 @@ export class MacroMetaData extends AnnotationMetaData<SMacro> {
         originalSlice: string,
         parsedAnnot: SMacro,
         annotationDocstringOff: number,
-        source: string,
+        source: SourceFile,
         macroDefinition: MacroDefinition
     ) {
         super(raw, target, originalSlice, parsedAnnot, annotationDocstringOff, source);
@@ -322,7 +300,7 @@ type RawMetaData = {
 function makeAnnotationFromMatch(
     match: RegExpExecArray,
     meta: RawMetaData,
-    source: string,
+    source: SourceFile,
     ctx: AnnotationExtractionContext
 ): AnnotationMetaData {
     const slice = meta.text.slice(match.index);
@@ -330,7 +308,7 @@ function makeAnnotationFromMatch(
     let annotation: SAnnotation;
 
     try {
-        annotation = parseAnnotation(slice, meta.target, ctx.compilerVersion);
+        annotation = parseAnnotation(slice, meta.target, ctx.compilerVersion, source);
     } catch (e) {
         if (e instanceof ExprPEGSSyntaxError) {
             // Compute the syntax error offset relative to the start of the file
@@ -492,7 +470,7 @@ function validateAnnotation(target: AnnotationTarget, annotation: AnnotationMeta
 function findAnnotations(
     raw: StructuredDocumentation,
     target: AnnotationTarget,
-    source: string,
+    source: SourceFile,
     ctx: AnnotationExtractionContext
 ): AnnotationMetaData[] {
     const rxType =
@@ -506,7 +484,7 @@ function findAnnotations(
     const meta: RawMetaData = {
         target: target,
         node: raw,
-        text: raw.extractSourceFragment(source),
+        text: raw.extractSourceFragment(source.contents),
         loc: [sourceInfo.offset, sourceInfo.length]
     };
 
@@ -539,7 +517,7 @@ function findAnnotations(
 
 export function extractAnnotations(
     target: AnnotationTarget,
-    sources: Map<string, string>,
+    sources: SourceMap,
     ctx: AnnotationExtractionContext
 ): AnnotationMetaData[] {
     const result: AnnotationMetaData[] = [];
@@ -556,7 +534,7 @@ export function extractAnnotations(
 
     const unit = getScopeUnit(target);
 
-    const source = sources.get(unit.absolutePath) as string;
+    const source = sources.get(unit.absolutePath) as SourceFile;
     const annotations = findAnnotations(raw, target, source, ctx);
 
     result.push(...annotations);
@@ -699,10 +677,20 @@ function processMacroAnnotations(
                     let annotation: SAnnotation;
 
                     try {
-                        annotation = parseAnnotation(expression, target, ctx.compilerVersion);
+                        annotation = parseAnnotation(
+                            expression,
+                            target,
+                            ctx.compilerVersion,
+                            meta.definitionFile
+                        );
                     } catch (e) {
                         if (e instanceof ExprPEGSSyntaxError) {
-                            throw new SyntaxError(e.message, expression, e.location, target);
+                            throw new SyntaxError(
+                                e.message,
+                                expression,
+                                makeRange(e.location, meta.definitionFile),
+                                target
+                            );
                         }
 
                         throw e;
@@ -745,7 +733,7 @@ function processMacroAnnotations(
                         dummyDoc.text,
                         annotation,
                         0,
-                        dummyDoc.text
+                        meta.originalSourceFile
                     );
 
                     validateAnnotation(target, metaToInject);
@@ -798,7 +786,7 @@ function processMacroAnnotations(
  */
 export function buildAnnotationMap(
     units: SourceUnit[],
-    sources: Map<string, string>,
+    sources: SourceMap,
     ctx: AnnotationExtractionContext
 ): AnnotationMap {
     const res: AnnotationMap = new Map();

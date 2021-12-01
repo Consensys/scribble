@@ -34,6 +34,7 @@ import { Logger } from "../../src/logger";
 import { SId, SUserFunctionDefinition } from "../../src/spec-lang/ast";
 import { parseAnnotation, parseExpression as parse } from "../../src/spec-lang/expr_parser";
 import { tc, tcAnnotation, TypeEnv } from "../../src/spec-lang/tc";
+import { SolFile, SourceFile } from "../../src/util/sources";
 import { getTarget, getTypeCtxAndTarget, LocationDesc, toAst } from "../integration/utils";
 
 function findTypeDef(name: string, units: SourceUnit[]): UserDefinition {
@@ -711,6 +712,7 @@ describe("TypeChecker Expression Unit Tests", () => {
             let units: SourceUnit[];
             let compilerVersion: string;
             let encVer: ABIEncoderVersion;
+            let sourceFile: SourceFile;
 
             before(() => {
                 const result = toAst(fileName, content);
@@ -718,13 +720,15 @@ describe("TypeChecker Expression Unit Tests", () => {
                 units = result.units;
                 compilerVersion = result.compilerVersion;
                 encVer = getABIEncoderVersion(units, compilerVersion);
+
+                sourceFile = new SolFile(fileName, content);
             });
 
             for (const [specString, loc, expected] of testCases) {
                 it(`Typecheck for ${specString}`, () => {
                     const expectedType = expected instanceof TypeNode ? expected : expected(units);
                     const [typeCtx, target] = getTypeCtxAndTarget(loc, units, compilerVersion);
-                    const parsed = parse(specString, target, compilerVersion);
+                    const parsed = parse(specString, target, compilerVersion, sourceFile);
                     const typeEnv = new TypeEnv(compilerVersion, encVer);
                     const type = tc(parsed, typeCtx, typeEnv);
                     Logger.debug(
@@ -742,6 +746,7 @@ describe("TypeChecker Expression Unit Tests", () => {
             let compilerVersion: string;
             let encVer: ABIEncoderVersion;
             let typeEnv: TypeEnv;
+            let sourceFile: SourceFile;
 
             before(() => {
                 const result = toAst(fileName, content);
@@ -751,12 +756,13 @@ describe("TypeChecker Expression Unit Tests", () => {
                 encVer = getABIEncoderVersion(units, compilerVersion);
 
                 typeEnv = new TypeEnv(compilerVersion, encVer);
+                sourceFile = new SolFile(fileName, content);
             });
 
             for (const [specString, loc] of testCases) {
                 it(`Typecheck for ${specString} throws`, () => {
                     const [typeCtx, target] = getTypeCtxAndTarget(loc, units, compilerVersion);
-                    const parsed = parse(specString, target, compilerVersion);
+                    const parsed = parse(specString, target, compilerVersion, sourceFile);
 
                     expect(() => tc(parsed, typeCtx, typeEnv)).toThrow();
                 });
@@ -1368,6 +1374,7 @@ contract Statements08 {
             let compilerVersion: string;
             let typeEnv: TypeEnv;
             let encVer: ABIEncoderVersion;
+            let sourceFile: SourceFile;
 
             before(() => {
                 const result = toAst(fileName, content);
@@ -1377,12 +1384,13 @@ contract Statements08 {
                 encVer = getABIEncoderVersion(units, compilerVersion);
 
                 typeEnv = new TypeEnv(compilerVersion, encVer);
+                sourceFile = new SolFile(fileName, content);
             });
 
             for (const [specString, loc, expectedType, clearFunsBefore] of testCases) {
                 it(`Typecheck for ${specString} succeeds.`, () => {
                     const target = getTarget(loc, units);
-                    const parsed = parseAnnotation(specString, target, compilerVersion);
+                    const parsed = parseAnnotation(specString, target, compilerVersion, sourceFile);
                     const [ctx] = getTypeCtxAndTarget(loc, units, compilerVersion, parsed);
 
                     if (clearFunsBefore) {
@@ -1411,6 +1419,7 @@ contract Statements08 {
             let compilerVersion: string;
             let typeEnv: TypeEnv;
             let encVer: ABIEncoderVersion;
+            let sourceFile: SourceFile;
 
             before(() => {
                 const result = toAst(fileName, content);
@@ -1420,11 +1429,12 @@ contract Statements08 {
                 encVer = getABIEncoderVersion(units, compilerVersion);
 
                 typeEnv = new TypeEnv(compilerVersion, encVer);
+                sourceFile = new SolFile(fileName, content);
 
                 // Setup any definitions
                 for (const [specString, loc] of setupSteps) {
                     const [ctx, target] = getTypeCtxAndTarget(loc, units, compilerVersion);
-                    const parsed = parseAnnotation(specString, target, compilerVersion);
+                    const parsed = parseAnnotation(specString, target, compilerVersion, sourceFile);
 
                     tcAnnotation(parsed, ctx, target, typeEnv);
                 }
@@ -1433,7 +1443,7 @@ contract Statements08 {
             for (const [specString, loc] of testCases) {
                 it(`Typecheck for ${specString} throws`, () => {
                     const target = getTarget(loc, units);
-                    const parsed = parseAnnotation(specString, target, compilerVersion);
+                    const parsed = parseAnnotation(specString, target, compilerVersion, sourceFile);
                     const [ctx] = getTypeCtxAndTarget(loc, units, compilerVersion, parsed);
                     Logger.debug(
                         `[${specString}]: Expect typechecking of ${parsed.pp()} in ctx ${pp(

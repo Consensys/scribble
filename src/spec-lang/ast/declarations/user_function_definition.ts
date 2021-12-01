@@ -1,6 +1,6 @@
 import { TypeNode } from "solc-typed-ast";
 import { SId } from "../identifier";
-import { Range, SNode } from "../node";
+import { NodeLocation, SNode } from "../node";
 import { AnnotationMD, AnnotationType, SAnnotation } from "./annotation";
 
 export class SUserFunctionDefinition extends SAnnotation {
@@ -15,7 +15,7 @@ export class SUserFunctionDefinition extends SAnnotation {
         returnType: TypeNode,
         body: SNode,
         md?: AnnotationMD,
-        src?: Range
+        src?: NodeLocation
     ) {
         super(AnnotationType.Define, md, src);
         this.name = name;

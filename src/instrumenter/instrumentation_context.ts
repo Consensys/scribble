@@ -31,6 +31,7 @@ import {
     makeIncDecFun,
     makeSetFun,
     ScribbleFactory,
+    SourceMap,
     StructMap,
     UnsupportedConstruct
 } from "..";
@@ -362,7 +363,7 @@ export class InstrumentationContext {
         public readonly filterOptions: AnnotationFilterOptions,
         public readonly annotations: AnnotationMetaData[],
         public readonly wrapperMap: Map<FunctionDefinition, FunctionDefinition>,
-        public readonly files: Map<string, string>,
+        public readonly files: SourceMap,
         public readonly compilerVersion: string,
         public readonly debugEvents: boolean,
         public readonly debugEventsEncoding: Map<number, DbgIdsMap>,

@@ -1,6 +1,6 @@
 import { assert } from "solc-typed-ast";
 import { AnnotationType } from ".";
-import { Range, SNode } from "..";
+import { NodeLocation, SNode } from "..";
 import { AnnotationMD } from "./annotation";
 import { DatastructurePath, SStateVarProp } from "./state_var_prop";
 
@@ -18,7 +18,7 @@ import { DatastructurePath, SStateVarProp } from "./state_var_prop";
  *
  */
 export class SIfUpdated extends SStateVarProp {
-    constructor(expression: SNode, path: DatastructurePath, md?: AnnotationMD, src?: Range) {
+    constructor(expression: SNode, path: DatastructurePath, md?: AnnotationMD, src?: NodeLocation) {
         assert(path.length === 0, "Not yet support if_updated with a path");
 
         super(AnnotationType.IfUpdated, expression, path, md, src);

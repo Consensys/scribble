@@ -35,12 +35,19 @@ import {
 } from "solc-typed-ast";
 import { ensureStmtInBlock, filterByType, getTypeLocation, transpileAnnotation } from "..";
 import { AnnotationType, SId, SNode } from "../spec-lang/ast";
-import { isChangingState, isExternallyVisible, parseSrcTriple, print, single } from "../util";
+import {
+    isChangingState,
+    isExternallyVisible,
+    parseSrcTriple,
+    print,
+    rangeToLocRange,
+    single,
+    SourceMap
+} from "../util";
 import {
     AnnotationMetaData,
     PPAbleError,
     PropertyMetaData,
-    rangeToLocRange,
     UserFunctionDefinitionMetaData
 } from "./annotations";
 import { InstrumentationContext } from "./instrumentation_context";
@@ -64,7 +71,7 @@ export class UnsupportedConstruct extends InstrumentationError {
     public readonly unsupportedNode: ASTNode;
     public readonly unit: SourceUnit;
 
-    constructor(msg: string, unsupportedNode: ASTNode, files: Map<string, string>) {
+    constructor(msg: string, unsupportedNode: ASTNode, files: SourceMap) {
         const unit = unsupportedNode.getClosestParentByType(SourceUnit);
 
         assert(unit !== undefined, `No unit for node ${print(unsupportedNode)}`);

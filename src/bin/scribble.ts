@@ -61,7 +61,7 @@ import { instrumentStateVars } from "../instrumenter/state_var_instrumenter";
 import { MacroDefinition, readMacroDefinitions } from "../macros";
 import { flattenUnits } from "../rewriter/flatten";
 import { merge } from "../rewriter/merge";
-import { AnnotationType, Location, Range } from "../spec-lang/ast";
+import { AnnotationType } from "../spec-lang/ast";
 import { scUnits, SemError, SemMap, STypeError, tcUnits, TypeEnv } from "../spec-lang/tc";
 import {
     buildOutputJSON,
@@ -71,7 +71,12 @@ import {
     getOr,
     getScopeUnit,
     isChangingState,
-    isExternallyVisible
+    isExternallyVisible,
+    Location,
+    MacroFile,
+    Range,
+    SolFile,
+    SourceMap
 } from "../util";
 import cli from "./scribble_cli.json";
 
@@ -236,13 +241,19 @@ function computeContractsNeedingInstr(
     return visited;
 }
 
-function detectMacroDefinitions(path: string, defs: Map<string, MacroDefinition>): void {
+function detectMacroDefinitions(
+    path: string,
+    defs: Map<string, MacroDefinition>,
+    sources: SourceMap
+): void {
     const fileNames = searchRecursive(path, (fileName) => fileName.endsWith(".scribble.yaml"));
 
     for (const fileName of fileNames) {
         const data = fse.readFileSync(fileName, { encoding: "utf-8" });
+        const macroFile = new MacroFile(fileName, data);
 
-        readMacroDefinitions(data, defs);
+        sources.set(fileName, macroFile);
+        readMacroDefinitions(macroFile, defs);
     }
 }
 
@@ -654,18 +665,18 @@ if ("version" in options) {
         }
     } else {
         // Without --disarm we need to instrument and output something.
+        const contentsMap: SourceMap = new Map();
 
+        // First load any macros if `--macro-path` was specified
         const macros = new Map<string, MacroDefinition>();
 
         if (options["macro-path"]) {
-            detectMacroDefinitions(options["macro-path"], macros);
+            detectMacroDefinitions(options["macro-path"], macros, contentsMap);
         }
 
         /**
          * Merge the CHAs and file maps computed for each target
          */
-        const contentsMap: Map<string, string> = new Map();
-
         const groups: SourceUnit[][] = targets.map(
             (target) => groupsMap.get(target) as SourceUnit[]
         );
@@ -689,7 +700,7 @@ if ("version" in options) {
                     if (files.has(unit.sourceEntryKey)) {
                         contentsMap.set(
                             unit.absolutePath,
-                            files.get(unit.sourceEntryKey) as string
+                            new SolFile(unit.absolutePath, files.get(unit.sourceEntryKey) as string)
                         );
                     }
                 }
@@ -741,20 +752,13 @@ if ("version" in options) {
             if (err instanceof STypeError || err instanceof SemError) {
                 const annotation = err.annotationMetaData;
                 const unit = annotation.target.getClosestParentByType(SourceUnit) as SourceUnit;
-                const source = contentsMap.get(unit.sourceEntryKey) as string;
                 const loc = err.loc();
                 let fileLoc;
 
                 if (annotation instanceof PropertyMetaData) {
-                    fileLoc = annotation.annotOffToFileLoc(
-                        [loc.start.offset, loc.end.offset],
-                        source
-                    );
+                    fileLoc = annotation.annotOffToFileLoc([loc.start.offset, loc.end.offset]);
                 } else if (annotation instanceof UserFunctionDefinitionMetaData) {
-                    fileLoc = annotation.bodyOffToFileLoc(
-                        [loc.start.offset, loc.end.offset],
-                        source
-                    );
+                    fileLoc = annotation.bodyOffToFileLoc([loc.start.offset, loc.end.offset]);
                 } else {
                     throw new Error(`NYI Annotation MD for ${annotation.parsedAnnot.pp()}`);
                 }

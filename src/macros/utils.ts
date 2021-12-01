@@ -1,5 +1,6 @@
 import { parse as typeStringParse, TypeNode } from "solc-typed-ast";
 import YAML from "yaml";
+import { SourceFile } from "../util/sources";
 
 export interface MacroSchema {
     [name: string]: {
@@ -27,12 +28,13 @@ export interface MacroProperty {
 }
 
 export interface MacroDefinition {
+    source: SourceFile;
     variables: Map<string, MacroVariable>;
     properties: Map<string, MacroProperty[]>;
 }
 
-export function readMacroDefinitions(source: string, defs: Map<string, MacroDefinition>): void {
-    const schema: MacroSchema = YAML.parse(source);
+export function readMacroDefinitions(source: SourceFile, defs: Map<string, MacroDefinition>): void {
+    const schema: MacroSchema = YAML.parse(source.contents);
 
     for (const [name, macro] of Object.entries(schema)) {
         const variables = new Map<string, MacroVariable>();
@@ -54,7 +56,7 @@ export function readMacroDefinitions(source: string, defs: Map<string, MacroDefi
             properties.set(signature, props);
         }
 
-        defs.set(name, { variables, properties });
+        defs.set(name, { variables, properties, source });
     }
 }
 

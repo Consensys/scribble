@@ -52,18 +52,19 @@ import {
     EnumDefinition
 } from "solc-typed-ast"
 import { assert } from "../util/misc";
+import { SourceFile, makeRange } from "../util/location"
 
 function buildBinaryExpression(head: SNode, tail: Array<[string, SNode]>, src?: Range): SNode {
     return tail.reduce((acc, [whiteSp, curOp, whiteSP, curVal]) =>
         new SBinaryOperation(acc, curOp, curVal, src), head);
 }
 
-export function parseAnnotation(str: string, ctx: ASTNode, version: string): SAnnotation {
-    return parse(str, { startRule: "Annotation", ctx, version});
+export function parseAnnotation(str: string, ctx: ASTNode, version: string, file: SourceFile): SAnnotation {
+    return parse(str, { startRule: "Annotation", ctx, version, file});
 }
 
-export function parseExpression(str: string, ctx: ASTNode, version: string): SNode {
-    return parse(str, { startRule: "Expression", ctx, version});
+export function parseExpression(str: string, ctx: ASTNode, version: string, file: SourceFile): SNode {
+    return parse(str, { startRule: "Expression", ctx, version, file});
 }
 
 function makeUserDefinedType(

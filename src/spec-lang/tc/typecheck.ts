@@ -51,11 +51,10 @@ import {
 } from "solc-typed-ast";
 import { AnnotationMap, AnnotationMetaData, AnnotationTarget } from "../../instrumenter";
 import { Logger } from "../../logger";
-import { last, single, topoSort } from "../../util";
+import { last, Range, single, topoSort } from "../../util";
 import {
     BuiltinFunctions,
     DatastructurePath,
-    Range,
     SAddressLiteral,
     SAnnotation,
     SBinaryOperation,
@@ -158,7 +157,7 @@ export class SGenericTypeError<T extends SNode> extends STypeError {
     }
 
     loc(): Range {
-        return this.node.requiredSrc;
+        return this.node.requiredRange;
     }
 }
 
@@ -211,7 +210,7 @@ export class SExprCountMismatch extends SGenericTypeError<SNode> {
 
 export abstract class SFunCallTypeError extends SGenericTypeError<SNode> {
     constructor(msg: string, call: SFunctionCall) {
-        super(msg, call.callee);
+        super(msg, call);
     }
 }
 
@@ -561,7 +560,7 @@ export function tcAnnotation(
     }
 }
 
-export function tc(expr: SNode, ctx: STypingCtx, typeEnv: TypeEnv): TypeNode {
+export function tc(expr: SNode | TypeNode, ctx: STypingCtx, typeEnv: TypeEnv): TypeNode {
     const cache = (expr: SNode, type: TypeNode): TypeNode => {
         Logger.debug(`tc: ${expr.pp()} :: ${type.pp()}`);
 
@@ -570,7 +569,7 @@ export function tc(expr: SNode, ctx: STypingCtx, typeEnv: TypeEnv): TypeNode {
         return type;
     };
 
-    if (typeEnv.hasType(expr)) {
+    if (expr instanceof SNode && typeEnv.hasType(expr)) {
         return typeEnv.typeOf(expr);
     }
 
@@ -1839,6 +1838,8 @@ export function tcFunctionCall(expr: SFunctionCall, ctx: STypingCtx, typeEnv: Ty
 
         return specializeType(calleeT.type, DataLocation.Memory);
     }
+
+    assert(callee instanceof SNode, `Unexpected type node {0} with type {1}`, callee, calleeT);
 
     // Type-cast to a user-defined type or a struct constructor
     if (calleeT instanceof UserDefinedType) {

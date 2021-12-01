@@ -623,6 +623,12 @@ function transpileFunctionCall(expr: SFunctionCall, ctx: TranspilingContext): Ex
         }
     } else {
         // Normal function call
+        assert(
+            expr.callee instanceof SNode,
+            `Unexpected type node {0} with type {1}`,
+            expr.callee,
+            calleeT
+        );
         callee = transpile(expr.callee, ctx);
 
         if (

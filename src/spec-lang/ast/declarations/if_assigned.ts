@@ -1,5 +1,5 @@
 import { AnnotationType } from ".";
-import { SNode, Range } from "..";
+import { NodeLocation, SNode } from "..";
 import { AnnotationMD } from "./annotation";
 import { DatastructurePath, SStateVarProp } from "./state_var_prop";
 
@@ -12,7 +12,7 @@ import { DatastructurePath, SStateVarProp } from "./state_var_prop";
  *
  */
 export class SIfAssigned extends SStateVarProp {
-    constructor(expression: SNode, path: DatastructurePath, md?: AnnotationMD, src?: Range) {
+    constructor(expression: SNode, path: DatastructurePath, md?: AnnotationMD, src?: NodeLocation) {
         super(AnnotationType.IfAssigned, expression, path, md, src);
     }
 }

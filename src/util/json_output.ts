@@ -239,12 +239,7 @@ function generatePropertyMap(
         for (const [, [ids, , type]] of encoding.entries()) {
             const srcMapList: string[] = [];
             for (const id of ids) {
-                const src = ctx.files.get(filename);
-                assert(
-                    src !== undefined,
-                    `The file ${filename} does not exist in the InstrumentationContext`
-                );
-                const range = annotation.annotOffToFileLoc(rangeToOffsetRange(id.requiredSrc), src);
+                const range = annotation.annotOffToFileLoc(rangeToOffsetRange(id.requiredRange));
                 srcMapList.push(`${range.start.offset}:${range.end.offset - range.start.offset}:0`);
             }
             srcEncoding.push([srcMapList, type.pp()]);
