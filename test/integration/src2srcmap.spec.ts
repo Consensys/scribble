@@ -34,7 +34,7 @@ import {
     searchRecursive,
     single
 } from "../../src/util";
-import { removeProcWd, scribble, toAstUsingCache } from "./utils";
+import { removeProcWd, scrSample, toAstUsingCache } from "./utils";
 
 type Src2NodeMap = Map<string, Set<ASTNode>>;
 function buildSrc2NodeMap(units: SourceUnit[], newSrcList?: string[]): Src2NodeMap {
@@ -138,21 +138,7 @@ describe("Src2src map test", () => {
                 inAst = result.units;
                 contents = result.files.get(sample) as string;
 
-                let fileName: string;
-
-                const args: string[] = [];
-
-                if (result.artefact) {
-                    fileName = result.artefact;
-
-                    args.push("--input-mode", "json", "--compiler-version", result.compilerVersion);
-                } else {
-                    fileName = sample;
-                }
-
-                args.push("--output-mode", "json");
-
-                outJSON = JSON.parse(scribble(fileName, ...args));
+                outJSON = JSON.parse(scrSample(sample, "--output-mode", "json"));
                 instrContents = outJSON["sources"]["flattened.sol"]["source"];
 
                 const contentsMap = new Map<string, string>([["flattened.sol", instrContents]]);

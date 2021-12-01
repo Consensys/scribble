@@ -499,7 +499,13 @@ export function insertAnnotations(annotations: PropertyMetaData[], ctx: Transpil
         predicates.push([annotation, transpileAnnotation(annotation, ctx)]);
     }
 
-    const debugInfos = ctx.instrCtx.debugEvents ? getDebugInfo(annotations, ctx) : [];
+    // Note: we don't emit assertion failed debug events in mstore mode, as that
+    // defeats the purpose of mstore mode (to not emit additional events to
+    // preserve interface compatibility)
+    const debugInfos =
+        instrCtx.debugEvents && instrCtx.assertionMode === "log"
+            ? getDebugInfo(annotations, ctx)
+            : [];
 
     const checkStmts: Array<[Statement, boolean]> = predicates.map(([annotation, predicate], i) => {
         const dbgInfo = debugInfos[i];

@@ -379,6 +379,8 @@ function makeAnnotationFromMatch(
                 source,
                 macroDef
             );
+        } else {
+            throw new Error(`Unknown macro ${annotation.name.pp()}`);
         }
     }
 
@@ -511,7 +513,7 @@ function findAnnotations(
     const result: AnnotationMetaData[] = [];
 
     const rx =
-        /\s*(\*|\/\/\/)\s*#?(if_succeeds|if_updated|if_assigned|invariant|assert|try|require|((macro|define)\s*[a-zA-Z0-9_]*\s*\([^)]*\)))/g;
+        /\s*(\*|\/\/\/)\s*#?(if_succeeds|if_updated|if_assigned|invariant|assert|try|require|define\s*[a-zA-Z0-9_]*\s*\([^)]*\)|macro\s*[a-zA-Z0-9_]*\s*\([^)]*\))/g;
 
     let match = rx.exec(meta.text);
 

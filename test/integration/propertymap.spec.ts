@@ -10,12 +10,12 @@ import {
     VariableDeclaration
 } from "solc-typed-ast";
 import { InstrumentationMetaData, searchRecursive } from "../../src/util";
-import { removeProcWd, scribble, toAstUsingCache } from "./utils";
+import { removeProcWd, scrSample, toAstUsingCache } from "./utils";
 
 function findPredicates(inAST: SourceUnit[]): Map<number, Set<string>> {
     const res: Map<number, Set<string>> = new Map();
     const rx =
-        /\s*(if_succeeds|if_aborts|invariant|if_updated|if_assigned|assert|try|require)[a-z0-9.[\])_]*\s*({:msg\s*"([^"]*)"\s*})?\s*([^;]*);/g;
+        /\s*(if_succeeds|if_aborts|invariant|if_updated|if_assigned|assert|try|require|macro)[a-z0-9.[\])_]*\s*({:msg\s*"([^"]*)"\s*})?\s*([^;]*);/g;
 
     for (const unit of inAST) {
         const targets: Array<VariableDeclaration | FunctionDefinition | ContractDefinition> =
@@ -107,21 +107,7 @@ describe("Property map test", () => {
                 inAst = result.units;
                 contents = result.files.get(sample) as string;
 
-                let fileName: string;
-
-                const args: string[] = ["--debug-events"];
-
-                if (result.artefact) {
-                    fileName = result.artefact;
-
-                    args.push("--input-mode", "json", "--compiler-version", result.compilerVersion);
-                } else {
-                    fileName = sample;
-                }
-
-                args.push("--output-mode", "json");
-
-                outJSON = JSON.parse(scribble(fileName, ...args));
+                outJSON = JSON.parse(scrSample(sample, "--debug-events", "--output-mode", "json"));
             });
 
             it("All predicates appear in the source map", () => {
