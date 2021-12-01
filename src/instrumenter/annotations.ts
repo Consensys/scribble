@@ -785,7 +785,6 @@ function processMacroAnnotations(
     /**
      * @todo list:
      * [TODO]   1. Source locations are needed for property maps.
-     * [TODO]   2. Figure out how to use macro variable types.
      */
 }
 
