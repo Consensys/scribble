@@ -288,6 +288,12 @@ describe("Multiple-file project instrumentation", () => {
                     for (const src of prop.checkRanges) {
                         checkSrc(src, md.instrSourceList, instrFiles);
                     }
+
+                    for (const [locs] of prop.debugEventEncoding) {
+                        for (const loc of locs) {
+                            checkSrc(loc, md.instrSourceList, instrFiles);
+                        }
+                    }
                 }
             });
         });

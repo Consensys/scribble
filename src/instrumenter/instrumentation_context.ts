@@ -277,7 +277,7 @@ export class InstrumentationContext {
      * Map from Annotations to the actual asserts and event emissions
      * that are hit if the annotation fails.
      */
-    public readonly failureCheck: Map<AnnotationMetaData, Statement[]> = new Map();
+    public readonly failureStatements: Map<AnnotationMetaData, Statement[]> = new Map();
     /**
      * List of statements added for general instrumentation, not tied to any
      * particular annotation.
@@ -438,10 +438,10 @@ export class InstrumentationContext {
     }
 
     addAnnotationFailureCheck(annotation: AnnotationMetaData, ...nodes: Statement[]): void {
-        const targets = this.failureCheck.get(annotation);
+        const targets = this.failureStatements.get(annotation);
 
         if (targets === undefined) {
-            this.failureCheck.set(annotation, nodes);
+            this.failureStatements.set(annotation, nodes);
         } else {
             targets.push(...nodes);
         }

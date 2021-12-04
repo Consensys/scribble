@@ -2,7 +2,7 @@ import { assert, PPAble, StructEqualityComparable } from "solc-typed-ast";
 import { Range } from "../../util/location";
 
 let nNodes = 0;
-// Node location
+// Node location TODO: Add comment which range is what
 export type InstantiatedMacroLoc = [Range, Range];
 export type NodeLocation = Range | InstantiatedMacroLoc;
 

@@ -11,8 +11,9 @@ import {
     StructuredDocumentation,
     VariableDeclaration
 } from "solc-typed-ast";
+import { rangeToSrcTriple, SrcTriple } from "./location";
+import { getOr } from "./misc";
 import { dedup } from ".";
-import { getOr, rangeToOffsetRange, rangeToSrcTriple, SrcTriple } from "..";
 import { PropertyMetaData } from "../instrumenter/annotations";
 import { InstrumentationContext } from "../instrumenter/instrumentation_context";
 import { DbgIdsMap } from "../instrumenter/transpiling_context";
@@ -20,19 +21,42 @@ import { AnnotationType } from "../spec-lang/ast/declarations/annotation";
 
 type TargetType = "function" | "variable" | "contract" | "statement";
 
+/**
+ * JSON interface describing an element of the `propertyMap` filed of the
+ * instrumentation metadata
+ */
 interface PropertyDesc {
+    /// Unique identifier of the property
     id: number;
+    /// Name of the contract in which this property is applied (either on the contract or on an element in the countract)
     contract: string;
+    /// Name of the original file where the property was written
     filename: string;
+    /// Source tripple (start:len:fileIndx) in the _original_ file where just the expression of the annotation is located
     propertySource: string;
+    /// Source tripple (start:len:fileIndx) in the _original_ file where just the whole annotation is located
     annotationSource: string;
+    /// Type of the target to which the annotation is applied (e.g contract, function, etc.)
     target: TargetType;
+    /// Type of the annotation (e.g. if_succeeds, invariant, etc.)
     type: AnnotationType;
+    /// Name of the target to which the property is applied
     targetName: string;
+    /// A list of tuples `[locations, type]` describing what each field in the
+    /// AssertionFailedData bytecode array refers to. The N-th tuple `[locations, type]`
+    /// describes what the N-th value of the debug data describes. `locations` is the list of
+    /// source locations in the original file to which the data applies, and `type` is the type of the data.
     debugEventEncoding: Array<[string[], string]>;
+    /// The user-readable message assoicated with the original annotation (if none then its "")
     message: string;
+    /// List of source locations in the _instrumented_ file that are part of the instrumentation
+    /// for this property
     instrumentationRanges: string[];
+    /// List of locations in the _instrumented_ file that correspond to executing the check
+    /// of this property. These locations can be used to check if this property has been reached
     checkRanges: string[];
+    /// List of locations in the _instrumented_ file that correspond to code executed when
+    /// this property has failed.
     assertionRanges: string[];
 }
 
@@ -113,7 +137,8 @@ function generateSrcMap2SrcMap(
     ctx: InstrumentationContext,
     changedUnits: SourceUnit[],
     newSrcMap: SrcRangeMap,
-    instrSourceList: string[]
+    instrSourceList: string[],
+    originalSourceList: string[]
 ): [SrcToSrcMap, string[]] {
     const src2SrcMap: SrcToSrcMap = [];
     const otherInstrumentation = [];
@@ -150,6 +175,10 @@ function generateSrcMap2SrcMap(
     }
 
     for (const [property, assertions] of ctx.instrumentedCheck) {
+        const originalFileInd = originalSourceList.indexOf(property.originalFileName);
+        const annotationLoc = ppSrcTripple(
+            rangeToSrcTriple(property.annotationFileRange, originalFileInd)
+        );
         for (const assertion of assertions) {
             const assertionSrc = newSrcMap.get(assertion);
             const instrFileIdx = getInstrFileIdx(assertion, ctx.outputMode, instrSourceList);
@@ -161,7 +190,7 @@ function generateSrcMap2SrcMap(
 
             src2SrcMap.push([
                 `${assertionSrc[0]}:${assertionSrc[1]}:${instrFileIdx}`,
-                ppSrcTripple(property.annotationLoc)
+                annotationLoc
             ]);
         }
     }
@@ -187,6 +216,7 @@ function generateSrcMap2SrcMap(
 function generatePropertyMap(
     ctx: InstrumentationContext,
     newSrcMap: SrcRangeMap,
+    originalSourceList: string[],
     instrSourceList: string[]
 ): PropertyMap {
     const result: PropertyMap = [];
@@ -228,9 +258,17 @@ function generatePropertyMap(
 
         const targetName = annotation.targetName;
         const filename = annotation.originalFileName;
+        const originalFileInd = originalSourceList.indexOf(filename);
 
-        const predRange = annotation.predicateFileLoc;
-        const annotationRange = annotation.annotationFileRange;
+        assert(
+            originalFileInd !== -1,
+            `Missing file {0} from original source list {1}`,
+            filename,
+            originalSourceList
+        );
+
+        const predRange = annotation.parsedAnnot.expression.requiredRange;
+        const annotationRange = annotation.parsedAnnot.requiredRange;
 
         const encodingData = ctx.debugEventsEncoding.get(annotation.id);
         const encoding: DbgIdsMap = encodingData !== undefined ? encodingData : new DbgIdsMap();
@@ -239,19 +277,14 @@ function generatePropertyMap(
         for (const [, [ids, , type]] of encoding.entries()) {
             const srcMapList: string[] = [];
             for (const id of ids) {
-                const range = annotation.annotOffToFileLoc(rangeToOffsetRange(id.requiredRange));
-                srcMapList.push(`${range.start.offset}:${range.end.offset - range.start.offset}:0`);
+                const idSrc = rangeToSrcTriple(id.requiredRange, originalFileInd);
+                srcMapList.push(ppSrcTripple(idSrc));
             }
             srcEncoding.push([srcMapList, type.pp()]);
         }
 
-        const propertySource = ppSrcTripple(
-            rangeToSrcTriple(predRange, annotation.annotationLoc[2])
-        );
-
-        const annotationSource = ppSrcTripple(
-            rangeToSrcTriple(annotationRange, annotation.annotationLoc[2])
-        );
+        const propertySource = ppSrcTripple(rangeToSrcTriple(predRange, originalFileInd));
+        const annotationSource = ppSrcTripple(rangeToSrcTriple(annotationRange, originalFileInd));
 
         const evalStmts = getOr(ctx.evaluationStatements, annotation, []);
 
@@ -288,10 +321,10 @@ function generatePropertyMap(
             })
         );
 
-        const failureChecks = getOr(ctx.failureCheck, annotation, []);
+        const failureStatements = getOr(ctx.failureStatements, annotation, []);
 
-        const assertionRanges = dedup(
-            failureChecks.map((check) => {
+        const failureRanges = dedup(
+            failureStatements.map((check) => {
                 const range = newSrcMap.get(check);
                 const annotationFileIdx = getInstrFileIdx(check, ctx.outputMode, instrSourceList);
 
@@ -319,7 +352,7 @@ function generatePropertyMap(
             message: annotation.message,
             instrumentationRanges,
             checkRanges,
-            assertionRanges
+            assertionRanges: failureRanges
         });
     }
 
@@ -351,10 +384,11 @@ export function generateInstrumentationMetadata(
         ctx,
         changedUnits,
         newSrcMap,
-        instrSourceList
+        instrSourceList,
+        originalSourceList
     );
 
-    const propertyMap = generatePropertyMap(ctx, newSrcMap, instrSourceList);
+    const propertyMap = generatePropertyMap(ctx, newSrcMap, originalSourceList, instrSourceList);
 
     instrSourceList = instrSourceList.map((name) =>
         name === "--" || (ctx.outputMode === "files" && name === ctx.utilsUnit.absolutePath)

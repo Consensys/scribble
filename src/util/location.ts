@@ -23,12 +23,27 @@ export function offsetBy<T extends OffsetRange | SrcTriple>(
 type PegsLoc = { offset: number; line: number; column: number };
 type PegsRange = { start: PegsLoc; end: PegsLoc };
 
-export function makeLocation(rawLoc: PegsLoc, file: SourceFile): Location {
-    return { offset: rawLoc.offset, line: rawLoc.line, column: rawLoc.column, file };
+export type LocOptions = {
+    file: SourceFile;
+    baseOff: number;
+    baseLine: number;
+    baseCol: number;
+};
+
+function makeLocation(rawLoc: PegsLoc, options: LocOptions): Location {
+    return {
+        offset: rawLoc.offset + options.baseOff,
+        line: rawLoc.line + options.baseLine,
+        column: rawLoc.column + (rawLoc.line === 1 ? options.baseCol - 1 : 0),
+        file: options.file
+    };
 }
 
-export function makeRange(rawRange: PegsRange, file: SourceFile): Range {
-    return { start: makeLocation(rawRange.start, file), end: makeLocation(rawRange.end, file) };
+export function makeRange(rawRange: PegsRange, options: LocOptions): Range {
+    return {
+        start: makeLocation(rawRange.start, options),
+        end: makeLocation(rawRange.end, options)
+    };
 }
 
 function indexToLocation(file: SourceFile, ind: number): Location {

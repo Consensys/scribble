@@ -752,18 +752,7 @@ if ("version" in options) {
             if (err instanceof STypeError || err instanceof SemError) {
                 const annotation = err.annotationMetaData;
                 const unit = annotation.target.getClosestParentByType(SourceUnit) as SourceUnit;
-                const loc = err.loc();
-                let fileLoc;
-
-                if (annotation instanceof PropertyMetaData) {
-                    fileLoc = annotation.annotOffToFileLoc([loc.start.offset, loc.end.offset]);
-                } else if (annotation instanceof UserFunctionDefinitionMetaData) {
-                    fileLoc = annotation.bodyOffToFileLoc([loc.start.offset, loc.end.offset]);
-                } else {
-                    throw new Error(`NYI Annotation MD for ${annotation.parsedAnnot.pp()}`);
-                }
-
-                prettyError("TypeError", err.message, unit, fileLoc, annotation.original);
+                prettyError("TypeError", err.message, unit, err.loc(), annotation.original);
             } else {
                 error(`Internal error in type-checking: ${err.message}`);
             }
