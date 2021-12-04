@@ -660,7 +660,8 @@ describe("Expression Parser Unit Tests", () => {
                     sample,
                     undefined as unknown as ASTNode,
                     "0.6.0",
-                    new DummySourceFile()
+                    new DummySourceFile(),
+                    0
                 );
                 expect(eq(parsed, expectedAST)).toEqual(true);
             });
@@ -670,15 +671,15 @@ describe("Expression Parser Unit Tests", () => {
     for (const sample of badSamples) {
         describe(`Sample ${sample}`, () => {
             it("Fails as expected", () => {
-                expect(
-                    parseExpr.bind(
-                        parseExpr,
+                expect(() => {
+                    parseExpr(
                         sample,
                         undefined as unknown as ASTNode,
                         "0.6.0",
-                        new DummySourceFile()
-                    )
-                ).toThrow();
+                        new DummySourceFile(),
+                        0
+                    );
+                }).toThrow();
             });
         });
     }
@@ -956,7 +957,8 @@ describe("Annotation Parser Unit Tests", () => {
                     sample,
                     undefined as unknown as ASTNode,
                     "0.6.0",
-                    new DummySourceFile()
+                    new DummySourceFile(),
+                    0
                 );
                 Logger.debug(`[${sample}]: Got: ${parsed.pp()} expected: ${expected.pp()}`);
                 expect(eq(parsed, expected)).toEqual(true);
@@ -967,15 +969,15 @@ describe("Annotation Parser Unit Tests", () => {
     for (const sample of badSamples) {
         describe(`Sample ${sample}`, () => {
             it("Fails as expected", () => {
-                expect(
-                    parseAnnotation.bind(
-                        parseAnnotation,
+                expect(() => {
+                    parseAnnotation(
                         sample,
                         undefined as unknown as ASTNode,
                         "0.6.0",
-                        new DummySourceFile()
-                    )
-                ).toThrow();
+                        new DummySourceFile(),
+                        0
+                    );
+                }).toThrow();
             });
         });
     }

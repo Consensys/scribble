@@ -728,7 +728,7 @@ describe("TypeChecker Expression Unit Tests", () => {
                 it(`Typecheck for ${specString}`, () => {
                     const expectedType = expected instanceof TypeNode ? expected : expected(units);
                     const [typeCtx, target] = getTypeCtxAndTarget(loc, units, compilerVersion);
-                    const parsed = parse(specString, target, compilerVersion, sourceFile);
+                    const parsed = parse(specString, target, compilerVersion, sourceFile, 0);
                     const typeEnv = new TypeEnv(compilerVersion, encVer);
                     const type = tc(parsed, typeCtx, typeEnv);
                     Logger.debug(
@@ -762,7 +762,7 @@ describe("TypeChecker Expression Unit Tests", () => {
             for (const [specString, loc] of testCases) {
                 it(`Typecheck for ${specString} throws`, () => {
                     const [typeCtx, target] = getTypeCtxAndTarget(loc, units, compilerVersion);
-                    const parsed = parse(specString, target, compilerVersion, sourceFile);
+                    const parsed = parse(specString, target, compilerVersion, sourceFile, 0);
 
                     expect(() => tc(parsed, typeCtx, typeEnv)).toThrow();
                 });
@@ -1390,7 +1390,13 @@ contract Statements08 {
             for (const [specString, loc, expectedType, clearFunsBefore] of testCases) {
                 it(`Typecheck for ${specString} succeeds.`, () => {
                     const target = getTarget(loc, units);
-                    const parsed = parseAnnotation(specString, target, compilerVersion, sourceFile);
+                    const parsed = parseAnnotation(
+                        specString,
+                        target,
+                        compilerVersion,
+                        sourceFile,
+                        0
+                    );
                     const [ctx] = getTypeCtxAndTarget(loc, units, compilerVersion, parsed);
 
                     if (clearFunsBefore) {
@@ -1434,7 +1440,13 @@ contract Statements08 {
                 // Setup any definitions
                 for (const [specString, loc] of setupSteps) {
                     const [ctx, target] = getTypeCtxAndTarget(loc, units, compilerVersion);
-                    const parsed = parseAnnotation(specString, target, compilerVersion, sourceFile);
+                    const parsed = parseAnnotation(
+                        specString,
+                        target,
+                        compilerVersion,
+                        sourceFile,
+                        0
+                    );
 
                     tcAnnotation(parsed, ctx, target, typeEnv);
                 }
@@ -1443,7 +1455,13 @@ contract Statements08 {
             for (const [specString, loc] of testCases) {
                 it(`Typecheck for ${specString} throws`, () => {
                     const target = getTarget(loc, units);
-                    const parsed = parseAnnotation(specString, target, compilerVersion, sourceFile);
+                    const parsed = parseAnnotation(
+                        specString,
+                        target,
+                        compilerVersion,
+                        sourceFile,
+                        0
+                    );
                     const [ctx] = getTypeCtxAndTarget(loc, units, compilerVersion, parsed);
                     Logger.debug(
                         `[${specString}]: Expect typechecking of ${parsed.pp()} in ctx ${pp(

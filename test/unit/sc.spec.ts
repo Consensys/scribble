@@ -376,7 +376,7 @@ describe("SemanticChecker Expression Unit Tests", () => {
             for (const [specString, loc, expectedType, expectedInfo] of testCases) {
                 it(`SemCheck for ${specString} returns ${JSON.stringify(expectedInfo)}`, () => {
                     const [ctx, target] = getTypeCtxAndTarget(loc, units, compilerVersion);
-                    const parsed = parse(specString, target, compilerVersion, sourceFile);
+                    const parsed = parse(specString, target, compilerVersion, sourceFile, 0);
                     const annotationType =
                         target instanceof ContractDefinition
                             ? AnnotationType.Invariant
@@ -423,7 +423,7 @@ describe("SemanticChecker Expression Unit Tests", () => {
             for (const [specString, loc] of testCases) {
                 it(`SemCheck for ${specString} throws SemError`, () => {
                     const [ctx, target] = getTypeCtxAndTarget(loc, units, compilerVersion);
-                    const parsed = parse(specString, target, compilerVersion, sourceFile);
+                    const parsed = parse(specString, target, compilerVersion, sourceFile, 0);
                     const annotationType =
                         target instanceof ContractDefinition
                             ? AnnotationType.Invariant
@@ -538,7 +538,8 @@ describe("SemanticChecker Annotation Unit Tests", () => {
                         specString,
                         target,
                         compilerVersion,
-                        sourceFile
+                        sourceFile,
+                        0
                     );
                     const [ctx] = getTypeCtxAndTarget(loc, units, compilerVersion, annotation);
                     const typeEnv = new TypeEnv(compilerVersion, encVer);
@@ -576,7 +577,8 @@ describe("SemanticChecker Annotation Unit Tests", () => {
                         specString,
                         target,
                         compilerVersion,
-                        sourceFile
+                        sourceFile,
+                        0
                     );
                     const [ctx] = getTypeCtxAndTarget(loc, units, compilerVersion, annotation);
                     const typeEnv = new TypeEnv(compilerVersion, encVer);
