@@ -530,8 +530,12 @@ export class InstrumentationContext {
         }
     }
 
-    printUnits(units: SourceUnit[], srcMap: SrcRangeMap): Map<SourceUnit, string> {
-        return print(units, this.compilerVersion, srcMap);
+    printUnits(
+        units: SourceUnit[],
+        srcMap: SrcRangeMap,
+        instrumentationMarker?: string
+    ): Map<SourceUnit, string> {
+        return print(units, this.compilerVersion, srcMap, instrumentationMarker);
     }
 
     get arrSumLibrary(): ContractDefinition {

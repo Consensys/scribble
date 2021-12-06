@@ -100,7 +100,7 @@
             {
                 "name": "disarm",
                 "type": "Boolean",
-                "description": "Find all dependencies of the traget that have been swapped with their instrumented version (all foo.sol s.t. there is a foo.sol.instrumented and foo.sol.original) and swap them back for the original."
+                "description": "Find all dependencies of the target that have been swapped with their instrumented version (all foo.sol s.t. there is a foo.sol.instrumented and foo.sol.original) and swap them back for the original."
             },
             {
                 "name": "debug-events",
