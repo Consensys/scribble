@@ -13,7 +13,7 @@ import {
     Statement,
     XPath
 } from "solc-typed-ast";
-import { AnnotationTarget, getOr, single } from "../../src";
+import { AnnotationTarget, getOr, OriginalJSONLoc, single } from "../../src";
 import { SAnnotation, SStateVarProp } from "../../src/spec-lang/ast";
 import { StateVarScope, STypingCtx } from "../../src/spec-lang/tc";
 
@@ -293,4 +293,8 @@ export function isomorphic(a: ASTNode, b: ASTNode): boolean {
     }
 
     return true;
+}
+
+export function loc2Src(loc: OriginalJSONLoc): string {
+    return loc instanceof Array ? loc[0] : loc;
 }

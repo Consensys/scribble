@@ -23,6 +23,7 @@ import {
     SUserFunctionDefinition
 } from "../spec-lang/ast";
 import { parseAnnotation, SyntaxError as ExprPEGSSyntaxError } from "../spec-lang/expr_parser";
+import { PPAbleError } from "../util/errors";
 import { makeRange, offsetBy, OffsetRange, Range, rangeToLocRange } from "../util/location";
 import { getOr, getScopeUnit, single, zip } from "../util/misc";
 import { SourceFile, SourceMap } from "../util/sources";
@@ -155,14 +156,6 @@ export class MacroMetaData extends AnnotationMetaData<SMacro> {
         );
 
         return new Map(pairs);
-    }
-}
-
-export class PPAbleError extends Error {
-    readonly range: Range;
-    constructor(msg: string, range: Range) {
-        super(msg);
-        this.range = range;
     }
 }
 
@@ -506,15 +499,6 @@ function processMacroAnnotations(
                 }
 
                 const localAliases = new Map(globalAliases);
-                const walker = (node: SNode) => {
-                    if (node instanceof SId) {
-                        const actualName = localAliases.get(node.name);
-
-                        if (actualName !== undefined) {
-                            node.name = actualName;
-                        }
-                    }
-                };
 
                 const targets = [...resolveAny(name, scope, ctx.compilerVersion, true)];
                 const target = single(
@@ -555,7 +539,7 @@ function processMacroAnnotations(
                     }
                 }
 
-                for (const { expression, message } of properties) {
+                for (const { expression, message, offset } of properties) {
                     let annotation: SAnnotation;
 
                     try {
@@ -564,7 +548,7 @@ function processMacroAnnotations(
                             target,
                             ctx.compilerVersion,
                             meta.definitionFile,
-                            0 /// TODO: Fix
+                            offset
                         );
                     } catch (e) {
                         if (e instanceof ExprPEGSSyntaxError) {
@@ -592,9 +576,33 @@ function processMacroAnnotations(
                     );
 
                     /**
+                     * Callback to
+                     *
+                     * 1) Rename all ids in the macro definition with their
+                     *    corresponding values in the instantiation context.
+                     *    Renaming can be due to variable arguments for the macro,
+                     *    or differing function parameter names
+                     *
+                     * 2) Update the location of each node to reflect both the
+                     *    original macro location as well as the macro
+                     *    instantiation location
+                     */
+                    const walker = (node: SNode) => {
+                        if (node instanceof SId) {
+                            const actualName = localAliases.get(node.name);
+
+                            if (actualName !== undefined) {
+                                node.name = actualName;
+                            }
+                        }
+
+                        node.src = [node.src as Range, meta.parsedAnnot.src as Range];
+                    };
+
+                    /**
                      * Replace macro aliases with supplied variable names in macro annotation
                      */
-                    annotation.expression.walk(walker);
+                    annotation.walk(walker);
 
                     /**
                      * Use property message in macro definition as a label for injected annotation

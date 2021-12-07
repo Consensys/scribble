@@ -13,7 +13,7 @@ export function isMacroLoc(loc: NodeLocation): loc is InstantiatedMacroLoc {
 // Low-level AST Nodes
 export abstract class SNode implements StructEqualityComparable, PPAble {
     readonly id: number;
-    readonly src?: NodeLocation;
+    src?: NodeLocation;
 
     constructor(src?: NodeLocation) {
         this.id = nNodes++;

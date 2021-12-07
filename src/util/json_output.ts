@@ -11,15 +11,18 @@ import {
     StructuredDocumentation,
     VariableDeclaration
 } from "solc-typed-ast";
-import { rangeToSrcTriple, SrcTriple } from "./location";
+import { Range, SrcTriple } from "./location";
 import { getOr } from "./misc";
-import { dedup } from ".";
+import { dedup, MacroFile } from ".";
 import { PropertyMetaData } from "../instrumenter/annotations";
 import { InstrumentationContext } from "../instrumenter/instrumentation_context";
 import { DbgIdsMap } from "../instrumenter/transpiling_context";
 import { AnnotationType } from "../spec-lang/ast/declarations/annotation";
+import { NodeLocation } from "../spec-lang/ast/node";
 
 type TargetType = "function" | "variable" | "contract" | "statement";
+/// An original JSON location is either a src tripple, or a pair of src trippls (corresponding to an instantiated macro)
+export type OriginalJSONLoc = string | [string, string];
 
 /**
  * JSON interface describing an element of the `propertyMap` filed of the
@@ -33,9 +36,9 @@ interface PropertyDesc {
     /// Name of the original file where the property was written
     filename: string;
     /// Source tripple (start:len:fileIndx) in the _original_ file where just the expression of the annotation is located
-    propertySource: string;
+    propertySource: OriginalJSONLoc;
     /// Source tripple (start:len:fileIndx) in the _original_ file where just the whole annotation is located
-    annotationSource: string;
+    annotationSource: OriginalJSONLoc;
     /// Type of the target to which the annotation is applied (e.g contract, function, etc.)
     target: TargetType;
     /// Type of the annotation (e.g. if_succeeds, invariant, etc.)
@@ -46,7 +49,7 @@ interface PropertyDesc {
     /// AssertionFailedData bytecode array refers to. The N-th tuple `[locations, type]`
     /// describes what the N-th value of the debug data describes. `locations` is the list of
     /// source locations in the original file to which the data applies, and `type` is the type of the data.
-    debugEventEncoding: Array<[string[], string]>;
+    debugEventEncoding: Array<[OriginalJSONLoc[], string]>;
     /// The user-readable message assoicated with the original annotation (if none then its "")
     message: string;
     /// List of source locations in the _instrumented_ file that are part of the instrumentation
@@ -61,7 +64,7 @@ interface PropertyDesc {
 }
 
 export type PropertyMap = PropertyDesc[];
-export type SrcToSrcMap = Array<[string, string]>;
+export type SrcToSrcMap = Array<[string, OriginalJSONLoc]>;
 
 export type InstrumentationMetaData = {
     propertyMap: PropertyMap;
@@ -71,6 +74,25 @@ export type InstrumentationMetaData = {
     instrSourceList: string[];
     scribbleVersion: string;
 };
+
+/**
+ * Convert a line/column source range into an offset range
+ */
+export function rangeToSrcTriple(r: Range, srcList: string[]): SrcTriple {
+    const fileInd = srcList.indexOf(r.start.file.fileName);
+    return [r.start.offset, r.end.offset - r.start.offset, fileInd];
+}
+
+export function nodeLocToJSONNodeLoc(n: NodeLocation, srcList: string[]): OriginalJSONLoc {
+    if (n instanceof Array) {
+        const macroLoc = ppSrcTripple(rangeToSrcTriple(n[0], srcList));
+        const instLoc = ppSrcTripple(rangeToSrcTriple(n[1], srcList));
+
+        return [macroLoc, instLoc];
+    }
+
+    return ppSrcTripple(rangeToSrcTriple(n, srcList));
+}
 
 /**
  * Type describes a location in a source file
@@ -175,10 +197,11 @@ function generateSrcMap2SrcMap(
     }
 
     for (const [property, assertions] of ctx.instrumentedCheck) {
-        const originalFileInd = originalSourceList.indexOf(property.originalFileName);
-        const annotationLoc = ppSrcTripple(
-            rangeToSrcTriple(property.annotationFileRange, originalFileInd)
+        const annotationLoc = nodeLocToJSONNodeLoc(
+            property.parsedAnnot.src as NodeLocation,
+            originalSourceList
         );
+
         for (const assertion of assertions) {
             const assertionSrc = newSrcMap.get(assertion);
             const instrFileIdx = getInstrFileIdx(assertion, ctx.outputMode, instrSourceList);
@@ -258,17 +281,6 @@ function generatePropertyMap(
 
         const targetName = annotation.targetName;
         const filename = annotation.originalFileName;
-        const originalFileInd = originalSourceList.indexOf(filename);
-
-        assert(
-            originalFileInd !== -1,
-            `Missing file {0} from original source list {1}`,
-            filename,
-            originalSourceList
-        );
-
-        const predRange = annotation.parsedAnnot.expression.requiredRange;
-        const annotationRange = annotation.parsedAnnot.requiredRange;
 
         const encodingData = ctx.debugEventsEncoding.get(annotation.id);
         const encoding: DbgIdsMap = encodingData !== undefined ? encodingData : new DbgIdsMap();
@@ -277,14 +289,21 @@ function generatePropertyMap(
         for (const [, [ids, , type]] of encoding.entries()) {
             const srcMapList: string[] = [];
             for (const id of ids) {
-                const idSrc = rangeToSrcTriple(id.requiredRange, originalFileInd);
+                const idSrc = rangeToSrcTriple(id.requiredRange, originalSourceList);
                 srcMapList.push(ppSrcTripple(idSrc));
             }
             srcEncoding.push([srcMapList, type.pp()]);
         }
 
-        const propertySource = ppSrcTripple(rangeToSrcTriple(predRange, originalFileInd));
-        const annotationSource = ppSrcTripple(rangeToSrcTriple(annotationRange, originalFileInd));
+        const propertySource = nodeLocToJSONNodeLoc(
+            annotation.parsedAnnot.expression.src as NodeLocation,
+            originalSourceList
+        );
+
+        const annotationSource = nodeLocToJSONNodeLoc(
+            annotation.parsedAnnot.src as NodeLocation,
+            originalSourceList
+        );
 
         const evalStmts = getOr(ctx.evaluationStatements, annotation, []);
 
@@ -369,6 +388,15 @@ export function generateInstrumentationMetadata(
     outputFile?: string
 ): InstrumentationMetaData {
     let originalSourceList: string[] = originalUnits.map((unit) => unit.absolutePath);
+
+    // Collect any macro files that were used and add them to the originalSourceList
+    const macroFiles = new Set<MacroFile>(
+        ctx.annotations
+            .map((annot) => annot.parsedAnnot.requiredRange.start.file)
+            .filter((file) => file instanceof MacroFile)
+    );
+
+    originalSourceList.push(...[...macroFiles].map((file) => file.fileName));
 
     let instrSourceList: string[];
 

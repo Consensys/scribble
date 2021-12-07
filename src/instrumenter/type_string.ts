@@ -5,12 +5,13 @@ import {
     DataLocation,
     ElementaryTypeName,
     EnumDefinition,
+    Literal,
     Mapping,
     StructDefinition,
     TypeName,
     UserDefinedTypeName
 } from "solc-typed-ast";
-import { print } from "..";
+import { print } from "../util/misc";
 
 function fqName(e: EnumDefinition | StructDefinition): string {
     return `${e.vScope instanceof ContractDefinition ? e.vScope.name + "." : ""}${e.name}`;
@@ -35,15 +36,15 @@ export function makeTypeString(typeName: TypeName, loc: DataLocation): string {
     }
 
     if (typeName instanceof ArrayTypeName) {
-        assert(loc !== undefined, `${print(typeName)} requires location`);
+        assert(loc !== undefined, `{0} requires location`, typeName);
         const baseString = makeTypeString(typeName.vBaseType, loc);
         return `${baseString}[${
-            typeName.vLength !== undefined ? print(typeName.vLength) : ""
+            typeName.vLength !== undefined ? (typeName.vLength as Literal).value : ""
         }] ${loc} ref`;
     }
 
     if (typeName instanceof Mapping) {
-        assert(loc === DataLocation.Storage, `${print(typeName)} requires storage location`);
+        assert(loc === DataLocation.Storage, `{0} requires storage location`, typeName);
         return `mapping(${makeTypeString(
             typeName.vKeyType,
             DataLocation.Memory
@@ -61,7 +62,7 @@ export function makeTypeString(typeName: TypeName, loc: DataLocation): string {
         }
 
         if (def instanceof StructDefinition) {
-            assert(loc !== DataLocation.Default, `${print(typeName)} requires storage location`);
+            assert(loc !== DataLocation.Default, `{0} requires storage location`, typeName);
             return `struct ${fqName(def)} ${loc} ref`;
         }
     }

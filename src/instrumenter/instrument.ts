@@ -39,6 +39,7 @@ import {
     isChangingState,
     isExternallyVisible,
     parseSrcTriple,
+    PPAbleError,
     print,
     rangeToLocRange,
     single,
@@ -46,7 +47,6 @@ import {
 } from "../util";
 import {
     AnnotationMetaData,
-    PPAbleError,
     PropertyMetaData,
     UserFunctionDefinitionMetaData
 } from "./annotations";

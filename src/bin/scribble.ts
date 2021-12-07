@@ -69,7 +69,6 @@ import {
     flatten,
     generateInstrumentationMetadata,
     getOr,
-    getScopeUnit,
     isChangingState,
     isExternallyVisible,
     Location,
@@ -78,6 +77,7 @@ import {
     SolFile,
     SourceMap
 } from "../util";
+import { YamlSchemaError } from "../util/yaml";
 import cli from "./scribble_cli.json";
 
 const commandLineArgs = require("command-line-args");
@@ -92,16 +92,17 @@ function error(msg: string): never {
 function prettyError(
     type: string,
     message: string,
-    unit: SourceUnit,
     location: Range | Location,
     annotation?: string
 ): never {
+    const file = "start" in location ? location.start.file : location.file;
+
     const coords =
         "line" in location
             ? `${location.line}:${location.column}`
             : `${location.start.line}:${location.start.column}`;
 
-    const descriptionLines = [`${unit.absolutePath}:${coords} ${type}: ${message}`];
+    const descriptionLines = [`${file.fileName}:${coords} ${type}: ${message}`];
 
     if (annotation !== undefined) {
         descriptionLines.push("In:", annotation);
@@ -671,7 +672,15 @@ if ("version" in options) {
         const macros = new Map<string, MacroDefinition>();
 
         if (options["macro-path"]) {
-            detectMacroDefinitions(options["macro-path"], macros, contentsMap);
+            try {
+                detectMacroDefinitions(options["macro-path"], macros, contentsMap);
+            } catch (e) {
+                if (e instanceof YamlSchemaError) {
+                    prettyError(e.constructor.name, e.message, e.range.start);
+                }
+
+                throw e;
+            }
         }
 
         /**
@@ -728,9 +737,7 @@ if ("version" in options) {
              * @todo Need to respect if error occured in macro definition file instead
              */
             if (e instanceof SyntaxError || e instanceof UnsupportedByTargetError) {
-                const unit = getScopeUnit(e.target);
-
-                prettyError(e.constructor.name, e.message, unit, e.range.start, e.annotation);
+                prettyError(e.constructor.name, e.message, e.range.start, e.annotation);
             }
 
             throw e;
@@ -751,8 +758,7 @@ if ("version" in options) {
         } catch (err: any) {
             if (err instanceof STypeError || err instanceof SemError) {
                 const annotation = err.annotationMetaData;
-                const unit = annotation.target.getClosestParentByType(SourceUnit) as SourceUnit;
-                prettyError("TypeError", err.message, unit, err.loc(), annotation.original);
+                prettyError("TypeError", err.message, err.loc(), annotation.original);
             } else {
                 error(`Internal error in type-checking: ${err.message}`);
             }
@@ -809,7 +815,7 @@ if ("version" in options) {
             instrumentFiles(instrCtx, annotMap, contractsNeedingInstr);
         } catch (e) {
             if (e instanceof UnsupportedConstruct) {
-                prettyError(e.name, e.message, e.unit, e.range);
+                prettyError(e.name, e.message, e.range);
             }
             throw e;
         }

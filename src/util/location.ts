@@ -65,10 +65,3 @@ export function rangeToLocRange(start: number, length: number, file: SourceFile)
 export function rangeToOffsetRange(r: Range): OffsetRange {
     return [r.start.offset, r.end.offset - r.start.offset];
 }
-
-/**
- * Convert a line/column source range into an offset range
- */
-export function rangeToSrcTriple(r: Range, fileInd: number): SrcTriple {
-    return [r.start.offset, r.end.offset - r.start.offset, fileInd];
-}

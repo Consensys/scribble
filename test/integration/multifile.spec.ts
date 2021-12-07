@@ -2,8 +2,14 @@ import expect from "expect";
 import fse from "fs-extra";
 import { join } from "path";
 import { assert } from "solc-typed-ast";
-import { contains, InstrumentationMetaData, parseSrcTriple, searchRecursive } from "../../src/util";
-import { scribble } from "./utils";
+import {
+    contains,
+    InstrumentationMetaData,
+    OriginalJSONLoc,
+    parseSrcTriple,
+    searchRecursive
+} from "../../src/util";
+import { loc2Src, scribble } from "./utils";
 
 function checkSrc(src: string, fileList: string[], fileContents: Map<string, string>): void {
     const [off, len, fileIdx] = parseSrcTriple(src);
@@ -24,6 +30,19 @@ function checkSrc(src: string, fileList: string[], fileContents: Map<string, str
         off >= 0 && off < contents.length && len > 0 && off + len <= contents.length,
         `Src range ${off}:${len} out of bounds for contents of file ${fileName}: 0-${contents.length}`
     );
+}
+
+function checkLoc(
+    loc: OriginalJSONLoc,
+    fileList: string[],
+    fileContents: Map<string, string>
+): void {
+    if (loc instanceof Array) {
+        loc.forEach((src) => checkSrc(src, fileList, fileContents));
+        return;
+    }
+
+    checkSrc(loc, fileList, fileContents);
 }
 
 export function fragment(
@@ -260,7 +279,7 @@ describe("Multiple-file project instrumentation", () => {
                 // Check source ranges in the instr-to-original map are sane
                 for (const [instrSrc, originalSrc] of md.instrToOriginalMap) {
                     checkSrc(instrSrc, md.instrSourceList, instrFiles);
-                    checkSrc(originalSrc, md.originalSourceList, originalFiles);
+                    checkLoc(originalSrc, md.originalSourceList, originalFiles);
                 }
 
                 // Check general instrumentation source ranges are sane
@@ -270,13 +289,13 @@ describe("Multiple-file project instrumentation", () => {
 
                 // Check src ranges in property map are correct
                 for (const prop of md.propertyMap) {
-                    checkSrc(prop.annotationSource, md.originalSourceList, originalFiles);
-                    checkSrc(prop.propertySource, md.originalSourceList, originalFiles);
+                    checkLoc(prop.annotationSource, md.originalSourceList, originalFiles);
+                    checkLoc(prop.propertySource, md.originalSourceList, originalFiles);
 
                     assert(
                         contains(
-                            parseSrcTriple(prop.annotationSource),
-                            parseSrcTriple(prop.propertySource)
+                            parseSrcTriple(loc2Src(prop.annotationSource)),
+                            parseSrcTriple(loc2Src(prop.propertySource))
                         ),
                         `Annotation src ${prop.annotationSource} doesn't include predicate src ${prop.propertySource} for prop ${prop.id}`
                     );
@@ -291,7 +310,7 @@ describe("Multiple-file project instrumentation", () => {
 
                     for (const [locs] of prop.debugEventEncoding) {
                         for (const loc of locs) {
-                            checkSrc(loc, md.instrSourceList, instrFiles);
+                            checkLoc(loc, md.instrSourceList, instrFiles);
                         }
                     }
                 }

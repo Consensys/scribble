@@ -1,20 +1,8 @@
 import { parse as typeStringParse, TypeNode } from "solc-typed-ast";
 import YAML from "yaml";
+import { Scalar, YAMLMap, YAMLSeq } from "yaml/types";
 import { SourceFile } from "../util/sources";
-
-export interface MacroSchema {
-    [name: string]: {
-        variables: {
-            [name: string]: string;
-        };
-        properties: {
-            [signature: string]: Array<{
-                msg: string;
-                prop: string;
-            }>;
-        };
-    };
-}
+import { checkYamlSchema, makeYamlRange, YamlSchemaError } from "../util/yaml";
 
 export interface MacroVariable {
     name: string;
@@ -25,6 +13,7 @@ export interface MacroVariable {
 export interface MacroProperty {
     message: string;
     expression: string;
+    offset: number;
 }
 
 export interface MacroDefinition {
@@ -33,13 +22,45 @@ export interface MacroDefinition {
     properties: Map<string, MacroProperty[]>;
 }
 
-export function readMacroDefinitions(source: SourceFile, defs: Map<string, MacroDefinition>): void {
-    const schema: MacroSchema = YAML.parse(source.contents);
+const yamlMacroSchema = {
+    "*": {
+        variables: {
+            "*": "string"
+        },
+        properties: {
+            "*": [
+                {
+                    msg: "string",
+                    prop: "string"
+                }
+            ]
+        }
+    }
+};
 
-    for (const [name, macro] of Object.entries(schema)) {
+export function readMacroDefinitions(source: SourceFile, defs: Map<string, MacroDefinition>): void {
+    const document = YAML.parseDocument(source.contents);
+
+    if (document.contents === null) {
+        throw new YamlSchemaError(
+            `Unexpected empty document ${source.contents}`,
+            makeYamlRange([0, source.contents.length], source)
+        );
+    }
+
+    checkYamlSchema(document.contents, yamlMacroSchema, source);
+
+    for (const item of (document.contents as YAMLMap).items) {
+        const macroName = item.key.value as string;
+        const macroBody = item.value as YAMLMap;
+        const macroVars = macroBody.get("variables") as YAMLMap;
+        const macroProps = macroBody.get("properties") as YAMLMap;
+
         const variables = new Map<string, MacroVariable>();
 
-        for (const [name, originalType] of Object.entries(macro.variables)) {
+        for (const variableItem of macroVars.items) {
+            const name = variableItem.key.value as string;
+            const originalType = (variableItem.value as Scalar).value as string;
             const type: TypeNode = typeStringParse(originalType, {});
 
             variables.set(name, { name, originalType, type });
@@ -47,16 +68,28 @@ export function readMacroDefinitions(source: SourceFile, defs: Map<string, Macro
 
         const properties = new Map<string, MacroProperty[]>();
 
-        for (const [signature, originalProps] of Object.entries(macro.properties)) {
-            const props: MacroProperty[] = originalProps.map((entry) => ({
-                message: entry.msg,
-                expression: entry.prop
-            }));
+        for (const propItem of macroProps.items) {
+            const signature = propItem.key.value as string;
+            const propSeq = propItem.value as YAMLSeq;
+
+            const props: MacroProperty[] = [];
+
+            for (const propBody of propSeq.items) {
+                const message = (propBody as YAMLMap).get("msg");
+                const expression = (propBody as YAMLMap).get("prop", true) as Scalar;
+                const offset = (expression.range as [number, number])[0];
+
+                props.push({
+                    message,
+                    expression: expression.value as string,
+                    offset
+                });
+            }
 
             properties.set(signature, props);
         }
 
-        defs.set(name, { variables, properties, source });
+        defs.set(macroName, { variables, properties, source });
     }
 }
 

@@ -34,7 +34,7 @@ import {
     searchRecursive,
     single
 } from "../../src/util";
-import { removeProcWd, scrSample, toAstUsingCache } from "./utils";
+import { loc2Src, removeProcWd, scrSample, toAstUsingCache } from "./utils";
 
 type Src2NodeMap = Map<string, Set<ASTNode>>;
 function buildSrc2NodeMap(units: SourceUnit[], newSrcList?: string[]): Src2NodeMap {
@@ -153,8 +153,9 @@ describe("Src2src map test", () => {
             });
 
             it("Src2src map maps nodes to nodes of same type", () => {
-                for (const [instrRange, originalRange] of instrMD.instrToOriginalMap) {
+                for (const [instrRange, originalLoc] of instrMD.instrToOriginalMap) {
                     const instrNodes = instrSrc2Node.get(instrRange);
+                    const originalRange = loc2Src(originalLoc);
 
                     assert(
                         instrNodes !== undefined,
@@ -172,7 +173,7 @@ describe("Src2src map test", () => {
                         // mapping must map inside the body of one of the
                         // annotations
                         const containingProp = propMap.find((propDesc) =>
-                            contains(propDesc.annotationSource, originalRange)
+                            contains(loc2Src(propDesc.annotationSource), originalRange)
                         );
 
                         assert(

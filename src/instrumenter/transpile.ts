@@ -34,7 +34,6 @@ import {
     UserDefinedType,
     VariableDeclaration
 } from "solc-typed-ast";
-import { AnnotationMetaData, PropertyMetaData, single, UserFunctionDefinitionMetaData } from "..";
 import {
     AnnotationType,
     BuiltinFunctions,
@@ -65,6 +64,12 @@ import {
     unwrapOld
 } from "../spec-lang/tc";
 import { FunctionSetType, ImportRefType } from "../spec-lang/tc/internal_types";
+import { single } from "../util/misc";
+import {
+    AnnotationMetaData,
+    PropertyMetaData,
+    UserFunctionDefinitionMetaData
+} from "./annotations";
 import { TranspilingContext } from "./transpiling_context";
 
 /**
