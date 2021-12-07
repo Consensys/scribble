@@ -2,7 +2,7 @@ import { parse as typeStringParse, TypeNode } from "solc-typed-ast";
 import YAML from "yaml";
 import { Scalar, YAMLMap, YAMLSeq } from "yaml/types";
 import { SourceFile } from "../util/sources";
-import { checkYamlSchema } from "../util/yaml";
+import { checkYamlSchema, makeYamlRange, YamlSchemaError } from "../util/yaml";
 
 export interface MacroVariable {
     name: string;
@@ -40,6 +40,13 @@ const yamlMacroSchema = {
 
 export function readMacroDefinitions(source: SourceFile, defs: Map<string, MacroDefinition>): void {
     const document = YAML.parseDocument(source.contents);
+
+    if (document.contents === null) {
+        throw new YamlSchemaError(
+            `Unexpected empty yaml file in ${source.fileName}`,
+            makeYamlRange([0, source.contents.length], source)
+        );
+    }
 
     checkYamlSchema(document.contents, yamlMacroSchema, source);
 

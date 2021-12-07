@@ -9,7 +9,7 @@ import {
     VariableDeclaration
 } from "solc-typed-ast";
 import { AbsDatastructurePath, AnnotationMap, AnnotationMetaData, AnnotationTarget } from "../..";
-import { Range, single } from "../../util";
+import { single } from "../../util";
 import {
     SBinaryOperation,
     SBooleanLiteral,
@@ -31,7 +31,8 @@ import {
     SProperty,
     SUserFunctionDefinition,
     AnnotationType,
-    BuiltinFunctions
+    BuiltinFunctions,
+    NodeLocation
 } from "../ast";
 import { FunctionSetType } from "./internal_types";
 import { TypeEnv } from "./typeenv";
@@ -66,8 +67,8 @@ export class SemError extends Error {
         super(msg);
     }
 
-    loc(): Range {
-        return this.node.src as Range;
+    loc(): NodeLocation {
+        return this.node.src as NodeLocation;
     }
 }
 

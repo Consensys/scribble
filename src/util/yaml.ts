@@ -11,7 +11,8 @@ const srcloc = require("src-location");
 export class YamlSchemaError extends PPAbleError {}
 
 function makeYamlLoc(off: number, file: MacroFile): Location {
-    const { line, column } = srcloc.indexToLocation(off, file.contents);
+    const t = srcloc.indexToLocation(file.contents, off);
+    const { line, column } = t;
     return {
         offset: off,
         line,

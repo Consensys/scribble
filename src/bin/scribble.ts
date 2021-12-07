@@ -49,6 +49,7 @@ import {
     buildAnnotationMap,
     gatherContractAnnotations,
     gatherFunctionAnnotations,
+    MacroError,
     PropertyMetaData,
     SyntaxError,
     UnsupportedByTargetError,
@@ -61,7 +62,7 @@ import { instrumentStateVars } from "../instrumenter/state_var_instrumenter";
 import { MacroDefinition, readMacroDefinitions } from "../macros";
 import { flattenUnits } from "../rewriter/flatten";
 import { merge } from "../rewriter/merge";
-import { AnnotationType } from "../spec-lang/ast";
+import { AnnotationType, NodeLocation } from "../spec-lang/ast";
 import { scUnits, SemError, SemMap, STypeError, tcUnits, TypeEnv } from "../spec-lang/tc";
 import {
     buildOutputJSON,
@@ -89,26 +90,46 @@ function error(msg: string): never {
     process.exit(1);
 }
 
-function prettyError(
-    type: string,
-    message: string,
-    location: Range | Location,
-    annotation?: string
-): never {
-    const file = "start" in location ? location.start.file : location.file;
+function ppLoc(l: Location): string {
+    return `${l.file.fileName}:${l.line}:${l.column}`;
+}
 
-    const coords =
-        "line" in location
-            ? `${location.line}:${location.column}`
-            : `${location.start.line}:${location.start.column}`;
+function ppSrcLine(l: Range | Location): string[] {
+    const startLoc = "start" in l ? l.start : l;
+    const lineStart = startLoc.offset - startLoc.column;
+    let lineEnd = startLoc.file.contents.indexOf("\n", lineStart);
+    lineEnd = lineEnd == -1 ? startLoc.file.contents.length : lineEnd;
 
-    const descriptionLines = [`${file.fileName}:${coords} ${type}: ${message}`];
+    const marker =
+        " ".repeat(startLoc.column) +
+        ("end" in l ? "^".repeat(l.end.offset - l.start.offset) : "^");
 
-    if (annotation !== undefined) {
-        descriptionLines.push("In:", annotation);
+    return [ppLoc(startLoc) + ":", startLoc.file.contents.slice(lineStart, lineEnd), marker];
+}
+
+function prettyError(type: string, message: string, location: NodeLocation | Location): never {
+    let primaryLoc: Location;
+
+    if ("offset" in location) {
+        primaryLoc = location;
+    } else if ("start" in location) {
+        primaryLoc = location.start;
+    } else {
+        primaryLoc = location[0].start;
     }
 
-    error(descriptionLines.join("\n\n"));
+    const descriptionLines = [`${ppLoc(primaryLoc)} ${type}: ${message}`];
+
+    if (location instanceof Array) {
+        descriptionLines.push("In macro:");
+        descriptionLines.push(...ppSrcLine(location[0]));
+        descriptionLines.push("Instantiated from:");
+        descriptionLines.push(...ppSrcLine(location[1]));
+    } else {
+        descriptionLines.push(...ppSrcLine(location));
+    }
+
+    error(descriptionLines.join("\n"));
 }
 
 function printDeprecationNotices(annotMap: AnnotationMap): void {
@@ -676,7 +697,7 @@ if ("version" in options) {
                 detectMacroDefinitions(options["macro-path"], macros, contentsMap);
             } catch (e) {
                 if (e instanceof YamlSchemaError) {
-                    prettyError(e.constructor.name, e.message, e.range.start);
+                    prettyError(e.constructor.name, e.message, e.range);
                 }
 
                 throw e;
@@ -736,8 +757,12 @@ if ("version" in options) {
             /**
              * @todo Need to respect if error occured in macro definition file instead
              */
-            if (e instanceof SyntaxError || e instanceof UnsupportedByTargetError) {
-                prettyError(e.constructor.name, e.message, e.range.start, e.annotation);
+            if (
+                e instanceof SyntaxError ||
+                e instanceof UnsupportedByTargetError ||
+                e instanceof MacroError
+            ) {
+                prettyError(e.constructor.name, e.message, e.range.start);
             }
 
             throw e;
@@ -757,8 +782,7 @@ if ("version" in options) {
             interposingQueue = scUnits(mergedUnits, annotMap, typeEnv, semMap);
         } catch (err: any) {
             if (err instanceof STypeError || err instanceof SemError) {
-                const annotation = err.annotationMetaData;
-                prettyError("TypeError", err.message, err.loc(), annotation.original);
+                prettyError("TypeError", err.message, err.loc());
             } else {
                 error(`Internal error in type-checking: ${err.message}`);
             }

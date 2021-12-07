@@ -25,7 +25,7 @@ import {
 import { parseAnnotation, SyntaxError as ExprPEGSSyntaxError } from "../spec-lang/expr_parser";
 import { PPAbleError } from "../util/errors";
 import { makeRange, offsetBy, OffsetRange, Range, rangeToLocRange } from "../util/location";
-import { getOr, getScopeUnit, single, zip } from "../util/misc";
+import { getOr, getScopeUnit, zip } from "../util/misc";
 import { SourceFile, SourceMap } from "../util/sources";
 
 export type AnnotationFilterOptions = {
@@ -187,7 +187,10 @@ function makeAnnotationFromMatch(
     source: SourceFile,
     ctx: AnnotationExtractionContext
 ): AnnotationMetaData {
-    const slice = meta.text.slice(match.index);
+    let matchIdx = match.index;
+    while (meta.text[matchIdx].match(/[\n\r]/)) matchIdx++;
+
+    const slice = meta.text.slice(matchIdx);
 
     let annotation: SAnnotation;
 
@@ -197,21 +200,18 @@ function makeAnnotationFromMatch(
             meta.target,
             ctx.compilerVersion,
             source,
-            meta.loc[0] + match.index
+            meta.loc[0] + matchIdx
         );
     } catch (e) {
         if (e instanceof ExprPEGSSyntaxError) {
             // Compute the syntax error offset relative to the start of the file
             const [errStartOff, errLength] = offsetBy(
-                offsetBy([e.location.start.offset, e.location.end.offset], match.index),
+                offsetBy([e.location.start.offset, e.location.end.offset], matchIdx),
                 meta.loc
             );
 
             const errRange = rangeToLocRange(errStartOff, errLength, source);
-            const original = meta.text.slice(
-                match.index,
-                match.index + errStartOff + errLength + 10
-            );
+            const original = meta.text.slice(matchIdx, matchIdx + errStartOff + errLength + 10);
 
             throw new SyntaxError(e.message, original, errRange, meta.target);
         }
@@ -461,6 +461,8 @@ export function gatherContractAnnotations(
     return result;
 }
 
+export class MacroError extends AnnotationError {}
+
 /**
  * Detects macro annotations, produces annotations that are defined by macro
  * and injects them target nodes. Macro annotations are removed afterwards.
@@ -501,12 +503,19 @@ function processMacroAnnotations(
                 const localAliases = new Map(globalAliases);
 
                 const targets = [...resolveAny(name, scope, ctx.compilerVersion, true)];
-                const target = single(
-                    targets,
-                    'Unable to pick single target entity for name "{0}" in scope of {1}',
-                    name,
-                    scope
-                );
+
+                if (targets.length !== 1) {
+                    throw new MacroError(
+                        `No target ${name} found in contract ${
+                            (scope as ContractDefinition).name
+                        } for ${meta.original}`,
+                        meta.original,
+                        meta.parsedAnnot.src as Range,
+                        meta.target
+                    );
+                }
+
+                const target = targets[0];
 
                 if (target instanceof FunctionDefinition && args.length > 0) {
                     const params = target.vParameters.vParameters;

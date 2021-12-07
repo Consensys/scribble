@@ -51,10 +51,11 @@ import {
 } from "solc-typed-ast";
 import { AnnotationMap, AnnotationMetaData, AnnotationTarget } from "../../instrumenter";
 import { Logger } from "../../logger";
-import { last, Range, single, topoSort } from "../../util";
+import { last, single, topoSort } from "../../util";
 import {
     BuiltinFunctions,
     DatastructurePath,
+    NodeLocation,
     SAddressLiteral,
     SAnnotation,
     SBinaryOperation,
@@ -144,7 +145,7 @@ export function getScopeOfType<T extends ContractDefinition | FunctionDefinition
 }
 
 export abstract class STypeError extends Error {
-    abstract loc(): Range;
+    abstract loc(): NodeLocation;
     public annotationMetaData!: AnnotationMetaData;
 }
 
@@ -156,8 +157,8 @@ export class SGenericTypeError<T extends SNode> extends STypeError {
         this.node = node;
     }
 
-    loc(): Range {
-        return this.node.requiredRange;
+    loc(): NodeLocation {
+        return this.node.src as NodeLocation;
     }
 }
 
@@ -231,7 +232,7 @@ export class IncompatibleTypes extends STypeError {
     public readonly typeA: TypeNode;
     public readonly exprB: SNode;
     public readonly typeB: TypeNode;
-    readonly src: Range;
+    readonly src: NodeLocation;
 
     constructor(
         msg: string,
@@ -239,7 +240,7 @@ export class IncompatibleTypes extends STypeError {
         typeA: TypeNode,
         exprB: SNode,
         typeB: TypeNode,
-        src: Range
+        src: NodeLocation
     ) {
         super(msg);
 
@@ -250,7 +251,7 @@ export class IncompatibleTypes extends STypeError {
         this.src = src;
     }
 
-    loc(): Range {
+    loc(): NodeLocation {
         return this.src;
     }
 }
@@ -1119,7 +1120,7 @@ function unifyTypes(
         typeA,
         exprB,
         typeB,
-        commonParent.src as Range
+        commonParent.src as NodeLocation
     );
 }
 
@@ -1280,7 +1281,7 @@ export function tcBinary(expr: SBinaryOperation, ctx: STypingCtx, typeEnv: TypeE
             lhsT,
             expr.right,
             rhsT,
-            expr.src as Range
+            expr.src as NodeLocation
         );
     }
 
@@ -1294,7 +1295,7 @@ export function tcBinary(expr: SBinaryOperation, ctx: STypingCtx, typeEnv: TypeE
                 lhsT,
                 expr.right,
                 rhsT,
-                expr.src as Range
+                expr.src as NodeLocation
             );
         }
 
