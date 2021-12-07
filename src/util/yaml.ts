@@ -49,10 +49,32 @@ export function makeYamlRange(range: [number, number], file: MacroFile): Range {
  * @param file
  */
 export function checkYamlSchema(
-    node: YAMLMap | YAMLSeq | Scalar,
+    node: YAMLMap | YAMLSeq | Scalar | null,
     schema: any,
     file: MacroFile
 ): void {
+    if (node === null) {
+        // Empty arrays ok
+        if (schema instanceof Array) {
+            return;
+        }
+
+        // Empty maps with no required entries are ok
+        if (schema instanceof Object) {
+            const keys = Object.keys(schema);
+            if (keys.length === 1 && keys[0] === "*") {
+                return;
+            }
+        }
+
+        throw new YamlSchemaError(
+            `Unexpected empty node in ${file.fileName}. Expected a match for ${JSON.stringify(
+                schema
+            )}`,
+            makeYamlRange([0, file.contents.length], file)
+        );
+    }
+
     if (schema instanceof Array) {
         if (!(node instanceof YAMLSeq)) {
             throw new YamlSchemaError(

@@ -57,31 +57,40 @@ export function fragment(
 }
 
 describe("Multiple-file project instrumentation", () => {
-    const samples: Array<[string, string[], string]> = [
-        ["test/multifile_samples/proj1", ["child1.sol", "child2.sol"], "0.6.11"],
+    const samples: Array<[string, string[], string, string[]]> = [
+        ["test/multifile_samples/proj1", ["child1.sol", "child2.sol"], "0.6.11", []],
         [
             "test/multifile_samples/import_rewrites",
             ["main.sol", "imp1.sol", "imp2.sol", "imp3.sol"],
-            "0.6.11"
+            "0.6.11",
+            []
         ],
-        ["test/multifile_samples/inheritance1", ["C.sol", "D.sol"], "0.6.11"],
+        ["test/multifile_samples/inheritance1", ["C.sol", "D.sol"], "0.6.11", []],
         [
             "test/multifile_samples/reexported_imports",
             ["main.sol", "imp1.sol", "imp2.sol", "imp3.sol"],
-            "0.7.5"
+            "0.7.5",
+            []
         ],
         [
             "test/multifile_samples/reexported_imports_05",
             ["main.sol", "imp1.sol", "imp2.sol", "imp3.sol"],
-            "0.5.0"
+            "0.5.0",
+            []
         ],
-        ["test/multifile_samples/forall_maps", ["child.sol", "base.sol"], "0.8.4"],
-        ["test/multifile_samples/arr_sum", ["main.sol"], "0.8.4"],
-        ["test/multifile_samples/asserts", ["C.sol", "B.sol", "A.sol"], "0.8.7"],
-        ["test/multifile_samples/circular_imports", ["B.sol", "A.sol"], "0.8.7"]
+        ["test/multifile_samples/forall_maps", ["child.sol", "base.sol"], "0.8.4", []],
+        ["test/multifile_samples/arr_sum", ["main.sol"], "0.8.4", []],
+        ["test/multifile_samples/asserts", ["C.sol", "B.sol", "A.sol"], "0.8.7", []],
+        ["test/multifile_samples/circular_imports", ["B.sol", "A.sol"], "0.8.7", []],
+        [
+            "test/multifile_samples/macros",
+            ["base.sol", "child.sol"],
+            "0.8.7",
+            ["--macro-path", "test/multifile_samples/macros"]
+        ]
     ];
 
-    for (const [dirName, solFiles, version] of samples) {
+    for (const [dirName, solFiles, version, additionalArgs] of samples) {
         describe(`Multi-file Sample ${dirName}`, () => {
             const solPaths: string[] = solFiles.map((name) => join(dirName, name));
             let expectedInstrumented: Map<string, string>;
@@ -116,7 +125,8 @@ describe("Multiple-file project instrumentation", () => {
                     version,
                     "--debug-events",
                     "--instrumentation-metadata-file",
-                    `${dirName}/instrumentationMetadata.json.expected`
+                    `${dirName}/instrumentationMetadata.json.expected`,
+                    ...additionalArgs
                 );
                 */
 
@@ -129,9 +139,16 @@ describe("Multiple-file project instrumentation", () => {
             });
 
             it("Flat mode is correct", () => {
-                const actualFlat = scribble(solPaths, "-o", "--", "--compiler-version", version);
+                const actualFlat = scribble(
+                    solPaths,
+                    "-o",
+                    "--",
+                    "--compiler-version",
+                    version,
+                    ...additionalArgs
+                );
 
-                expect(actualFlat).toEqual(expectedFlat);
+                expect(actualFlat.trim()).toEqual(expectedFlat.trim());
             });
 
             it("Instrumented files are correct", () => {
@@ -141,7 +158,8 @@ describe("Multiple-file project instrumentation", () => {
                     "files",
                     "--quiet",
                     "--compiler-version",
-                    version
+                    version,
+                    ...additionalArgs
                 );
 
                 for (const [fileName, expectedContents] of expectedInstrumented) {
@@ -163,7 +181,8 @@ describe("Multiple-file project instrumentation", () => {
                     "json",
                     "--compiler-version",
                     version,
-                    "--debug-events"
+                    "--debug-events",
+                    ...additionalArgs
                 );
 
                 const actualJson = JSON.parse(actualJsonStr);
@@ -185,7 +204,8 @@ describe("Multiple-file project instrumentation", () => {
                     "--quiet",
                     "--arm",
                     "--compiler-version",
-                    version
+                    version,
+                    ...additionalArgs
                 );
 
                 for (const [fileName, expectedContents] of expectedInstrumented) {
@@ -212,7 +232,8 @@ describe("Multiple-file project instrumentation", () => {
                     "--quiet",
                     "--disarm",
                     "--compiler-version",
-                    version
+                    version,
+                    ...additionalArgs
                 );
 
                 for (const [fileName, expectedContents] of expectedInstrumented) {
@@ -247,7 +268,8 @@ describe("Multiple-file project instrumentation", () => {
                     "--compiler-version",
                     version,
                     "--instrumentation-metadata-file",
-                    "tmp.json"
+                    "tmp.json",
+                    ...additionalArgs
                 );
 
                 const md: InstrumentationMetaData = JSON.parse(

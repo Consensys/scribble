@@ -2,7 +2,7 @@ import { parse as typeStringParse, TypeNode } from "solc-typed-ast";
 import YAML from "yaml";
 import { Scalar, YAMLMap, YAMLSeq } from "yaml/types";
 import { SourceFile } from "../util/sources";
-import { checkYamlSchema, makeYamlRange, YamlSchemaError } from "../util/yaml";
+import { checkYamlSchema } from "../util/yaml";
 
 export interface MacroVariable {
     name: string;
@@ -41,13 +41,6 @@ const yamlMacroSchema = {
 export function readMacroDefinitions(source: SourceFile, defs: Map<string, MacroDefinition>): void {
     const document = YAML.parseDocument(source.contents);
 
-    if (document.contents === null) {
-        throw new YamlSchemaError(
-            `Unexpected empty document ${source.contents}`,
-            makeYamlRange([0, source.contents.length], source)
-        );
-    }
-
     checkYamlSchema(document.contents, yamlMacroSchema, source);
 
     for (const item of (document.contents as YAMLMap).items) {
@@ -57,8 +50,9 @@ export function readMacroDefinitions(source: SourceFile, defs: Map<string, Macro
         const macroProps = macroBody.get("properties") as YAMLMap;
 
         const variables = new Map<string, MacroVariable>();
+        const varItems = macroVars === null ? [] : macroVars.items;
 
-        for (const variableItem of macroVars.items) {
+        for (const variableItem of varItems) {
             const name = variableItem.key.value as string;
             const originalType = (variableItem.value as Scalar).value as string;
             const type: TypeNode = typeStringParse(originalType, {});
@@ -67,8 +61,9 @@ export function readMacroDefinitions(source: SourceFile, defs: Map<string, Macro
         }
 
         const properties = new Map<string, MacroProperty[]>();
+        const propItems = macroProps === null ? [] : macroProps.items;
 
-        for (const propItem of macroProps.items) {
+        for (const propItem of propItems) {
             const signature = propItem.key.value as string;
             const propSeq = propItem.value as YAMLSeq;
 
