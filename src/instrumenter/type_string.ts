@@ -5,7 +5,6 @@ import {
     DataLocation,
     ElementaryTypeName,
     EnumDefinition,
-    Literal,
     Mapping,
     StructDefinition,
     TypeName,
@@ -39,7 +38,7 @@ export function makeTypeString(typeName: TypeName, loc: DataLocation): string {
         assert(loc !== undefined, `{0} requires location`, typeName);
         const baseString = makeTypeString(typeName.vBaseType, loc);
         return `${baseString}[${
-            typeName.vLength !== undefined ? (typeName.vLength as Literal).value : ""
+            typeName.vLength !== undefined ? print(typeName.vLength) : ""
         }] ${loc} ref`;
     }
 

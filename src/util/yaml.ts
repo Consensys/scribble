@@ -27,7 +27,7 @@ export function makeYamlRange(range: [number, number], file: MacroFile): Range {
 }
 
 /**
- * Check that a parsed YAML `node` adheres to the given `schema`. We specify `schema` as a JSON object. For example the below object:
+ * Check that a parsed YAML `node` adheres to the given schema. We specify the schema as a JSON object. For example the below object:
  * {
  *  "a": "string",
  *  "*": {
@@ -45,9 +45,6 @@ export function makeYamlRange(range: [number, number], file: MacroFile): Range {
  * 4. Objects for other entries in the top-level yaml node must have two keys - "b" and "c"
  * 5. Values for the "b" key must be scalar numbers
  * 6. Values for the "c" key must be sequences, containing maps with a single key "d" which is a scalar string.
- * @param node
- * @param schema
- * @param file
  */
 export function checkYamlSchema(
     node: YAMLMap | YAMLSeq | Scalar | null,

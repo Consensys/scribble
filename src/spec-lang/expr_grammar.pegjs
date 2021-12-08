@@ -16,9 +16,7 @@ Annotation =
     )
     .* {
         // Dummy statements to shut up unused variable warnings in tsc
-        /// @ts-ignore
         error;
-        /// @ts-ignore
         expected;
         annotation.prefix = prefix === null ? undefined : prefix;
 
