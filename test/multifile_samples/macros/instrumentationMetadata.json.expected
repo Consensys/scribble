@@ -350,8 +350,8 @@
   "originalSourceList": [
     "test/multifile_samples/macros/base.sol",
     "test/multifile_samples/macros/child.sol",
-    "/home/dimo/work/consensys/scribble-clean/test/multifile_samples/macros/macro1.scribble.yaml",
-    "/home/dimo/work/consensys/scribble-clean/test/multifile_samples/macros/macro2.scribble.yaml"
+    "test/multifile_samples/macros/macro1.scribble.yaml",
+    "test/multifile_samples/macros/macro2.scribble.yaml"
   ],
   "instrSourceList": [
     "--"

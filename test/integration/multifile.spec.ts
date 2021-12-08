@@ -1,6 +1,7 @@
 import expect from "expect";
 import fse from "fs-extra";
 import { join } from "path";
+import { cwd } from "process";
 import { assert } from "solc-typed-ast";
 import {
     contains,
@@ -135,7 +136,15 @@ describe("Multiple-file project instrumentation", () => {
                     {
                         encoding: "utf-8"
                     }
-                );
+                ) as InstrumentationMetaData;
+
+                // Nit: Macro paths are absolute, so we adjust them here accordingly
+                for (let i = 0; i < expectedInstrMetadata.originalSourceList.length; i++) {
+                    const name = expectedInstrMetadata.originalSourceList[i];
+                    if (name.endsWith(".yaml") || name.endsWith(".yml")) {
+                        expectedInstrMetadata.originalSourceList[i] = join(cwd(), name);
+                    }
+                }
             });
 
             it("Flat mode is correct", () => {
