@@ -27,25 +27,13 @@ import {
     StatementWithChildren,
     VariableDeclaration
 } from "solc-typed-ast";
-import {
-    AbsDatastructurePath,
-    AnnotationTarget,
-    findStateVarUpdates,
-    generateUtilsContract,
-    instrumentContract,
-    instrumentFunction,
-    instrumentStatement,
-    interposeMap,
-    ScribbleFactory,
-    searchRecursive,
-    UnsupportedConstruct
-} from "..";
 import { rewriteImports } from "../ast_to_source_printer";
 import {
     AnnotationExtractionContext,
     AnnotationFilterOptions,
     AnnotationMap,
     AnnotationMetaData,
+    AnnotationTarget,
     buildAnnotationMap,
     gatherContractAnnotations,
     gatherFunctionAnnotations,
@@ -57,8 +45,18 @@ import {
 } from "../instrumenter/annotations";
 import { getCallGraph } from "../instrumenter/callgraph";
 import { CHA, getCHA } from "../instrumenter/cha";
+import { AbsDatastructurePath, interposeMap } from "../instrumenter/custom_maps";
+import {
+    generateUtilsContract,
+    instrumentContract,
+    instrumentFunction,
+    instrumentStatement,
+    UnsupportedConstruct
+} from "../instrumenter/instrument";
 import { InstrumentationContext } from "../instrumenter/instrumentation_context";
+import { findStateVarUpdates } from "../instrumenter/state_vars";
 import { instrumentStateVars } from "../instrumenter/state_var_instrumenter";
+import { ScribbleFactory } from "../instrumenter/utils";
 import { MacroDefinition, readMacroDefinitions } from "../macros";
 import { flattenUnits } from "../rewriter/flatten";
 import { merge } from "../rewriter/merge";
@@ -75,6 +73,7 @@ import {
     Location,
     MacroFile,
     Range,
+    searchRecursive,
     SolFile,
     SourceMap
 } from "../util";

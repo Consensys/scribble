@@ -1,5 +1,5 @@
 import { AnnotationType } from ".";
-import { NodeLocation, SNode } from "..";
+import { NodeLocation, SNode } from "../node";
 import { AnnotationMD } from "./annotation";
 import { DatastructurePath, SStateVarProp } from "./state_var_prop";
 

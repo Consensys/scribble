@@ -14,7 +14,7 @@ import {
     PrettyFormatter,
     SourceUnit
 } from "solc-typed-ast";
-import { AnnotationTarget } from "..";
+import { AnnotationTarget } from "../instrumenter/annotations";
 
 export function nodeToSource(main: ASTNode, targetCompilerVersion = "0.6.0"): string {
     const formatter = new PrettyFormatter(4);

@@ -33,9 +33,9 @@ import {
     TypeNode,
     UncheckedBlock
 } from "solc-typed-ast";
-import { ensureStmtInBlock, filterByType, getTypeLocation, transpileAnnotation } from "..";
 import { AnnotationType, SId, SNode } from "../spec-lang/ast";
 import {
+    filterByType,
     isChangingState,
     isExternallyVisible,
     parseSrcTriple,
@@ -52,8 +52,10 @@ import {
 } from "./annotations";
 import { InstrumentationContext } from "./instrumentation_context";
 import { interpose, interposeCall } from "./interpose";
+import { ensureStmtInBlock } from "./state_var_instrumenter";
+import { transpileAnnotation } from "./transpile";
 import { InstrumentationSiteType, TranspilingContext } from "./transpiling_context";
-import { getTypeDesc } from "./utils";
+import { getTypeDesc, getTypeLocation } from "./utils";
 
 export type SBinding = [string | string[], TypeNode, SNode, boolean];
 export type SBindings = SBinding[];

@@ -19,31 +19,28 @@ import {
     TypeNode,
     VariableDeclaration
 } from "solc-typed-ast";
-import {
-    AbsDatastructurePath,
-    dedup,
-    FactoryMap,
-    findAliasedStateVars,
-    getSetterName,
-    makeArraySumFun,
-    makeDeleteFun,
-    makeGetFun,
-    makeIncDecFun,
-    makeSetFun,
-    ScribbleFactory,
-    SourceMap,
-    StructMap,
-    UnsupportedConstruct
-} from "..";
 import { print } from "../ast_to_source_printer";
 import { SUserFunctionDefinition } from "../spec-lang/ast";
 import { SemMap, TypeEnv } from "../spec-lang/tc";
+import { dedup } from "../util/misc";
 import { NameGenerator } from "../util/name_generator";
+import { SourceMap } from "../util/sources";
 import { AnnotationFilterOptions, AnnotationMetaData } from "./annotations";
 import { CallGraph } from "./callgraph";
 import { CHA } from "./cha";
-import { generateMapLibrary } from "./custom_maps_templates";
+import { AbsDatastructurePath } from "./custom_maps";
+import {
+    generateMapLibrary,
+    getSetterName,
+    makeDeleteFun,
+    makeGetFun,
+    makeIncDecFun,
+    makeSetFun
+} from "./custom_maps_templates";
+import { makeArraySumFun, UnsupportedConstruct } from "./instrument";
+import { findAliasedStateVars } from "./state_vars";
 import { DbgIdsMap, InstrumentationSiteType, TranspilingContext } from "./transpiling_context";
+import { FactoryMap, ScribbleFactory, StructMap } from "./utils";
 
 /**
  * Gather all named nodes in the provided source units.

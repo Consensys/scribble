@@ -1,6 +1,6 @@
 import { AnnotationType } from ".";
-import { NodeLocation, SNode } from "..";
 import { SId } from "../identifier";
+import { NodeLocation, SNode } from "../node";
 import { AnnotationMD } from "./annotation";
 import { SProperty } from "./property";
 
