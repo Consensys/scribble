@@ -1,31 +1,31 @@
 pragma solidity 0.6.12;
 
 interface IERC20 {
-    event Transfer(address indexed from, address indexed to, uint256 value);
+    event Transfer(address indexed from, address indexed to, uint value);
 
-    event Approval(address indexed owner, address indexed spender, uint256 value);
+    event Approval(address indexed owner, address indexed spender, uint value);
 
-    function totalSupply() external returns (uint256);
+    function totalSupply() external returns (uint);
 
-    function balanceOf(address account) external returns (uint256);
+    function balanceOf(address account) external returns (uint);
 
-    function allowance(address owner, address spender) external view returns (uint256);
+    function allowance(address owner, address spender) external view returns (uint);
 
-    function transfer(address recipient, uint256 amount) external returns (bool);
+    function transfer(address recipient, uint amount) external returns (bool);
 
-    function approve(address spender, uint256 amount) external returns (bool);
+    function approve(address spender, uint amount) external returns (bool);
 
-    function transferFrom(address sender, address recipient, uint256 amount) external returns (bool);
+    function transferFrom(address sender, address recipient, uint amount) external returns (bool);
 }
 
 library SafeMath {
-    function sub(uint256 a, uint256 b) internal pure returns (uint256) {
+    function sub(uint a, uint b) internal pure returns (uint) {
         require(b <= a, "Underflow");
         return a - b;
     }
 
-    function add(uint256 a, uint256 b) internal pure returns (uint256) {
-        uint256 c = a + b;
+    function add(uint a, uint b) internal pure returns (uint) {
+        uint c = a + b;
         require(c >= a, "Overflow");
         return c;
     }
@@ -82,7 +82,7 @@ library address_to_uint256 {
 
 ///  #macro erc20(balances, allowances);
 contract ERC20Example is IERC20 {
-    using SafeMath for uint256;
+    using SafeMath for uint;
 
     event Approval(address indexed tokenOwner, address indexed spender, uint tokens);
 
@@ -94,15 +94,15 @@ contract ERC20Example is IERC20 {
     string public constant symbol = "XMPL";
     uint8 public constant decimals = 18;
     address_to_uint256.S internal balances;
-    mapping(address => mapping(address => uint256)) internal allowances;
-    uint256 internal _totalSupply;
+    mapping(address => mapping(address => uint)) internal allowances;
+    uint internal _totalSupply;
 
-    constructor(uint256 total) public {
+    constructor(uint total) public {
         _totalSupply = total;
         address_to_uint256.set(balances, msg.sender, _totalSupply);
     }
 
-    function totalSupply() override public returns (uint256 RET_0) {
+    function totalSupply() override public returns (uint RET_0) {
         RET_0 = _original_ERC20Example_totalSupply();
         if (!(RET_0 == balances.sum)) {
             emit AssertionFailed("1: Result is equal to sum of balances");
@@ -110,11 +110,11 @@ contract ERC20Example is IERC20 {
         }
     }
 
-    function _original_ERC20Example_totalSupply() private view returns (uint256) {
+    function _original_ERC20Example_totalSupply() private view returns (uint) {
         return _totalSupply;
     }
 
-    function balanceOf(address account) override public returns (uint256 RET_0) {
+    function balanceOf(address account) override public returns (uint RET_0) {
         RET_0 = _original_ERC20Example_balanceOf(account);
         if (!(RET_0 == address_to_uint256.get(balances, account))) {
             emit AssertionFailed("2: Returns the balance of owner in the balances mapping");
@@ -122,11 +122,11 @@ contract ERC20Example is IERC20 {
         }
     }
 
-    function _original_ERC20Example_balanceOf(address account) private view returns (uint256) {
+    function _original_ERC20Example_balanceOf(address account) private view returns (uint) {
         return address_to_uint256.get(balances, account);
     }
 
-    function transfer(address receiver, uint256 amount) override public returns (bool) {
+    function transfer(address receiver, uint amount) override public returns (bool) {
         require(amount <= address_to_uint256.get(balances, msg.sender));
         address_to_uint256.set(balances, msg.sender, address_to_uint256.get(balances, msg.sender).sub(amount));
         address_to_uint256.set(balances, receiver, address_to_uint256.get(balances, receiver).add(amount));
@@ -134,7 +134,7 @@ contract ERC20Example is IERC20 {
         return true;
     }
 
-    function approve(address delegate, uint256 amount) override public returns (bool) {
+    function approve(address delegate, uint amount) override public returns (bool) {
         allowances[msg.sender][delegate] = amount;
         emit Approval(msg.sender, delegate, amount);
         return true;
@@ -144,7 +144,7 @@ contract ERC20Example is IERC20 {
         return allowances[owner][delegate];
     }
 
-    function transferFrom(address owner, address buyer, uint256 amount) override public returns (bool) {
+    function transferFrom(address owner, address buyer, uint amount) override public returns (bool) {
         require(amount <= address_to_uint256.get(balances, owner));
         require(amount <= allowances[owner][msg.sender]);
         address_to_uint256.set(balances, owner, address_to_uint256.get(balances, owner).sub(amount));

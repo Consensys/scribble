@@ -2,23 +2,23 @@
 pragma solidity ^0.6.0;
 
 interface IERC20 {
-    event Transfer(address indexed from, address indexed to, uint256 value);
-    event Approval(address indexed owner, address indexed spender, uint256 value);
+    event Transfer(address indexed from, address indexed to, uint value);
+    event Approval(address indexed owner, address indexed spender, uint value);
 
-    function totalSupply() external view returns (uint256);
-    function balanceOf(address account) external view returns (uint256);
-    function allowance(address owner, address spender) external view returns (uint256);
+    function totalSupply() external view returns (uint);
+    function balanceOf(address account) external view returns (uint);
+    function allowance(address owner, address spender) external view returns (uint);
 
-    function transfer(address recipient, uint256 amount) external returns (bool);
-    function approve(address spender, uint256 amount) external returns (bool);
-    function transferFrom(address sender, address recipient, uint256 amount) external returns (bool);
+    function transfer(address recipient, uint amount) external returns (bool);
+    function approve(address spender, uint amount) external returns (bool);
+    function transferFrom(address sender, address recipient, uint amount) external returns (bool);
 }
 
 /**
  * #macro erc20(balances, allowances);
  */
 contract ERC20Example is IERC20 {
-    using SafeMath for uint256;
+    using SafeMath for uint;
 
     string public constant name = "ERC20Example";
     string public constant symbol = "XMPL";
@@ -27,26 +27,26 @@ contract ERC20Example is IERC20 {
     event Approval(address indexed tokenOwner, address indexed spender, uint tokens);
     event Transfer(address indexed from, address indexed to, uint tokens);
 
-    mapping(address => uint256) balances;
-    mapping(address => mapping (address => uint256)) allowances;
+    mapping(address => uint) balances;
+    mapping(address => mapping (address => uint)) allowances;
 
-    uint256 _totalSupply;
+    uint _totalSupply;
 
-    constructor(uint256 total) public {
+    constructor(uint total) public {
         _totalSupply = total;
 
         balances[msg.sender] = _totalSupply;
     }
 
-    function totalSupply() public override view returns (uint256) {
+    function totalSupply() public override view returns (uint) {
         return _totalSupply;
     }
 
-    function balanceOf(address account) public override view returns (uint256) {
+    function balanceOf(address account) public override view returns (uint) {
         return balances[account];
     }
 
-    function transfer(address receiver, uint256 amount) public override returns (bool) {
+    function transfer(address receiver, uint amount) public override returns (bool) {
         require(amount <= balances[msg.sender]);
 
         balances[msg.sender] = balances[msg.sender].sub(amount);
@@ -57,7 +57,7 @@ contract ERC20Example is IERC20 {
         return true;
     }
 
-    function approve(address delegate, uint256 amount) public override returns (bool) {
+    function approve(address delegate, uint amount) public override returns (bool) {
         allowances[msg.sender][delegate] = amount;
 
         emit Approval(msg.sender, delegate, amount);
@@ -69,7 +69,7 @@ contract ERC20Example is IERC20 {
         return allowances[owner][delegate];
     }
 
-    function transferFrom(address owner, address buyer, uint256 amount) public override returns (bool) {
+    function transferFrom(address owner, address buyer, uint amount) public override returns (bool) {
         require(amount <= balances[owner]);
         require(amount <= allowances[owner][msg.sender]);
 
@@ -84,14 +84,14 @@ contract ERC20Example is IERC20 {
 }
 
 library SafeMath {
-    function sub(uint256 a, uint256 b) internal pure returns (uint256) {
+    function sub(uint a, uint b) internal pure returns (uint) {
         require(b <= a, "Underflow");
 
         return a - b;
     }
 
-    function add(uint256 a, uint256 b) internal pure returns (uint256) {
-        uint256 c = a + b;
+    function add(uint a, uint b) internal pure returns (uint) {
+        uint c = a + b;
 
         require(c >= a, "Overflow");
 

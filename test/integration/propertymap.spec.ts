@@ -1,4 +1,5 @@
 import expect from "expect";
+import fse from "fs-extra";
 import {
     assert,
     ContractDefinition,
@@ -10,12 +11,16 @@ import {
     VariableDeclaration
 } from "solc-typed-ast";
 import { InstrumentationMetaData, searchRecursive } from "../../src/util";
-import { removeProcWd, scribble, toAstUsingCache } from "./utils";
+import { loc2Src, removeProcWd, scrSample, toAstUsingCache } from "./utils";
+import YAML from "yaml";
 
-function findPredicates(inAST: SourceUnit[]): Map<number, Set<string>> {
+function findPredicates(
+    inAST: SourceUnit[],
+    instrMetadata: InstrumentationMetaData
+): Map<number, Set<string>> {
     const res: Map<number, Set<string>> = new Map();
     const rx =
-        /\s*(if_succeeds|if_aborts|invariant|if_updated|if_assigned|assert|try|require)[a-z0-9.[\])_]*\s*({:msg\s*"([^"]*)"\s*})?\s*([^;]*);/g;
+        /\s*(if_succeeds|if_aborts|invariant|if_updated|if_assigned|assert|try|require|macro)[a-z0-9.[\])_]*\s*({:msg\s*"([^"]*)"\s*})?\s*([^;]*);/g;
 
     for (const unit of inAST) {
         const targets: Array<VariableDeclaration | FunctionDefinition | ContractDefinition> =
@@ -47,7 +52,30 @@ function findPredicates(inAST: SourceUnit[]): Map<number, Set<string>> {
             }
         }
 
-        res.set(unit.sourceListIndex, preds);
+        const ind = instrMetadata.originalSourceList.indexOf(unit.sourceEntryKey);
+        assert(ind !== -1, `Missing ${unit.sourceEntryKey} from original sources`);
+        res.set(ind, preds);
+    }
+
+    for (let i = 0; i < instrMetadata.originalSourceList.length; i++) {
+        const fileName = instrMetadata.originalSourceList[i];
+
+        if (!(fileName.endsWith(".yaml") || fileName.endsWith(".yml"))) {
+            continue;
+        }
+
+        const json = YAML.parse(fse.readFileSync(fileName, { encoding: "utf8" }));
+        const macroPreds = new Set<string>();
+
+        for (const macroBody of Object.values<any>(json)) {
+            for (const props of Object.values<any>(macroBody.properties)) {
+                for (const prop of props) {
+                    macroPreds.add(prop.prop);
+                }
+            }
+        }
+
+        res.set(i, macroPreds);
     }
 
     return res;
@@ -94,7 +122,6 @@ describe("Property map test", () => {
     for (const sample of samples) {
         describe(`Sample ${sample}`, () => {
             let inAst: SourceUnit[];
-            let contents: string;
             let outJSON: any;
 
             before(() => {
@@ -105,36 +132,30 @@ describe("Property map test", () => {
                 }
 
                 inAst = result.units;
-                contents = result.files.get(sample) as string;
 
-                let fileName: string;
-
-                const args: string[] = ["--debug-events"];
-
-                if (result.artefact) {
-                    fileName = result.artefact;
-
-                    args.push("--input-mode", "json", "--compiler-version", result.compilerVersion);
-                } else {
-                    fileName = sample;
-                }
-
-                args.push("--output-mode", "json");
-
-                outJSON = JSON.parse(scribble(fileName, ...args));
+                outJSON = JSON.parse(scrSample(sample, "--debug-events", "--output-mode", "json"));
             });
 
             it("All predicates appear in the source map", () => {
-                const preds = findPredicates(inAst);
                 const instrMetadata: InstrumentationMetaData = outJSON.instrumentationMetadata;
+                const preds = findPredicates(inAst, instrMetadata);
 
                 for (const entry of instrMetadata.propertyMap) {
                     expect(entry.filename).toEqual(sample);
 
-                    const [start, len, fileInd] = getSrcTripple(entry.propertySource);
+                    const [start, len, fileInd] = getSrcTripple(loc2Src(entry.propertySource));
 
                     // All the test samples have a single file
-                    expect(fileInd).toEqual(0);
+                    expect(fileInd).toBeLessThan(instrMetadata.originalSourceList.length);
+                    const fileName = instrMetadata.originalSourceList[fileInd];
+
+                    // Skip instantiated macros as they won't match exactly with the
+                    // original due to variable renaming
+                    if (fileName.endsWith(".yaml") || fileName.endsWith(".yml")) {
+                        continue;
+                    }
+
+                    const contents = fse.readFileSync(fileName, { encoding: "utf8" });
 
                     let extracted = contents.slice(start, start + len).trim();
 
@@ -161,12 +182,14 @@ describe("Property map test", () => {
                 const instrMetadata: InstrumentationMetaData = outJSON.instrumentationMetadata;
 
                 for (const propMD of instrMetadata.propertyMap) {
-                    const [propStart, propLen, propFileInd] = getSrcTripple(propMD.propertySource);
+                    const [propStart, propLen, propFileInd] = getSrcTripple(
+                        loc2Src(propMD.propertySource)
+                    );
 
                     for (const [srcLocs] of propMD.debugEventEncoding) {
                         // Check all srcLocs lie inside the annotation
                         for (const srcLoc of srcLocs) {
-                            const [srcStart, srcLen, srcFileInd] = getSrcTripple(srcLoc);
+                            const [srcStart, srcLen, srcFileInd] = getSrcTripple(loc2Src(srcLoc));
                             expect(srcFileInd).toEqual(propFileInd);
                             expect(srcStart >= propStart).toBeTruthy();
                             expect(srcStart + srcLen <= propStart + propLen).toBeTruthy();

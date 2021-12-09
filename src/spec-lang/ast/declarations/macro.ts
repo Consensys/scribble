@@ -1,12 +1,12 @@
 import { SId } from "../identifier";
-import { Range } from "../node";
+import { NodeLocation } from "../node";
 import { AnnotationMD, AnnotationType, SAnnotation } from "./annotation";
 
 export class SMacro extends SAnnotation {
     public readonly name: SId;
     public readonly parameters: SId[];
 
-    constructor(name: SId, params: SId[], md?: AnnotationMD, src?: Range) {
+    constructor(name: SId, params: SId[], md?: AnnotationMD, src?: NodeLocation) {
         super(AnnotationType.Macro, md, src);
 
         this.name = name;

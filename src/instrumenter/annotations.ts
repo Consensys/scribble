@@ -15,8 +15,6 @@ import {
 import { MacroDefinition, parseMacroMethodSignature } from "../macros";
 import {
     AnnotationType,
-    Location,
-    Range,
     SAnnotation,
     SId,
     SMacro,
@@ -25,9 +23,10 @@ import {
     SUserFunctionDefinition
 } from "../spec-lang/ast";
 import { parseAnnotation, SyntaxError as ExprPEGSSyntaxError } from "../spec-lang/expr_parser";
-import { getOr, getScopeUnit, single, zip } from "../util/misc";
-
-const srcLocation = require("src-location");
+import { PPAbleError } from "../util/errors";
+import { makeRange, offsetBy, OffsetRange, Range, rangeToLocRange } from "../util/location";
+import { getOr, getScopeUnit, zip } from "../util/misc";
+import { SourceFile, SourceMap } from "../util/sources";
 
 export type AnnotationFilterOptions = {
     type?: string;
@@ -40,49 +39,12 @@ export type AnnotationExtractionContext = {
     macros: Map<string, MacroDefinition>;
 };
 
-function indexToLocation(contents: string, ind: number): Location {
-    const t = srcLocation.indexToLocation(contents, ind, true);
-
-    return { offset: ind, line: t.line, column: t.column };
-}
-
-export function rangeToLocRange(start: number, length: number, contents: string): Range {
-    return {
-        start: indexToLocation(contents, start),
-        end: indexToLocation(contents, start + length)
-    };
-}
-
-/**
- * Convert a line/column source range into an offset range
- */
-export function rangeToOffsetRange(r: Range): OffsetRange {
-    return [r.start.offset, r.end.offset - r.start.offset];
-}
-
-/**
- * Convert a line/column source range into an offset range
- */
-export function rangeToSrcTriple(r: Range, fileInd: number): SrcTriple {
-    return [r.start.offset, r.end.offset - r.start.offset, fileInd];
-}
-
 export type AnnotationTarget =
     | ContractDefinition
     | FunctionDefinition
     | VariableDeclaration
     | Statement
     | StatementWithChildren<any>;
-
-/// File byte range: [start, length]
-export type SrcTriple = [number, number, number];
-
-type OffsetRange = [number, number];
-
-function offsetBy<T extends OffsetRange | SrcTriple>(a: T, b: number | OffsetRange | SrcTriple): T {
-    const off = typeof b === "number" ? b : b[0];
-    return (a.length === 2 ? [a[0] + off, a[1]] : [a[0] + off, a[1], a[2]]) as T;
-}
 
 let numAnnotations = 0;
 
@@ -113,29 +75,15 @@ export class AnnotationMetaData<T extends SAnnotation = SAnnotation> {
     readonly original: string;
     /// UID of this annotation
     readonly id: number;
-
-    /// Location of the whole annotation relative to the start of the file. (includes file index)
-    readonly annotationLoc: SrcTriple;
-
     /// In flat mode we destructively modify SourceUnits and move definitions to a new unit.
     /// Remember the original source file name for the annotation for use in json_output
-    readonly originalFileName: string;
-    /**
-     * The line/column location of the whole annotation (relative to the begining of the file).
-     */
-    readonly annotationFileRange: Range;
-    /// Location of the comment containing the annotation relative to the start of the file
-    readonly commentLoc: OffsetRange;
-    /// Relative offset of the parsed tree to the beginning of the file
-    readonly parseOff: number;
+    readonly originalSourceFile: SourceFile;
 
     constructor(
         raw: StructuredDocumentation,
         target: AnnotationTarget,
-        originalSlice: string,
         parsedAnnot: T,
-        annotationDocstringOff: number,
-        source: string
+        source: SourceFile
     ) {
         this.raw = raw;
         this.target = target;
@@ -145,26 +93,19 @@ export class AnnotationMetaData<T extends SAnnotation = SAnnotation> {
                 ? ""
                 : target.name;
 
-        this.original = parsedAnnot.getSourceFragment(originalSlice);
+        this.original = parsedAnnot.getSourceFragment(source.contents);
         this.id = numAnnotations++;
         this.parsedAnnot = parsedAnnot;
-        const commentSrc = raw.sourceInfo;
-        /// Location of the whole docstring containing the annotation relative to
-        /// the start of the file
-        this.commentLoc = [commentSrc.offset, commentSrc.length];
-        this.parseOff = commentSrc.offset + annotationDocstringOff;
         /// Location of the annotation relative to the start of the file
-        this.annotationLoc = offsetBy(
-            rangeToSrcTriple(parsedAnnot.requiredSrc, commentSrc.sourceIndex),
-            this.parseOff
-        );
-        this.annotationFileRange = rangeToLocRange(
-            this.annotationLoc[0],
-            this.annotationLoc[1],
-            source
-        );
-        const unit = this.target.getClosestParentByType(SourceUnit) as SourceUnit;
-        this.originalFileName = unit.sourceEntryKey;
+        this.originalSourceFile = source;
+    }
+
+    get originalFileName(): string {
+        return this.originalSourceFile.fileName;
+    }
+
+    get annotationFileRange(): Range {
+        return this.parsedAnnot.requiredRange;
     }
 }
 
@@ -173,99 +114,28 @@ export type AnnotationMap = Map<AnnotationTarget, AnnotationMetaData[]>;
 /**
  * Metadata specific to a user function definition.
  */
-export class UserFunctionDefinitionMetaData extends AnnotationMetaData<SUserFunctionDefinition> {
-    /// Location of the body of the function relative to the beginning of the file
-    readonly bodyLoc: OffsetRange;
-    /// Parsed annotation predicate
-    get body(): SNode {
-        return this.parsedAnnot.body;
-    }
-    /**
-     * The line/column location of the predicate (relative to the begining of the file)
-     */
-    readonly bodyFileLoc: Range;
-
-    constructor(
-        raw: StructuredDocumentation,
-        target: AnnotationTarget,
-        originalSlice: string,
-        parsedAnnot: SUserFunctionDefinition,
-        annotationDocstringOff: number,
-        source: string
-    ) {
-        super(raw, target, originalSlice, parsedAnnot, annotationDocstringOff, source);
-        // Location of the predicate relative to the begining of the file
-        this.bodyLoc = offsetBy(rangeToOffsetRange(parsedAnnot.body.requiredSrc), this.parseOff);
-        this.bodyFileLoc = rangeToLocRange(this.bodyLoc[0], this.bodyLoc[1], source);
-    }
-
-    /**
-     * Convert a location relative to the predicate into a file-wide location
-     */
-    bodyOffToFileLoc(arg: OffsetRange, source: string): Range {
-        const fileOff = offsetBy(arg, this.bodyLoc);
-
-        return rangeToLocRange(fileOff[0], fileOff[1], source);
-    }
-}
+export class UserFunctionDefinitionMetaData extends AnnotationMetaData<SUserFunctionDefinition> {}
 
 /**
  * Metadata specific to a property annotation (invariant, if_succeeds)
  */
-export class PropertyMetaData extends AnnotationMetaData<SProperty> {
-    /// Parsed annotation predicate
-    get expression(): SNode {
-        return this.parsedAnnot.expression;
-    }
-
-    /// Location of the expression relative to the start of the file
-    readonly exprLoc: OffsetRange;
-    /**
-     * The line/column location of the predicate (relative to the begining of the file)
-     */
-    predicateFileLoc: Range;
-
-    constructor(
-        raw: StructuredDocumentation,
-        target: AnnotationTarget,
-        originalSlice: string,
-        parsedAnnot: SProperty,
-        annotationDocstringOff: number,
-        source: string
-    ) {
-        super(raw, target, originalSlice, parsedAnnot, annotationDocstringOff, source);
-
-        // Location of the predicate relative to the begining of the file
-        this.exprLoc = offsetBy(
-            rangeToOffsetRange(parsedAnnot.expression.requiredSrc),
-            this.parseOff
-        );
-        this.predicateFileLoc = rangeToLocRange(this.exprLoc[0], this.exprLoc[1], source);
-    }
-
-    /**
-     * Convert a location relative to the predicate into a file-wide location
-     */
-    annotOffToFileLoc(arg: OffsetRange, source: string): Range {
-        const fileOff = offsetBy(arg, this.parseOff);
-
-        return rangeToLocRange(fileOff[0], fileOff[1], source);
-    }
-}
+export class PropertyMetaData extends AnnotationMetaData<SProperty> {}
 
 export class MacroMetaData extends AnnotationMetaData<SMacro> {
     readonly macroDefinition: MacroDefinition;
 
+    get definitionFile(): SourceFile {
+        return this.macroDefinition.source;
+    }
+
     constructor(
         raw: StructuredDocumentation,
         target: AnnotationTarget,
-        originalSlice: string,
         parsedAnnot: SMacro,
-        annotationDocstringOff: number,
-        source: string,
+        source: SourceFile,
         macroDefinition: MacroDefinition
     ) {
-        super(raw, target, originalSlice, parsedAnnot, annotationDocstringOff, source);
+        super(raw, target, parsedAnnot, source);
 
         this.macroDefinition = macroDefinition;
     }
@@ -286,14 +156,6 @@ export class MacroMetaData extends AnnotationMetaData<SMacro> {
         );
 
         return new Map(pairs);
-    }
-}
-
-export class PPAbleError extends Error {
-    readonly range: Range;
-    constructor(msg: string, range: Range) {
-        super(msg);
-        this.range = range;
     }
 }
 
@@ -322,28 +184,34 @@ type RawMetaData = {
 function makeAnnotationFromMatch(
     match: RegExpExecArray,
     meta: RawMetaData,
-    source: string,
+    source: SourceFile,
     ctx: AnnotationExtractionContext
 ): AnnotationMetaData {
-    const slice = meta.text.slice(match.index);
+    let matchIdx = match.index;
+    while (meta.text[matchIdx].match(/[\n\r]/)) matchIdx++;
+
+    const slice = meta.text.slice(matchIdx);
 
     let annotation: SAnnotation;
 
     try {
-        annotation = parseAnnotation(slice, meta.target, ctx.compilerVersion);
+        annotation = parseAnnotation(
+            slice,
+            meta.target,
+            ctx.compilerVersion,
+            source,
+            meta.loc[0] + matchIdx
+        );
     } catch (e) {
         if (e instanceof ExprPEGSSyntaxError) {
             // Compute the syntax error offset relative to the start of the file
             const [errStartOff, errLength] = offsetBy(
-                offsetBy([e.location.start.offset, e.location.end.offset], match.index),
+                offsetBy([e.location.start.offset, e.location.end.offset], matchIdx),
                 meta.loc
             );
 
             const errRange = rangeToLocRange(errStartOff, errLength, source);
-            const original = meta.text.slice(
-                match.index,
-                match.index + errStartOff + errLength + 10
-            );
+            const original = meta.text.slice(matchIdx, matchIdx + errStartOff + errLength + 10);
 
             throw new SyntaxError(e.message, original, errRange, meta.target);
         }
@@ -352,33 +220,20 @@ function makeAnnotationFromMatch(
     }
 
     if (annotation instanceof SProperty) {
-        return new PropertyMetaData(meta.node, meta.target, slice, annotation, match.index, source);
+        return new PropertyMetaData(meta.node, meta.target, annotation, source);
     }
 
     if (annotation instanceof SUserFunctionDefinition) {
-        return new UserFunctionDefinitionMetaData(
-            meta.node,
-            meta.target,
-            slice,
-            annotation,
-            match.index,
-            source
-        );
+        return new UserFunctionDefinitionMetaData(meta.node, meta.target, annotation, source);
     }
 
     if (annotation instanceof SMacro) {
         const macroDef = ctx.macros.get(annotation.name.pp());
 
         if (macroDef) {
-            return new MacroMetaData(
-                meta.node,
-                meta.target,
-                slice,
-                annotation,
-                match.index,
-                source,
-                macroDef
-            );
+            return new MacroMetaData(meta.node, meta.target, annotation, source, macroDef);
+        } else {
+            throw new Error(`Unknown macro ${annotation.name.pp()}`);
         }
     }
 
@@ -490,7 +345,7 @@ function validateAnnotation(target: AnnotationTarget, annotation: AnnotationMeta
 function findAnnotations(
     raw: StructuredDocumentation,
     target: AnnotationTarget,
-    source: string,
+    source: SourceFile,
     ctx: AnnotationExtractionContext
 ): AnnotationMetaData[] {
     const rxType =
@@ -504,7 +359,7 @@ function findAnnotations(
     const meta: RawMetaData = {
         target: target,
         node: raw,
-        text: raw.extractSourceFragment(source),
+        text: raw.extractSourceFragment(source.contents),
         loc: [sourceInfo.offset, sourceInfo.length]
     };
 
@@ -537,7 +392,7 @@ function findAnnotations(
 
 export function extractAnnotations(
     target: AnnotationTarget,
-    sources: Map<string, string>,
+    sources: SourceMap,
     ctx: AnnotationExtractionContext
 ): AnnotationMetaData[] {
     const result: AnnotationMetaData[] = [];
@@ -554,7 +409,7 @@ export function extractAnnotations(
 
     const unit = getScopeUnit(target);
 
-    const source = sources.get(unit.absolutePath) as string;
+    const source = sources.get(unit.absolutePath) as SourceFile;
     const annotations = findAnnotations(raw, target, source, ctx);
 
     result.push(...annotations);
@@ -606,6 +461,8 @@ export function gatherContractAnnotations(
     return result;
 }
 
+export class MacroError extends AnnotationError {}
+
 /**
  * Detects macro annotations, produces annotations that are defined by macro
  * and injects them target nodes. Macro annotations are removed afterwards.
@@ -644,23 +501,21 @@ function processMacroAnnotations(
                 }
 
                 const localAliases = new Map(globalAliases);
-                const walker = (node: SNode) => {
-                    if (node instanceof SId) {
-                        const actualName = localAliases.get(node.name);
-
-                        if (actualName !== undefined) {
-                            node.name = actualName;
-                        }
-                    }
-                };
 
                 const targets = [...resolveAny(name, scope, ctx.compilerVersion, true)];
-                const target = single(
-                    targets,
-                    'Unable to pick single target entity for name "{0}" in scope of {1}',
-                    name,
-                    scope
-                );
+
+                if (targets.length !== 1) {
+                    throw new MacroError(
+                        `No target ${name} found in contract ${
+                            (scope as ContractDefinition).name
+                        } for ${meta.original}`,
+                        meta.original,
+                        meta.parsedAnnot.src as Range,
+                        meta.target
+                    );
+                }
+
+                const target = targets[0];
 
                 if (target instanceof FunctionDefinition && args.length > 0) {
                     const params = target.vParameters.vParameters;
@@ -693,14 +548,31 @@ function processMacroAnnotations(
                     }
                 }
 
-                for (const { expression, message } of properties) {
+                for (const { expression, message, offset } of properties) {
                     let annotation: SAnnotation;
 
                     try {
-                        annotation = parseAnnotation(expression, target, ctx.compilerVersion);
+                        annotation = parseAnnotation(
+                            expression,
+                            target,
+                            ctx.compilerVersion,
+                            meta.definitionFile,
+                            offset
+                        );
                     } catch (e) {
                         if (e instanceof ExprPEGSSyntaxError) {
-                            throw new SyntaxError(e.message, expression, e.location, target);
+                            throw new SyntaxError(
+                                e.message,
+                                expression,
+                                /// TODO: Remove or fix
+                                makeRange(e.location, {
+                                    file: meta.definitionFile,
+                                    baseOff: 0,
+                                    baseLine: 0,
+                                    baseCol: 0
+                                }),
+                                target
+                            );
                         }
 
                         throw e;
@@ -713,9 +585,33 @@ function processMacroAnnotations(
                     );
 
                     /**
+                     * Callback to
+                     *
+                     * 1) Rename all ids in the macro definition with their
+                     *    corresponding values in the instantiation context.
+                     *    Renaming can be due to variable arguments for the macro,
+                     *    or differing function parameter names
+                     *
+                     * 2) Update the location of each node to reflect both the
+                     *    original macro location as well as the macro
+                     *    instantiation location
+                     */
+                    const walker = (node: SNode) => {
+                        if (node instanceof SId) {
+                            const actualName = localAliases.get(node.name);
+
+                            if (actualName !== undefined) {
+                                node.name = actualName;
+                            }
+                        }
+
+                        node.src = [node.src as Range, meta.parsedAnnot.src as Range];
+                    };
+
+                    /**
                      * Replace macro aliases with supplied variable names in macro annotation
                      */
-                    annotation.expression.walk(walker);
+                    annotation.walk(walker);
 
                     /**
                      * Use property message in macro definition as a label for injected annotation
@@ -740,10 +636,8 @@ function processMacroAnnotations(
                     const metaToInject = new PropertyMetaData(
                         dummyDoc,
                         target,
-                        dummyDoc.text,
                         annotation,
-                        0,
-                        dummyDoc.text
+                        meta.originalSourceFile
                     );
 
                     validateAnnotation(target, metaToInject);
@@ -783,7 +677,6 @@ function processMacroAnnotations(
     /**
      * @todo list:
      * [TODO]   1. Source locations are needed for property maps.
-     * [TODO]   2. Figure out how to use macro variable types.
      */
 }
 
@@ -797,7 +690,7 @@ function processMacroAnnotations(
  */
 export function buildAnnotationMap(
     units: SourceUnit[],
-    sources: Map<string, string>,
+    sources: SourceMap,
     ctx: AnnotationExtractionContext
 ): AnnotationMap {
     const res: AnnotationMap = new Map();

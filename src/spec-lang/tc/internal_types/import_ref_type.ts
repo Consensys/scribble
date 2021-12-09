@@ -1,5 +1,5 @@
 import { assert, ImportDirective, TypeNode } from "solc-typed-ast";
-import { Range } from "../../ast";
+import { Range } from "../../../util/location";
 
 export class ImportRefType extends TypeNode {
     constructor(public readonly impStatement: ImportDirective, src?: Range) {

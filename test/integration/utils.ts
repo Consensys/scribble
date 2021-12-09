@@ -13,7 +13,7 @@ import {
     Statement,
     XPath
 } from "solc-typed-ast";
-import { AnnotationTarget, single } from "../../src";
+import { AnnotationTarget, getOr, OriginalJSONLoc, single } from "../../src";
 import { SAnnotation, SStateVarProp } from "../../src/spec-lang/ast";
 import { StateVarScope, STypingCtx } from "../../src/spec-lang/tc";
 
@@ -97,6 +97,13 @@ export function toAstUsingCache(fileName: string, content?: string): ExtendedCom
     return { ...result, artefact, units, reader, compilerVersion };
 }
 
+/**
+ * Run scribble as a subprocess and return the resulting JSON as string.
+ *
+ * @param fileName - filename (or list of filenames) to run scribble on
+ * @param args - additional arguments
+ * @returns - JSON as string
+ */
 export function scribble(fileName: string | string[], ...args: string[]): string {
     // Scrub DEBUG_LEVEL and DEBUG_FILTER from subprocess environment.
     const scrubbedEnv = Object.entries(process.env)
@@ -122,6 +129,34 @@ export function scribble(fileName: string | string[], ...args: string[]): string
     }
 
     return result.stdout;
+}
+
+const defaultArgsMap = new Map<string, string[]>([
+    [
+        "test/samples/ownable_macro.sol",
+        ["--macro-path", "test/samples/macros/ownable.scribble.yaml"]
+    ],
+    ["test/samples/erc20_macro.sol", ["--macro-path", "test/samples/macros"]]
+]);
+
+/**
+ * Wrapper around `scribble()` to run on a specific sample in our test suite.
+ * It checks if a JSON artefact exists for this sample, to skip compiling, and adds known default
+ * arguments needed for some samples (e.g. --macro-path for `erc20_macro.sol`)
+ */
+export function scrSample(fileName: string, ...additionalArgs: string[]): string {
+    const artefact = fileName + ".json";
+    const args: string[] = [];
+    args.push(...getOr(defaultArgsMap, fileName, []));
+
+    if (fse.existsSync(fileName + ".json")) {
+        fileName = artefact;
+        const compilerVersion = fse.readJSONSync(artefact).compilerVersion;
+        args.push("--input-mode", "json", "--compiler-version", compilerVersion);
+    }
+
+    args.push(...additionalArgs);
+    return scribble(fileName, ...args);
 }
 
 export type LocationDesc = [string] | [string, string] | [string, string, string];
@@ -258,4 +293,8 @@ export function isomorphic(a: ASTNode, b: ASTNode): boolean {
     }
 
     return true;
+}
+
+export function loc2Src(loc: OriginalJSONLoc): string {
+    return loc instanceof Array ? loc[0] : loc;
 }

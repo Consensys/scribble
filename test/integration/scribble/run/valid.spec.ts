@@ -1,8 +1,8 @@
 import expect from "expect";
 import fse from "fs-extra";
 import { basename } from "path";
-import { searchRecursive } from "../../../../src";
-import { removeProcWd, scribble } from "../../utils";
+import { getOr, searchRecursive } from "../../../../src";
+import { removeProcWd, scrSample } from "../../utils";
 
 describe(`Command "scribble <filename>" is working properly`, () => {
     const samplesDir = "test/samples/";
@@ -15,13 +15,7 @@ describe(`Command "scribble <filename>" is working properly`, () => {
         ["contract_pos.sol", ["--debug-events", "--no-assert"]],
         ["if_assigned_complex.sol", ["--debug-events", "--no-assert"]],
         ["contract_multi_arg_debug.sol", ["--debug-events", "--no-assert"]],
-        ["dbg_event_tests.sol", ["--debug-events", "--no-assert"]],
-
-        /**
-         * Macros
-         */
-        ["ownable_macro.sol", ["--macro-path", "test/samples/macros/ownable.scribble.yaml"]],
-        ["erc20_macro.sol", ["--macro-path", "test/samples/macros"]]
+        ["dbg_event_tests.sol", ["--debug-events", "--no-assert"]]
     ]);
 
     it(`Instrumented source samples are present in ${samplesDir}`, () => {
@@ -35,32 +29,13 @@ describe(`Command "scribble <filename>" is working properly`, () => {
             continue;
         }
 
-        let fileName: string;
+        const args = getOr(argMap, basename(sample), []);
 
-        const artefactFileName = sample + ".json";
-        const args: string[] = [];
-
-        if (fse.existsSync(artefactFileName)) {
-            fileName = artefactFileName;
-
-            const artefact = fse.readJSONSync(artefactFileName);
-
-            args.push("--input-mode", "json", "--compiler-version", artefact.compilerVersion);
-        } else {
-            fileName = sample;
-        }
-
-        const mappedArgs = argMap.get(basename(sample));
-
-        if (mappedArgs) {
-            args.push(...mappedArgs);
-        }
-
-        describe(`scribble ${fileName} ${args.join(" ")}`, () => {
+        describe(`scribble ${sample} ${args.join(" ")}`, () => {
             let output: string;
 
             before(() => {
-                output = scribble(fileName, ...args);
+                output = scrSample(sample, ...args);
             });
 
             it("STDOUT is correct", () => {

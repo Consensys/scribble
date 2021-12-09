@@ -1,5 +1,4 @@
 // Need the ts-nocheck to suppress the noUnusedLocals errors in the generated parser
-// @ts-nocheck
 import bigInt from "big-integer";
 import {
     SId,
@@ -9,19 +8,21 @@ import {
     SHexLiteral,
     SStringLiteral,
     SUnaryOperation,
+    // @ts-ignore
     UnaryOperator,
     SBinaryOperation,
+    // @ts-ignore
     MultiplicativeBinaryOperator,
+    // @ts-ignore
     AdditiveBinaryOperator,
+    // @ts-ignore
     ShiftBinaryOperator,
-    SMemberAccess,
     SIndexAccess,
     SFunctionCall,
     SForAll,
     SConditional,
     SLet,
     SMemberAccess,
-    Range,
     SAddressLiteral,
     SResult,
     SProperty,
@@ -30,7 +31,10 @@ import {
     SAnnotation,
     SIfUpdated,
     SIfAssigned,
-    SMacro
+    SMacro,
+    BinaryOperator,
+    // @ts-ignore
+    RelationalBinaryOperator
 } from "./ast";
 import {
     BoolType,
@@ -45,30 +49,43 @@ import {
     PointerType,
     FunctionType,
     resolveAny,
-    ASTNodeConstructor,
     ASTNode,
     ContractDefinition,
     StructDefinition,
-    EnumDefinition
+    EnumDefinition,
+    FunctionVisibility,
+    FunctionStateMutability,
+    assert,
+    // @ts-ignore
+    DataLocation
 } from "solc-typed-ast"
-import { assert } from "../util/misc";
+import { makeRange, Range } from "../util/location"
+import { SourceFile } from "../util/sources";
 
-function buildBinaryExpression(head: SNode, tail: Array<[string, SNode]>, src?: Range): SNode {
+const srcloc = require("src-location")
+
+export type ParseOptions = {startRule: string, ctx: ASTNode, version: string, file: SourceFile, baseOff: number, baseLine: number, baseCol: number}
+
+function buildBinaryExpression(head: SNode, tail: Array<[string | undefined, BinaryOperator, string | undefined, SNode]>, src?: Range): SNode {
     return tail.reduce((acc, [whiteSp, curOp, whiteSP, curVal]) =>
         new SBinaryOperation(acc, curOp, curVal, src), head);
 }
 
-export function parseAnnotation(str: string, ctx: ASTNode, version: string): SAnnotation {
-    return parse(str, { startRule: "Annotation", ctx, version});
+export function parseAnnotation(str: string, ctx: ASTNode, version: string, file: SourceFile, baseOff: number): SAnnotation {
+    const { line, column } = srcloc.indexToLocation(file.contents, baseOff);
+    // @ts-ignore
+    return parse(str, { startRule: "Annotation", ctx, version, file, baseOff, baseLine: line - 1, baseCol: column});
 }
 
-export function parseExpression(str: string, ctx: ASTNode, version: string): SNode {
-    return parse(str, { startRule: "Expression", ctx, version});
+export function parseExpression(str: string, ctx: ASTNode, version: string, file: SourceFile, baseOff: number): SNode {
+    const { line, column } = srcloc.indexToLocation(file.contents, baseOff);
+    // @ts-ignore
+    return parse(str, { startRule: "Expression", ctx, version, file, baseOff, baseLine: line - 1, baseCol: column});
 }
 
 function makeUserDefinedType(
     name: string,
-    options: { version: string, ctx: ASTNode, [others: string]: any },
+    options: ParseOptions,
     location: any
 ): UserDefinedType {
     const version = options.version;
@@ -94,3 +111,79 @@ function makeUserDefinedType(
 
     return new UserDefinedType(name, def, location);
 }
+
+export function getFunctionAttributes(rawAttrList: string[]): [FunctionVisibility, FunctionStateMutability] {
+    let visibility = FunctionVisibility.Public;
+    let mutability = FunctionStateMutability.NonPayable;
+
+    for (let attr of rawAttrList) {
+        if (
+            attr === FunctionVisibility.External ||
+            attr === FunctionVisibility.Internal ||
+            attr === FunctionVisibility.Private ||
+            attr === FunctionVisibility.Public
+        ) {
+            visibility = attr;
+        } else if (
+            attr === FunctionStateMutability.Constant ||
+            attr === FunctionStateMutability.NonPayable ||
+            attr === FunctionStateMutability.Payable ||
+            attr === FunctionStateMutability.Pure ||
+            attr === FunctionStateMutability.View
+        ) {
+            mutability = attr;
+        } else {
+            assert(false, `Unknown attribute {0}`, attr);
+        }
+    }
+
+    return [visibility, mutability];
+}
+
+// Dummy references to shut up tsc's unused expression warnings
+bigInt; 
+SId;
+SNode;
+SNumber;
+SBooleanLiteral;
+SHexLiteral;
+SStringLiteral;
+SUnaryOperation;
+SBinaryOperation;
+SIndexAccess;
+SFunctionCall;
+SForAll;
+SConditional;
+SLet;
+SMemberAccess;
+SAddressLiteral;
+SResult;
+SProperty;
+AnnotationType;
+SUserFunctionDefinition;
+SAnnotation;
+SIfUpdated;
+SIfAssigned;
+SMacro;
+BoolType;
+AddressType;
+IntType;
+FixedBytesType;
+BytesType;
+StringType;
+UserDefinedType;
+ArrayType;
+MappingType;
+PointerType;
+FunctionType;
+resolveAny;
+ASTNode;
+ContractDefinition;
+StructDefinition;
+EnumDefinition;
+FunctionVisibility;
+FunctionStateMutability;
+assert;
+makeRange;
+buildBinaryExpression;
+makeUserDefinedType;

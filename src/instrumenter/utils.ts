@@ -35,8 +35,9 @@ import {
     UserDefinedType,
     VariableDeclaration
 } from "solc-typed-ast";
-import { getFQName, single, transpileType } from "..";
+import { getFQName, single } from "../util/misc";
 import { InstrumentationContext } from "./instrumentation_context";
+import { transpileType } from "./transpile";
 
 export function needsLocation(type: TypeNode): boolean {
     return (

@@ -34,7 +34,6 @@ import {
     UserDefinedType,
     VariableDeclaration
 } from "solc-typed-ast";
-import { AnnotationMetaData, PropertyMetaData, single, UserFunctionDefinitionMetaData } from "..";
 import {
     AnnotationType,
     BuiltinFunctions,
@@ -65,6 +64,12 @@ import {
     unwrapOld
 } from "../spec-lang/tc";
 import { FunctionSetType, ImportRefType } from "../spec-lang/tc/internal_types";
+import { single } from "../util/misc";
+import {
+    AnnotationMetaData,
+    PropertyMetaData,
+    UserFunctionDefinitionMetaData
+} from "./annotations";
 import { TranspilingContext } from "./transpiling_context";
 
 /**
@@ -623,6 +628,12 @@ function transpileFunctionCall(expr: SFunctionCall, ctx: TranspilingContext): Ex
         }
     } else {
         // Normal function call
+        assert(
+            expr.callee instanceof SNode,
+            `Unexpected type node {0} with type {1}`,
+            expr.callee,
+            calleeT
+        );
         callee = transpile(expr.callee, ctx);
 
         if (

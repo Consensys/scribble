@@ -1,5 +1,5 @@
 import { SBooleanLiteral } from "../boolean_literal";
-import { Range, SNode } from "../node";
+import { NodeLocation, SNode } from "../node";
 import { SNumber } from "../number";
 import { SStringLiteral } from "../string_literal";
 
@@ -28,7 +28,7 @@ export abstract class SAnnotation extends SNode {
     label?: string;
     prefix: string | undefined;
 
-    constructor(type: AnnotationType, md?: AnnotationMD, src?: Range) {
+    constructor(type: AnnotationType, md?: AnnotationMD, src?: NodeLocation) {
         super(src);
         this.type = type;
 
