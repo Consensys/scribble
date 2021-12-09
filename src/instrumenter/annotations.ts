@@ -24,9 +24,11 @@ import {
 } from "../spec-lang/ast";
 import { parseAnnotation, SyntaxError as ExprPEGSSyntaxError } from "../spec-lang/expr_parser";
 import { PPAbleError } from "../util/errors";
-import { makeRange, offsetBy, OffsetRange, Range, rangeToLocRange } from "../util/location";
+import { makeRange, Range, rangeToLocRange } from "../util/location";
 import { getOr, getScopeUnit, zip } from "../util/misc";
 import { SourceFile, SourceMap } from "../util/sources";
+
+const srcloc = require("src-location");
 
 export type AnnotationFilterOptions = {
     type?: string;
@@ -178,7 +180,7 @@ type RawMetaData = {
     target: AnnotationTarget;
     node: StructuredDocumentation;
     text: string;
-    loc: OffsetRange;
+    docFileOffset: number;
 };
 
 function makeAnnotationFromMatch(
@@ -200,15 +202,13 @@ function makeAnnotationFromMatch(
             meta.target,
             ctx.compilerVersion,
             source,
-            meta.loc[0] + matchIdx
+            meta.docFileOffset + matchIdx
         );
     } catch (e) {
         if (e instanceof ExprPEGSSyntaxError) {
             // Compute the syntax error offset relative to the start of the file
-            const [errStartOff, errLength] = offsetBy(
-                offsetBy([e.location.start.offset, e.location.end.offset], matchIdx),
-                meta.loc
-            );
+            const errStartOff = e.location.start.offset + meta.docFileOffset + matchIdx;
+            const errLength = e.location.end.offset - e.location.start.offset;
 
             const errRange = rangeToLocRange(errStartOff, errLength, source);
             const original = meta.text.slice(matchIdx, matchIdx + errStartOff + errLength + 10);
@@ -360,7 +360,7 @@ function findAnnotations(
         target: target,
         node: raw,
         text: raw.extractSourceFragment(source.contents),
-        loc: [sourceInfo.offset, sourceInfo.length]
+        docFileOffset: sourceInfo.offset
     };
 
     const result: AnnotationMetaData[] = [];
@@ -561,15 +561,20 @@ function processMacroAnnotations(
                         );
                     } catch (e) {
                         if (e instanceof ExprPEGSSyntaxError) {
+                            const { line, column } = srcloc.indexToLocation(
+                                meta.definitionFile.contents,
+                                offset
+                            );
+
                             throw new SyntaxError(
                                 e.message,
                                 expression,
                                 /// TODO: Remove or fix
                                 makeRange(e.location, {
                                     file: meta.definitionFile,
-                                    baseOff: 0,
-                                    baseLine: 0,
-                                    baseCol: 0
+                                    baseOff: offset,
+                                    baseLine: line - 1,
+                                    baseCol: column
                                 }),
                                 target
                             );
@@ -623,9 +628,6 @@ function processMacroAnnotations(
                      */
                     annotation.prefix = "#";
 
-                    /**
-                     * @todo This is a temporary hack. Need to find a better way to do this.
-                     */
                     const dummyDoc = new StructuredDocumentation(
                         0,
                         "0:0:0",
@@ -673,11 +675,6 @@ function processMacroAnnotations(
             metas.push(...metasToInject);
         }
     }
-
-    /**
-     * @todo list:
-     * [TODO]   1. Source locations are needed for property maps.
-     */
 }
 
 /**

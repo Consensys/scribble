@@ -7,18 +7,8 @@ export type Location = { offset: number; line: number; column: number; file: Sou
 // Range inside a file
 export type Range = { start: Location; end: Location };
 
-/// TODO: Revisit the below two type names, either rename or add more comments
+/// A src tripple as represented in the solidity AST: (start, length, fileIndex)
 export type SrcTriple = [number, number, number];
-
-export type OffsetRange = [number, number];
-
-export function offsetBy<T extends OffsetRange | SrcTriple>(
-    a: T,
-    b: number | OffsetRange | SrcTriple
-): T {
-    const off = typeof b === "number" ? b : b[0];
-    return (a.length === 2 ? [a[0] + off, a[1]] : [a[0] + off, a[1], a[2]]) as T;
-}
 
 type PegsLoc = { offset: number; line: number; column: number };
 type PegsRange = { start: PegsLoc; end: PegsLoc };
@@ -57,11 +47,4 @@ export function rangeToLocRange(start: number, length: number, file: SourceFile)
         start: indexToLocation(file, start),
         end: indexToLocation(file, start + length)
     };
-}
-
-/**
- * Convert a line/column source range into an offset range
- */
-export function rangeToOffsetRange(r: Range): OffsetRange {
-    return [r.start.offset, r.end.offset - r.start.offset];
 }

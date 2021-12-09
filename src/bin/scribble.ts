@@ -753,9 +753,6 @@ if ("version" in options) {
         try {
             annotMap = buildAnnotationMap(mergedUnits, contentsMap, annotExtractionCtx);
         } catch (e) {
-            /**
-             * @todo Need to respect if error occured in macro definition file instead
-             */
             if (
                 e instanceof SyntaxError ||
                 e instanceof UnsupportedByTargetError ||

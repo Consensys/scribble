@@ -97,6 +97,14 @@ describe(`Command "scribble <filename>" is failing as expected`, () => {
         ],
         [
             [
+                "test/samples/invalid/macro.good_fun_arg_type.sol",
+                "--macro-path",
+                "test/samples/invalid/macro.syntax_error1.invalid.yaml"
+            ],
+            /^.*\/macro.syntax_error1.invalid.yaml:6:36 SyntaxError: Expected .* but .* found.*/
+        ],
+        [
+            [
                 "test/samples/hints.sol",
                 "--macro-path",
                 "test/samples/invalid/macro.bad_schema1.invalid.yaml"
