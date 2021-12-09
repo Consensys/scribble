@@ -1,12 +1,12 @@
 import { ExportedSymbol } from "solc-typed-ast";
-import { SNode, Range } from "./node";
+import { NodeLocation, SNode } from "./node";
 
 export class SMemberAccess extends SNode {
     base: SNode;
     member: string;
     public defSite?: ExportedSymbol;
 
-    constructor(base: SNode, member: string, src?: Range) {
+    constructor(base: SNode, member: string, src?: NodeLocation) {
         super(src);
         this.base = base;
         this.member = member;

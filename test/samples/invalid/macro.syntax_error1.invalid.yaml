@@ -1,0 +1,6 @@
+foo:
+    variables:
+    properties:
+        foo(x,y):
+            - msg: "dummy"
+              prop: "#if_succeeds x+ > 0;";

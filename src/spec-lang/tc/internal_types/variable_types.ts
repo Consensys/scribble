@@ -1,4 +1,4 @@
-import { TypeNode } from "solc-typed-ast/dist/types/ast/type";
+import { TypeNode } from "solc-typed-ast";
 
 /**
  * Place-holder type that can match any number of types. Used in the

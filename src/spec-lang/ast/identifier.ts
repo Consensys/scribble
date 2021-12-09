@@ -1,4 +1,4 @@
-import { SNode, Range } from "./node";
+import { NodeLocation, SNode } from "./node";
 import { ImportDirective, VariableDeclaration } from "solc-typed-ast";
 import { SLet, SForAll } from ".";
 import { SUserFunctionDefinition } from "./declarations";
@@ -21,13 +21,14 @@ export type IdDefSite =
     | ImportDirective;
 
 export class SId extends SNode {
-    public readonly name: string;
+    name: string;
+
     /**
      * AST Node corresponding to the definition for this SId. This is set during type-checking
      */
-    public defSite?: IdDefSite;
+    defSite?: IdDefSite;
 
-    constructor(name: string, src?: Range) {
+    constructor(name: string, src?: NodeLocation) {
         super(src);
         this.name = name;
     }

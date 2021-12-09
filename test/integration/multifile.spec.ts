@@ -1,9 +1,16 @@
 import expect from "expect";
 import fse from "fs-extra";
 import { join } from "path";
+import { cwd } from "process";
 import { assert } from "solc-typed-ast";
-import { contains, InstrumentationMetaData, parseSrcTriple } from "../../src/util";
-import { scribble, searchRecursive } from "./utils";
+import {
+    contains,
+    InstrumentationMetaData,
+    OriginalJSONLoc,
+    parseSrcTriple,
+    searchRecursive
+} from "../../src/util";
+import { loc2Src, scribble } from "./utils";
 
 function checkSrc(src: string, fileList: string[], fileContents: Map<string, string>): void {
     const [off, len, fileIdx] = parseSrcTriple(src);
@@ -26,6 +33,19 @@ function checkSrc(src: string, fileList: string[], fileContents: Map<string, str
     );
 }
 
+function checkLoc(
+    loc: OriginalJSONLoc,
+    fileList: string[],
+    fileContents: Map<string, string>
+): void {
+    if (loc instanceof Array) {
+        loc.forEach((src) => checkSrc(src, fileList, fileContents));
+        return;
+    }
+
+    checkSrc(loc, fileList, fileContents);
+}
+
 export function fragment(
     src: string,
     fileList: string[],
@@ -38,31 +58,40 @@ export function fragment(
 }
 
 describe("Multiple-file project instrumentation", () => {
-    const samples: Array<[string, string[], string]> = [
-        ["test/multifile_samples/proj1", ["child1.sol", "child2.sol"], "0.6.11"],
+    const samples: Array<[string, string[], string, string[]]> = [
+        ["test/multifile_samples/proj1", ["child1.sol", "child2.sol"], "0.6.11", []],
         [
             "test/multifile_samples/import_rewrites",
             ["main.sol", "imp1.sol", "imp2.sol", "imp3.sol"],
-            "0.6.11"
+            "0.6.11",
+            []
         ],
-        ["test/multifile_samples/inheritance1", ["C.sol", "D.sol"], "0.6.11"],
+        ["test/multifile_samples/inheritance1", ["C.sol", "D.sol"], "0.6.11", []],
         [
             "test/multifile_samples/reexported_imports",
             ["main.sol", "imp1.sol", "imp2.sol", "imp3.sol"],
-            "0.7.5"
+            "0.7.5",
+            []
         ],
         [
             "test/multifile_samples/reexported_imports_05",
             ["main.sol", "imp1.sol", "imp2.sol", "imp3.sol"],
-            "0.5.0"
+            "0.5.0",
+            []
         ],
-        ["test/multifile_samples/forall_maps", ["child.sol", "base.sol"], "0.8.4"],
-        ["test/multifile_samples/arr_sum", ["main.sol"], "0.8.4"],
-        ["test/multifile_samples/asserts", ["C.sol", "B.sol", "A.sol"], "0.8.7"],
-        ["test/multifile_samples/circular_imports", ["B.sol", "A.sol"], "0.8.7"]
+        ["test/multifile_samples/forall_maps", ["child.sol", "base.sol"], "0.8.4", []],
+        ["test/multifile_samples/arr_sum", ["main.sol"], "0.8.4", []],
+        ["test/multifile_samples/asserts", ["C.sol", "B.sol", "A.sol"], "0.8.7", []],
+        ["test/multifile_samples/circular_imports", ["B.sol", "A.sol"], "0.8.7", []],
+        [
+            "test/multifile_samples/macros",
+            ["base.sol", "child.sol"],
+            "0.8.7",
+            ["--macro-path", "test/multifile_samples/macros"]
+        ]
     ];
 
-    for (const [dirName, solFiles, version] of samples) {
+    for (const [dirName, solFiles, version, additionalArgs] of samples) {
         describe(`Multi-file Sample ${dirName}`, () => {
             const solPaths: string[] = solFiles.map((name) => join(dirName, name));
             let expectedInstrumented: Map<string, string>;
@@ -70,16 +99,17 @@ describe("Multiple-file project instrumentation", () => {
             let expectedInstrMetadata: any;
 
             before(() => {
-                const expectedInstrumentedFiles = searchRecursive(
-                    dirName,
-                    /.+\.sol.instrumented.expected$/
+                const expectedInstrumentedFiles = searchRecursive(dirName, (fileName) =>
+                    fileName.endsWith(".sol.instrumented.expected")
                 );
+
                 expectedInstrumented = new Map(
                     expectedInstrumentedFiles.map((fileName) => [
                         fileName,
                         fse.readFileSync(fileName, "utf-8")
                     ])
                 );
+
                 expectedFlat = fse.readFileSync(`${dirName}/flat.sol.expected`, {
                     encoding: "utf-8"
                 });
@@ -96,7 +126,8 @@ describe("Multiple-file project instrumentation", () => {
                     version,
                     "--debug-events",
                     "--instrumentation-metadata-file",
-                    `${dirName}/instrumentationMetadata.json.expected`
+                    `${dirName}/instrumentationMetadata.json.expected`,
+                    ...additionalArgs
                 );
                 */
 
@@ -105,13 +136,28 @@ describe("Multiple-file project instrumentation", () => {
                     {
                         encoding: "utf-8"
                     }
-                );
+                ) as InstrumentationMetaData;
+
+                // Nit: Macro paths are absolute, so we adjust them here accordingly
+                for (let i = 0; i < expectedInstrMetadata.originalSourceList.length; i++) {
+                    const name = expectedInstrMetadata.originalSourceList[i];
+                    if (name.endsWith(".yaml") || name.endsWith(".yml")) {
+                        expectedInstrMetadata.originalSourceList[i] = join(cwd(), name);
+                    }
+                }
             });
 
             it("Flat mode is correct", () => {
-                const actualFlat = scribble(solPaths, "-o", "--", "--compiler-version", version);
+                const actualFlat = scribble(
+                    solPaths,
+                    "-o",
+                    "--",
+                    "--compiler-version",
+                    version,
+                    ...additionalArgs
+                );
 
-                expect(actualFlat).toEqual(expectedFlat);
+                expect(actualFlat.trim()).toEqual(expectedFlat.trim());
             });
 
             it("Instrumented files are correct", () => {
@@ -121,7 +167,8 @@ describe("Multiple-file project instrumentation", () => {
                     "files",
                     "--quiet",
                     "--compiler-version",
-                    version
+                    version,
+                    ...additionalArgs
                 );
 
                 for (const [fileName, expectedContents] of expectedInstrumented) {
@@ -143,7 +190,8 @@ describe("Multiple-file project instrumentation", () => {
                     "json",
                     "--compiler-version",
                     version,
-                    "--debug-events"
+                    "--debug-events",
+                    ...additionalArgs
                 );
 
                 const actualJson = JSON.parse(actualJsonStr);
@@ -165,7 +213,8 @@ describe("Multiple-file project instrumentation", () => {
                     "--quiet",
                     "--arm",
                     "--compiler-version",
-                    version
+                    version,
+                    ...additionalArgs
                 );
 
                 for (const [fileName, expectedContents] of expectedInstrumented) {
@@ -192,7 +241,8 @@ describe("Multiple-file project instrumentation", () => {
                     "--quiet",
                     "--disarm",
                     "--compiler-version",
-                    version
+                    version,
+                    ...additionalArgs
                 );
 
                 for (const [fileName, expectedContents] of expectedInstrumented) {
@@ -227,7 +277,8 @@ describe("Multiple-file project instrumentation", () => {
                     "--compiler-version",
                     version,
                     "--instrumentation-metadata-file",
-                    "tmp.json"
+                    "tmp.json",
+                    ...additionalArgs
                 );
 
                 const md: InstrumentationMetaData = JSON.parse(
@@ -259,7 +310,7 @@ describe("Multiple-file project instrumentation", () => {
                 // Check source ranges in the instr-to-original map are sane
                 for (const [instrSrc, originalSrc] of md.instrToOriginalMap) {
                     checkSrc(instrSrc, md.instrSourceList, instrFiles);
-                    checkSrc(originalSrc, md.originalSourceList, originalFiles);
+                    checkLoc(originalSrc, md.originalSourceList, originalFiles);
                 }
 
                 // Check general instrumentation source ranges are sane
@@ -269,13 +320,13 @@ describe("Multiple-file project instrumentation", () => {
 
                 // Check src ranges in property map are correct
                 for (const prop of md.propertyMap) {
-                    checkSrc(prop.annotationSource, md.originalSourceList, originalFiles);
-                    checkSrc(prop.propertySource, md.originalSourceList, originalFiles);
+                    checkLoc(prop.annotationSource, md.originalSourceList, originalFiles);
+                    checkLoc(prop.propertySource, md.originalSourceList, originalFiles);
 
                     assert(
                         contains(
-                            parseSrcTriple(prop.annotationSource),
-                            parseSrcTriple(prop.propertySource)
+                            parseSrcTriple(loc2Src(prop.annotationSource)),
+                            parseSrcTriple(loc2Src(prop.propertySource))
                         ),
                         `Annotation src ${prop.annotationSource} doesn't include predicate src ${prop.propertySource} for prop ${prop.id}`
                     );
@@ -286,6 +337,12 @@ describe("Multiple-file project instrumentation", () => {
 
                     for (const src of prop.checkRanges) {
                         checkSrc(src, md.instrSourceList, instrFiles);
+                    }
+
+                    for (const [locs] of prop.debugEventEncoding) {
+                        for (const loc of locs) {
+                            checkLoc(loc, md.instrSourceList, instrFiles);
+                        }
                     }
                 }
             });

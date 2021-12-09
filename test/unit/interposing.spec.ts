@@ -24,12 +24,14 @@ import {
 } from "../../src/instrumenter";
 import { InstrumentationSiteType } from "../../src/instrumenter/transpiling_context";
 import { getScopeOfType } from "../../src/spec-lang/tc";
-import { single } from "../../src/util";
+import { single, SolFile } from "../../src/util";
 import { getTarget, getTypeCtxAndTarget, toAst } from "../integration/utils";
 import { makeInstrumentationCtx } from "./utils";
 
 function print(units: SourceUnit[], contents: string[], version: string): Map<SourceUnit, string> {
-    const contentMap = new Map(units.map((unit, idx) => [unit.absolutePath, contents[idx]]));
+    const contentMap = new Map(
+        units.map((unit, idx) => [unit.absolutePath, new SolFile(unit.absolutePath, contents[idx])])
+    );
     const context = new ASTContext(...units);
     const factory = new ASTNodeFactory(context);
 

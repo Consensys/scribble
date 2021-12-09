@@ -29,15 +29,10 @@ import {
     VariableDeclaration,
     VariableDeclarationStatement
 } from "solc-typed-ast";
-import {
-    getTypeDesc,
-    getTypeLocation,
-    needsLocation,
-    ScribbleFactory,
-    single,
-    transpileType
-} from "..";
+import { single } from "../util/misc";
 import { InstrumentationContext } from "./instrumentation_context";
+import { transpileType } from "./transpile";
+import { getTypeDesc, getTypeLocation, needsLocation, ScribbleFactory } from "./utils";
 
 function makeStruct(
     factory: ScribbleFactory,

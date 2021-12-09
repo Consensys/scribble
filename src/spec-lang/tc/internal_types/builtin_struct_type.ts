@@ -1,4 +1,5 @@
-import { BuiltinType, TypeNode, Range } from "solc-typed-ast";
+import { BuiltinType, TypeNode } from "solc-typed-ast";
+import { Range } from "../../../util/location";
 
 export class BuiltinStructType extends BuiltinType {
     public readonly members: Map<string, TypeNode | [TypeNode, string]>;

@@ -1,13 +1,15 @@
 import expect from "expect";
 import fse from "fs-extra";
-import { removeProcWd, scribble, searchRecursive } from "../../utils";
 import { basename } from "path";
+import { getOr, searchRecursive } from "../../../../src";
+import { removeProcWd, scrSample } from "../../utils";
 
 describe(`Command "scribble <filename>" is working properly`, () => {
     const samplesDir = "test/samples/";
-    const samples = searchRecursive(samplesDir, /(?<=\.instrumented)\.sol$/).map((fileName) =>
-        removeProcWd(fileName)
-    );
+
+    const samples = searchRecursive(samplesDir, (fileName) =>
+        fileName.endsWith(".instrumented.sol")
+    ).map((fileName) => removeProcWd(fileName));
 
     const argMap: Map<string, string[]> = new Map([
         ["contract_pos.sol", ["--debug-events", "--no-assert"]],
@@ -27,32 +29,13 @@ describe(`Command "scribble <filename>" is working properly`, () => {
             continue;
         }
 
-        let fileName: string;
+        const args = getOr(argMap, basename(sample), []);
 
-        const artefactFileName = sample + ".json";
-        const args: string[] = [];
-
-        if (fse.existsSync(artefactFileName)) {
-            fileName = artefactFileName;
-
-            const artefact = fse.readJSONSync(artefactFileName);
-
-            args.push("--input-mode", "json", "--compiler-version", artefact.compilerVersion);
-        } else {
-            fileName = sample;
-        }
-
-        const mappedArgs = argMap.get(basename(sample));
-
-        if (mappedArgs) {
-            args.push(...mappedArgs);
-        }
-
-        describe(`scribble ${fileName} ${args.join(" ")}`, () => {
+        describe(`scribble ${sample} ${args.join(" ")}`, () => {
             let output: string;
 
             before(() => {
-                output = scribble(fileName, ...args);
+                output = scrSample(sample, ...args);
             });
 
             it("STDOUT is correct", () => {

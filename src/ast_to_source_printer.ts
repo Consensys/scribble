@@ -12,6 +12,7 @@ import {
 } from "solc-typed-ast";
 import { ImportDirectiveDesc } from "./rewriter/import_directive_header";
 import { parse as parseImportDirective } from "./rewriter/import_directive_parser";
+import { SourceMap } from "./util/sources";
 
 /**
  * Find an import named `name` imported from source unit `from`. This will
@@ -30,7 +31,7 @@ import { parse as parseImportDirective } from "./rewriter/import_directive_parse
 function findImport(
     name: string,
     from: SourceUnit,
-    sources: Map<string, string>,
+    sources: SourceMap,
     factory: ASTNodeFactory
 ): ExportedSymbol | undefined {
     if (from.vExportedSymbols.has(name)) {
@@ -85,7 +86,7 @@ function findImport(
  */
 export function rewriteImports(
     sourceUnit: SourceUnit,
-    sources: Map<string, string>,
+    sources: SourceMap,
     factory: ASTNodeFactory
 ): void {
     for (const importDir of sourceUnit.vImportDirectives) {
@@ -102,7 +103,7 @@ export function rewriteImports(
 
         assert(source !== undefined, `Missing source for ${sourceUnit.absolutePath}`);
 
-        const importDirSrc = importDir.extractSourceFragment(source);
+        const importDirSrc = importDir.extractSourceFragment(source.contents);
         const importDesc: ImportDirectiveDesc = parseImportDirective(importDirSrc);
 
         assert(

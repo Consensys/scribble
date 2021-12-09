@@ -1,8 +1,10 @@
 import {
+    assert,
     ContractDefinition,
     ContractKind,
     FunctionDefinition,
     resolve,
+    resolveAny,
     SourceUnit,
     Statement,
     StatementWithChildren,
@@ -10,50 +12,34 @@ import {
     TryCatchClause,
     VariableDeclaration
 } from "solc-typed-ast";
+import { MacroDefinition, parseMacroMethodSignature } from "../macros";
 import {
     AnnotationType,
-    Location,
-    Range,
     SAnnotation,
+    SId,
+    SMacro,
     SNode,
     SProperty,
     SUserFunctionDefinition
 } from "../spec-lang/ast";
 import { parseAnnotation, SyntaxError as ExprPEGSSyntaxError } from "../spec-lang/expr_parser";
-import { getOr, getScopeUnit } from "../util/misc";
+import { PPAbleError } from "../util/errors";
+import { makeRange, Range, rangeToLocRange } from "../util/location";
+import { getOr, getScopeUnit, zip } from "../util/misc";
+import { SourceFile, SourceMap } from "../util/sources";
 
-const srcLocation = require("src-location");
+const srcloc = require("src-location");
 
 export type AnnotationFilterOptions = {
     type?: string;
     message?: string;
 };
 
-function indexToLocation(contents: string, ind: number): Location {
-    const t = srcLocation.indexToLocation(contents, ind, true);
-    return { offset: ind, line: t.line, column: t.column };
-}
-
-export function rangeToLocRange(start: number, length: number, contents: string): Range {
-    return {
-        start: indexToLocation(contents, start),
-        end: indexToLocation(contents, start + length)
-    };
-}
-
-/**
- * Convert a line/column source range into an offset range
- */
-export function rangeToOffsetRange(r: Range): OffsetRange {
-    return [r.start.offset, r.end.offset - r.start.offset];
-}
-
-/**
- * Convert a line/column source range into an offset range
- */
-export function rangeToSrcTriple(r: Range, fileInd: number): SrcTriple {
-    return [r.start.offset, r.end.offset - r.start.offset, fileInd];
-}
+export type AnnotationExtractionContext = {
+    filterOptions: AnnotationFilterOptions;
+    compilerVersion: string;
+    macros: Map<string, MacroDefinition>;
+};
 
 export type AnnotationTarget =
     | ContractDefinition
@@ -61,14 +47,6 @@ export type AnnotationTarget =
     | VariableDeclaration
     | Statement
     | StatementWithChildren<any>;
-/// File byte range: [start, length]
-export type SrcTriple = [number, number, number];
-type OffsetRange = [number, number];
-
-function offsetBy<T extends OffsetRange | SrcTriple>(a: T, b: number | OffsetRange | SrcTriple): T {
-    const off = typeof b === "number" ? b : b[0];
-    return (a.length === 2 ? [a[0] + off, a[1]] : [a[0] + off, a[1], a[2]]) as T;
-}
 
 let numAnnotations = 0;
 
@@ -99,29 +77,15 @@ export class AnnotationMetaData<T extends SAnnotation = SAnnotation> {
     readonly original: string;
     /// UID of this annotation
     readonly id: number;
-
-    /// Location of the whole annotation relative to the start of the file. (includes file index)
-    readonly annotationLoc: SrcTriple;
-
     /// In flat mode we destructively modify SourceUnits and move definitions to a new unit.
     /// Remember the original source file name for the annotation for use in json_output
-    readonly originalFileName: string;
-    /**
-     * The line/column location of the whole annotation (relative to the begining of the file).
-     */
-    readonly annotationFileRange: Range;
-    /// Location of the comment containing the annotation relative to the start of the file
-    readonly commentLoc: OffsetRange;
-    /// Relative offset of the parsed tree to the beginning of the file
-    readonly parseOff: number;
+    readonly originalSourceFile: SourceFile;
 
     constructor(
         raw: StructuredDocumentation,
         target: AnnotationTarget,
-        originalSlice: string,
         parsedAnnot: T,
-        annotationDocstringOff: number,
-        source: string
+        source: SourceFile
     ) {
         this.raw = raw;
         this.target = target;
@@ -131,117 +95,69 @@ export class AnnotationMetaData<T extends SAnnotation = SAnnotation> {
                 ? ""
                 : target.name;
 
-        this.original = parsedAnnot.getSourceFragment(originalSlice);
+        this.original = parsedAnnot.getSourceFragment(source.contents);
         this.id = numAnnotations++;
         this.parsedAnnot = parsedAnnot;
-        const commentSrc = raw.sourceInfo;
-        /// Location of the whole docstring containing the annotation relative to
-        /// the start of the file
-        this.commentLoc = [commentSrc.offset, commentSrc.length];
-        this.parseOff = commentSrc.offset + annotationDocstringOff;
         /// Location of the annotation relative to the start of the file
-        this.annotationLoc = offsetBy(
-            rangeToSrcTriple(parsedAnnot.requiredSrc, commentSrc.sourceIndex),
-            this.parseOff
-        );
-        this.annotationFileRange = rangeToLocRange(
-            this.annotationLoc[0],
-            this.annotationLoc[1],
-            source
-        );
-        const unit = this.target.getClosestParentByType(SourceUnit) as SourceUnit;
-        this.originalFileName = unit.sourceEntryKey;
+        this.originalSourceFile = source;
+    }
+
+    get originalFileName(): string {
+        return this.originalSourceFile.fileName;
+    }
+
+    get annotationFileRange(): Range {
+        return this.parsedAnnot.requiredRange;
     }
 }
+
+export type AnnotationMap = Map<AnnotationTarget, AnnotationMetaData[]>;
 
 /**
  * Metadata specific to a user function definition.
  */
-export class UserFunctionDefinitionMetaData extends AnnotationMetaData<SUserFunctionDefinition> {
-    /// Location of the body of the function relative to the beginning of the file
-    readonly bodyLoc: OffsetRange;
-    /// Parsed annotation predicate
-    get body(): SNode {
-        return this.parsedAnnot.body;
-    }
-    /**
-     * The line/column location of the predicate (relative to the begining of the file)
-     */
-    readonly bodyFileLoc: Range;
-
-    constructor(
-        raw: StructuredDocumentation,
-        target: AnnotationTarget,
-        originalSlice: string,
-        parsedAnnot: SUserFunctionDefinition,
-        annotationDocstringOff: number,
-        source: string
-    ) {
-        super(raw, target, originalSlice, parsedAnnot, annotationDocstringOff, source);
-        // Location of the predicate relative to the begining of the file
-        this.bodyLoc = offsetBy(rangeToOffsetRange(parsedAnnot.body.requiredSrc), this.parseOff);
-        this.bodyFileLoc = rangeToLocRange(this.bodyLoc[0], this.bodyLoc[1], source);
-    }
-
-    /**
-     * Convert a location relative to the predicate into a file-wide location
-     */
-    bodyOffToFileLoc(arg: OffsetRange, source: string): Range {
-        const fileOff = offsetBy(arg, this.bodyLoc);
-
-        return rangeToLocRange(fileOff[0], fileOff[1], source);
-    }
-}
+export class UserFunctionDefinitionMetaData extends AnnotationMetaData<SUserFunctionDefinition> {}
 
 /**
  * Metadata specific to a property annotation (invariant, if_succeeds)
  */
-export class PropertyMetaData extends AnnotationMetaData<SProperty> {
-    /// Parsed annotation predicate
-    get expression(): SNode {
-        return this.parsedAnnot.expression;
-    }
+export class PropertyMetaData extends AnnotationMetaData<SProperty> {}
 
-    /// Location of the expression relative to the start of the file
-    readonly exprLoc: OffsetRange;
-    /**
-     * The line/column location of the predicate (relative to the begining of the file)
-     */
-    predicateFileLoc: Range;
+export class MacroMetaData extends AnnotationMetaData<SMacro> {
+    readonly macroDefinition: MacroDefinition;
+
+    get definitionFile(): SourceFile {
+        return this.macroDefinition.source;
+    }
 
     constructor(
         raw: StructuredDocumentation,
         target: AnnotationTarget,
-        originalSlice: string,
-        parsedAnnot: SProperty,
-        annotationDocstringOff: number,
-        source: string
+        parsedAnnot: SMacro,
+        source: SourceFile,
+        macroDefinition: MacroDefinition
     ) {
-        super(raw, target, originalSlice, parsedAnnot, annotationDocstringOff, source);
+        super(raw, target, parsedAnnot, source);
 
-        // Location of the predicate relative to the begining of the file
-        this.exprLoc = offsetBy(
-            rangeToOffsetRange(parsedAnnot.expression.requiredSrc),
-            this.parseOff
-        );
-        this.predicateFileLoc = rangeToLocRange(this.exprLoc[0], this.exprLoc[1], source);
+        this.macroDefinition = macroDefinition;
     }
 
     /**
-     * Convert a location relative to the predicate into a file-wide location
+     * Computes a mapping where "keys" are formal variable names from macro definition
+     * and "values" are actual names from macro annotation on contract.
      */
-    annotOffToFileLoc(arg: OffsetRange, source: string): Range {
-        const fileOff = offsetBy(arg, this.parseOff);
+    getAliasingMap(): Map<string, string> {
+        const formal = Array.from(this.macroDefinition.variables.keys());
+        const actual = this.parsedAnnot.parameters.map((node) => node.name);
+        const pairs = zip(
+            formal,
+            actual,
+            "Macro annotation arguments count {0} mismatches macro definition variables count {1}",
+            actual.length,
+            formal.length
+        );
 
-        return rangeToLocRange(fileOff[0], fileOff[1], source);
-    }
-}
-
-export class PPAbleError extends Error {
-    readonly range: Range;
-    constructor(msg: string, range: Range) {
-        super(msg);
-        this.range = range;
+        return new Map(pairs);
     }
 }
 
@@ -264,245 +180,242 @@ type RawMetaData = {
     target: AnnotationTarget;
     node: StructuredDocumentation;
     text: string;
-    loc: OffsetRange;
+    docFileOffset: number;
 };
 
-class AnnotationExtractor {
-    private version: string;
-    constructor(version: string) {
-        this.version = version;
+function makeAnnotationFromMatch(
+    match: RegExpExecArray,
+    meta: RawMetaData,
+    source: SourceFile,
+    ctx: AnnotationExtractionContext
+): AnnotationMetaData {
+    let matchIdx = match.index;
+    while (meta.text[matchIdx].match(/[\n\r]/)) matchIdx++;
+
+    const slice = meta.text.slice(matchIdx);
+
+    let annotation: SAnnotation;
+
+    try {
+        annotation = parseAnnotation(
+            slice,
+            meta.target,
+            ctx.compilerVersion,
+            source,
+            meta.docFileOffset + matchIdx
+        );
+    } catch (e) {
+        if (e instanceof ExprPEGSSyntaxError) {
+            // Compute the syntax error offset relative to the start of the file
+            const errStartOff = e.location.start.offset + meta.docFileOffset + matchIdx;
+            const errLength = e.location.end.offset - e.location.start.offset;
+
+            const errRange = rangeToLocRange(errStartOff, errLength, source);
+            const original = meta.text.slice(matchIdx, matchIdx + errStartOff + errLength + 10);
+
+            throw new SyntaxError(e.message, original, errRange, meta.target);
+        }
+
+        throw e;
     }
 
-    private makeAnnotationFromMatch(
-        match: RegExpExecArray,
-        meta: RawMetaData,
-        source: string
-    ): AnnotationMetaData {
-        const slice = meta.text.slice(match.index);
-        let parsedAnnot: SAnnotation;
-
-        try {
-            parsedAnnot = parseAnnotation(slice, meta.node, this.version);
-        } catch (e) {
-            if (e instanceof ExprPEGSSyntaxError) {
-                // Compute the syntax error offset relative to the start of the file
-                const [errStartOff, errLength] = offsetBy(
-                    offsetBy([e.location.start.offset, e.location.end.offset], match.index),
-                    meta.loc
-                );
-
-                const errRange = rangeToLocRange(errStartOff, errLength, source);
-                const original = meta.text.slice(
-                    match.index,
-                    match.index + errStartOff + errLength + 10
-                );
-
-                throw new SyntaxError(e.message, original, errRange, meta.target);
-            }
-
-            throw e;
-        }
-
-        if (parsedAnnot instanceof SProperty) {
-            return new PropertyMetaData(
-                meta.node,
-                meta.target,
-                slice,
-                parsedAnnot,
-                match.index,
-                source
-            );
-        }
-
-        if (parsedAnnot instanceof SUserFunctionDefinition) {
-            return new UserFunctionDefinitionMetaData(
-                meta.node,
-                meta.target,
-                slice,
-                parsedAnnot,
-                match.index,
-                source
-            );
-        }
-
-        throw new Error(`NYI annotation ${parsedAnnot.pp()}`);
+    if (annotation instanceof SProperty) {
+        return new PropertyMetaData(meta.node, meta.target, annotation, source);
     }
 
-    /**
-     * Checks the validity of an annotation
-     * @param annotation The annotation to be validated
-     * @param target Target block(contract/function) of the annotation
-     */
-    private validateAnnotation(target: AnnotationTarget, annotation: AnnotationMetaData) {
-        if (target instanceof ContractDefinition) {
-            const contractApplicableTypes = [
-                AnnotationType.Invariant,
-                AnnotationType.Define,
-                AnnotationType.IfSucceeds,
-                AnnotationType.Try,
-                AnnotationType.Require
-            ];
+    if (annotation instanceof SUserFunctionDefinition) {
+        return new UserFunctionDefinitionMetaData(meta.node, meta.target, annotation, source);
+    }
 
-            if (!contractApplicableTypes.includes(annotation.type)) {
-                throw new UnsupportedByTargetError(
-                    `The "${annotation.type}" annotation is not applicable to contracts`,
-                    annotation.original,
-                    annotation.annotationFileRange,
-                    target
-                );
-            }
+    if (annotation instanceof SMacro) {
+        const macroDef = ctx.macros.get(annotation.name.pp());
 
-            // @todo (dimo) add support for user functions on interfaces/libraries and add tests with that
-            if (target.kind === ContractKind.Interface || target.kind === ContractKind.Library) {
-                throw new UnsupportedByTargetError(
-                    `Unsupported contract annotations on ${target.kind} ${target.name}`,
-                    annotation.original,
-                    annotation.annotationFileRange,
-                    target
-                );
-            }
-        } else if (target instanceof FunctionDefinition) {
-            if (
-                annotation.type !== AnnotationType.IfSucceeds &&
-                annotation.type !== AnnotationType.Try &&
-                annotation.type !== AnnotationType.Require
-            ) {
-                throw new UnsupportedByTargetError(
-                    `The "${annotation.type}" annotation is not applicable to functions`,
-                    annotation.original,
-                    annotation.annotationFileRange,
-                    target
-                );
-            }
-
-            if (target.vScope instanceof SourceUnit) {
-                throw new UnsupportedByTargetError(
-                    `Instrumenting free functions is not supported`,
-                    annotation.original,
-                    annotation.annotationFileRange,
-                    target
-                );
-            }
-        } else if (target instanceof Statement || target instanceof StatementWithChildren) {
-            if (
-                annotation.type !== AnnotationType.Assert &&
-                annotation.type !== AnnotationType.Try &&
-                annotation.type !== AnnotationType.Require
-            ) {
-                throw new UnsupportedByTargetError(
-                    `The "${annotation.type}" annotation is not applicable inside functions`,
-                    annotation.original,
-                    annotation.annotationFileRange,
-                    target
-                );
-            }
-
-            if (target instanceof TryCatchClause) {
-                throw new UnsupportedByTargetError(
-                    `The "${annotation.type}" annotation is not applicable to try-catch clauses`,
-                    annotation.original,
-                    annotation.annotationFileRange,
-                    target
-                );
-            }
+        if (macroDef) {
+            return new MacroMetaData(meta.node, meta.target, annotation, source, macroDef);
         } else {
-            if (
-                annotation.type !== AnnotationType.IfUpdated &&
-                annotation.type !== AnnotationType.IfAssigned
-            ) {
-                throw new UnsupportedByTargetError(
-                    `The "${annotation.type}" annotation is not applicable to state variables`,
-                    annotation.original,
-                    annotation.annotationFileRange,
-                    target
-                );
-            }
-
-            if (!(target.vScope instanceof ContractDefinition)) {
-                throw new UnsupportedByTargetError(
-                    `The "${annotation.type}" annotation is only applicable to state variables`,
-                    annotation.original,
-                    annotation.annotationFileRange,
-                    target
-                );
-            }
+            throw new Error(`Unknown macro ${annotation.name.pp()}`);
         }
     }
 
-    private findAnnotations(
-        raw: StructuredDocumentation,
-        target: AnnotationTarget,
-        source: string,
-        filters: AnnotationFilterOptions
-    ): AnnotationMetaData[] {
-        const rxType = filters.type === undefined ? undefined : new RegExp(filters.type);
-        const rxMsg = filters.message === undefined ? undefined : new RegExp(filters.message);
+    throw new Error(`Unknown annotation ${annotation.pp()}`);
+}
 
-        const sourceInfo = raw.sourceInfo;
+/**
+ * Checks the validity of an annotation
+ * @param annotation The annotation to be validated
+ * @param target Target block(contract/function) of the annotation
+ */
+function validateAnnotation(target: AnnotationTarget, annotation: AnnotationMetaData) {
+    if (target instanceof ContractDefinition) {
+        const contractApplicableTypes = [
+            AnnotationType.Invariant,
+            AnnotationType.Define,
+            AnnotationType.IfSucceeds,
+            AnnotationType.Try,
+            AnnotationType.Require,
+            AnnotationType.Macro
+        ];
 
-        const meta: RawMetaData = {
-            target: target,
-            node: raw,
-            text: raw.extractSourceFragment(source),
-            loc: [sourceInfo.offset, sourceInfo.length]
-        };
-
-        const result: AnnotationMetaData[] = [];
-
-        const rx =
-            /\s*(\*|\/\/\/)\s*#?(if_succeeds|if_updated|if_assigned|invariant|assert|try|require|define\s*[a-zA-Z0-9_]*\s*\([^)]*\))/g;
-
-        let match = rx.exec(meta.text);
-
-        while (match !== null) {
-            const annotation = this.makeAnnotationFromMatch(match, meta, source);
-
-            if (
-                (rxType === undefined || rxType.test(annotation.type)) &&
-                (rxMsg === undefined || rxMsg.test(annotation.message))
-            ) {
-                this.validateAnnotation(target, annotation);
-
-                result.push(annotation);
-            }
-
-            rx.lastIndex = match.index + annotation.original.length;
-
-            match = rx.exec(meta.text);
+        if (!contractApplicableTypes.includes(annotation.type)) {
+            throw new UnsupportedByTargetError(
+                `The "${annotation.type}" annotation is not applicable to contracts`,
+                annotation.original,
+                annotation.annotationFileRange,
+                target
+            );
         }
 
-        return result;
-    }
-
-    extract(
-        target: AnnotationTarget,
-        sources: Map<string, string>,
-        filters: AnnotationFilterOptions
-    ): AnnotationMetaData[] {
-        const result: AnnotationMetaData[] = [];
-
-        if (target.documentation === undefined) {
-            return result;
+        // @todo (dimo) add support for user functions on interfaces/libraries and add tests with that
+        if (target.kind === ContractKind.Interface || target.kind === ContractKind.Library) {
+            throw new UnsupportedByTargetError(
+                `Unsupported contract annotations on ${target.kind} ${target.name}`,
+                annotation.original,
+                annotation.annotationFileRange,
+                target
+            );
+        }
+    } else if (target instanceof FunctionDefinition) {
+        if (
+            annotation.type !== AnnotationType.IfSucceeds &&
+            annotation.type !== AnnotationType.Try &&
+            annotation.type !== AnnotationType.Require
+        ) {
+            throw new UnsupportedByTargetError(
+                `The "${annotation.type}" annotation is not applicable to functions`,
+                annotation.original,
+                annotation.annotationFileRange,
+                target
+            );
         }
 
-        const raw = target.documentation;
-
-        if (!(raw instanceof StructuredDocumentation)) {
-            throw new Error(`Expected structured documentation not string`);
+        if (target.vScope instanceof SourceUnit) {
+            throw new UnsupportedByTargetError(
+                `Instrumenting free functions is not supported`,
+                annotation.original,
+                annotation.annotationFileRange,
+                target
+            );
+        }
+    } else if (target instanceof Statement || target instanceof StatementWithChildren) {
+        if (
+            annotation.type !== AnnotationType.Assert &&
+            annotation.type !== AnnotationType.Try &&
+            annotation.type !== AnnotationType.Require
+        ) {
+            throw new UnsupportedByTargetError(
+                `The "${annotation.type}" annotation is not applicable inside functions`,
+                annotation.original,
+                annotation.annotationFileRange,
+                target
+            );
         }
 
-        const unit = getScopeUnit(target);
+        if (target instanceof TryCatchClause) {
+            throw new UnsupportedByTargetError(
+                `The "${annotation.type}" annotation is not applicable to try-catch clauses`,
+                annotation.original,
+                annotation.annotationFileRange,
+                target
+            );
+        }
+    } else {
+        if (
+            annotation.type !== AnnotationType.IfUpdated &&
+            annotation.type !== AnnotationType.IfAssigned
+        ) {
+            throw new UnsupportedByTargetError(
+                `The "${annotation.type}" annotation is not applicable to state variables`,
+                annotation.original,
+                annotation.annotationFileRange,
+                target
+            );
+        }
 
-        const source = sources.get(unit.absolutePath) as string;
-        const annotations = this.findAnnotations(raw, target, source, filters);
-
-        result.push(...annotations);
-
-        return result;
+        if (!(target.vScope instanceof ContractDefinition)) {
+            throw new UnsupportedByTargetError(
+                `The "${annotation.type}" annotation is only applicable to state variables`,
+                annotation.original,
+                annotation.annotationFileRange,
+                target
+            );
+        }
     }
 }
 
-export type AnnotationMap = Map<AnnotationTarget, AnnotationMetaData[]>;
+function findAnnotations(
+    raw: StructuredDocumentation,
+    target: AnnotationTarget,
+    source: SourceFile,
+    ctx: AnnotationExtractionContext
+): AnnotationMetaData[] {
+    const rxType =
+        ctx.filterOptions.type === undefined ? undefined : new RegExp(ctx.filterOptions.type);
+
+    const rxMsg =
+        ctx.filterOptions.message === undefined ? undefined : new RegExp(ctx.filterOptions.message);
+
+    const sourceInfo = raw.sourceInfo;
+
+    const meta: RawMetaData = {
+        target: target,
+        node: raw,
+        text: raw.extractSourceFragment(source.contents),
+        docFileOffset: sourceInfo.offset
+    };
+
+    const result: AnnotationMetaData[] = [];
+
+    const rx =
+        /\s*(\*|\/\/\/)\s*#?(if_succeeds|if_updated|if_assigned|invariant|assert|try|require|((macro|define)\s*[a-zA-Z0-9_]*\s*\([^)]*\)))/g;
+
+    let match = rx.exec(meta.text);
+
+    while (match !== null) {
+        const annotation = makeAnnotationFromMatch(match, meta, source, ctx);
+
+        if (
+            (rxType === undefined || rxType.test(annotation.type)) &&
+            (rxMsg === undefined || rxMsg.test(annotation.message))
+        ) {
+            validateAnnotation(target, annotation);
+
+            result.push(annotation);
+        }
+
+        rx.lastIndex = match.index + annotation.original.length;
+
+        match = rx.exec(meta.text);
+    }
+
+    return result;
+}
+
+export function extractAnnotations(
+    target: AnnotationTarget,
+    sources: SourceMap,
+    ctx: AnnotationExtractionContext
+): AnnotationMetaData[] {
+    const result: AnnotationMetaData[] = [];
+
+    if (target.documentation === undefined) {
+        return result;
+    }
+
+    const raw = target.documentation;
+
+    if (!(raw instanceof StructuredDocumentation)) {
+        throw new Error(`Expected structured documentation not string`);
+    }
+
+    const unit = getScopeUnit(target);
+
+    const source = sources.get(unit.absolutePath) as SourceFile;
+    const annotations = findAnnotations(raw, target, source, ctx);
+
+    result.push(...annotations);
+
+    return result;
+}
 
 /**
  * Gather annotations from `fun` and all functions up the inheritance tree
@@ -540,33 +453,250 @@ export function gatherContractAnnotations(
     annotationMap: AnnotationMap
 ): AnnotationMetaData[] {
     const result: AnnotationMetaData[] = [];
+
     for (const base of contract.vLinearizedBaseContracts) {
         result.unshift(...(annotationMap.get(base) as AnnotationMetaData[]));
     }
+
     return result;
+}
+
+export class MacroError extends AnnotationError {}
+
+/**
+ * Detects macro annotations, produces annotations that are defined by macro
+ * and injects them target nodes. Macro annotations are removed afterwards.
+ */
+function processMacroAnnotations(
+    annotationMap: AnnotationMap,
+    ctx: AnnotationExtractionContext
+): void {
+    const injections: AnnotationMap = new Map();
+
+    for (const [scope, metas] of annotationMap) {
+        for (let m = 0; m < metas.length; m++) {
+            const meta = metas[m];
+
+            if (!(meta instanceof MacroMetaData)) {
+                continue;
+            }
+
+            const globalAliases = meta.getAliasingMap();
+
+            for (const [signature, properties] of meta.macroDefinition.properties) {
+                let name: string;
+                let args: string[];
+
+                if (signature.includes("(")) {
+                    /**
+                     * Signature with method
+                     */
+                    [name, args] = parseMacroMethodSignature(signature);
+                } else {
+                    /**
+                     * Signature with variable
+                     */
+                    name = getOr(globalAliases, signature, signature);
+                    args = [];
+                }
+
+                const localAliases = new Map(globalAliases);
+
+                const targets = [...resolveAny(name, scope, ctx.compilerVersion, true)];
+
+                if (targets.length !== 1) {
+                    throw new MacroError(
+                        `No target ${name} found in contract ${
+                            (scope as ContractDefinition).name
+                        } for ${meta.original}`,
+                        meta.original,
+                        meta.parsedAnnot.src as Range,
+                        meta.target
+                    );
+                }
+
+                const target = targets[0];
+
+                if (target instanceof FunctionDefinition && args.length > 0) {
+                    const params = target.vParameters.vParameters;
+                    const pairs = zip(
+                        args,
+                        params,
+                        `{0}: arguments count {1} in macro definition mismatches method arguments count {2}`,
+                        signature,
+                        args.length,
+                        params.length
+                    );
+
+                    for (const [formalParam, actualParam] of pairs) {
+                        if (formalParam !== "") {
+                            /**
+                             * Note that it is allowed for global aliases to be SHADOWED by local aliases.
+                             * Other solution would require to throw an error in case of name clashing, i.e.:
+                             *
+                             * ```
+                             * assert(
+                             *     !localAliases.has(formalParam),
+                             *     "{0}: shadowing of globally defined alias {1}",
+                             *     signature,
+                             *     formalParam
+                             * );
+                             * ```
+                             */
+                            localAliases.set(formalParam, actualParam.name);
+                        }
+                    }
+                }
+
+                for (const { expression, message, offset } of properties) {
+                    let annotation: SAnnotation;
+
+                    try {
+                        annotation = parseAnnotation(
+                            expression,
+                            target,
+                            ctx.compilerVersion,
+                            meta.definitionFile,
+                            offset
+                        );
+                    } catch (e) {
+                        if (e instanceof ExprPEGSSyntaxError) {
+                            const { line, column } = srcloc.indexToLocation(
+                                meta.definitionFile.contents,
+                                offset
+                            );
+
+                            throw new SyntaxError(
+                                e.message,
+                                expression,
+                                /// TODO: Remove or fix
+                                makeRange(e.location, {
+                                    file: meta.definitionFile,
+                                    baseOff: offset,
+                                    baseLine: line - 1,
+                                    baseCol: column
+                                }),
+                                target
+                            );
+                        }
+
+                        throw e;
+                    }
+
+                    assert(
+                        annotation instanceof SProperty,
+                        "Only properties are allowed to be defined in macros. Unsupported annotation: {0}",
+                        expression
+                    );
+
+                    /**
+                     * Callback to
+                     *
+                     * 1) Rename all ids in the macro definition with their
+                     *    corresponding values in the instantiation context.
+                     *    Renaming can be due to variable arguments for the macro,
+                     *    or differing function parameter names
+                     *
+                     * 2) Update the location of each node to reflect both the
+                     *    original macro location as well as the macro
+                     *    instantiation location
+                     */
+                    const walker = (node: SNode) => {
+                        if (node instanceof SId) {
+                            const actualName = localAliases.get(node.name);
+
+                            if (actualName !== undefined) {
+                                node.name = actualName;
+                            }
+                        }
+
+                        node.src = [node.src as Range, meta.parsedAnnot.src as Range];
+                    };
+
+                    /**
+                     * Replace macro aliases with supplied variable names in macro annotation
+                     */
+                    annotation.walk(walker);
+
+                    /**
+                     * Use property message in macro definition as a label for injected annotation
+                     */
+                    annotation.label = message;
+
+                    /**
+                     * Set prefix to "#" to avoid deprecation notices
+                     */
+                    annotation.prefix = "#";
+
+                    const dummyDoc = new StructuredDocumentation(
+                        0,
+                        "0:0:0",
+                        "StructuredDocumentation",
+                        annotation.prefix + annotation.pp()
+                    );
+
+                    const metaToInject = new PropertyMetaData(
+                        dummyDoc,
+                        target,
+                        annotation,
+                        meta.originalSourceFile
+                    );
+
+                    validateAnnotation(target, metaToInject);
+
+                    const metasToInject = injections.get(target);
+
+                    if (metasToInject === undefined) {
+                        injections.set(target, [metaToInject]);
+                    } else {
+                        metasToInject.push(metaToInject);
+                    }
+                }
+            }
+
+            /**
+             * Remove macro annotation as it will not pass type-checking.
+             * It is now represented by other annotations in `injections`,
+             * so there is no further use for macro annotation itself.
+             */
+            metas.splice(m, 1);
+        }
+    }
+
+    /**
+     * Merge injected annotations with original annotations.
+     */
+    for (const [target, metasToInject] of injections) {
+        const metas = annotationMap.get(target);
+
+        if (metas === undefined) {
+            annotationMap.set(target, metasToInject);
+        } else {
+            metas.push(...metasToInject);
+        }
+    }
 }
 
 /**
  * Find all annotations in the list of `SourceUnit`s `units` and combine them in a
  * map from ASTNode to its annotations. Return the resulting map.
  *
- * @param units - list of `SourceUnits`
- * @param sources - mapping from file-names to their contents. Used during annotation extraction
- * @param filters - any user provided filters for which annotations to consider
+ * @param units - List of `SourceUnit`s.
+ * @param sources - Mapping from file names to their contents. Used during annotation extraction.
+ * @param ctx - Annotation context to consider while processing annotations.
  */
 export function buildAnnotationMap(
     units: SourceUnit[],
-    sources: Map<string, string>,
-    filters: AnnotationFilterOptions,
-    version: string
+    sources: SourceMap,
+    ctx: AnnotationExtractionContext
 ): AnnotationMap {
     const res: AnnotationMap = new Map();
-    const extractor = new AnnotationExtractor(version);
 
     for (const unit of units) {
         // Check no annotations on free functions
         for (const freeFun of unit.vFunctions) {
-            const annots = extractor.extract(freeFun, sources, filters);
+            const annots = extractAnnotations(freeFun, sources, ctx);
+
             if (annots.length !== 0) {
                 throw new UnsupportedByTargetError(
                     `The "${annots[0].type}" annotation is not applicable to free functions`,
@@ -579,7 +709,8 @@ export function buildAnnotationMap(
 
         // Check no annotations on file-level constants.
         for (const fileLevelConst of unit.vVariables) {
-            const annots = extractor.extract(fileLevelConst, sources, filters);
+            const annots = extractAnnotations(fileLevelConst, sources, ctx);
+
             if (annots.length !== 0) {
                 throw new UnsupportedByTargetError(
                     `The "${annots[0].type}" annotation is not applicable to file-level constants`,
@@ -591,13 +722,14 @@ export function buildAnnotationMap(
         }
 
         for (const contract of unit.vContracts) {
-            res.set(contract, extractor.extract(contract, sources, filters));
+            res.set(contract, extractAnnotations(contract, sources, ctx));
+
             for (const stateVar of contract.vStateVariables) {
-                res.set(stateVar, extractor.extract(stateVar, sources, filters));
+                res.set(stateVar, extractAnnotations(stateVar, sources, ctx));
             }
 
             for (const method of contract.vFunctions) {
-                res.set(method, extractor.extract(method, sources, filters));
+                res.set(method, extractAnnotations(method, sources, ctx));
             }
         }
 
@@ -607,10 +739,12 @@ export function buildAnnotationMap(
         )) {
             res.set(
                 stmt as Statement | StatementWithChildren<any>,
-                extractor.extract(stmt, sources, filters)
+                extractAnnotations(stmt, sources, ctx)
             );
         }
     }
+
+    processMacroAnnotations(res, ctx);
 
     return res;
 }
