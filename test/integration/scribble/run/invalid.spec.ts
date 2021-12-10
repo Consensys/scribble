@@ -141,15 +141,7 @@ describe(`Command "scribble <filename>" is failing as expected`, () => {
                 "--macro-path",
                 "test/samples/macros/ownable.scribble.yaml"
             ],
-            /^.*\/ownable.scribble.yaml:7:31 TypeError: Types of old\(owner\) \(uint256\) and msg.sender \(address payable\) are incompatible.*/
-        ],
-        [
-            [
-                "test/samples/invalid/ownable_macro.bad_var_type.invalid.sol",
-                "--macro-path",
-                "test/samples/macros/ownable.scribble.yaml"
-            ],
-            /^.*\/ownable.scribble.yaml:7:31 TypeError: Types of old\(owner\) \(uint256\) and msg.sender \(address payable\) are incompatible.*/
+            /^.*\/ownable.scribble.yaml:7:32 TypeError: Types of old\(owner\) \(uint256\) and msg.sender \(address payable\) are incompatible.*/
         ],
         [
             [
@@ -166,6 +158,18 @@ describe(`Command "scribble <filename>" is failing as expected`, () => {
                 "test/samples/invalid/macro.sem_error.invalid.yaml"
             ],
             /^.*\/macro.sem_error.invalid.yaml:6:37 TypeError: Nested old\(\) expressions not allowed: old\(x\) is already inside an old\(\).*/
+        ],
+        [
+            ["test/samples/invalid/deprecated_no_hash.warning.sol", "-o", "tmp.sol"],
+            /.*test\/samples\/invalid\/deprecated_no_hash.warning.sol:2:4 Warning: The following looks like an annotation but was ignored due to # missing before first keyword. If it is an annotation please add '#' before first keyword.*/g
+        ],
+        [
+            ["test/samples/invalid/deprecated_whitespace_natspec.warning.sol", "-o", "tmp.sol"],
+            /.*test\/samples\/invalid\/deprecated_whitespace_natspec.warning.sol:2:4 Warning: The following looks like an annotation but was ignored due to garbage before '@custom:scribble' \(see https:\/\/github.com\/ethereum\/solidity\/issues\/12245\).*/g
+        ],
+        [
+            ["test/samples/invalid/garbage_at_start.warning.sol", "-o", "tmp.sol"],
+            /.*test\/samples\/invalid\/garbage_at_start.warning.sol:2:4 Warning: The following looks like an annotation but was ignored due to garbage before first keyword.*/g
         ]
     ];
 
