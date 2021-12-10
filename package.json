@@ -19,7 +19,8 @@
         "logplease": "^1.2.15",
         "semver": "^7.3.5",
         "solc-typed-ast": "~7.0.2",
-        "src-location": "^1.1.0"
+        "src-location": "^1.1.0",
+        "findup-sync": "^5.0.0"
     },
     "scripts": {
         "clean": "rm -rf dist/*",
