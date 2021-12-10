@@ -127,7 +127,8 @@ describe("Multiple-file project instrumentation", () => {
                 //     version,
                 //     "--debug-events",
                 //     "--instrumentation-metadata-file",
-                //     expectedInstrMetadataFileName
+                //     expectedInstrMetadataFileName,
+                //     ...additionalArgs
                 // );
 
                 expectedInstrMetadata = fse.readJSONSync(expectedInstrMetadataFileName, {
