@@ -11,7 +11,6 @@ import {
 import { AbsDatastructurePath, AnnotationMap, AnnotationMetaData, AnnotationTarget } from "../..";
 import { single } from "../../util";
 import {
-    Range,
     SBinaryOperation,
     SBooleanLiteral,
     SConditional,
@@ -32,7 +31,8 @@ import {
     SProperty,
     SUserFunctionDefinition,
     AnnotationType,
-    BuiltinFunctions
+    BuiltinFunctions,
+    NodeLocation
 } from "../ast";
 import { FunctionSetType } from "./internal_types";
 import { TypeEnv } from "./typeenv";
@@ -67,8 +67,8 @@ export class SemError extends Error {
         super(msg);
     }
 
-    loc(): Range {
-        return this.node.src as Range;
+    loc(): NodeLocation {
+        return this.node.src as NodeLocation;
     }
 }
 
@@ -445,6 +445,13 @@ export function scFunctionCall(
     if (calleeT instanceof TypeNameType) {
         return { isOld: ctx.isOld, isConst: allArgsConst, canFail: true };
     }
+
+    assert(
+        expr.callee instanceof SNode,
+        `Unexpected type node {0} with type {1}`,
+        expr.callee,
+        calleeT
+    );
 
     // sc the callee even if we don't use the result, to store its info in semMap
     sc(expr.callee, ctx, typeEnv, semMap);

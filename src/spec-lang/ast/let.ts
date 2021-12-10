@@ -1,4 +1,4 @@
-import { SNode, Range } from "./node";
+import { NodeLocation, SNode } from "./node";
 import { SId } from ".";
 
 export class SLet extends SNode {
@@ -6,7 +6,7 @@ export class SLet extends SNode {
     rhs: SNode;
     in: SNode;
 
-    constructor(lhs: SId[], rhs: SNode, inExp: SNode, src?: Range) {
+    constructor(lhs: SId[], rhs: SNode, inExp: SNode, src?: NodeLocation) {
         super(src);
         this.lhs = lhs;
         this.rhs = rhs;

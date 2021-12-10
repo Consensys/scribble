@@ -24,6 +24,7 @@ import {
     SUserFunctionDefinition
 } from "../../src/spec-lang/ast";
 import { parseAnnotation, parseExpression as parseExpr } from "../../src/spec-lang/expr_parser";
+import { DummySourceFile } from "../../src/util/sources";
 
 describe("Expression Parser Unit Tests", () => {
     const goodSamples: Array<[string, SNode]> = [
@@ -655,7 +656,13 @@ describe("Expression Parser Unit Tests", () => {
     for (const [sample, expectedAST] of goodSamples) {
         describe(`Sample ${sample}`, () => {
             it("Parses correctly", () => {
-                const parsed = parseExpr(sample, undefined as unknown as ASTNode, "0.6.0");
+                const parsed = parseExpr(
+                    sample,
+                    undefined as unknown as ASTNode,
+                    "0.6.0",
+                    new DummySourceFile(),
+                    0
+                );
                 expect(eq(parsed, expectedAST)).toEqual(true);
             });
         });
@@ -664,7 +671,15 @@ describe("Expression Parser Unit Tests", () => {
     for (const sample of badSamples) {
         describe(`Sample ${sample}`, () => {
             it("Fails as expected", () => {
-                expect(parseExpr.bind(parseExpr, sample)).toThrow();
+                expect(() => {
+                    parseExpr(
+                        sample,
+                        undefined as unknown as ASTNode,
+                        "0.6.0",
+                        new DummySourceFile(),
+                        0
+                    );
+                }).toThrow();
             });
         });
     }
@@ -938,7 +953,13 @@ describe("Annotation Parser Unit Tests", () => {
     for (const [sample, expected] of goodSamples) {
         describe(`Sample ${sample}`, () => {
             it("Parses correctly", () => {
-                const parsed = parseAnnotation(sample, undefined as unknown as ASTNode, "0.6.0");
+                const parsed = parseAnnotation(
+                    sample,
+                    undefined as unknown as ASTNode,
+                    "0.6.0",
+                    new DummySourceFile(),
+                    0
+                );
                 Logger.debug(`[${sample}]: Got: ${parsed.pp()} expected: ${expected.pp()}`);
                 expect(eq(parsed, expected)).toEqual(true);
             });
@@ -948,7 +969,15 @@ describe("Annotation Parser Unit Tests", () => {
     for (const sample of badSamples) {
         describe(`Sample ${sample}`, () => {
             it("Fails as expected", () => {
-                expect(parseAnnotation.bind(parseAnnotation, sample)).toThrow();
+                expect(() => {
+                    parseAnnotation(
+                        sample,
+                        undefined as unknown as ASTNode,
+                        "0.6.0",
+                        new DummySourceFile(),
+                        0
+                    );
+                }).toThrow();
             });
         });
     }

@@ -27,26 +27,17 @@ import {
     StatementWithChildren,
     VariableDeclaration
 } from "solc-typed-ast";
-import {
-    AbsDatastructurePath,
-    AnnotationTarget,
-    findStateVarUpdates,
-    generateUtilsContract,
-    instrumentContract,
-    instrumentFunction,
-    instrumentStatement,
-    interposeMap,
-    ScribbleFactory,
-    UnsupportedConstruct
-} from "..";
 import { rewriteImports } from "../ast_to_source_printer";
 import {
+    AnnotationExtractionContext,
     AnnotationFilterOptions,
     AnnotationMap,
     AnnotationMetaData,
+    AnnotationTarget,
     buildAnnotationMap,
     gatherContractAnnotations,
     gatherFunctionAnnotations,
+    MacroError,
     PropertyMetaData,
     SyntaxError,
     UnsupportedByTargetError,
@@ -54,11 +45,22 @@ import {
 } from "../instrumenter/annotations";
 import { getCallGraph } from "../instrumenter/callgraph";
 import { CHA, getCHA } from "../instrumenter/cha";
+import { AbsDatastructurePath, interposeMap } from "../instrumenter/custom_maps";
+import {
+    generateUtilsContract,
+    instrumentContract,
+    instrumentFunction,
+    instrumentStatement,
+    UnsupportedConstruct
+} from "../instrumenter/instrument";
 import { InstrumentationContext } from "../instrumenter/instrumentation_context";
+import { findStateVarUpdates } from "../instrumenter/state_vars";
 import { instrumentStateVars } from "../instrumenter/state_var_instrumenter";
+import { ScribbleFactory } from "../instrumenter/utils";
+import { MacroDefinition, readMacroDefinitions } from "../macros";
 import { flattenUnits } from "../rewriter/flatten";
 import { merge } from "../rewriter/merge";
-import { AnnotationType, Location, Range } from "../spec-lang/ast";
+import { AnnotationType, NodeLocation } from "../spec-lang/ast";
 import { scUnits, SemError, SemMap, STypeError, tcUnits, TypeEnv } from "../spec-lang/tc";
 import {
     buildOutputJSON,
@@ -67,10 +69,16 @@ import {
     flatten,
     generateInstrumentationMetadata,
     getOr,
-    getScopeUnit,
     isChangingState,
-    isExternallyVisible
+    isExternallyVisible,
+    Location,
+    MacroFile,
+    Range,
+    searchRecursive,
+    SolFile,
+    SourceMap
 } from "../util";
+import { YamlSchemaError } from "../util/yaml";
 import cli from "./scribble_cli.json";
 
 const commandLineArgs = require("command-line-args");
@@ -82,25 +90,46 @@ function error(msg: string): never {
     process.exit(1);
 }
 
-function prettyError(
-    type: string,
-    message: string,
-    unit: SourceUnit,
-    location: Range | Location,
-    annotation?: string
-): never {
-    const coords =
-        "line" in location
-            ? `${location.line}:${location.column}`
-            : `${location.start.line}:${location.start.column}`;
+function ppLoc(l: Location): string {
+    return `${l.file.fileName}:${l.line}:${l.column}`;
+}
 
-    const descriptionLines = [`${unit.absolutePath}:${coords} ${type}: ${message}`];
+function ppSrcLine(l: Range | Location): string[] {
+    const startLoc = "start" in l ? l.start : l;
+    const lineStart = startLoc.offset - startLoc.column;
+    let lineEnd = startLoc.file.contents.indexOf("\n", lineStart);
+    lineEnd = lineEnd == -1 ? startLoc.file.contents.length : lineEnd;
 
-    if (annotation !== undefined) {
-        descriptionLines.push("In:", annotation);
+    const marker =
+        " ".repeat(startLoc.column) +
+        ("end" in l ? "^".repeat(l.end.offset - l.start.offset) : "^");
+
+    return [ppLoc(startLoc) + ":", startLoc.file.contents.slice(lineStart, lineEnd), marker];
+}
+
+function prettyError(type: string, message: string, location: NodeLocation | Location): never {
+    let primaryLoc: Location;
+
+    if ("offset" in location) {
+        primaryLoc = location;
+    } else if ("start" in location) {
+        primaryLoc = location.start;
+    } else {
+        primaryLoc = location[0].start;
     }
 
-    error(descriptionLines.join("\n\n"));
+    const descriptionLines = [`${ppLoc(primaryLoc)} ${type}: ${message}`];
+
+    if (location instanceof Array) {
+        descriptionLines.push("In macro:");
+        descriptionLines.push(...ppSrcLine(location[0]));
+        descriptionLines.push("Instantiated from:");
+        descriptionLines.push(...ppSrcLine(location[1]));
+    } else {
+        descriptionLines.push(...ppSrcLine(location));
+    }
+
+    error(descriptionLines.join("\n"));
 }
 
 function printDeprecationNotices(annotMap: AnnotationMap): void {
@@ -232,6 +261,22 @@ function computeContractsNeedingInstr(
     }
 
     return visited;
+}
+
+function detectMacroDefinitions(
+    path: string,
+    defs: Map<string, MacroDefinition>,
+    sources: SourceMap
+): void {
+    const fileNames = searchRecursive(path, (fileName) => fileName.endsWith(".scribble.yaml"));
+
+    for (const fileName of fileNames) {
+        const data = fse.readFileSync(fileName, { encoding: "utf-8" });
+        const macroFile = new MacroFile(fileName, data);
+
+        sources.set(fileName, macroFile);
+        readMacroDefinitions(macroFile, defs);
+    }
 }
 
 function instrumentFiles(
@@ -526,6 +571,17 @@ if ("version" in options) {
         `Error: --output-mode must be either 'flat', 'files' or 'json`
     );
 
+    const instrumentationMarker =
+        "/// This file is auto-generated by Scribble and shouldn't be edited directly.\n" +
+        "/// Use --disarm prior to make any changes.\n";
+
+    const compilerVersionUsedMap: Map<string, string> = new Map();
+    const groupsMap: Map<string, SourceUnit[]> = new Map();
+    const ctxtsMap: Map<string, ASTContext> = new Map();
+    const filesMap: Map<string, Map<string, string>> = new Map();
+    const originalFiles: Set<string> = new Set();
+    const instrumentationFiles: Set<string> = new Set();
+
     let metaDataFile: string;
 
     if (options["instrumentation-metadata-file"] !== undefined) {
@@ -541,13 +597,6 @@ if ("version" in options) {
             );
         }
     }
-
-    const compilerVersionUsedMap: Map<string, string> = new Map();
-    const groupsMap: Map<string, SourceUnit[]> = new Map();
-    const ctxtsMap: Map<string, ASTContext> = new Map();
-    const filesMap: Map<string, Map<string, string>> = new Map();
-    const originalFiles: Set<string> = new Set();
-    const instrumentationFiles: Set<string> = new Set();
 
     /**
      * In disarm mode we don't need to instrument - just replace the instrumented files with the `.original` files
@@ -687,17 +736,29 @@ if ("version" in options) {
         }
     }
 
-    const instrumentationMarker =
-        "/// This file is auto-generated by Scribble and shouldn't be edited directly.\n" +
-        "/// Use --disarm prior to make any changes.\n";
+    /**
+     * Without --disarm we need to instrument and output something.
+     */
+    const contentsMap: SourceMap = new Map();
 
-    // Without --disarm we need to instrument and output something.
+    // First load any macros if `--macro-path` was specified
+    const macros = new Map<string, MacroDefinition>();
+
+    if (options["macro-path"]) {
+        try {
+            detectMacroDefinitions(options["macro-path"], macros, contentsMap);
+        } catch (e) {
+            if (e instanceof YamlSchemaError) {
+                prettyError(e.constructor.name, e.message, e.range);
+            }
+
+            throw e;
+        }
+    }
 
     /**
      * Merge the CHAs and file maps computed for each target
      */
-    const contentsMap: Map<string, string> = new Map();
-
     const groups: SourceUnit[][] = targets.map((target) => groupsMap.get(target) as SourceUnit[]);
 
     const [mergedUnits, mergedCtx] = merge(groups);
@@ -714,7 +775,10 @@ if ("version" in options) {
         for (const unit of units) {
             if (!contentsMap.has(unit.absolutePath)) {
                 if (files.has(unit.sourceEntryKey)) {
-                    contentsMap.set(unit.absolutePath, files.get(unit.sourceEntryKey) as string);
+                    contentsMap.set(
+                        unit.absolutePath,
+                        new SolFile(unit.absolutePath, files.get(unit.sourceEntryKey) as string)
+                    );
                 }
             }
         }
@@ -726,15 +790,23 @@ if ("version" in options) {
     const abiEncoderVersion = getABIEncoderVersion(mergedUnits, compilerVersionUsed);
     const callgraph = getCallGraph(mergedUnits, abiEncoderVersion);
 
+    const annotExtractionCtx: AnnotationExtractionContext = {
+        filterOptions,
+        compilerVersion: compilerVersionUsed,
+        macros
+    };
+
     let annotMap: AnnotationMap;
 
     try {
-        annotMap = buildAnnotationMap(mergedUnits, contentsMap, filterOptions, compilerVersionUsed);
+        annotMap = buildAnnotationMap(mergedUnits, contentsMap, annotExtractionCtx);
     } catch (e) {
-        if (e instanceof SyntaxError || e instanceof UnsupportedByTargetError) {
-            const unit = getScopeUnit(e.target);
-
-            prettyError(e.constructor.name, e.message, unit, e.range.start, e.annotation);
+        if (
+            e instanceof SyntaxError ||
+            e instanceof UnsupportedByTargetError ||
+            e instanceof MacroError
+        ) {
+            prettyError(e.constructor.name, e.message, e.range.start);
         }
 
         throw e;
@@ -744,6 +816,7 @@ if ("version" in options) {
 
     const typeEnv = new TypeEnv(compilerVersionUsed, abiEncoderVersion);
     const semMap: SemMap = new Map();
+
     let interposingQueue: Array<[VariableDeclaration, AbsDatastructurePath]>;
 
     try {
@@ -753,21 +826,7 @@ if ("version" in options) {
         interposingQueue = scUnits(mergedUnits, annotMap, typeEnv, semMap);
     } catch (err: any) {
         if (err instanceof STypeError || err instanceof SemError) {
-            const annotation = err.annotationMetaData;
-            const unit = annotation.target.getClosestParentByType(SourceUnit) as SourceUnit;
-            const source = contentsMap.get(unit.sourceEntryKey) as string;
-            const loc = err.loc();
-            let fileLoc;
-
-            if (annotation instanceof PropertyMetaData) {
-                fileLoc = annotation.annotOffToFileLoc([loc.start.offset, loc.end.offset], source);
-            } else if (annotation instanceof UserFunctionDefinitionMetaData) {
-                fileLoc = annotation.bodyOffToFileLoc([loc.start.offset, loc.end.offset], source);
-            } else {
-                throw new Error(`NYI Annotation MD for ${annotation.parsedAnnot.pp()}`);
-            }
-
-            prettyError("TypeError", err.message, unit, fileLoc, annotation.original);
+            prettyError("TypeError", err.message, err.loc());
         } else {
             error(`Internal error in type-checking: ${err.message}`);
         }
@@ -824,7 +883,7 @@ if ("version" in options) {
         instrumentFiles(instrCtx, annotMap, contractsNeedingInstr);
     } catch (e) {
         if (e instanceof UnsupportedConstruct) {
-            prettyError(e.name, e.message, e.unit, e.range);
+            prettyError(e.name, e.message, e.range);
         }
         throw e;
     }

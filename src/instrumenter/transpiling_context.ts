@@ -19,7 +19,6 @@ import {
     UncheckedBlock,
     VariableDeclaration
 } from "solc-typed-ast";
-import { AnnotationMetaData, ScribbleFactory } from "..";
 import {
     SForAll,
     SId,
@@ -30,9 +29,10 @@ import {
 } from "../spec-lang/ast";
 import { SemMap, StateVarScope, TypeEnv } from "../spec-lang/tc";
 import { last } from "../util";
+import { AnnotationMetaData } from "./annotations";
 import { InstrumentationContext } from "./instrumentation_context";
 import { makeTypeString } from "./type_string";
-import { FactoryMap, StructMap } from "./utils";
+import { FactoryMap, ScribbleFactory, StructMap } from "./utils";
 
 export enum InstrumentationSiteType {
     FunctionAnnotation,

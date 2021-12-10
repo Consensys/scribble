@@ -2,14 +2,14 @@ import expect from "expect";
 import { scribble } from "../../utils";
 
 describe(`Command "scribble <filename>" is failing as expected`, () => {
-    const cases: Array<[string[], RegExp]> = [
+    const cases: Array<[string[], RegExp | string]> = [
         [
             ["test/samples/invalid/missing_terminator_semicolon.invalid.sol"],
             /^test\/samples\/invalid\/missing_terminator_semicolon.invalid.sol:12:8 SyntaxError: Expected (.|\s)+ but (.|\s)+ found/m
         ],
         [
             ["test/samples/invalid/annotation_syntax_error.invalid.sol"],
-            /^test\/samples\/invalid\/annotation_syntax_error.invalid.sol:5:35 SyntaxError: Expected (.|\s)+ but (.|\s)+ found/m
+            /^test\/samples\/invalid\/annotation_syntax_error.invalid.sol:5:35 SyntaxError: Expected .+ but .+ found.*/m
         ],
         [
             ["test/samples/invalid/invariant_on_function.invalid.sol"],
@@ -86,12 +86,83 @@ describe(`Command "scribble <filename>" is failing as expected`, () => {
         [
             ["test/samples/invalid/try.svar.invalid.sol"],
             /^test\/samples\/invalid\/try.svar.invalid.sol:2:9 UnsupportedByTargetError: The "try" annotation is not applicable to state variables/m
+        ],
+        [
+            [
+                "test/samples/hints.sol",
+                "--macro-path",
+                "test/samples/invalid/macro.syntax_error.invalid.yaml"
+            ],
+            /^.*\/macro.syntax_error.invalid.yaml:1:0 YamlSchemaError: Expected map not !@#dqwlkm ""/
+        ],
+        [
+            [
+                "test/samples/invalid/macro.good_fun_arg_type.sol",
+                "--macro-path",
+                "test/samples/invalid/macro.syntax_error1.invalid.yaml"
+            ],
+            /^.*\/macro.syntax_error1.invalid.yaml:6:36 SyntaxError: Expected .* but .* found.*/
+        ],
+        [
+            [
+                "test/samples/hints.sol",
+                "--macro-path",
+                "test/samples/invalid/macro.bad_schema1.invalid.yaml"
+            ],
+            /^.*\/macro.bad_schema1.invalid.yaml:3:16 YamlSchemaError: Expected a scalar string value, not 1/
+        ],
+        [
+            [
+                "test/samples/hints.sol",
+                "--macro-path",
+                "test/samples/invalid/macro.empty.invalid.yaml"
+            ],
+            /^.*\/macro.empty.invalid.yaml:1:0 YamlSchemaError: Unexpected empty yaml file in .*macro.empty.invalid.yaml.*/
+        ],
+        [
+            [
+                "test/samples/invalid/ownable_macro.no_var.invalid.sol",
+                "--macro-path",
+                "test/samples/macros/ownable.scribble.yaml"
+            ],
+            /^.*\/ownable_macro.no_var.invalid.sol:5:4 MacroError: No target owner1 found in contract Ownable for macro ownable\(owner1\).*/
+        ],
+        [
+            [
+                "test/samples/invalid/ownable_macro.bad_var_type.invalid.sol",
+                "--macro-path",
+                "test/samples/macros/ownable.scribble.yaml"
+            ],
+            /^.*\/ownable.scribble.yaml:7:31 TypeError: Types of old\(owner\) \(uint256\) and msg.sender \(address payable\) are incompatible.*/
+        ],
+        [
+            [
+                "test/samples/invalid/ownable_macro.bad_var_type.invalid.sol",
+                "--macro-path",
+                "test/samples/macros/ownable.scribble.yaml"
+            ],
+            /^.*\/ownable.scribble.yaml:7:31 TypeError: Types of old\(owner\) \(uint256\) and msg.sender \(address payable\) are incompatible.*/
+        ],
+        [
+            [
+                "test/samples/invalid/macro.bad_fun_arg_type.invalid.sol",
+                "--macro-path",
+                "test/samples/macros/foo.scribble.yaml"
+            ],
+            /^.*\/foo.scribble.yaml:6:33 TypeError: Types of x \(uint256\) and y \(int8\) are incompatible.*/
+        ],
+        [
+            [
+                "test/samples/invalid/macro.good_fun_arg_type.sol",
+                "--macro-path",
+                "test/samples/invalid/macro.sem_error.invalid.yaml"
+            ],
+            /^.*\/macro.sem_error.invalid.yaml:6:37 TypeError: Nested old\(\) expressions not allowed: old\(x\) is already inside an old\(\).*/
         ]
     ];
 
     for (const [args, message] of cases) {
-        const fileName = args[0];
-        describe(`scribble ${fileName}`, () => {
+        describe(`scribble ${args.join(" ")}`, () => {
             it("STDERR is correct", () => {
                 expect(() => scribble(args)).toThrow(message);
             });

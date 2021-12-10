@@ -1,5 +1,5 @@
 import { assert, TypeNode } from "solc-typed-ast";
-import { Range, SId, SNode } from ".";
+import { NodeLocation, SId, SNode } from ".";
 
 /**
  * The Node that stores the information for ForAll.
@@ -33,7 +33,7 @@ export class SForAll extends SNode {
         start?: SNode,
         end?: SNode,
         container?: SId,
-        src?: Range
+        src?: NodeLocation
     ) {
         super(src);
         this.iteratorType = iteratorType;
