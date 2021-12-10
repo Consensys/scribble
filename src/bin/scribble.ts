@@ -751,16 +751,7 @@ if ("version" in options) {
         let annotMap: AnnotationMap;
 
         try {
-<<<<<<< HEAD
             annotMap = buildAnnotationMap(mergedUnits, contentsMap, annotExtractionCtx);
-=======
-            annotMap = buildAnnotationMap(
-                mergedUnits,
-                contentsMap,
-                filterOptions,
-                compilerVersionUsed
-            );
->>>>>>> aa67811 (Lint)
         } catch (e) {
             if (
                 e instanceof SyntaxError ||

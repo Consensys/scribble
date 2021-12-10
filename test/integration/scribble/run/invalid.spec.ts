@@ -5,7 +5,7 @@ describe(`Command "scribble <filename>" is failing as expected`, () => {
     const cases: Array<[string[], RegExp | string]> = [
         [
             ["test/samples/invalid/missing_terminator_semicolon.invalid.sol"],
-            /^test\/samples\/invalid\/missing_terminator_semicolon.invalid.sol:12:23 SyntaxError: Expected "@custom:scribble" or \[\^@\] but end of input found/m
+            /^test\/samples\/invalid\/missing_terminator_semicolon.invalid.sol:12:8 SyntaxError: Expected .* but .* found/m
         ],
         [
             ["test/samples/invalid/invalid_annotation.invalid.sol"],
@@ -13,7 +13,11 @@ describe(`Command "scribble <filename>" is failing as expected`, () => {
         ],
         [
             ["test/samples/invalid/annotation_syntax_error.invalid.sol"],
-            /^test\/samples\/invalid\/annotation_syntax_error.invalid.sol:7:23 SyntaxError: Expected "@custom:scribble" or \[\^@\] but end of input found/m
+            /^test\/samples\/invalid\/annotation_syntax_error.invalid.sol:5:35 SyntaxError: Expected .* but .* found/m
+        ],
+        [
+            ["test/samples/invalid/type_error.invalid.sol"],
+            /^test\/samples\/invalid\/type_error.invalid.sol:2:38 TypeError: Types of x \(uint256\) and y \(int256\) are incompatible/m
         ],
         [
             ["test/samples/invalid/invariant_on_function.invalid.sol"],
