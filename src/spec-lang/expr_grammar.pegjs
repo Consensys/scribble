@@ -2,6 +2,7 @@
 
 Annotation =
     StartingWhiteSpace
+    comment: ('@custom:scribble' PrimitiveWhiteSpace*)?
     prefix: '#'?
     annotation: (
         Invariant
