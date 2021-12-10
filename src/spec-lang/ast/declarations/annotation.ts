@@ -1,7 +1,8 @@
 import { SBooleanLiteral } from "../boolean_literal";
-import { Range, SNode } from "../node";
+import { NodeLocation, SNode } from "../node";
 import { SNumber } from "../number";
 import { SStringLiteral } from "../string_literal";
+
 export enum AnnotationType {
     IfSucceeds = "if_succeeds",
     IfUpdated = "if_updated",
@@ -10,7 +11,8 @@ export enum AnnotationType {
     Define = "define",
     Assert = "assert",
     Try = "try",
-    Require = "require"
+    Require = "require",
+    Macro = "macro"
 }
 
 export type AnnotationMDExpr = SNumber | SBooleanLiteral | SStringLiteral;
@@ -20,13 +22,13 @@ export type AnnotationMD = { [key: string]: AnnotationMDExpr };
 const knownMDTypes = new Map<string, AnnotationMDExprConstructor<any>>([["msg", SStringLiteral]]);
 
 export abstract class SAnnotation extends SNode {
-    public readonly type: AnnotationType;
-    public readonly md: AnnotationMD;
-    public readonly label?: string;
+    readonly type: AnnotationType;
+    readonly md: AnnotationMD;
 
+    label?: string;
     prefix: string | undefined;
 
-    constructor(type: AnnotationType, md?: AnnotationMD, src?: Range) {
+    constructor(type: AnnotationType, md?: AnnotationMD, src?: NodeLocation) {
         super(src);
         this.type = type;
 

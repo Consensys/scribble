@@ -1,0 +1,6 @@
+macro2:
+    variables:
+    properties:
+        "foo(x, y)":
+            - msg: "dummy"
+              prop: "#if_succeeds x + y > 0;"

@@ -1,6 +1,6 @@
 import { AnnotationType } from ".";
-import { SNode, Range } from "..";
 import { SId } from "../identifier";
+import { NodeLocation, SNode } from "../node";
 import { AnnotationMD } from "./annotation";
 import { SProperty } from "./property";
 
@@ -21,7 +21,7 @@ export class SStateVarProp extends SProperty {
         expression: SNode,
         path: DatastructurePath,
         md?: AnnotationMD,
-        src?: Range
+        src?: NodeLocation
     ) {
         super(annotationType, expression, md, src);
         this.datastructurePath = path;

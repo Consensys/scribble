@@ -1,4 +1,4 @@
-import { SNode, Range } from "./node";
+import { NodeLocation, SNode } from "./node";
 
 export type PowerBinaryOperator = "**";
 export type MultiplicativeBinaryOperator = "*" | "/" | "%";
@@ -26,7 +26,7 @@ export class SBinaryOperation extends SNode {
     public readonly op: BinaryOperator;
     public readonly right: SNode;
 
-    constructor(left: SNode, op: BinaryOperator, right: SNode, src?: Range) {
+    constructor(left: SNode, op: BinaryOperator, right: SNode, src?: NodeLocation) {
         super(src);
         this.left = left;
         this.op = op;

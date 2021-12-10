@@ -9,7 +9,8 @@ import {
     VariableDeclaration
 } from "solc-typed-ast";
 import { ABIEncoderVersion } from "solc-typed-ast/dist/types/abi";
-import { removeProcWd, scribble, searchRecursive, toAst, toAstUsingCache } from "./utils";
+import { searchRecursive } from "../../src";
+import { removeProcWd, scrSample, toAst, toAstUsingCache } from "./utils";
 
 function extractExportSymbols(units: SourceUnit[]): Map<string, ContractDefinition> {
     const result = new Map<string, ContractDefinition>();
@@ -140,9 +141,9 @@ function checkCompatibility(
 
 describe("Interface compatibility test", () => {
     const samplesDir = "test/samples/";
-    const samples = searchRecursive(samplesDir, /(?<=\.instrumented)\.sol$/).map((fileName) =>
-        removeProcWd(fileName).replace(".instrumented.sol", ".sol")
-    );
+    const samples = searchRecursive(samplesDir, (fileName) =>
+        fileName.endsWith(".instrumented.sol")
+    ).map((fileName) => removeProcWd(fileName).replace(".instrumented.sol", ".sol"));
 
     it(`Source samples are present in ${samplesDir}`, () => {
         expect(samples.length).toBeGreaterThan(0);
@@ -150,7 +151,6 @@ describe("Interface compatibility test", () => {
 
     for (const sample of samples) {
         describe(sample, () => {
-            let artefact: string | undefined;
             let compilerVersion: string;
             let inAst: SourceUnit[];
             let encVer: ABIEncoderVersion;
@@ -158,7 +158,6 @@ describe("Interface compatibility test", () => {
             before(() => {
                 const result = toAstUsingCache(sample);
 
-                artefact = result.artefact;
                 compilerVersion = result.compilerVersion;
                 inAst = result.units;
                 encVer = getABIEncoderVersion(inAst, compilerVersion);
@@ -183,41 +182,16 @@ describe("Interface compatibility test", () => {
             };
 
             it("Instrumented source in 'log' mode has compatible external interface", () => {
-                let fileName: string;
-
-                const args: string[] = [];
-
-                if (artefact) {
-                    fileName = artefact;
-
-                    args.push("--input-mode", "json", "--compiler-version", compilerVersion);
-                } else {
-                    fileName = sample;
-                }
-
-                args.push("--debug-events");
-
-                const result = toAst(sample + ".log.sol", scribble(fileName, ...args));
+                const result = toAst(sample + ".log.sol", scrSample(sample, "--debug-events"));
 
                 compareSourceUnits(inAst, result.units);
             });
 
             it("Instrumented source in 'mstore' mode has compatible external interface", () => {
-                let fileName: string;
-
-                const args: string[] = [];
-
-                if (artefact) {
-                    fileName = artefact;
-
-                    args.push("--input-mode", "json", "--compiler-version", compilerVersion);
-                } else {
-                    fileName = sample;
-                }
-
-                args.push("--user-assert-mode", "mstore");
-
-                const result = toAst(sample + ".mstore.sol", scribble(fileName, ...args));
+                const result = toAst(
+                    sample + ".mstore.sol",
+                    scrSample(sample, "--user-assert-mode", "mstore")
+                );
 
                 compareSourceUnits(inAst, result.units);
             });

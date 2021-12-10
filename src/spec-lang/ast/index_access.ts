@@ -1,10 +1,10 @@
-import { SNode, Range } from "./node";
+import { NodeLocation, SNode } from "./node";
 
 export class SIndexAccess extends SNode {
     base: SNode;
     index: SNode;
 
-    constructor(base: SNode, index: SNode, src?: Range) {
+    constructor(base: SNode, index: SNode, src?: NodeLocation) {
         super(src);
         this.base = base;
         this.index = index;

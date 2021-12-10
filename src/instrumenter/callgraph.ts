@@ -6,7 +6,7 @@ import {
     SourceUnit
 } from "solc-typed-ast";
 import { ABIEncoderVersion } from "solc-typed-ast/dist/types/abi";
-import { getOr, single } from "../util";
+import { getOr, single } from "../util/misc";
 
 export type FunSet = Set<FunctionDefinition>;
 export type FunMap = Map<FunctionDefinition, FunSet>;

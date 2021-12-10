@@ -57,7 +57,7 @@ import {
     VariableDeclarationStatement,
     WhileStatement
 } from "solc-typed-ast";
-import { reNumber } from "..";
+import { reNumber } from "../util/json_output";
 import { getOrInit } from "../util/misc";
 
 /**

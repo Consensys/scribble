@@ -1,9 +1,9 @@
-import { SNode, Range } from "./node";
+import { NodeLocation, SNode } from "./node";
 
 export class SHexLiteral extends SNode {
     public readonly val: string;
 
-    constructor(val: string, src?: Range) {
+    constructor(val: string, src?: NodeLocation) {
         super(src);
 
         this.val = val;

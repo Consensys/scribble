@@ -33,20 +33,29 @@ import {
     TypeNode,
     UncheckedBlock
 } from "solc-typed-ast";
-import { ensureStmtInBlock, filterByType, getTypeLocation, transpileAnnotation } from "..";
 import { AnnotationType, SId, SNode } from "../spec-lang/ast";
-import { isChangingState, isExternallyVisible, parseSrcTriple, print, single } from "../util";
+import {
+    filterByType,
+    isChangingState,
+    isExternallyVisible,
+    parseSrcTriple,
+    PPAbleError,
+    print,
+    rangeToLocRange,
+    single,
+    SourceMap
+} from "../util";
 import {
     AnnotationMetaData,
-    PPAbleError,
     PropertyMetaData,
-    rangeToLocRange,
     UserFunctionDefinitionMetaData
 } from "./annotations";
 import { InstrumentationContext } from "./instrumentation_context";
 import { interpose, interposeCall } from "./interpose";
+import { ensureStmtInBlock } from "./state_var_instrumenter";
+import { transpileAnnotation } from "./transpile";
 import { InstrumentationSiteType, TranspilingContext } from "./transpiling_context";
-import { getTypeDesc } from "./utils";
+import { getTypeDesc, getTypeLocation } from "./utils";
 
 export type SBinding = [string | string[], TypeNode, SNode, boolean];
 export type SBindings = SBinding[];
@@ -64,7 +73,7 @@ export class UnsupportedConstruct extends InstrumentationError {
     public readonly unsupportedNode: ASTNode;
     public readonly unit: SourceUnit;
 
-    constructor(msg: string, unsupportedNode: ASTNode, files: Map<string, string>) {
+    constructor(msg: string, unsupportedNode: ASTNode, files: SourceMap) {
         const unit = unsupportedNode.getClosestParentByType(SourceUnit);
 
         assert(unit !== undefined, `No unit for node ${print(unsupportedNode)}`);
@@ -499,7 +508,13 @@ export function insertAnnotations(annotations: PropertyMetaData[], ctx: Transpil
         predicates.push([annotation, transpileAnnotation(annotation, ctx)]);
     }
 
-    const debugInfos = ctx.instrCtx.debugEvents ? getDebugInfo(annotations, ctx) : [];
+    // Note: we don't emit assertion failed debug events in mstore mode, as that
+    // defeats the purpose of mstore mode (to not emit additional events to
+    // preserve interface compatibility)
+    const debugInfos =
+        instrCtx.debugEvents && instrCtx.assertionMode === "log"
+            ? getDebugInfo(annotations, ctx)
+            : [];
 
     const checkStmts: Array<[Statement, boolean]> = predicates.map(([annotation, predicate], i) => {
         const dbgInfo = debugInfos[i];

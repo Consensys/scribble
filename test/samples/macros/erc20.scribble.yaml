@@ -1,0 +1,11 @@
+erc20:
+    variables:
+        balances: mapping (address => uint256)
+        allowances: mapping (address => mapping (address => uint256))
+    properties:
+        totalSupply():
+            - msg: "Result is equal to sum of balances"
+              prop: if_succeeds $result == unchecked_sum(balances);
+        balanceOf(owner):
+            - msg: "Returns the balance of owner in the balances mapping"
+              prop: if_succeeds $result == balances[owner];

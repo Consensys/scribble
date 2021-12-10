@@ -1,12 +1,13 @@
 import expect from "expect";
 import fse from "fs-extra";
-import { makeArtefact, removeProcWd, searchRecursive, toAst } from "./utils";
+import { searchRecursive } from "../../src";
+import { makeArtefact, removeProcWd, toAst } from "./utils";
 
 describe("Artefacts validation", () => {
     const samplesDir = "test/samples/";
-    const samples = searchRecursive(samplesDir, /(?<=\.instrumented)\.sol$/).map((fileName) =>
-        removeProcWd(fileName).replace(".instrumented.sol", ".sol")
-    );
+    const samples = searchRecursive(samplesDir, (fileName) =>
+        fileName.endsWith(".instrumented.sol")
+    ).map((fileName) => removeProcWd(fileName).replace(".instrumented.sol", ".sol"));
 
     it(`Source samples are present in ${samplesDir}`, () => {
         expect(samples.length).toBeGreaterThan(0);
