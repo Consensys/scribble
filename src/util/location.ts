@@ -36,7 +36,7 @@ export function makeRange(rawRange: PegsRange, options: LocOptions): Range {
     };
 }
 
-function indexToLocation(file: SourceFile, ind: number): Location {
+export function indexToLocation(file: SourceFile, ind: number): Location {
     const t = srcLocation.indexToLocation(file.contents, ind, true);
 
     return { offset: ind, line: t.line, column: t.column, file };
@@ -47,4 +47,12 @@ export function rangeToLocRange(start: number, length: number, file: SourceFile)
         start: indexToLocation(file, start),
         end: indexToLocation(file, start + length)
     };
+}
+
+export function ppLoc(l: Location): string {
+    return `${l.file.fileName}:${l.line}:${l.column}`;
+}
+
+export function ppRange(r: Range): string {
+    return `${r.start.file.fileName}:${r.start.line}:${r.start.column}-${r.end.line}-${r.end.column}`;
 }

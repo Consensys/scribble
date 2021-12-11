@@ -5,7 +5,7 @@ erc20:
     properties:
         totalSupply():
             - msg: "Result is equal to sum of balances"
-              prop: if_succeeds $result == unchecked_sum(balances);
+              prop: "#if_succeeds $result == unchecked_sum(balances);"
         balanceOf(owner):
             - msg: "Returns the balance of owner in the balances mapping"
-              prop: if_succeeds $result == balances[owner];
+              prop: "#if_succeeds $result == balances[owner];"

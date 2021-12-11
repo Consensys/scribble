@@ -366,7 +366,7 @@ function findAnnotations(
     const result: AnnotationMetaData[] = [];
 
     const rx =
-        /\s*(\*|\/\/\/)\s*(@custom:scribble)?\s*#?(if_succeeds|if_updated|if_assigned|invariant|assert|try|require|((macro|define)\s*[a-zA-Z0-9_]*\s*\([^)]*\)))/g;
+        /\s*(\*|\/\/\/)\s*(@custom:scribble)?\s*#(if_succeeds|if_updated|if_assigned|invariant|assert|try|require|macro|define)/g;
 
     let match = rx.exec(meta.text);
 
@@ -623,16 +623,11 @@ function processMacroAnnotations(
                      */
                     annotation.label = message;
 
-                    /**
-                     * Set prefix to "#" to avoid deprecation notices
-                     */
-                    annotation.prefix = "#";
-
                     const dummyDoc = new StructuredDocumentation(
                         0,
                         "0:0:0",
                         "StructuredDocumentation",
-                        annotation.prefix + annotation.pp()
+                        "#" + annotation.pp()
                     );
 
                     const metaToInject = new PropertyMetaData(

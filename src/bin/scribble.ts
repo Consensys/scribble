@@ -46,6 +46,7 @@ import {
 import { getCallGraph } from "../instrumenter/callgraph";
 import { CHA, getCHA } from "../instrumenter/cha";
 import { AbsDatastructurePath, interposeMap } from "../instrumenter/custom_maps";
+import { findDeprecatedAnnotations, Warning } from "../instrumenter/deprecated_warnings";
 import {
     generateUtilsContract,
     instrumentContract,
@@ -72,9 +73,11 @@ import {
     isExternallyVisible,
     Location,
     MacroFile,
+    ppLoc,
     Range,
     searchRecursive,
     SolFile,
+    SourceFile,
     SourceMap
 } from "../util";
 import { YamlSchemaError } from "../util/yaml";
@@ -89,21 +92,24 @@ function error(msg: string): never {
     process.exit(1);
 }
 
-function ppLoc(l: Location): string {
-    return `${l.file.fileName}:${l.line}:${l.column}`;
-}
-
-function ppSrcLine(l: Range | Location): string[] {
+/// TODO: Eventually make this support returning multiple lines
+function getSrcLine(l: Range | Location): string {
     const startLoc = "start" in l ? l.start : l;
     const lineStart = startLoc.offset - startLoc.column;
     let lineEnd = startLoc.file.contents.indexOf("\n", lineStart);
     lineEnd = lineEnd == -1 ? startLoc.file.contents.length : lineEnd;
 
+    return startLoc.file.contents.slice(lineStart, lineEnd);
+}
+
+/// TODO: Eventually make this support underlining a range spanning multiple liens
+function ppSrcLine(l: Range | Location): string[] {
+    const startLoc = "start" in l ? l.start : l;
     const marker =
         " ".repeat(startLoc.column) +
         ("end" in l ? "^".repeat(l.end.offset - l.start.offset) : "^");
 
-    return [ppLoc(startLoc) + ":", startLoc.file.contents.slice(lineStart, lineEnd), marker];
+    return [ppLoc(startLoc) + ":", getSrcLine(startLoc), marker];
 }
 
 function prettyError(type: string, message: string, location: NodeLocation | Location): never {
@@ -131,38 +137,9 @@ function prettyError(type: string, message: string, location: NodeLocation | Loc
     error(descriptionLines.join("\n"));
 }
 
-function printDeprecationNotices(annotMap: AnnotationMap): void {
-    const unprefixed: AnnotationMetaData[] = [];
-
-    for (const annotMetas of annotMap.values()) {
-        for (const annotMeta of annotMetas) {
-            if (annotMeta.parsedAnnot.prefix === undefined) {
-                unprefixed.push(annotMeta);
-            }
-        }
-    }
-
-    if (unprefixed.length > 0) {
-        const delimiter = "-".repeat(45);
-        const notice: string[] = [
-            delimiter,
-            '[notice] Annotations without "#" prefix are deprecated:',
-            ""
-        ];
-
-        for (const annotMeta of unprefixed) {
-            const unit = annotMeta.target.root as SourceUnit;
-            const location = annotMeta.annotationFileRange;
-            const coords = `${location.start.line}:${location.start.column}`;
-            const type = annotMeta.type;
-
-            notice.push(`${unit.absolutePath}:${coords} ${type} should be #${type}`);
-        }
-
-        notice.push(delimiter);
-
-        console.warn(notice.join("\n"));
-    }
+function ppWarning(warn: Warning): string[] {
+    const start = "start" in warn.location ? warn.location.start : warn.location;
+    return [`${ppLoc(start)} Warning: ${warn.msg}`, getSrcLine(warn.location)];
 }
 
 function compile(
@@ -764,8 +741,6 @@ if ("version" in options) {
             throw e;
         }
 
-        printDeprecationNotices(annotMap);
-
         const typeEnv = new TypeEnv(compilerVersionUsed, abiEncoderVersion);
         const semMap: SemMap = new Map();
 
@@ -781,6 +756,36 @@ if ("version" in options) {
                 prettyError("TypeError", err.message, err.loc());
             } else {
                 error(`Internal error in type-checking: ${err.message}`);
+            }
+        }
+
+        // If we are not outputting to stdout directly, print a summary of the
+        // found annotations and warnings for things that were ignored but look like annotations
+        if (!((outputMode === "flat" || outputMode === "json") && options.output === "--")) {
+            const filesWithAnnots = new Set<SourceFile>();
+            let nAnnots = 0;
+
+            for (const annots of annotMap.values()) {
+                for (const annot of annots) {
+                    filesWithAnnots.add(annot.originalSourceFile);
+                    nAnnots++;
+                }
+            }
+
+            if (nAnnots === 0) {
+                console.log(`Found ${nAnnots} annotations.`);
+            } else {
+                console.log(
+                    `Found ${nAnnots} annotations in ${filesWithAnnots.size} different files.`
+                );
+            }
+
+            for (const warning of findDeprecatedAnnotations(
+                mergedUnits,
+                contentsMap,
+                compilerVersionUsed
+            )) {
+                console.error(ppWarning(warning).join("\n"));
             }
         }
 
