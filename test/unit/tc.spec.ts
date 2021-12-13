@@ -821,10 +821,10 @@ describe("TypeChecker Annotation Tests", () => {
                  mapping (string => bool) m4;
              }`,
             [
-                ["if_succeeds x > 0;", ["Base", "plus"], undefined, true],
-                ["if_succeeds old(x) + t == x;", ["Base", "plus"], undefined, true],
+                ["#if_succeeds x > 0;", ["Base", "plus"], undefined, true],
+                ["#if_succeeds old(x) + t == x;", ["Base", "plus"], undefined, true],
                 [
-                    "define foo() uint = 1;",
+                    "#define foo() uint = 1;",
                     ["Base"],
                     new FunctionType(
                         undefined,
@@ -836,7 +836,7 @@ describe("TypeChecker Annotation Tests", () => {
                     true
                 ],
                 [
-                    "define foo() uint = x;",
+                    "#define foo() uint = x;",
                     ["Base"],
                     new FunctionType(
                         undefined,
@@ -848,7 +848,7 @@ describe("TypeChecker Annotation Tests", () => {
                     true
                 ],
                 [
-                    "define foo(uint a) uint = x + a;",
+                    "#define foo(uint a) uint = x + a;",
                     ["Base"],
                     new FunctionType(
                         undefined,
@@ -860,7 +860,7 @@ describe("TypeChecker Annotation Tests", () => {
                     true
                 ],
                 [
-                    "define boo(uint a) uint = plus(foo(a));",
+                    "#define boo(uint a) uint = plus(foo(a));",
                     ["Base"],
                     new FunctionType(
                         undefined,
@@ -872,7 +872,7 @@ describe("TypeChecker Annotation Tests", () => {
                     false
                 ],
                 [
-                    "if_succeeds old(foo(t)) == x;",
+                    "#if_succeeds old(foo(t)) == x;",
                     ["Base", "plus"],
                     new FunctionType(
                         undefined,
@@ -884,7 +884,7 @@ describe("TypeChecker Annotation Tests", () => {
                     false
                 ],
                 [
-                    "define moo(uint a) uint = foo(a) + boo(a);",
+                    "#define moo(uint a) uint = foo(a) + boo(a);",
                     ["Child"],
                     new FunctionType(
                         undefined,
@@ -895,91 +895,91 @@ describe("TypeChecker Annotation Tests", () => {
                     ),
                     false
                 ],
-                ["if_updated z>0;", ["Unrelated", "z"], new BoolType(), true],
-                ["if_updated z>w;", ["Unrelated", "z"], new BoolType(), true],
-                ["if_updated true;", ["Unrelated", "arr"], new BoolType(), true],
-                ["if_updated arr.length > 0;", ["Unrelated", "arr"], new BoolType(), true],
-                ["if_assigned[i] arr[i+1] == 1;", ["Unrelated", "arr"], new BoolType(), true],
+                ["#if_updated z>0;", ["Unrelated", "z"], new BoolType(), true],
+                ["#if_updated z>w;", ["Unrelated", "z"], new BoolType(), true],
+                ["#if_updated true;", ["Unrelated", "arr"], new BoolType(), true],
+                ["#if_updated arr.length > 0;", ["Unrelated", "arr"], new BoolType(), true],
+                ["#if_assigned[i] arr[i+1] == 1;", ["Unrelated", "arr"], new BoolType(), true],
                 [
-                    "if_assigned[bts] bts[0] == byte(0x01);",
+                    "#if_assigned[bts] bts[0] == byte(0x01);",
                     ["Unrelated", "m1"],
                     new BoolType(),
                     true
                 ],
                 [
-                    "if_assigned[addr] addr == address(0x0);",
+                    "#if_assigned[addr] addr == address(0x0);",
                     ["Unrelated", "m2"],
                     new BoolType(),
                     true
                 ],
                 [
-                    "if_assigned[addr][bts] addr == address(0x0) && bts[0] == byte(0x01);",
+                    "#if_assigned[addr][bts] addr == address(0x0) && bts[0] == byte(0x01);",
                     ["Unrelated", "m2"],
                     new BoolType(),
                     true
                 ],
                 [
-                    "if_assigned[addr].sArr.arr[x] addr == address(0x0) && x <= 10;",
+                    "#if_assigned[addr].sArr.arr[x] addr == address(0x0) && x <= 10;",
                     ["Unrelated", "m3"],
                     new BoolType(),
                     true
                 ],
                 [
-                    "if_assigned[str] bytes(str)[0] == byte(0x00);",
+                    "#if_assigned[str] bytes(str)[0] == byte(0x00);",
                     ["Unrelated", "m4"],
                     new BoolType(),
                     true
                 ],
-                ["if_updated old(z)>0;", ["Unrelated", "z"], new BoolType(), true],
+                ["#if_updated old(z)>0;", ["Unrelated", "z"], new BoolType(), true],
                 [
-                    "if_succeeds forall(uint i in 1...10) arr[i] > 0;",
+                    "#if_succeeds forall(uint i in 1...10) arr[i] > 0;",
                     ["Base", "plus"],
                     undefined,
                     true
                 ],
                 [
-                    "if_succeeds forall(uint256 i in a...b) arr[i] > 0;",
+                    "#if_succeeds forall(uint256 i in a...b) arr[i] > 0;",
                     ["Base", "plus"],
                     undefined,
                     true
                 ],
                 [
-                    "if_succeeds forall(uint256 i in arr2[0]) arr[i] > 0;",
+                    "#if_succeeds forall(uint256 i in arr2[0]) arr[i] > 0;",
                     ["Base", "plus"],
                     undefined,
                     true
                 ],
                 [
-                    "if_succeeds forall(uint256 i in a+b...a*b) arr[i] > 0;",
+                    "#if_succeeds forall(uint256 i in a+b...a*b) arr[i] > 0;",
                     ["Base", "plus"],
                     undefined,
                     true
                 ],
                 [
-                    "if_succeeds forall(uint256 i in a+b...a*b) arr[i] > 0;",
+                    "#if_succeeds forall(uint256 i in a+b...a*b) arr[i] > 0;",
                     ["Base", "plus"],
                     undefined,
                     true
                 ],
                 [
-                    "invariant forall(bytes memory b in m1) m1[b] > 0;",
+                    "#invariant forall(bytes memory b in m1) m1[b] > 0;",
                     ["Unrelated"],
                     undefined,
                     true
                 ],
                 [
-                    "invariant forall(address a in m3) m3[a].sArr.arr.length > 0;",
+                    "#invariant forall(address a in m3) m3[a].sArr.arr.length > 0;",
                     ["Unrelated"],
                     undefined,
                     true
                 ],
                 [
-                    "invariant forall(address a in m2) forall(bytes storage b in m2[a]) m2[a][b];",
+                    "#invariant forall(address a in m2) forall(bytes storage b in m2[a]) m2[a][b];",
                     ["Unrelated"],
                     undefined,
                     true
                 ],
-                ["invariant forall(string memory s in m4) m4[s];", ["Unrelated"], undefined, true]
+                ["#invariant forall(string memory s in m4) m4[s];", ["Unrelated"], undefined, true]
             ]
         ],
         [
@@ -1023,69 +1023,69 @@ contract Statements04 {
 }
             `,
             [
-                ["assert true;", ["Statements04", "main", "//Block/*[1]"], undefined, true],
-                ["assert arg1 > 0;", ["Statements04", "main", "//Block/*[1]"], undefined, true],
-                ["assert loc > 0;", ["Statements04", "main", "//Block/*[1]"], undefined, true],
-                ["assert arg1 > loc;", ["Statements04", "main", "//Block/*[2]"], undefined, true],
-                ["assert arg1 > loc;", ["Statements04", "main", "//Block/*[3]"], undefined, true],
+                ["#assert true;", ["Statements04", "main", "//Block/*[1]"], undefined, true],
+                ["#assert arg1 > 0;", ["Statements04", "main", "//Block/*[1]"], undefined, true],
+                ["#assert loc > 0;", ["Statements04", "main", "//Block/*[1]"], undefined, true],
+                ["#assert arg1 > loc;", ["Statements04", "main", "//Block/*[2]"], undefined, true],
+                ["#assert arg1 > loc;", ["Statements04", "main", "//Block/*[3]"], undefined, true],
                 [
-                    "assert arg1 > loc;",
+                    "#assert arg1 > loc;",
                     ["Statements04", "main", "//Block/*[3]/ExpressionStatement"],
                     undefined,
                     true
                 ],
                 [
-                    "assert arg1 > loc;",
+                    "#assert arg1 > loc;",
                     ["Statements04", "main", "//Block/*[3]/Block"],
                     undefined,
                     true
                 ],
                 [
-                    "assert arg1 > loc + t;",
+                    "#assert arg1 > loc + t;",
                     ["Statements04", "main", "//Block/*[3]/Block/*[2]"],
                     undefined,
                     true
                 ],
-                ["assert arg1 > loc;", ["Statements04", "main", "//Block/*[4]"], undefined, true],
+                ["#assert arg1 > loc;", ["Statements04", "main", "//Block/*[4]"], undefined, true],
                 [
-                    "assert arg1 > loc;",
+                    "#assert arg1 > loc;",
                     ["Statements04", "main", "//Block/*[4]/Block/*[1]"],
                     undefined,
                     true
                 ],
-                ["assert arg1 > loc;", ["Statements04", "main", "//Block/*[5]"], undefined, true],
+                ["#assert arg1 > loc;", ["Statements04", "main", "//Block/*[5]"], undefined, true],
                 [
-                    "assert iter <= arg1;",
+                    "#assert iter <= arg1;",
                     ["Statements04", "main", "//Block/*[5]/ExpressionStatement"],
                     undefined,
                     true
                 ],
                 [
-                    "assert iter <= arg1;",
+                    "#assert iter <= arg1;",
                     ["Statements04", "main", "//Block/*[5]/Block"],
                     undefined,
                     true
                 ],
                 [
-                    "assert loc + arg1 > 0;",
+                    "#assert loc + arg1 > 0;",
                     ["Statements04", "main", "//Block/*[6]"],
                     undefined,
                     true
                 ],
                 [
-                    "assert loc + arg1 > 0;",
+                    "#assert loc + arg1 > 0;",
                     ["Statements04", "main", "//Block/*[6]/Block"],
                     undefined,
                     true
                 ],
                 [
-                    "assert loc + arg1 + g + sVar> 0;",
+                    "#assert loc + arg1 + g + sVar> 0;",
                     ["Statements04", "main", "//Block/*[6]/Block/*[2]"],
                     undefined,
                     true
                 ],
                 [
-                    "assert loc + loc2 + sVar> 0;",
+                    "#assert loc + loc2 + sVar> 0;",
                     ["Statements04", "main", "//Block/*[7]/*[2]"],
                     undefined,
                     true
@@ -1133,61 +1133,61 @@ contract Statements08 {
 }
             `,
             [
-                ["assert true;", ["Statements08", "main", "//Block/*[1]"], undefined, true],
-                ["assert arg1 > loc;", ["Statements08", "main", "//Block/*[2]"], undefined, true],
-                ["assert arg1 > loc;", ["Statements08", "main", "//Block/*[3]"], undefined, true],
+                ["#assert true;", ["Statements08", "main", "//Block/*[1]"], undefined, true],
+                ["#assert arg1 > loc;", ["Statements08", "main", "//Block/*[2]"], undefined, true],
+                ["#assert arg1 > loc;", ["Statements08", "main", "//Block/*[3]"], undefined, true],
                 [
-                    "assert arg1 > loc;",
+                    "#assert arg1 > loc;",
                     ["Statements08", "main", "//Block/*[3]/ExpressionStatement"],
                     undefined,
                     true
                 ],
                 [
-                    "assert arg1 > loc;",
+                    "#assert arg1 > loc;",
                     ["Statements08", "main", "//Block/*[3]/Block"],
                     undefined,
                     true
                 ],
-                ["assert arg1 > loc;", ["Statements08", "main", "//Block/*[4]"], undefined, true],
+                ["#assert arg1 > loc;", ["Statements08", "main", "//Block/*[4]"], undefined, true],
                 [
-                    "assert arg1 > loc;",
+                    "#assert arg1 > loc;",
                     ["Statements08", "main", "//Block/*[4]/Block/*[1]"],
                     undefined,
                     true
                 ],
-                ["assert arg1 > loc;", ["Statements08", "main", "//Block/*[5]"], undefined, true],
+                ["#assert arg1 > loc;", ["Statements08", "main", "//Block/*[5]"], undefined, true],
                 [
-                    "assert iter <= arg1;",
+                    "#assert iter <= arg1;",
                     ["Statements08", "main", "//Block/*[5]/ExpressionStatement"],
                     undefined,
                     true
                 ],
                 [
-                    "assert iter <= arg1;",
+                    "#assert iter <= arg1;",
                     ["Statements08", "main", "//Block/*[5]/Block"],
                     undefined,
                     true
                 ],
                 [
-                    "assert loc + arg1 > 0;",
+                    "#assert loc + arg1 > 0;",
                     ["Statements08", "main", "//Block/*[6]"],
                     undefined,
                     true
                 ],
                 [
-                    "assert loc + arg1 > 0;",
+                    "#assert loc + arg1 > 0;",
                     ["Statements08", "main", "//Block/*[6]/Block"],
                     undefined,
                     true
                 ],
                 [
-                    "assert loc + arg1 + sVar> 0;",
+                    "#assert loc + arg1 + sVar> 0;",
                     ["Statements08", "main", "//Block/*[6]/Block/*[1]"],
                     undefined,
                     true
                 ],
                 [
-                    "assert loc + sVar> 0;",
+                    "#assert loc + sVar> 0;",
                     ["Statements08", "main", "//Block/*[7]/*[1]"],
                     undefined,
                     true
@@ -1241,30 +1241,30 @@ contract Statements08 {
                  mapping (address => mapping (string => bool)) m2;
                 
              }`,
-            [["define user_plusOne(uint x) uint = x+1;", ["Base"]]],
+            [["#define user_plusOne(uint x) uint = x+1;", ["Base"]]],
             [
-                ["if_succeeds z > 0;", ["Base", "plus"]],
-                ["invariant $result > 0;", ["Base"]],
-                ["define foo() uint = true;", ["Base"]],
-                ["define foo() uint = x;", ["Unrelated"]],
-                ["define foo() uint = 1;", ["Base", "plus"]],
-                ["define foo() uint256 = $result;", ["Base"]],
-                ["define foo(uint t, uint[253] arr) uint = user_plusOne(t);", ["Unrelated"]],
-                ["if_assigned.foo true;", ["Unrelated", "z"]],
-                ["if_assigned[x] true;", ["Unrelated", "z"]],
-                ["if_assigned.foo true;", ["Unrelated", "arr"]],
-                ["if_assigned[x][y] true;", ["Unrelated", "arr"]],
-                ["if_assigned[bts][bad] bts[0] == byte(0x01);", ["Unrelated", "m1"]],
+                ["#if_succeeds z > 0;", ["Base", "plus"]],
+                ["#invariant $result > 0;", ["Base"]],
+                ["#define foo() uint = true;", ["Base"]],
+                ["#define foo() uint = x;", ["Unrelated"]],
+                ["#define foo() uint = 1;", ["Base", "plus"]],
+                ["#define foo() uint256 = $result;", ["Base"]],
+                ["#define foo(uint t, uint[253] arr) uint = user_plusOne(t);", ["Unrelated"]],
+                ["#if_assigned.foo true;", ["Unrelated", "z"]],
+                ["#if_assigned[x] true;", ["Unrelated", "z"]],
+                ["#if_assigned.foo true;", ["Unrelated", "arr"]],
+                ["#if_assigned[x][y] true;", ["Unrelated", "arr"]],
+                ["#if_assigned[bts][bad] bts[0] == byte(0x01);", ["Unrelated", "m1"]],
                 [
-                    "if_assigned[bts][addr] addr == address(0x0) && bts[0] == byte(0x01);",
+                    "#if_assigned[bts][addr] addr == address(0x0) && bts[0] == byte(0x01);",
                     ["Unrelated", "m2"]
                 ],
-                ["if_succeeds forall(uint i in 1...arr) arr[i] > 0;", ["Base", "plus"]],
-                ["if_succeeds forall(uint i in 1...10) i+10;", ["Base", "plus"]],
-                ["if_succeeds forall(uint i in a) true;", ["Base", "plus"]],
-                ["if_succeeds forall(uint8 i in a...b) arr[i] > 0;", ["Base", "plus"]],
-                ["invariant forall(uint8 i in m1) true;", ["Unrelated"]],
-                ["invariant forall(bytes memory i in m1) true;", ["Unrelated"]]
+                ["#if_succeeds forall(uint i in 1...arr) arr[i] > 0;", ["Base", "plus"]],
+                ["#if_succeeds forall(uint i in 1...10) i+10;", ["Base", "plus"]],
+                ["#if_succeeds forall(uint i in a) true;", ["Base", "plus"]],
+                ["#if_succeeds forall(uint8 i in a...b) arr[i] > 0;", ["Base", "plus"]],
+                ["#invariant forall(uint8 i in m1) true;", ["Unrelated"]],
+                ["#invariant forall(bytes memory i in m1) true;", ["Unrelated"]]
             ]
         ],
         [
@@ -1309,13 +1309,13 @@ contract Statements04 {
             `,
             [],
             [
-                ["assert 1;", ["Statements04", "main", "//Block/*[1]"]],
+                ["#assert 1;", ["Statements04", "main", "//Block/*[1]"]],
                 [
-                    "assert iter <= arg1;",
+                    "#assert iter <= arg1;",
                     ["Statements04", "main", "//Block/*[5]/VariableDeclarationStatement"]
                 ],
-                ["assert iter <= arg1;", ["Statements04", "main", "//Block/*[6]"]],
-                ["assert loc + loc2 > 0;", ["Statements04", "main", "//Block/*[8]"]]
+                ["#assert iter <= arg1;", ["Statements04", "main", "//Block/*[6]"]],
+                ["#assert loc + loc2 > 0;", ["Statements04", "main", "//Block/*[8]"]]
             ]
         ],
         [
@@ -1360,10 +1360,10 @@ contract Statements08 {
             `,
             [],
             [
-                ["assert arg1 > loc;", ["Statements08", "main", "//Block/*[1]"]],
-                ["assert arg1 > loc + t;", ["Statements08", "main", "//Block/*[3]/Block/*[1]"]],
-                ["assert loc + loc2 + sVar> 0;", ["Statements08", "main", "//Block/*[7]/*[1]"]],
-                ["assert loc + arg1 + g > 0;", ["Statements08", "main", "//Block/*[6]/Block"]]
+                ["#assert arg1 > loc;", ["Statements08", "main", "//Block/*[1]"]],
+                ["#assert arg1 > loc + t;", ["Statements08", "main", "//Block/*[3]/Block/*[1]"]],
+                ["#assert loc + loc2 + sVar> 0;", ["Statements08", "main", "//Block/*[7]/*[1]"]],
+                ["#assert loc + arg1 + g > 0;", ["Statements08", "main", "//Block/*[6]/Block"]]
             ]
         ]
     ];

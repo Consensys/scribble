@@ -156,7 +156,7 @@ describe("Multiple-file project instrumentation", () => {
                 );
 
                 // Uncomment next line to update flat instrumented source
-                // fse.writeFileSync(expectedFlatFileName, actualFlat, { encoding: "utf-8" });
+                // fse.writeFileSync(expectedFlatFileName, actualFlat.trim(), { encoding: "utf-8" });
 
                 expect(actualFlat.trim()).toEqual(expectedFlat.trim());
             });

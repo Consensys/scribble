@@ -4,4 +4,4 @@ ownable:
     properties:
         _owner:
             - msg: "can only be updated by an owner"
-              prop: if_updated old(_owner) == msg.sender;
+              prop: "#if_updated old(_owner) == msg.sender;"

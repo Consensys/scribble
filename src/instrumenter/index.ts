@@ -7,3 +7,4 @@ export * from "./state_var_instrumenter";
 export * from "./custom_maps_templates";
 export * from "./custom_maps";
 export * from "./utils";
+export * from "./deprecated_warnings";

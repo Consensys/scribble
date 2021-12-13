@@ -2,7 +2,8 @@
 
 Annotation =
     StartingWhiteSpace
-    prefix: '#'?
+    natspecPrefix: ('@custom:scribble' PrimitiveWhiteSpace*)?
+    prefix: '#'
     annotation: (
         Invariant
         / If_Succeeds
@@ -18,8 +19,6 @@ Annotation =
         // Dummy statements to shut up unused variable warnings in tsc
         error;
         expected;
-        annotation.prefix = prefix === null ? undefined : prefix;
-
         return annotation;
     }
 
