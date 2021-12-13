@@ -26,7 +26,6 @@ export abstract class SAnnotation extends SNode {
     readonly md: AnnotationMD;
 
     label?: string;
-    prefix: string | undefined;
 
     constructor(type: AnnotationType, md?: AnnotationMD, src?: NodeLocation) {
         super(src);

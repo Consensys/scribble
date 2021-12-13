@@ -2,7 +2,7 @@
 /// Use --disarm prior to make any changes.
 pragma solidity 0.8.7;
 
-///  macro ownable(owner);
+///  #macro ownable(owner);
 contract Ownable {
     event OwnershipTransferred(address indexed from, address indexed to);
 
