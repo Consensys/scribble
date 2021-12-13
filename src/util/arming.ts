@@ -53,7 +53,3 @@ export function detectProjectRoot(paths: string[]): string | undefined {
 
     return file === null ? undefined : path.dirname(file);
 }
-
-export function isInstrumented(): void {
-    1;
-}
