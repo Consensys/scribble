@@ -155,15 +155,48 @@ function getWriter(targetCompilerVersion: string): ASTWriter {
 
     return writer;
 }
-/**
- * Print a list of SourceUnits, with potentially different versions and ASTContext's
- */
+
 export function print(
     sourceUnits: SourceUnit[],
     compilerVersion: string,
-    srcMap: SrcRangeMap
+    srcMap: SrcRangeMap,
+    instrumentationMarker?: string
 ): Map<SourceUnit, string> {
-    return new Map(
-        sourceUnits.map((unit) => [unit, getWriter(compilerVersion).write(unit, srcMap)])
-    );
+    const writer = getWriter(compilerVersion);
+    const result = new Map<SourceUnit, string>();
+
+    for (const unit of sourceUnits) {
+        const source = writer.write(unit, srcMap);
+
+        if (instrumentationMarker === undefined) {
+            result.set(unit, source);
+        } else {
+            /**
+             * 1. Prepend instrumentation marker message to the source
+             */
+            result.set(unit, instrumentationMarker + source);
+
+            /**
+             * 2. Shift OFFSET of each child node of the source unit
+             */
+            for (const node of unit.getChildren()) {
+                const src = srcMap.get(node);
+
+                if (src !== undefined) {
+                    src[0] += instrumentationMarker.length;
+                }
+            }
+
+            /**
+             * 3. Expand source unit LENGTH
+             */
+            const src = srcMap.get(unit);
+
+            if (src !== undefined) {
+                src[1] += instrumentationMarker.length;
+            }
+        }
+    }
+
+    return result;
 }

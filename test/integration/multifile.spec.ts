@@ -94,6 +94,10 @@ describe("Multiple-file project instrumentation", () => {
     for (const [dirName, solFiles, version, additionalArgs] of samples) {
         describe(`Multi-file Sample ${dirName}`, () => {
             const solPaths: string[] = solFiles.map((name) => join(dirName, name));
+
+            const expectedFlatFileName = `${dirName}/flat.sol.expected`;
+            const expectedInstrMetadataFileName = `${dirName}/instrumentationMetadata.json.expected`;
+
             let expectedInstrumented: Map<string, string>;
             let expectedFlat: string;
             let expectedInstrMetadata: any;
@@ -106,41 +110,35 @@ describe("Multiple-file project instrumentation", () => {
                 expectedInstrumented = new Map(
                     expectedInstrumentedFiles.map((fileName) => [
                         fileName,
-                        fse.readFileSync(fileName, "utf-8")
+                        fse.readFileSync(fileName, { encoding: "utf-8" })
                     ])
                 );
 
-                expectedFlat = fse.readFileSync(`${dirName}/flat.sol.expected`, {
-                    encoding: "utf-8"
-                });
+                expectedFlat = fse.readFileSync(expectedFlatFileName, { encoding: "utf-8" });
 
                 // Uncomment below lines to re-generate instrumentationMetadata.json.expected
-                /*
-                scribble(
-                    solPaths,
-                    "-o",
-                    "--",
-                    "--output-mode",
-                    "json",
-                    "--compiler-version",
-                    version,
-                    "--debug-events",
-                    "--instrumentation-metadata-file",
-                    `${dirName}/instrumentationMetadata.json.expected`,
-                    ...additionalArgs
-                );
-                */
+                // scribble(
+                //     solPaths,
+                //     "-o",
+                //     "--",
+                //     "--output-mode",
+                //     "json",
+                //     "--compiler-version",
+                //     version,
+                //     "--debug-events",
+                //     "--instrumentation-metadata-file",
+                //     expectedInstrMetadataFileName,
+                //     ...additionalArgs
+                // );
 
-                expectedInstrMetadata = fse.readJSONSync(
-                    `${dirName}/instrumentationMetadata.json.expected`,
-                    {
-                        encoding: "utf-8"
-                    }
-                ) as InstrumentationMetaData;
+                expectedInstrMetadata = fse.readJSONSync(expectedInstrMetadataFileName, {
+                    encoding: "utf-8"
+                });
 
                 // Nit: Macro paths are absolute, so we adjust them here accordingly
                 for (let i = 0; i < expectedInstrMetadata.originalSourceList.length; i++) {
                     const name = expectedInstrMetadata.originalSourceList[i];
+
                     if (name.endsWith(".yaml") || name.endsWith(".yml")) {
                         expectedInstrMetadata.originalSourceList[i] = join(cwd(), name);
                     }
@@ -157,6 +155,9 @@ describe("Multiple-file project instrumentation", () => {
                     ...additionalArgs
                 );
 
+                // Uncomment next line to update flat instrumented source
+                // fse.writeFileSync(expectedFlatFileName, actualFlat.trim(), { encoding: "utf-8" });
+
                 expect(actualFlat.trim()).toEqual(expectedFlat.trim());
             });
 
@@ -172,12 +173,15 @@ describe("Multiple-file project instrumentation", () => {
                 );
 
                 for (const [fileName, expectedContents] of expectedInstrumented) {
-                    const atualInstr = fse.readFileSync(
+                    const aсtualInstr = fse.readFileSync(
                         fileName.replace(".sol.instrumented.expected", ".sol.instrumented"),
-                        "utf-8"
+                        { encoding: "utf-8" }
                     );
 
-                    expect(atualInstr).toEqual(expectedContents);
+                    // Uncomment next line to update instrumented sources
+                    // fse.writeFileSync(fileName, aсtualInstr);
+
+                    expect(aсtualInstr).toEqual(expectedContents);
                 }
             });
 
@@ -218,11 +222,12 @@ describe("Multiple-file project instrumentation", () => {
                 );
 
                 for (const [fileName, expectedContents] of expectedInstrumented) {
-                    const atualInstr = fse.readFileSync(
+                    const actualInstr = fse.readFileSync(
                         fileName.replace(".sol.instrumented.expected", ".sol"),
-                        "utf-8"
+                        { encoding: "utf-8" }
                     );
-                    expect(atualInstr).toEqual(expectedContents);
+
+                    expect(actualInstr).toEqual(expectedContents);
 
                     const originalFileName = fileName.replace(
                         ".sol.instrumented.expected",
@@ -251,12 +256,12 @@ describe("Multiple-file project instrumentation", () => {
                         ".sol.instrumented"
                     );
 
-                    const atualInstr = fse.readFileSync(
+                    const actualInstr = fse.readFileSync(
                         fileName.replace(".sol.instrumented.expected", ".sol"),
-                        "utf-8"
+                        { encoding: "utf-8" }
                     );
 
-                    expect(atualInstr).not.toEqual(expectedContents);
+                    expect(actualInstr).not.toEqual(expectedContents);
                     expect(fse.existsSync(instrFileName)).toEqual(false);
 
                     const originalFileName = fileName.replace(
