@@ -575,7 +575,7 @@ if ("version" in options) {
     let originalFiles: Set<string>;
     let instrumentationFiles: Set<string>;
 
-    if (options["instrumentation-metadata-file"] !== undefined) {
+    if (options["instrumentation-metadata-file"]) {
         metaDataFile = options["instrumentation-metadata-file"];
     } else {
         const projectRoot = detectProjectRoot(targets);
@@ -868,22 +868,9 @@ if ("version" in options) {
     /**
      * Check if there is an instrumentation already in-place
      */
-    if (isMetaDataFile) {
-        const { instrumentation } = getFilesInMetaData(metaDataFile);
-
-        for (const fileName of instrumentation) {
-            if (isInstrumented(fileName, instrumentationMarker)) {
-                error(`File "${fileName}" is already instrumented`);
-            }
-        }
-    } else {
-        /**
-         * @todo Decide if this is enough instead of checking instr files.
-         */
-        for (const unit of instrCtx.units) {
-            if (isInstrumented(unit.sourceEntryKey, instrumentationMarker)) {
-                error(`File "${unit.sourceEntryKey}" is already instrumented`);
-            }
+    for (const unit of instrCtx.units) {
+        if (isInstrumented(unit.sourceEntryKey, instrumentationMarker)) {
+            error(`File "${unit.sourceEntryKey}" is already instrumented`);
         }
     }
 
@@ -968,7 +955,7 @@ if ("version" in options) {
                     newSrcMap,
                     pkg.version,
                     options.output,
-                    options["arm"] !== undefined
+                    false
                 ),
                 undefined,
                 2
@@ -976,7 +963,27 @@ if ("version" in options) {
 
             writeOut(resultJSON, options.output);
         }
+
+        if (options["instrumentation-metadata-file"]) {
+            const metadata = generateInstrumentationMetadata(
+                instrCtx,
+                newSrcMap,
+                instrCtx.units,
+                modifiedFiles,
+                false,
+                pkg.version,
+                options["output"]
+            );
+
+            writeOut(JSON.stringify(metadata, undefined, 2), metaDataFile);
+        }
     } else {
+        if (options["arm"] && isMetaDataFile) {
+            error(
+                `Instrumentation file "${metaDataFile}" already exists. Consider disarming or providing other path for metadata file.`
+            );
+        }
+
         modifiedFiles = [...instrCtx.changedUnits, utilsUnit];
         // 1. In 'files' mode first write out the files
         const newContents = instrCtx.printUnits(modifiedFiles, newSrcMap, instrumentationMarker);
@@ -1004,18 +1011,18 @@ if ("version" in options) {
                 copy(unit.absolutePath, originalFileName, options);
                 copy(instrumentedFileName, unit.absolutePath, options);
             }
+
+            const metadata = generateInstrumentationMetadata(
+                instrCtx,
+                newSrcMap,
+                instrCtx.units,
+                modifiedFiles,
+                true,
+                pkg.version,
+                options["output"]
+            );
+
+            writeOut(JSON.stringify(metadata, undefined, 2), metaDataFile);
         }
     }
-
-    const metadata = generateInstrumentationMetadata(
-        instrCtx,
-        newSrcMap,
-        instrCtx.units,
-        modifiedFiles,
-        options["arm"] !== undefined,
-        pkg.version,
-        options["output"]
-    );
-
-    writeOut(JSON.stringify(metadata, undefined, 2), metaDataFile);
 }
