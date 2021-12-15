@@ -963,20 +963,6 @@ if ("version" in options) {
 
             writeOut(resultJSON, options.output);
         }
-
-        if (options["instrumentation-metadata-file"]) {
-            const metadata = generateInstrumentationMetadata(
-                instrCtx,
-                newSrcMap,
-                instrCtx.units,
-                modifiedFiles,
-                false,
-                pkg.version,
-                options["output"]
-            );
-
-            writeOut(JSON.stringify(metadata, undefined, 2), metaDataFile);
-        }
     } else {
         if (options["arm"] && isMetaDataFile) {
             error(
@@ -1011,18 +997,20 @@ if ("version" in options) {
                 copy(unit.absolutePath, originalFileName, options);
                 copy(instrumentedFileName, unit.absolutePath, options);
             }
-
-            const metadata = generateInstrumentationMetadata(
-                instrCtx,
-                newSrcMap,
-                instrCtx.units,
-                modifiedFiles,
-                true,
-                pkg.version,
-                options["output"]
-            );
-
-            writeOut(JSON.stringify(metadata, undefined, 2), metaDataFile);
         }
+    }
+
+    if (options["arm"] || options["instrumentation-metadata-file"]) {
+        const metadata = generateInstrumentationMetadata(
+            instrCtx,
+            newSrcMap,
+            instrCtx.units,
+            modifiedFiles,
+            options["arm"] !== undefined,
+            pkg.version,
+            options["output"]
+        );
+
+        writeOut(JSON.stringify(metadata, undefined, 2), metaDataFile);
     }
 }

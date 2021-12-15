@@ -95,8 +95,12 @@ describe("Multiple-file project instrumentation", () => {
         describe(`Multi-file Sample ${dirName}`, () => {
             const solPaths: string[] = solFiles.map((name) => join(dirName, name));
 
-            const expectedFlatFileName = `${dirName}/flat.sol.expected`;
-            const expectedInstrMetadataFileName = `${dirName}/instrumentationMetadata.json.expected`;
+            const tmpInstrMeta = join(dirName, "tmp.json");
+            const expectedFlatFileName = join(dirName, "flat.sol.expected");
+            const expectedInstrMetadataFileName = join(
+                dirName,
+                "instrumentationMetadata.json.expected"
+            );
 
             let expectedInstrumented: Map<string, string>;
             let expectedFlat: string;
@@ -218,6 +222,8 @@ describe("Multiple-file project instrumentation", () => {
                     "--arm",
                     "--compiler-version",
                     version,
+                    "--instrumentation-metadata-file",
+                    tmpInstrMeta,
                     ...additionalArgs
                 );
 
@@ -238,7 +244,7 @@ describe("Multiple-file project instrumentation", () => {
                 }
             });
 
-            it("In-place dis-arming works", () => {
+            it("In-place disarming works", () => {
                 scribble(
                     solPaths,
                     "--output-mode",
@@ -247,6 +253,8 @@ describe("Multiple-file project instrumentation", () => {
                     "--disarm",
                     "--compiler-version",
                     version,
+                    "--instrumentation-metadata-file",
+                    tmpInstrMeta,
                     ...additionalArgs
                 );
 
@@ -282,25 +290,27 @@ describe("Multiple-file project instrumentation", () => {
                     "--compiler-version",
                     version,
                     "--instrumentation-metadata-file",
-                    "tmp.json",
+                    tmpInstrMeta,
                     ...additionalArgs
                 );
 
-                const md: InstrumentationMetaData = JSON.parse(
-                    fse.readFileSync("tmp.json", { encoding: "utf-8" })
-                );
+                const md: InstrumentationMetaData = fse.readJsonSync(tmpInstrMeta, {
+                    encoding: "utf-8"
+                });
+
+                fse.removeSync(tmpInstrMeta);
 
                 const originalFiles = new Map<string, string>(
-                    md.originalSourceList.map((filename) => [
-                        filename,
-                        fse.readFileSync(filename, { encoding: "utf-8" })
+                    md.originalSourceList.map((fileName) => [
+                        fileName,
+                        fse.readFileSync(fileName, { encoding: "utf-8" })
                     ])
                 );
 
                 const instrFiles = new Map<string, string>(
-                    md.instrSourceList.map((filename) => [
-                        filename,
-                        fse.readFileSync(filename, { encoding: "utf-8" })
+                    md.instrSourceList.map((fileName) => [
+                        fileName,
+                        fse.readFileSync(fileName, { encoding: "utf-8" })
                     ])
                 );
 
