@@ -418,17 +418,19 @@ export function generateInstrumentationMetadata(
 
     const propertyMap = generatePropertyMap(ctx, newSrcMap, originalSourceList, instrSourceList);
 
-    instrSourceList = instrSourceList.map((name) =>
-        name === "--" || (ctx.outputMode === "files" && name === ctx.utilsUnit.absolutePath)
-            ? name
-            : name + ".instrumented"
-    );
-
     if (arm) {
-        originalSourceList = originalSourceList.map((name) =>
-            name.endsWith(".sol") ? name + ".original" : name
+        originalSourceList = originalSourceList.map((fileName) =>
+            fileName.endsWith(".sol") && instrSourceList.includes(fileName)
+                ? fileName + ".original"
+                : fileName
         );
     }
+
+    instrSourceList = instrSourceList.map((fileName) =>
+        fileName === "--" || (ctx.outputMode === "files" && fileName === ctx.utilsUnit.absolutePath)
+            ? fileName
+            : fileName + ".instrumented"
+    );
 
     return {
         instrToOriginalMap,
