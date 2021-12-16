@@ -114,6 +114,10 @@ export function scribble(fileName: string | string[], ...args: string[]): string
         }, {} as { [key: string]: string });
 
     const processArgs = (fileName instanceof Array ? fileName : [fileName]).concat(args);
+
+    // Uncomment next line to see composed scribble command:
+    // console.log("scribble " + processArgs.join(" "));
+
     const result = spawnSync("scribble", processArgs, {
         encoding: "utf8",
         env: scrubbedEnv,

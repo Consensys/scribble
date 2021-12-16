@@ -408,7 +408,7 @@ export function generateInstrumentationMetadata(
         instrSourceList = [outputFile];
     }
 
-    const [src2srcMap, otherInstrumentation] = generateSrcMap2SrcMap(
+    const [instrToOriginalMap, otherInstrumentation] = generateSrcMap2SrcMap(
         ctx,
         changedUnits,
         newSrcMap,
@@ -425,11 +425,13 @@ export function generateInstrumentationMetadata(
     );
 
     if (arm) {
-        originalSourceList = originalSourceList.map((name) => name + ".original");
+        originalSourceList = originalSourceList.map((name) =>
+            name.endsWith(".sol") ? name + ".original" : name
+        );
     }
 
     return {
-        instrToOriginalMap: src2srcMap,
+        instrToOriginalMap,
         otherInstrumentation,
         propertyMap,
         originalSourceList,

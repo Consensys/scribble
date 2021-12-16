@@ -614,7 +614,9 @@ if ("version" in options) {
         }
 
         for (const originalFileName of originalFiles) {
-            move(originalFileName, originalFileName.replace(".sol.original", ".sol"), options);
+            if (originalFileName.endsWith(".sol.original")) {
+                move(originalFileName, originalFileName.replace(".sol.original", ".sol"), options);
+            }
         }
 
         if (!options["keep-instrumented"]) {
