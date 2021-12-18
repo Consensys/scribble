@@ -1,4 +1,4 @@
-import { Range, SNode } from "./node";
+import { NodeLocation, SNode } from "./node";
 
 const unitMultiplier = new Map<string, bigint>([
     ["wei", BigInt(1)],
@@ -15,7 +15,7 @@ export class SNumber extends SNode {
     public readonly num: bigint;
     public readonly radix: number;
 
-    constructor(num: bigint, radix: number, src?: Range, type?: string) {
+    constructor(num: bigint, radix: number, src?: NodeLocation, type?: string) {
         super(src);
 
         this.radix = radix;

@@ -2,9 +2,9 @@ import {
     TypeNode,
     FunctionDefinition,
     VariableDeclaration,
-    Range,
     ContractDefinition
 } from "solc-typed-ast";
+import { Range } from "../../../util/location";
 import { SNode } from "../../ast";
 
 /**

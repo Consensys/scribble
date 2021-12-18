@@ -24,6 +24,7 @@ import {
     SUserFunctionDefinition
 } from "../../src/spec-lang/ast";
 import { parseAnnotation, parseExpression as parseExpr } from "../../src/spec-lang/expr_parser";
+import { DummySourceFile } from "../../src/util/sources";
 
 describe("Expression Parser Unit Tests", () => {
     const goodSamples: Array<[string, SNode]> = [
@@ -655,7 +656,13 @@ describe("Expression Parser Unit Tests", () => {
     for (const [sample, expectedAST] of goodSamples) {
         describe(`Sample ${sample}`, () => {
             it("Parses correctly", () => {
-                const parsed = parseExpr(sample, undefined as unknown as ASTNode, "0.6.0");
+                const parsed = parseExpr(
+                    sample,
+                    undefined as unknown as ASTNode,
+                    "0.6.0",
+                    new DummySourceFile(),
+                    0
+                );
                 expect(eq(parsed, expectedAST)).toEqual(true);
             });
         });
@@ -664,7 +671,15 @@ describe("Expression Parser Unit Tests", () => {
     for (const sample of badSamples) {
         describe(`Sample ${sample}`, () => {
             it("Fails as expected", () => {
-                expect(parseExpr.bind(parseExpr, sample)).toThrow();
+                expect(() => {
+                    parseExpr(
+                        sample,
+                        undefined as unknown as ASTNode,
+                        "0.6.0",
+                        new DummySourceFile(),
+                        0
+                    );
+                }).toThrow();
             });
         });
     }
@@ -672,20 +687,23 @@ describe("Expression Parser Unit Tests", () => {
 
 describe("Annotation Parser Unit Tests", () => {
     const goodSamples: Array<[string, SAnnotation]> = [
-        ["if_succeeds true;", new SProperty(AnnotationType.IfSucceeds, new SBooleanLiteral(true))],
+        ["#if_succeeds true;", new SProperty(AnnotationType.IfSucceeds, new SBooleanLiteral(true))],
         [
-            "/// if_succeeds true;",
+            "/// #if_succeeds true;",
             new SProperty(AnnotationType.IfSucceeds, new SBooleanLiteral(true))
         ],
-
         [
-            '/// if_succeeds {:msg "hi"} true;',
+            "/// @custom:scribble #if_succeeds false;",
+            new SProperty(AnnotationType.IfSucceeds, new SBooleanLiteral(false))
+        ],
+        [
+            '/// #if_succeeds {:msg "hi"} true;',
             new SProperty(AnnotationType.IfSucceeds, new SBooleanLiteral(true), {
                 msg: new SStringLiteral("hi")
             })
         ],
         [
-            `* if_succeeds 
+            `* #if_succeeds 
                 {:msg 
                        "hi"
                     }
@@ -699,7 +717,7 @@ describe("Annotation Parser Unit Tests", () => {
             )
         ],
         [
-            `* if_updated 
+            `* #if_updated 
                 {:msg 
                        "hi"
                     }
@@ -713,7 +731,7 @@ describe("Annotation Parser Unit Tests", () => {
             )
         ],
         [
-            `* if_assigned[a]
+            `* #if_assigned[a]
                 {:msg 
                        "bye"
                     }
@@ -724,7 +742,7 @@ describe("Annotation Parser Unit Tests", () => {
             })
         ],
         [
-            `* if_assigned.foo
+            `* #if_assigned.foo
                 {:msg 
                        "bye"
                     }
@@ -733,7 +751,7 @@ describe("Annotation Parser Unit Tests", () => {
             new SIfAssigned(new SBooleanLiteral(true), ["foo"], { msg: new SStringLiteral("bye") })
         ],
         [
-            `* if_assigned._bar0.boo[a][b].foo[c]
+            `* #if_assigned._bar0.boo[a][b].foo[c]
                 {:msg 
                        "felicia"
                     }
@@ -746,7 +764,7 @@ describe("Annotation Parser Unit Tests", () => {
             )
         ],
         [
-            `* invariant 
+            `* #invariant 
                 {:msg 
                        "hi"
                     }
@@ -760,7 +778,7 @@ describe("Annotation Parser Unit Tests", () => {
             )
         ],
         [
-            "define foo() bool = true;",
+            "#define foo() bool = true;",
             new SUserFunctionDefinition(
                 new SId("foo"),
                 [],
@@ -769,7 +787,7 @@ describe("Annotation Parser Unit Tests", () => {
             )
         ],
         [
-            "/// define foo() bool = true;",
+            "/// #define foo() bool = true;",
             new SUserFunctionDefinition(
                 new SId("foo"),
                 [],
@@ -778,7 +796,7 @@ describe("Annotation Parser Unit Tests", () => {
             )
         ],
         [
-            "* define foo() bool = true;",
+            "* #define foo() bool = true;",
             new SUserFunctionDefinition(
                 new SId("foo"),
                 [],
@@ -787,7 +805,7 @@ describe("Annotation Parser Unit Tests", () => {
             )
         ],
         [
-            'define {:msg "tralala" } foo() bool = true;',
+            '#define {:msg "tralala" } foo() bool = true;',
             new SUserFunctionDefinition(
                 new SId("foo"),
                 [],
@@ -797,7 +815,7 @@ describe("Annotation Parser Unit Tests", () => {
             )
         ],
         [
-            `define 
+            `#define 
                 {:msg
                         "tralala"
                          }
@@ -817,7 +835,7 @@ describe("Annotation Parser Unit Tests", () => {
             )
         ],
         [
-            "define boo(uint a) uint = a;",
+            "#define boo(uint a) uint = a;",
             new SUserFunctionDefinition(
                 new SId("boo"),
                 [[new SId("a"), new IntType(256, false)]],
@@ -826,7 +844,7 @@ describe("Annotation Parser Unit Tests", () => {
             )
         ],
         [
-            "define moo(uint a, uint b) uint = a+b;",
+            "#define moo(uint a, uint b) uint = a+b;",
             new SUserFunctionDefinition(
                 new SId("moo"),
                 [
@@ -838,7 +856,7 @@ describe("Annotation Parser Unit Tests", () => {
             )
         ],
         [
-            "/// if_succeeds forall (uint x in 1...10) a[x]>10;",
+            "/// #if_succeeds forall (uint x in 1...10) a[x]>10;",
             new SProperty(
                 AnnotationType.IfSucceeds,
                 new SForAll(
@@ -855,7 +873,7 @@ describe("Annotation Parser Unit Tests", () => {
             )
         ],
         [
-            "/// if_succeeds forall (uint x in a) a[x]>10;",
+            "/// #if_succeeds forall (uint x in a) a[x]>10;",
             new SProperty(
                 AnnotationType.IfSucceeds,
                 new SForAll(
@@ -872,10 +890,10 @@ describe("Annotation Parser Unit Tests", () => {
                 )
             )
         ],
-        ["/// assert true;", new SProperty(AnnotationType.Assert, new SBooleanLiteral(true))],
-        ["/// assert {} true;", new SProperty(AnnotationType.Assert, new SBooleanLiteral(true))],
+        ["/// #assert true;", new SProperty(AnnotationType.Assert, new SBooleanLiteral(true))],
+        ["/// #assert {} true;", new SProperty(AnnotationType.Assert, new SBooleanLiteral(true))],
         [
-            "/// assert forall (uint x in a) a[x] > 10;",
+            "/// #assert forall (uint x in a) a[x] > 10;",
             new SProperty(
                 AnnotationType.Assert,
                 new SForAll(
@@ -895,50 +913,62 @@ describe("Annotation Parser Unit Tests", () => {
     ];
 
     const badSamples: string[] = [
-        `* if_assigned[1+2]
+        `* if_assigned true;`,
+        `* #if_assigned[1+2]
                 {:msg 
                        "felicia"
                     }
                     false;
                      ;`,
-        `* if_assigned [a]
+        `* #if_assigned [a]
                 {:msg 
                        "felicia"
                     }
                     false;
                      ;`,
-        `* if_assigned0ab
+        `* #if_assigned0ab
                 {:msg 
                        "felicia"
                     }
                     false;
                      ;`,
-        `* if_assigned,ab
+        `* #if_assigned,ab
                 {:msg 
                        "felicia"
                     }
                     false;
                      ;`,
-        `* if_updated[a]
+        `* #if_updated[a]
                 {:msg 
                        "bye"
                     }
                     true;
                      ;`,
-        `* if_updated.foo
+        `* #if_updated.foo
                 {:msg 
                        "bye"
                     }
                     true;
                      ;`,
-        `/// if_succeeds {bad: "true"} true;`,
-        `/// if_succeeds {msg: 1} true;`
+        `/// #if_succeeds {bad: "true"} true;`,
+        `/// #if_succeeds {msg: 1} true;`,
+        `/// dshgd_$ $€%^@&8()su@custom:scribble #if_succeeds false;`,
+        `///blah blah @custom:scrible #if_succeeds  false; dhsgf gfds jdhsg s`,
+        `/// @custom:scribble #if_succeeds a +;`,
+        `/// @custom:scribble if_succeeds true;`,
+        `/// @custom:scribble blah`
     ];
 
     for (const [sample, expected] of goodSamples) {
         describe(`Sample ${sample}`, () => {
             it("Parses correctly", () => {
-                const parsed = parseAnnotation(sample, undefined as unknown as ASTNode, "0.6.0");
+                const parsed = parseAnnotation(
+                    sample,
+                    undefined as unknown as ASTNode,
+                    "0.6.0",
+                    new DummySourceFile(),
+                    0
+                );
                 Logger.debug(`[${sample}]: Got: ${parsed.pp()} expected: ${expected.pp()}`);
                 expect(eq(parsed, expected)).toEqual(true);
             });
@@ -948,7 +978,15 @@ describe("Annotation Parser Unit Tests", () => {
     for (const sample of badSamples) {
         describe(`Sample ${sample}`, () => {
             it("Fails as expected", () => {
-                expect(parseAnnotation.bind(parseAnnotation, sample)).toThrow();
+                expect(() => {
+                    parseAnnotation(
+                        sample,
+                        undefined as unknown as ASTNode,
+                        "0.6.0",
+                        new DummySourceFile(),
+                        0
+                    );
+                }).toThrow();
             });
         });
     }

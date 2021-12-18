@@ -31,9 +31,10 @@ import {
     parseSrcTriple,
     PropertyMap,
     reNumber,
+    searchRecursive,
     single
 } from "../../src/util";
-import { removeProcWd, scribble, searchRecursive, toAstUsingCache } from "./utils";
+import { loc2Src, removeProcWd, scrSample, toAstUsingCache } from "./utils";
 
 type Src2NodeMap = Map<string, Set<ASTNode>>;
 function buildSrc2NodeMap(units: SourceUnit[], newSrcList?: string[]): Src2NodeMap {
@@ -106,9 +107,9 @@ function parseBytecodeSourceMapping(sourceMap: string): DecodedBytecodeSourceMap
 
 describe("Src2src map test", () => {
     const samplesDir = "test/samples/";
-    const samples = searchRecursive(samplesDir, /(?<=\.instrumented)\.sol$/).map((fileName) =>
-        removeProcWd(fileName).replace(".instrumented.sol", ".sol")
-    );
+    const samples = searchRecursive(samplesDir, (fileName) =>
+        fileName.endsWith(".instrumented.sol")
+    ).map((fileName) => removeProcWd(fileName).replace(".instrumented.sol", ".sol"));
 
     it(`Source samples are present in ${samplesDir}`, () => {
         expect(samples.length).toBeGreaterThan(0);
@@ -137,21 +138,7 @@ describe("Src2src map test", () => {
                 inAst = result.units;
                 contents = result.files.get(sample) as string;
 
-                let fileName: string;
-
-                const args: string[] = [];
-
-                if (result.artefact) {
-                    fileName = result.artefact;
-
-                    args.push("--input-mode", "json", "--compiler-version", result.compilerVersion);
-                } else {
-                    fileName = sample;
-                }
-
-                args.push("--output-mode", "json");
-
-                outJSON = JSON.parse(scribble(fileName, ...args));
+                outJSON = JSON.parse(scrSample(sample, "--output-mode", "json"));
                 instrContents = outJSON["sources"]["flattened.sol"]["source"];
 
                 const contentsMap = new Map<string, string>([["flattened.sol", instrContents]]);
@@ -166,8 +153,9 @@ describe("Src2src map test", () => {
             });
 
             it("Src2src map maps nodes to nodes of same type", () => {
-                for (const [instrRange, originalRange] of instrMD.instrToOriginalMap) {
+                for (const [instrRange, originalLoc] of instrMD.instrToOriginalMap) {
                     const instrNodes = instrSrc2Node.get(instrRange);
+                    const originalRange = loc2Src(originalLoc);
 
                     assert(
                         instrNodes !== undefined,
@@ -185,7 +173,7 @@ describe("Src2src map test", () => {
                         // mapping must map inside the body of one of the
                         // annotations
                         const containingProp = propMap.find((propDesc) =>
-                            contains(propDesc.annotationSource, originalRange)
+                            contains(loc2Src(propDesc.annotationSource), originalRange)
                         );
 
                         assert(

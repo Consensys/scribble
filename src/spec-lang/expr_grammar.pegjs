@@ -2,7 +2,8 @@
 
 Annotation =
     StartingWhiteSpace
-    prefix: '#'?
+    natspecPrefix: ('@custom:scribble' PrimitiveWhiteSpace*)?
+    prefix: '#'
     annotation: (
         Invariant
         / If_Succeeds
@@ -11,21 +12,19 @@ Annotation =
         / UserFunctionDefinition
         / Assert
         / Try
-        / Require 
+        / Require
+        / Macro
     )
     .* {
-        annotation.prefix = prefix === null ? undefined : prefix;
-
+        // Dummy statements to shut up unused variable warnings in tsc
+        error;
+        expected;
         return annotation;
     }
 
 Expression = LetExpression
 
 // Non-top-level rules
-
-AnnotationStr =
-    "'" chars: SingleStringChar* "'" { return chars.join(""); }
-    / '"' chars: DoubleStringChar* '"' { return chars.join(""); }
 
 MDExpression =
     HexLiteral
@@ -47,11 +46,11 @@ MDExpressionList =
             return [key, expr];
         }
     )* {
-        const base = {};
+        const base: {[keys: string]: SNode } = {};
         base[head[0]] = head[1];
 
         return tail.reduce(
-            (acc, el) => {
+            (acc: any, el: any) => {
                 acc[el[0]] = el[1]
                 return acc;
             },
@@ -69,7 +68,7 @@ Invariant =
             type as AnnotationType,
             expr,
             md === null ? undefined : md,
-            location()
+            makeRange(location(), options as ParseOptions)
         );
     }
 
@@ -83,10 +82,10 @@ For_All =
         if (Array.isArray(range)) {
             const [start, end] = range;
 
-            return new SForAll(itr_type, iterator, expr, start, end, undefined, location());
+            return new SForAll(itr_type, iterator, expr, start, end, undefined, makeRange(location(), options as ParseOptions));
         }
 
-        return new SForAll(itr_type, iterator, expr, undefined, undefined, range, location());
+        return new SForAll(itr_type, iterator, expr, undefined, undefined, range, makeRange(location(), options as ParseOptions));
     }
 
 If_Succeeds =
@@ -95,7 +94,7 @@ If_Succeeds =
             type as AnnotationType,
             expr,
             md === null ? undefined : md,
-            location()
+            makeRange(location(), options as ParseOptions)
         );
     }
 
@@ -105,7 +104,7 @@ Assert =
             type as AnnotationType,
             expr,
             md === null ? undefined : md,
-            location()
+            makeRange(location(), options as ParseOptions)
         );
     }
 
@@ -115,7 +114,7 @@ Try =
             type as AnnotationType,
             expr,
             md === null ? undefined : md,
-            location()
+            makeRange(location(), options as ParseOptions)
         );
     }
 
@@ -125,7 +124,7 @@ Require =
             type as AnnotationType,
             expr,
             md === null ? undefined : md,
-            location()
+            makeRange(location(), options as ParseOptions)
         );
     }
 
@@ -146,7 +145,7 @@ If_Updated =
             expr,
             [],
             md === null ? undefined : md,
-            location()
+            makeRange(location(), options as ParseOptions)
         );
     }
 
@@ -156,7 +155,7 @@ If_Assigned =
             expr,
             path,
             md === null ? undefined : md,
-            location()
+            makeRange(location(), options as ParseOptions)
         );
     }
 
@@ -172,7 +171,7 @@ TypedArgs =
         }
     )* {
         return tail.reduce(
-            (acc, el) => {
+            (acc: any, el: any) => {
                 acc.push(el);
                 
                 return acc;
@@ -189,13 +188,36 @@ UserFunctionDefinition =
             returnType,
             body,
             md === null ? undefined : md,
-            location()
+            makeRange(location(), options as ParseOptions)
+        );
+    }
+
+IdentiferList =
+    head: (Identifier)
+    tail: (__ "," __ Identifier)* {
+        return tail.reduce(
+            (acc: any, el: any) => {
+                acc.push(el[3]);
+
+                return acc;
+            },
+            [head]
+        );
+    }
+
+Macro = 
+    type: MACRO __ md: AnnotationMD? name: Identifier __ "(" __ args: IdentiferList? __ ")" ";" {
+        return new SMacro(
+            name,
+            args === null ? [] : args,
+            md === null ? undefined : md,
+            makeRange(location(), options as ParseOptions)
         );
     }
 
 // Terminals
 
-PrimitiveWhiteSpace "whitespace" =
+PrimitiveWhiteSpace =
     "\t"
     / "\v"
     / "\f"
@@ -219,7 +241,7 @@ Zs =
 LineTerminator =
     [\n\r\u2028\u2029]
 
-LineTerminatorSequence "end of line" =
+LineTerminatorSequence =
     "\n"
     / "\r\n"
     / "\r"
@@ -262,6 +284,7 @@ DEFINE = "define"
 FORALL = "forall"
 TRY = "try"
 REQUIRE = "require"
+MACRO = "macro"
 
 Keyword =
     TRUE
@@ -304,7 +327,7 @@ NumberUnit =
 
 Identifier =
     !(Keyword ![a-zA-Z0-9_]) id:([a-zA-Z_][a-zA-Z0-9_]*) {
-        return new SId(text(), location());
+        return new SId(text(), makeRange(location(), options as ParseOptions));
     }
 
 HexDigit =
@@ -316,10 +339,10 @@ HexNumber =
 
         // 20-byte hex literals are implicitly treated as address constants.
         if (digits.length === 40) {
-            return new SAddressLiteral('0x' + num, location());
+            return new SAddressLiteral('0x' + num, makeRange(location(), options as ParseOptions));
         }
 
-        return new SNumber(BigInt('0x' + num), 16, location());
+        return new SNumber(BigInt('0x' + num), 16, makeRange(location(), options as ParseOptions));
     }
 
 DecDigit =
@@ -340,7 +363,7 @@ DecNumber =
          * Note that bigInt(...).toString() is used here to support scientific notation (1e10).
          * Native bigint is unable to parse such values yet.
          */
-        return new SNumber(BigInt(bigInt(text()).toString()), 10, location());
+        return new SNumber(BigInt(bigInt(text()).toString()), 10, makeRange(location(), options as ParseOptions));
     }
 
 Number =
@@ -353,28 +376,28 @@ Number =
             throw new Error(`Cannot use units with hex literals`);
         }
 
-        return new SNumber(BigInt(value.num), value.radix, location(), unit[1]);
+        return new SNumber(BigInt(value.num), value.radix, makeRange(location(), options as ParseOptions), unit[1]);
     }
 
 BooleanLiteral =
     val: (TRUE / FALSE) {
-        return new SBooleanLiteral(text() === "true", location());
+        return new SBooleanLiteral(text() === "true", makeRange(location(), options as ParseOptions));
     }
 
 HexLiteral =
     HEX '"' val: HexDigit* '"' {
-        return new SHexLiteral(val.join(""), location());
+        return new SHexLiteral(val.join(""), makeRange(location(), options as ParseOptions));
     }
     / HEX "'" val: HexDigit* "'" {
-        return new SHexLiteral(val.join(""), location());
+        return new SHexLiteral(val.join(""), makeRange(location(), options as ParseOptions));
     }
 
 StringLiteral =
     "'" chars: SingleStringChar* "'" {
-        return new SStringLiteral(chars.join(""), location());
+        return new SStringLiteral(chars.join(""), makeRange(location(), options as ParseOptions));
     }
     / '"' chars: DoubleStringChar* '"' {
-        return new SStringLiteral(chars.join(""), location());
+        return new SStringLiteral(chars.join(""), makeRange(location(), options as ParseOptions));
     }
 
 AnyChar =
@@ -442,12 +465,12 @@ PrimaryExpression =
     / (
         "(" __ expr: Expression __ ")" { return expr; }
     )
-    / (RESULT { return new SResult(location()); })
+    / (RESULT { return new SResult(makeRange(location(), options as ParseOptions)); })
     / For_All
 
 OldExpression =
     OLD __ "(" __ expr: Expression __ ")" {
-        return new SUnaryOperation("old", expr, location());
+        return new SUnaryOperation("old", expr, makeRange(location(), options as ParseOptions));
     }
     / PrimaryExpression
 
@@ -459,18 +482,18 @@ MemberAccessExpression =
         / "(" __ args: ArgumentList? __ ")" { return { args: args } ; }
     )* {
         return tail.reduce(
-            (acc, el) => {
+            (acc: any, el: any) => {
                 if (el.hasOwnProperty("index")) {
-                    return new SIndexAccess(acc, el.index, location());
+                    return new SIndexAccess(acc, el.index, makeRange(location(), options as ParseOptions));
                 }
 
                 if (el.hasOwnProperty("property")) {
-                    return new SMemberAccess(acc, el.property.name, location());
+                    return new SMemberAccess(acc, el.property.name, makeRange(location(), options as ParseOptions));
                 }
 
                 const args = el.args === null ? [] : el.args;
 
-                return new SFunctionCall(acc, args, location());
+                return new SFunctionCall(acc, args, makeRange(location(), options as ParseOptions));
             },
             head
         );
@@ -480,7 +503,7 @@ ArgumentList =
     head: (Expression)
     tail: (__ "," __ expr: Expression)* {
         return tail.reduce(
-            (acc, el) => {
+            (acc: any, el: any) => {
                 acc.push(el[3]);
 
                 return acc;
@@ -492,7 +515,7 @@ ArgumentList =
 UnaryExpression =
     (
         operator: UnaryOperator __ subexp: UnaryExpression {
-            return new SUnaryOperation(operator as UnaryOperator, subexp, location());
+            return new SUnaryOperation(operator as UnaryOperator, subexp, makeRange(location(), options as ParseOptions));
         }
     )
     / MemberAccessExpression
@@ -504,7 +527,7 @@ UnaryOperator =
 PowerExpression =
     head: UnaryExpression
     tail: (__ op: "**" __ UnaryExpression)* {
-        return buildBinaryExpression(head, tail, location());
+        return buildBinaryExpression(head, tail, makeRange(location(), options as ParseOptions));
     }
 
 MultiplicativeOperator =
@@ -515,7 +538,7 @@ MultiplicativeOperator =
 MultiplicativeExpression =
     head: PowerExpression
     tail: (__ op: MultiplicativeOperator __ PowerExpression)* {
-        return buildBinaryExpression(head, tail, location());
+        return buildBinaryExpression(head, tail, makeRange(location(), options as ParseOptions));
     }
 
 AdditiveOperator =
@@ -525,13 +548,13 @@ AdditiveOperator =
 AdditiveExpression =
     head: MultiplicativeExpression
     tail: (__ AdditiveOperator __ MultiplicativeExpression)* {
-        return buildBinaryExpression(head, tail, location());
+        return buildBinaryExpression(head, tail, makeRange(location(), options as ParseOptions));
     }
 
 ShiftExpression =
     head: AdditiveExpression
     tail: (__ ShiftOperator __ AdditiveExpression)* {
-        return buildBinaryExpression(head, tail, location());
+        return buildBinaryExpression(head, tail, makeRange(location(), options as ParseOptions));
     }
 
 ShiftOperator =
@@ -541,25 +564,25 @@ ShiftOperator =
 BitwiseANDExpression =
     head: ShiftExpression
     tail: (__ "&" __ ShiftExpression)* {
-        return buildBinaryExpression(head, tail, location());
+        return buildBinaryExpression(head, tail, makeRange(location(), options as ParseOptions));
     }
 
 BitwiseXORExpression =
     head: BitwiseANDExpression
     tail: (__ "^" __ BitwiseANDExpression)* {
-        return buildBinaryExpression(head, tail, location());
+        return buildBinaryExpression(head, tail, makeRange(location(), options as ParseOptions));
     }
 
 BitwiseORExpression =
     head: BitwiseXORExpression
     tail: (__ "|" __ BitwiseXORExpression)* {
-        return buildBinaryExpression(head, tail, location());
+        return buildBinaryExpression(head, tail, makeRange(location(), options as ParseOptions));
     }
 
 RelationalExpression =
     (
         left: BitwiseORExpression __ op: RelationalOperator __ right: BitwiseORExpression {
-            return new SBinaryOperation(left, op as RleationalBinaryOperator, right, location());
+            return new SBinaryOperation(left, op as RelationalBinaryOperator, right, makeRange(location(), options as ParseOptions));
         }
     )
     / BitwiseORExpression
@@ -573,7 +596,7 @@ RelationalOperator =
 EqualityExpression =
     head: RelationalExpression
     tail: (__ EqualityOperator __ RelationalExpression)* {
-        return buildBinaryExpression(head, tail, location());
+        return buildBinaryExpression(head, tail, makeRange(location(), options as ParseOptions));
     }
 
 EqualityOperator =
@@ -583,19 +606,19 @@ EqualityOperator =
 LogicalANDExpression =
     head: EqualityExpression
     tail: (__ "&&" __ EqualityExpression)* {
-        return buildBinaryExpression(head, tail, location());
+        return buildBinaryExpression(head, tail, makeRange(location(), options as ParseOptions));
     }
 
 LogicalORExpression =
     head: LogicalANDExpression
     tail: (__ "||" __ LogicalANDExpression)* {
-        return buildBinaryExpression(head, tail, location());
+        return buildBinaryExpression(head, tail, makeRange(location(), options as ParseOptions));
     }
 
 ImplicationExpression =
     precedent: LogicalORExpression
     tail: (__ "==>" __  ImplicationExpression)* {
-        return buildBinaryExpression(precedent, tail, location());
+        return buildBinaryExpression(precedent, tail, makeRange(location(), options as ParseOptions));
     }
 
 ConditionalExpression =
@@ -606,21 +629,21 @@ ConditionalExpression =
         }
     )* {
         return tail.reduce(
-            (acc, [trueExpr, falseExpr]) => new SConditional(acc, trueExpr, falseExpr, location()),
+            (acc: any, [trueExpr, falseExpr]: any) => new SConditional(acc, trueExpr, falseExpr, makeRange(location(), options as ParseOptions)),
             head
         )
     }
 
 LetExpression =
     LET __ bindings: LhsBindings __ ":=" __ rhs: Expression __ IN __ inExpr: Expression {
-        return new SLet(bindings, rhs, inExpr, location());
+        return new SLet(bindings, rhs, inExpr, makeRange(location(), options as ParseOptions));
     }
     / ConditionalExpression
 
 LhsBindings =
     head: Identifier __ tail: ("," __ id: Identifier __ { return id; })* {
         return tail.reduce(
-            (acc, cur) => {
+            (acc: any, cur: any) => {
                 acc.push(cur);
                 
                 return acc;
@@ -645,12 +668,12 @@ SimpleType =
 
 BoolType =
     BOOL {
-        return new BoolType(location())
+        return new BoolType(makeRange(location(), options as ParseOptions))
     }
 
 AddressType =
     ADDRESS __ payable:(PAYABLE?) {
-        return new AddressType(payable !== null, location());
+        return new AddressType(payable !== null, makeRange(location(), options as ParseOptions));
     }
 
 IntType =
@@ -658,46 +681,46 @@ IntType =
         const isSigned = unsigned === null;
         const bitWidth = width === null ? 256 : Number(width.num);
 
-        return new IntType(bitWidth, isSigned, location());
+        return new IntType(bitWidth, isSigned, makeRange(location(), options as ParseOptions));
     }
 
 FixedSizeBytesType =
     BYTES width: Number {
-        return new FixedBytesType(width, location());
+        return new FixedBytesType(width, makeRange(location(), options as ParseOptions));
     }
     / BYTE {
-        return new FixedBytesType(1, location());
+        return new FixedBytesType(1, makeRange(location(), options as ParseOptions));
     }
 
 BytesType =
     BYTES !Number {
-        return new BytesType(location());
+        return new BytesType(makeRange(location(), options as ParseOptions));
     }
 
 StringType =
     STRING {
-        return new StringType(location());
+        return new StringType(makeRange(location(), options as ParseOptions));
     }
 
 UserDefinedType =
     base: Identifier "." field: Identifier {
-        return makeUserDefinedType(base.name + '.' + field.name, options, location());
+        return makeUserDefinedType(base.name + '.' + field.name, options as ParseOptions, makeRange(location(), options as ParseOptions));
     }
     / name: Identifier {
-        return makeUserDefinedType(name.name, options, location());
+        return makeUserDefinedType(name.name, options as ParseOptions, makeRange(location(), options as ParseOptions));
     }
 
 ArrayType =
     head: SimpleType
     tail: ( __ "[" __ size: Number? __ "]")* {
         return tail.reduce(
-            (acc, cur) => {
+            (acc: any, cur: any) => {
                 const size = cur[3];
 
                 return new ArrayType(
                     acc,
                     size === null ? undefined : BigInt(size.num),
-                    location()
+                    makeRange(location(), options as ParseOptions)
                 );
             },
             head
@@ -706,7 +729,7 @@ ArrayType =
 
 MappingType =
     MAPPING __ "(" __ keyType: SimpleType __ "=>" __ valueType: MappingType __ ")" {
-        return new MappingType(keyType, valueType, location());
+        return new MappingType(keyType, valueType, makeRange(location(), options as ParseOptions));
     }
     / ArrayType
 
@@ -719,14 +742,14 @@ PointerType =
     toType: MappingType __ dataLocation: (DataLocation?) {
         return dataLocation === null
             ? toType
-            : new PointerType(toType, dataLocation as DataLocation, undefined, location());
+            : new PointerType(toType, dataLocation as DataLocation, undefined, makeRange(location(), options as ParseOptions));
     }
 
 TypeList =
     head: PointerType
     tail: (__ "," __ PointerType)* {
         return tail.reduce(
-            (acc, cur) => {
+            (acc: any, cur: any) => {
                 acc.push(cur[3]);
                 
                 return acc;
@@ -753,7 +776,7 @@ FunctionDecoratorList =
     head: FunctionDecorator
     tail: (__ FunctionDecorator)* {
         return tail.reduce(
-            (acc, cur) => {
+            (acc: any, cur: any) => {
                 acc.push(cur[1]);
 
                 return acc;
@@ -768,8 +791,8 @@ FunctionType =
         const retTs = returns === null ? [] : returns[4];
         const decoratorsList = decorators === null ? [] : decorators;
 
-        const [visibility, mutability] = getFunctionAttrbiutes(decoratorsList);
+        const [visibility, mutability] = getFunctionAttributes(decoratorsList);
 
-        return new FunctionType(undefined, argTs, retTs, visibility, mutability, location());
+        return new FunctionType(undefined, argTs, retTs, visibility, mutability, makeRange(location(), options as ParseOptions));
     }
     / PointerType

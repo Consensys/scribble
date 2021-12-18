@@ -1,7 +1,7 @@
-import { SNode, Range } from "./node";
+import { NodeLocation, SNode } from "./node";
 
 export class SResult extends SNode {
-    constructor(src?: Range) {
+    constructor(src?: NodeLocation) {
         super(src);
     }
 

@@ -37,16 +37,13 @@ import {
     UserDefinedTypeName,
     VariableDeclaration
 } from "solc-typed-ast";
-import {
-    ConcreteDatastructurePath,
-    explodeTupleAssignment,
-    findStateVarUpdates,
-    needsLocation,
-    single,
-    UnsupportedConstruct
-} from "..";
+import { single } from "../util/misc";
+import { UnsupportedConstruct } from "./instrument";
 import { InstrumentationContext } from "./instrumentation_context";
+import { ConcreteDatastructurePath, findStateVarUpdates } from "./state_vars";
+import { explodeTupleAssignment } from "./state_var_instrumenter";
 import { InstrumentationSiteType } from "./transpiling_context";
+import { needsLocation } from "./utils";
 
 export type AbsDatastructurePath = Array<null | string>;
 export type StateVarRefDesc = [Expression, VariableDeclaration, ConcreteDatastructurePath, boolean];

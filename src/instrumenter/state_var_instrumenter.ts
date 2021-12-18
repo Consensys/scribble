@@ -56,29 +56,23 @@ import {
     VariableDeclaration,
     WhileStatement
 } from "solc-typed-ast";
-import { AnnotationMetaData } from ".";
+import { SId, SIfUpdated, SStateVarProp } from "../spec-lang/ast";
+import { getOrInit, last, single, updateMap } from "../util/misc";
+import { AnnotationMap, AnnotationMetaData, PropertyMetaData } from "./annotations";
+import { insertAnnotations, UnsupportedConstruct } from "./instrument";
+import { InstrumentationContext } from "./instrumentation_context";
 import {
-    AnnotationMap,
     ConcreteDatastructurePath,
     decomposeLHS,
-    getOrInit,
-    getTypeLocation,
-    insertAnnotations,
     isStateVarRef,
     isTypeAliasable,
-    last,
-    PropertyMetaData,
-    single,
     StateVarUpdateDesc,
-    StateVarUpdateNode,
-    transpileType,
-    UnsupportedConstruct,
-    updateMap
-} from "..";
-import { SId, SIfUpdated, SStateVarProp } from "../spec-lang/ast";
-import { InstrumentationContext } from "./instrumentation_context";
+    StateVarUpdateNode
+} from "./state_vars";
+import { transpileType } from "./transpile";
 import { InstrumentationSiteType, TranspilingContext } from "./transpiling_context";
 import { makeTypeString } from "./type_string";
+import { getTypeLocation } from "./utils";
 
 /**
  * Given a Solidity `Expression` `e` and the `expectedType` where its being used,

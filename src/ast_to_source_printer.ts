@@ -12,6 +12,7 @@ import {
 } from "solc-typed-ast";
 import { ImportDirectiveDesc } from "./rewriter/import_directive_header";
 import { parse as parseImportDirective } from "./rewriter/import_directive_parser";
+import { SourceMap } from "./util/sources";
 
 /**
  * Find an import named `name` imported from source unit `from`. This will
@@ -30,7 +31,7 @@ import { parse as parseImportDirective } from "./rewriter/import_directive_parse
 function findImport(
     name: string,
     from: SourceUnit,
-    sources: Map<string, string>,
+    sources: SourceMap,
     factory: ASTNodeFactory
 ): ExportedSymbol | undefined {
     if (from.vExportedSymbols.has(name)) {
@@ -85,7 +86,7 @@ function findImport(
  */
 export function rewriteImports(
     sourceUnit: SourceUnit,
-    sources: Map<string, string>,
+    sources: SourceMap,
     factory: ASTNodeFactory
 ): void {
     for (const importDir of sourceUnit.vImportDirectives) {
@@ -102,7 +103,7 @@ export function rewriteImports(
 
         assert(source !== undefined, `Missing source for ${sourceUnit.absolutePath}`);
 
-        const importDirSrc = importDir.extractSourceFragment(source);
+        const importDirSrc = importDir.extractSourceFragment(source.contents);
         const importDesc: ImportDirectiveDesc = parseImportDirective(importDirSrc);
 
         assert(
@@ -154,15 +155,48 @@ function getWriter(targetCompilerVersion: string): ASTWriter {
 
     return writer;
 }
-/**
- * Print a list of SourceUnits, with potentially different versions and ASTContext's
- */
+
 export function print(
     sourceUnits: SourceUnit[],
     compilerVersion: string,
-    srcMap: SrcRangeMap
+    srcMap: SrcRangeMap,
+    instrumentationMarker?: string
 ): Map<SourceUnit, string> {
-    return new Map(
-        sourceUnits.map((unit) => [unit, getWriter(compilerVersion).write(unit, srcMap)])
-    );
+    const writer = getWriter(compilerVersion);
+    const result = new Map<SourceUnit, string>();
+
+    for (const unit of sourceUnits) {
+        const source = writer.write(unit, srcMap);
+
+        if (instrumentationMarker === undefined) {
+            result.set(unit, source);
+        } else {
+            /**
+             * 1. Prepend instrumentation marker message to the source
+             */
+            result.set(unit, instrumentationMarker + source);
+
+            /**
+             * 2. Shift OFFSET of each child node of the source unit
+             */
+            for (const node of unit.getChildren()) {
+                const src = srcMap.get(node);
+
+                if (src !== undefined) {
+                    src[0] += instrumentationMarker.length;
+                }
+            }
+
+            /**
+             * 3. Expand source unit LENGTH
+             */
+            const src = srcMap.get(unit);
+
+            if (src !== undefined) {
+                src[1] += instrumentationMarker.length;
+            }
+        }
+    }
+
+    return result;
 }

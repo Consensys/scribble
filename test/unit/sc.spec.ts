@@ -24,6 +24,7 @@ import {
     tcAnnotation,
     TypeEnv
 } from "../../src/spec-lang/tc";
+import { SolFile, SourceFile } from "../../src/util/sources";
 import { getTarget, getTypeCtxAndTarget, LocationDesc, toAst } from "../integration/utils";
 
 describe("SemanticChecker Expression Unit Tests", () => {
@@ -362,18 +363,20 @@ describe("SemanticChecker Expression Unit Tests", () => {
             let units: SourceUnit[];
             const compilerVersion = "0.6.0";
             let encVer: ABIEncoderVersion;
+            let sourceFile: SourceFile;
 
             before(() => {
                 const result = toAst(fileName, content);
 
                 units = result.units;
                 encVer = getABIEncoderVersion(units, compilerVersion);
+                sourceFile = new SolFile(fileName, content);
             });
 
             for (const [specString, loc, expectedType, expectedInfo] of testCases) {
                 it(`SemCheck for ${specString} returns ${JSON.stringify(expectedInfo)}`, () => {
                     const [ctx, target] = getTypeCtxAndTarget(loc, units, compilerVersion);
-                    const parsed = parse(specString, target, compilerVersion);
+                    const parsed = parse(specString, target, compilerVersion, sourceFile, 0);
                     const annotationType =
                         target instanceof ContractDefinition
                             ? AnnotationType.Invariant
@@ -407,18 +410,20 @@ describe("SemanticChecker Expression Unit Tests", () => {
             let units: SourceUnit[];
             const compilerVersion = "0.6.0";
             let encVer: ABIEncoderVersion;
+            let sourceFile: SourceFile;
 
             before(() => {
                 const result = toAst(fileName, content);
 
                 units = result.units;
                 encVer = getABIEncoderVersion(units, compilerVersion);
+                sourceFile = new SolFile(fileName, content);
             });
 
             for (const [specString, loc] of testCases) {
                 it(`SemCheck for ${specString} throws SemError`, () => {
                     const [ctx, target] = getTypeCtxAndTarget(loc, units, compilerVersion);
-                    const parsed = parse(specString, target, compilerVersion);
+                    const parsed = parse(specString, target, compilerVersion, sourceFile, 0);
                     const annotationType =
                         target instanceof ContractDefinition
                             ? AnnotationType.Invariant
@@ -472,12 +477,12 @@ describe("SemanticChecker Annotation Unit Tests", () => {
                 }
             }`,
             [
-                ["define foo(uint x) uint = x + sV;", ["Foo"]],
-                ["if_updated old(sV) < sV;", ["Foo", "sV"]],
-                ["if_assigned old(sV) < sV;", ["Foo", "sV"]],
-                ["if_succeeds old(y) + y > add;", ["Foo", "add"]],
-                ["invariant sV > 0;", ["Foo"]],
-                ["assert x> 0 && y < 10 && sV > 1;", ["Foo", "add", "//Block/*[1]"]]
+                ["#define foo(uint x) uint = x + sV;", ["Foo"]],
+                ["#if_updated old(sV) < sV;", ["Foo", "sV"]],
+                ["#if_assigned old(sV) < sV;", ["Foo", "sV"]],
+                ["#if_succeeds old(y) + y > add;", ["Foo", "add"]],
+                ["#invariant sV > 0;", ["Foo"]],
+                ["#assert x> 0 && y < 10 && sV > 1;", ["Foo", "add", "//Block/*[1]"]]
             ]
         ]
     ];
@@ -501,12 +506,12 @@ describe("SemanticChecker Annotation Unit Tests", () => {
                 }
             }`,
             [
-                ["if_succeeds old(old(x)) > 0;", ["Foo", "add"]],
-                ["if_succeeds let x := y in old(x) > 0;", ["Foo", "add"]],
-                ["invariant old(sV) > 0;", ["Foo"]],
-                ["define foo(uint x) uint = old(x);", ["Foo"]],
-                ["define foo() uint = old(sV);", ["Foo"]],
-                ["assert old(x) > 0;", ["Foo", "add", "//Block/*[1]"]]
+                ["#if_succeeds old(old(x)) > 0;", ["Foo", "add"]],
+                ["#if_succeeds let x := y in old(x) > 0;", ["Foo", "add"]],
+                ["#invariant old(sV) > 0;", ["Foo"]],
+                ["#define foo(uint x) uint = old(x);", ["Foo"]],
+                ["#define foo() uint = old(sV);", ["Foo"]],
+                ["#assert old(x) > 0;", ["Foo", "add", "//Block/*[1]"]]
             ]
         ]
     ];
@@ -516,18 +521,26 @@ describe("SemanticChecker Annotation Unit Tests", () => {
             let units: SourceUnit[];
             const compilerVersion = "0.6.0";
             let encVer: ABIEncoderVersion;
+            let sourceFile: SourceFile;
 
             before(() => {
                 const result = toAst(fileName, content);
 
                 units = result.units;
                 encVer = getABIEncoderVersion(units, compilerVersion);
+                sourceFile = new SolFile(fileName, content);
             });
 
             for (const [specString, loc] of testCases) {
                 it(`SemCheck for ${specString} succeeds`, () => {
                     const target = getTarget(loc, units);
-                    const annotation = parseAnnotation(specString, target, compilerVersion);
+                    const annotation = parseAnnotation(
+                        specString,
+                        target,
+                        compilerVersion,
+                        sourceFile,
+                        0
+                    );
                     const [ctx] = getTypeCtxAndTarget(loc, units, compilerVersion, annotation);
                     const typeEnv = new TypeEnv(compilerVersion, encVer);
                     tcAnnotation(annotation, ctx, target, typeEnv);
@@ -547,18 +560,26 @@ describe("SemanticChecker Annotation Unit Tests", () => {
             let units: SourceUnit[];
             const compilerVersion = "0.6.0";
             let encVer: ABIEncoderVersion;
+            let sourceFile: SourceFile;
 
             before(() => {
                 const result = toAst(fileName, content);
 
                 units = result.units;
                 encVer = getABIEncoderVersion(units, compilerVersion);
+                sourceFile = new SolFile(fileName, content);
             });
 
             for (const [specString, loc] of testCases) {
                 it(`SemCheck for ${specString} throws as expected`, () => {
                     const target = getTarget(loc, units);
-                    const annotation = parseAnnotation(specString, target, compilerVersion);
+                    const annotation = parseAnnotation(
+                        specString,
+                        target,
+                        compilerVersion,
+                        sourceFile,
+                        0
+                    );
                     const [ctx] = getTypeCtxAndTarget(loc, units, compilerVersion, annotation);
                     const typeEnv = new TypeEnv(compilerVersion, encVer);
                     tcAnnotation(annotation, ctx, target, typeEnv);

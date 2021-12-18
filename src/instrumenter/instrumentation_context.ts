@@ -19,30 +19,28 @@ import {
     TypeNode,
     VariableDeclaration
 } from "solc-typed-ast";
-import {
-    AbsDatastructurePath,
-    dedup,
-    FactoryMap,
-    findAliasedStateVars,
-    getSetterName,
-    makeArraySumFun,
-    makeDeleteFun,
-    makeGetFun,
-    makeIncDecFun,
-    makeSetFun,
-    ScribbleFactory,
-    StructMap,
-    UnsupportedConstruct
-} from "..";
 import { print } from "../ast_to_source_printer";
 import { SUserFunctionDefinition } from "../spec-lang/ast";
 import { SemMap, TypeEnv } from "../spec-lang/tc";
+import { dedup } from "../util/misc";
 import { NameGenerator } from "../util/name_generator";
+import { SourceMap } from "../util/sources";
 import { AnnotationFilterOptions, AnnotationMetaData } from "./annotations";
 import { CallGraph } from "./callgraph";
 import { CHA } from "./cha";
-import { generateMapLibrary } from "./custom_maps_templates";
+import { AbsDatastructurePath } from "./custom_maps";
+import {
+    generateMapLibrary,
+    getSetterName,
+    makeDeleteFun,
+    makeGetFun,
+    makeIncDecFun,
+    makeSetFun
+} from "./custom_maps_templates";
+import { makeArraySumFun, UnsupportedConstruct } from "./instrument";
+import { findAliasedStateVars } from "./state_vars";
 import { DbgIdsMap, InstrumentationSiteType, TranspilingContext } from "./transpiling_context";
+import { FactoryMap, ScribbleFactory, StructMap } from "./utils";
 
 /**
  * Gather all named nodes in the provided source units.
@@ -276,7 +274,7 @@ export class InstrumentationContext {
      * Map from Annotations to the actual asserts and event emissions
      * that are hit if the annotation fails.
      */
-    public readonly failureCheck: Map<AnnotationMetaData, Statement[]> = new Map();
+    public readonly failureStatements: Map<AnnotationMetaData, Statement[]> = new Map();
     /**
      * List of statements added for general instrumentation, not tied to any
      * particular annotation.
@@ -362,7 +360,7 @@ export class InstrumentationContext {
         public readonly filterOptions: AnnotationFilterOptions,
         public readonly annotations: AnnotationMetaData[],
         public readonly wrapperMap: Map<FunctionDefinition, FunctionDefinition>,
-        public readonly files: Map<string, string>,
+        public readonly files: SourceMap,
         public readonly compilerVersion: string,
         public readonly debugEvents: boolean,
         public readonly debugEventsEncoding: Map<number, DbgIdsMap>,
@@ -437,10 +435,10 @@ export class InstrumentationContext {
     }
 
     addAnnotationFailureCheck(annotation: AnnotationMetaData, ...nodes: Statement[]): void {
-        const targets = this.failureCheck.get(annotation);
+        const targets = this.failureStatements.get(annotation);
 
         if (targets === undefined) {
-            this.failureCheck.set(annotation, nodes);
+            this.failureStatements.set(annotation, nodes);
         } else {
             targets.push(...nodes);
         }
@@ -530,8 +528,12 @@ export class InstrumentationContext {
         }
     }
 
-    printUnits(units: SourceUnit[], srcMap: SrcRangeMap): Map<SourceUnit, string> {
-        return print(units, this.compilerVersion, srcMap);
+    printUnits(
+        units: SourceUnit[],
+        srcMap: SrcRangeMap,
+        instrumentationMarker?: string
+    ): Map<SourceUnit, string> {
+        return print(units, this.compilerVersion, srcMap, instrumentationMarker);
     }
 
     get arrSumLibrary(): ContractDefinition {
