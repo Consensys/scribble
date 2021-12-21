@@ -2,9 +2,16 @@
 /// Use --disarm prior to make any changes.
 pragma solidity 0.8.7;
 
-contract SimpleAsserts {
+/// Utility contract holding a stack counter
+contract __scribble_ReentrancyUtils {
     event AssertionFailed(string message);
 
+    event AssertionFailedData(int eventId, bytes encodingData);
+
+    bool __scribble_out_of_contract = true;
+}
+
+contract SimpleAsserts is __scribble_ReentrancyUtils {
     function main(uint a1, uint a2, uint a3, bool b1, uint a4, uint a5, uint a6, uint a7, uint a8) public {
         unchecked {
             if (!(a1 == 1)) {
@@ -71,9 +78,4 @@ contract SimpleAsserts {
             x++;
         }
     }
-}
-
-/// Utility contract holding a stack counter
-contract __scribble_ReentrancyUtils {
-    bool __scribble_out_of_contract = true;
 }

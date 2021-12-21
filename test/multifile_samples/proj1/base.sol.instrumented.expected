@@ -6,8 +6,6 @@ import "./__scribble_ReentrancyUtils.sol";
 
 /// #invariant {:msg "P0"} x > 0;
 contract Base is __scribble_ReentrancyUtils {
-    event AssertionFailed(string message);
-
     uint internal x = 1;
 
     /// Check only the current contract's state invariants

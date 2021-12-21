@@ -4,6 +4,10 @@ pragma solidity 0.8.7;
 
 /// Utility contract holding a stack counter
 contract __scribble_ReentrancyUtils {
+    event AssertionFailed(string message);
+
+    event AssertionFailedData(int eventId, bytes encodingData);
+
     bool __scribble_out_of_contract = true;
 }
 
@@ -29,8 +33,6 @@ contract A is __scribble_ReentrancyUtils {
 
 /// #invariant a > 0;
 contract B is __scribble_ReentrancyUtils, A {
-    event AssertionFailed(string message);
-
     constructor() A(1) {
         __scribble_out_of_contract = false;
         __scribble_check_state_invariants();

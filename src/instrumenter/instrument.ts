@@ -25,7 +25,6 @@ import {
     LiteralKind,
     Mutability,
     OverrideSpecifier,
-    resolveByName,
     SourceUnit,
     Statement,
     StatementWithChildren,
@@ -175,6 +174,7 @@ export function generateUtilsContract(
 
     sourceUnit.appendChild(contract);
 
+    /// Add reentrancy boolean flag
     const flag = factory.makeVariableDeclaration(
         false,
         false,
@@ -195,12 +195,74 @@ export function generateUtilsContract(
 
     contract.appendChild(flag);
 
+    /// Add 'AssertionFailed' event
+    const assertionFailedEvtDef = factory.makeEventDefinition(
+        false,
+        "AssertionFailed",
+        factory.makeParameterList([])
+    );
+
+    assertionFailedEvtDef.vParameters.vParameters.push(
+        factory.makeVariableDeclaration(
+            false,
+            false,
+            "message",
+            assertionFailedEvtDef.id,
+            false,
+            DataLocation.Default,
+            StateVariableVisibility.Default,
+            Mutability.Mutable,
+            "<missing>",
+            undefined,
+            factory.makeElementaryTypeName("<missing>", "string")
+        )
+    );
+
+    contract.appendChild(assertionFailedEvtDef);
+
+    /// Add 'AssertionFailedData' event
+    const assertionFailedDataEvtDef = factory.makeEventDefinition(
+        false,
+        `AssertionFailedData`,
+        factory.makeParameterList([])
+    );
+
+    const eventId = factory.makeVariableDeclaration(
+        false,
+        false,
+        "eventId",
+        assertionFailedDataEvtDef.id,
+        false,
+        DataLocation.Default,
+        StateVariableVisibility.Default,
+        Mutability.Mutable,
+        "int",
+        undefined,
+        factory.makeElementaryTypeName("<missing>", "int")
+    );
+
+    const encodingData = factory.makeVariableDeclaration(
+        false,
+        false,
+        "encodingData",
+        assertionFailedDataEvtDef.id,
+        false,
+        DataLocation.Default,
+        StateVariableVisibility.Default,
+        Mutability.Mutable,
+        "bytes",
+        undefined,
+        factory.makeElementaryTypeName("<missing>", "bytes")
+    );
+
+    assertionFailedDataEvtDef.vParameters.appendChild(eventId);
+    assertionFailedDataEvtDef.vParameters.appendChild(encodingData);
+    contract.appendChild(assertionFailedDataEvtDef);
+
     ctx.utilsContract = contract;
 
     return sourceUnit;
 }
-
-type DebugInfo = [EventDefinition, EmitStatement];
 
 /**
  * Build a debug event/debug event emission statement for each of the provided `annotations`. Return
@@ -209,60 +271,13 @@ type DebugInfo = [EventDefinition, EmitStatement];
  * If a given annotation doesn't have any identifiers to output for debugging purposes, return `undefined`
  * in that respective index.
  */
-function getDebugInfo(
+function getDebugInfoEmits(
     annotations: PropertyMetaData[],
     transCtx: TranspilingContext
-): Array<DebugInfo | undefined> {
-    const res: Array<DebugInfo | undefined> = [];
+): Array<EmitStatement | undefined> {
+    const res: Array<EmitStatement | undefined> = [];
     const factory = transCtx.factory;
     const instrCtx = transCtx.instrCtx;
-
-    const events = resolveByName(transCtx.contract, EventDefinition, "AssertionFailedData");
-
-    let evtDef = undefined;
-
-    if (events.length > 0) {
-        evtDef = events[0];
-    }
-
-    if (evtDef == undefined) {
-        evtDef = factory.makeEventDefinition(
-            false,
-            `AssertionFailedData`,
-            factory.makeParameterList([])
-        );
-
-        const eventId = factory.makeVariableDeclaration(
-            false,
-            false,
-            "eventId",
-            evtDef.id,
-            false,
-            DataLocation.Default,
-            StateVariableVisibility.Default,
-            Mutability.Mutable,
-            "int",
-            undefined,
-            factory.makeElementaryTypeName("<missing>", "int")
-        );
-
-        const encodingData = factory.makeVariableDeclaration(
-            false,
-            false,
-            "encodingData",
-            evtDef.id,
-            false,
-            DataLocation.Default,
-            StateVariableVisibility.Default,
-            Mutability.Mutable,
-            "bytes",
-            undefined,
-            factory.makeElementaryTypeName("<missing>", "bytes")
-        );
-
-        evtDef.vParameters.appendChild(eventId);
-        evtDef.vParameters.appendChild(encodingData);
-    }
 
     for (const annot of annotations) {
         const dbgIdsMap = transCtx.dbgInfo.get(annot);
@@ -290,12 +305,14 @@ function getDebugInfo(
             instrCtx.debugEventsEncoding.set(annot.id, dbgIdsMap);
         }
 
+        const assertionFailedDataEvtDef = instrCtx.getAssertionFailedDataEvent(annot.target);
+
         // Finally construct the emit statement for the debug event.
         const emitStmt = factory.makeEmitStatement(
             factory.makeFunctionCall(
                 "<missing>",
                 FunctionCallKind.FunctionCall,
-                factory.makeIdentifierFor(evtDef),
+                factory.makeIdentifierFor(assertionFailedDataEvtDef),
                 [
                     factory.makeLiteral("int", LiteralKind.Number, "", String(annot.id)),
                     factory.makeFunctionCall(
@@ -309,7 +326,7 @@ function getDebugInfo(
         );
 
         instrCtx.addAnnotationInstrumentation(annot, emitStmt);
-        res.push([evtDef, emitStmt]);
+        res.push(emitStmt);
     }
 
     return res;
@@ -441,48 +458,6 @@ function emitAssert(
     return ifStmt;
 }
 
-/**
- * Return the `EventDefinition` for the 'AssertFailed` event. If such a
- * defintion is not declared in the current contract, or a parent contract,
- * build it and insert it under `contract`.
- */
-export function getAssertionFailedEvent(
-    factory: ASTNodeFactory,
-    contract: ContractDefinition
-): EventDefinition {
-    const events = resolveByName(contract, EventDefinition, "AssertionFailed");
-
-    if (events.length > 0) {
-        return events[0];
-    }
-
-    const event = factory.makeEventDefinition(
-        false,
-        "AssertionFailed",
-        factory.makeParameterList([])
-    );
-
-    event.vParameters.vParameters.push(
-        factory.makeVariableDeclaration(
-            false,
-            false,
-            "message",
-            event.id,
-            false,
-            DataLocation.Default,
-            StateVariableVisibility.Default,
-            Mutability.Mutable,
-            "<missing>",
-            undefined,
-            factory.makeElementaryTypeName("<missing>", "string")
-        )
-    );
-
-    contract.appendChild(event);
-
-    return event;
-}
-
 function getCheckStateInvsFuncs(
     contract: ContractDefinition,
     ctx: InstrumentationContext
@@ -513,12 +488,11 @@ export function insertAnnotations(annotations: PropertyMetaData[], ctx: Transpil
     // preserve interface compatibility)
     const debugInfos =
         instrCtx.debugEvents && instrCtx.assertionMode === "log"
-            ? getDebugInfo(annotations, ctx)
+            ? getDebugInfoEmits(annotations, ctx)
             : [];
 
     const checkStmts: Array<[Statement, boolean]> = predicates.map(([annotation, predicate], i) => {
-        const dbgInfo = debugInfos[i];
-        const emitStmt = dbgInfo !== undefined ? dbgInfo[1] : undefined;
+        const emitStmt = debugInfos[i];
         const targetIsStmt =
             annotation.target instanceof Statement ||
             annotation.target instanceof StatementWithChildren;
@@ -565,18 +539,12 @@ export function insertAnnotations(annotations: PropertyMetaData[], ctx: Transpil
             return [stmt, !targetIsStmt];
         }
 
-        const event = getAssertionFailedEvent(factory, contract);
+        const event = instrCtx.getAssertionFailedEvent(contract);
         return [emitAssert(ctx, predicate, annotation, event, emitStmt), false];
     });
 
     for (const [check, isOld] of checkStmts) {
         ctx.insertStatement(check, isOld);
-    }
-
-    for (const dbgInfo of debugInfos) {
-        if (dbgInfo !== undefined && dbgInfo[0].parent === undefined) {
-            contract.appendChild(dbgInfo[0]);
-        }
     }
 }
 
@@ -607,32 +575,11 @@ export function instrumentContract(
         const internalInvChecker = makeInternalInvariantChecker(ctx, propertyAnnotations, contract);
         const generalInvChecker = makeGeneralInvariantChecker(ctx, contract, internalInvChecker);
 
-        prependBase(contract, ctx.utilsContract, ctx.factory);
+        ctx.addScribbleUtils(contract);
         instrumentConstructor(ctx, contract, generalInvChecker);
         replaceExternalCallSites(ctx, contract, generalInvChecker);
 
         ctx.needsUtils(contract.vScope);
-    }
-}
-
-function prependBase(
-    contract: ContractDefinition,
-    newBase: ContractDefinition,
-    factory: ASTNodeFactory
-): void {
-    const inhSpec = factory.makeInheritanceSpecifier(
-        factory.makeUserDefinedTypeName("<missing>", newBase.name, newBase.id),
-        []
-    );
-
-    contract.linearizedBaseContracts.unshift(newBase.id);
-
-    const specs = contract.vInheritanceSpecifiers;
-
-    if (specs.length !== 0) {
-        contract.insertBefore(inhSpec, specs[0]);
-    } else {
-        contract.appendChild(inhSpec);
     }
 }
 
@@ -795,13 +742,8 @@ function makeGeneralInvariantChecker(
     const body = checker.vBody as Block;
 
     for (const base of contract.vLinearizedBaseContracts) {
-        assert(
-            base !== ctx.utilsContract,
-            "Expected base to not be a utility contract for {0}",
-            contract
-        );
-
-        if (base.kind === ContractKind.Interface) {
+        /// Skip the utils contract and any interface bases
+        if (base === ctx.utilsContract || base.kind === ContractKind.Interface) {
             continue;
         }
 

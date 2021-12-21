@@ -15,7 +15,7 @@ contract Base {
     uint256_to_uint256.S internal a;
     string_to_int16.S c0;
     string internal sS;
-    string_to_uint8_to_int8_S_471.S internal d;
+    string_to_uint8_to_int8_S_481.S internal d;
     uint256_to_uint256_arr.S internal e;
     mapping(uint => uint)[] internal f;
     uint256_to_uint256.S[] internal g;
@@ -30,6 +30,10 @@ contract Base {
 
 /// Utility contract holding a stack counter
 contract __scribble_ReentrancyUtils {
+    event AssertionFailed(string message);
+
+    event AssertionFailedData(int eventId, bytes encodingData);
+
     bool __scribble_out_of_contract = true;
 }
 
@@ -222,7 +226,7 @@ library string_to_int16 {
     }
 }
 
-library string_to_uint8_to_int8_S_471 {
+library string_to_uint8_to_int8_S_481 {
     struct S {
         mapping(string => uint8_to_int8.S) innerM;
         string[] keys;
@@ -343,9 +347,7 @@ library string_to_mapping_uint8_to_int8 {
     }
 }
 
-contract Foo is Base {
-    event AssertionFailed(string message);
-
+contract Foo is __scribble_ReentrancyUtils, Base {
     struct vars0 {
         uint256 i0;
         uint256 k0;
@@ -487,9 +489,9 @@ contract Foo is Base {
             for (_v.i3 = 1; _v.i3 < d.keys.length; _v.i3++) {
                 _v.s1 = d.keys[_v.i3];
                 _v.forall_4 = true;
-                for (_v.i4 = 1; _v.i4 < string_to_uint8_to_int8_S_471.get(d, _v.s1).keys.length; _v.i4++) {
-                    _v.k2 = string_to_uint8_to_int8_S_471.get(d, _v.s1).keys[_v.i4];
-                    _v.forall_4 = uint8_to_int8.get(string_to_uint8_to_int8_S_471.get(d, _v.s1), _v.k2) > 0;
+                for (_v.i4 = 1; _v.i4 < string_to_uint8_to_int8_S_481.get(d, _v.s1).keys.length; _v.i4++) {
+                    _v.k2 = string_to_uint8_to_int8_S_481.get(d, _v.s1).keys[_v.i4];
+                    _v.forall_4 = uint8_to_int8.get(string_to_uint8_to_int8_S_481.get(d, _v.s1), _v.k2) > 0;
                     if (!_v.forall_4) break;
                 }
                 _v.forall_3 = _v.forall_4;
@@ -503,7 +505,7 @@ contract Foo is Base {
     }
 
     function _original_Foo_setD(string memory s, uint8 k, int8 v) private {
-        uint8_to_int8.set(string_to_uint8_to_int8_S_471.get_lhs(d, s), k, v);
+        uint8_to_int8.set(string_to_uint8_to_int8_S_481.get_lhs(d, s), k, v);
     }
 
     function setE(uint k, uint[] memory v) public {

@@ -2,9 +2,26 @@
 /// Use --disarm prior to make any changes.
 pragma solidity 0.6.12;
 
-contract AddrChecker {
+library Lib3 {
+    function len(string memory s) public pure returns (uint) {
+        return bytes(s).length;
+    }
+}
+
+/// define some stuff
+///  define some(other stuff
+contract IgnoreNonFunDefines {}
+
+/// Utility contract holding a stack counter
+contract __scribble_ReentrancyUtils {
     event AssertionFailed(string message);
 
+    event AssertionFailedData(int eventId, bytes encodingData);
+
+    bool __scribble_out_of_contract = true;
+}
+
+contract AddrChecker is __scribble_ReentrancyUtils {
     function checkAddr(address addr) external {
         _original_AddrChecker_checkAddr(addr);
         if (!(addr != address(0xAaaaAaAAaaaAAaAAaAaaaaAAAAAaAaaaAaAaaAA0))) {
@@ -18,9 +35,7 @@ contract AddrChecker {
     }
 }
 
-contract MapIdx {
-    event AssertionFailed(string message);
-
+contract MapIdx is __scribble_ReentrancyUtils {
     mapping(string => int) internal a;
 
     function main(string memory arg) public {
@@ -34,9 +49,7 @@ contract MapIdx {
     function _original_MapIdx_main(string memory arg) private {}
 }
 
-contract MemoryCast {
-    event AssertionFailed(string message);
-
+contract MemoryCast is __scribble_ReentrancyUtils {
     uint256[] internal _nums;
 
     function entry() external {
@@ -57,9 +70,7 @@ contract MemoryCast {
     }
 }
 
-contract OldInOld {
-    event AssertionFailed(string message);
-
+contract OldInOld is __scribble_ReentrancyUtils {
     struct vars3 {
         uint256 oldTT;
         uint256 oldT;
@@ -91,9 +102,7 @@ contract OldInOld {
     }
 }
 
-contract OldTuple {
-    event AssertionFailed(string message);
-
+contract OldTuple is __scribble_ReentrancyUtils {
     struct vars4 {
         uint256 oldX;
         uint256 oldY;
@@ -124,9 +133,7 @@ contract OldTuple {
     }
 }
 
-contract Result {
-    event AssertionFailed(string message);
-
+contract Result is __scribble_ReentrancyUtils {
     struct vars6 {
         uint256 t1;
         bool let_4;
@@ -185,16 +192,8 @@ contract Result {
     }
 }
 
-library Lib3 {
-    function len(string memory s) public pure returns (uint) {
-        return bytes(s).length;
-    }
-}
-
-contract UsingForRefType {
+contract UsingForRefType is __scribble_ReentrancyUtils {
     using Lib3 for string;
-
-    event AssertionFailed(string message);
 
     string internal sS;
 
@@ -209,9 +208,7 @@ contract UsingForRefType {
     function _original_UsingForRefType_main(string memory mS) private {}
 }
 
-contract ExternalCall {
-    event AssertionFailed(string message);
-
+contract ExternalCall is __scribble_ReentrancyUtils {
     function process(bytes calldata _bytes) external returns (bool result) {
         result = _original_ExternalCall_process(_bytes);
         if (!(this.checkBytes(_bytes) == result)) {
@@ -229,13 +226,7 @@ contract ExternalCall {
     }
 }
 
-/// define some stuff
-///  define some(other stuff
-contract IgnoreNonFunDefines {}
-
-contract CallinInstrumentedFun {
-    event AssertionFailed(string message);
-
+contract CallinInstrumentedFun is __scribble_ReentrancyUtils {
     uint internal x = 1;
 
     function getX() public returns (uint res) {
@@ -261,9 +252,4 @@ contract CallinInstrumentedFun {
     function _original_CallinInstrumentedFun_inc(uint x) private returns (uint res) {
         return x + getX();
     }
-}
-
-/// Utility contract holding a stack counter
-contract __scribble_ReentrancyUtils {
-    bool __scribble_out_of_contract = true;
 }

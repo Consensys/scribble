@@ -2,9 +2,16 @@
 /// Use --disarm prior to make any changes.
 pragma solidity 0.5.17;
 
-contract Base {
+/// Utility contract holding a stack counter
+contract __scribble_ReentrancyUtils {
     event AssertionFailed(string message);
 
+    event AssertionFailedData(int eventId, bytes encodingData);
+
+    bool __scribble_out_of_contract = true;
+}
+
+contract Base is __scribble_ReentrancyUtils {
     function foo(uint256 x) public returns (uint256 y) {
         y = _original_Base_foo(x);
         if (!(y > x)) {
@@ -18,12 +25,7 @@ contract Base {
     }
 }
 
-/// Utility contract holding a stack counter
-contract __scribble_ReentrancyUtils {
-    bool __scribble_out_of_contract = true;
-}
-
-contract Foo is Base {
+contract Foo is __scribble_ReentrancyUtils, Base {
     function foo(uint256 x) public returns (uint256 y) {
         y = _original_Foo_foo(x);
         if (!(y > x)) {

@@ -2,12 +2,19 @@
 /// Use --disarm prior to make any changes.
 pragma solidity 0.5.11;
 
-contract FooToken {
+/// Utility contract holding a stack counter
+contract __scribble_ReentrancyUtils {
+    event AssertionFailed(string message);
+
+    event AssertionFailedData(int eventId, bytes encodingData);
+
+    bool __scribble_out_of_contract = true;
+}
+
+contract FooToken is __scribble_ReentrancyUtils {
     event Transfer(address indexed _from, address indexed _to, uint256 _value);
 
     event Approval(address indexed _owner, address indexed _spender, uint256 _value);
-
-    event AssertionFailed(string message);
 
     struct vars0 {
         uint256 old_0;
@@ -72,9 +79,4 @@ contract FooToken {
         emit Transfer(_from, _to, _value);
         return true;
     }
-}
-
-/// Utility contract holding a stack counter
-contract __scribble_ReentrancyUtils {
-    bool __scribble_out_of_contract = true;
 }

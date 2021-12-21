@@ -2,42 +2,12 @@
 /// Use --disarm prior to make any changes.
 pragma solidity 0.8.7;
 
-contract Foo {
-    event AssertionFailed(string message);
-
-    struct vars0 {
-        uint256 i0;
-        uint256 k0;
-        bool forall_0;
-    }
-
-    uint256_to_mapping_uint256_to_uint256.S internal m;
-
-    function main() public {
-        Foo_m_idx_uint256_idx_uint256_uint256_assign(0, 1, 1);
-    }
-
-    function Foo_m_idx_uint256_idx_uint256_uint256_assign(uint256 ARG0, uint256 ARG1, uint256 ARG2) internal returns (uint256 RET0) {
-        vars0 memory _v;
-        uint256_to_mapping_uint256_to_uint256.get_lhs(m, ARG0)[ARG1] = ARG2;
-        RET0 = uint256_to_mapping_uint256_to_uint256.get_lhs(m, ARG0)[ARG1];
-        unchecked {
-            _v.forall_0 = true;
-            for (_v.i0 = 1; _v.i0 < m.keys.length; _v.i0++) {
-                _v.k0 = m.keys[_v.i0];
-                _v.forall_0 = uint256_to_mapping_uint256_to_uint256.get(m, _v.k0)[0] > 1;
-                if (!_v.forall_0) break;
-            }
-            if (!(_v.forall_0)) {
-                emit AssertionFailed("0: ");
-                assert(false);
-            }
-        }
-    }
-}
-
 /// Utility contract holding a stack counter
 contract __scribble_ReentrancyUtils {
+    event AssertionFailed(string message);
+
+    event AssertionFailedData(int eventId, bytes encodingData);
+
     bool __scribble_out_of_contract = true;
 }
 
@@ -78,5 +48,37 @@ library uint256_to_mapping_uint256_to_uint256 {
 
     function get(S storage m, uint256 key) internal view returns (mapping(uint256 => uint256) storage) {
         return m.innerM[key];
+    }
+}
+
+contract Foo is __scribble_ReentrancyUtils {
+    struct vars0 {
+        uint256 i0;
+        uint256 k0;
+        bool forall_0;
+    }
+
+    uint256_to_mapping_uint256_to_uint256.S internal m;
+
+    function main() public {
+        Foo_m_idx_uint256_idx_uint256_uint256_assign(0, 1, 1);
+    }
+
+    function Foo_m_idx_uint256_idx_uint256_uint256_assign(uint256 ARG0, uint256 ARG1, uint256 ARG2) internal returns (uint256 RET0) {
+        vars0 memory _v;
+        uint256_to_mapping_uint256_to_uint256.get_lhs(m, ARG0)[ARG1] = ARG2;
+        RET0 = uint256_to_mapping_uint256_to_uint256.get_lhs(m, ARG0)[ARG1];
+        unchecked {
+            _v.forall_0 = true;
+            for (_v.i0 = 1; _v.i0 < m.keys.length; _v.i0++) {
+                _v.k0 = m.keys[_v.i0];
+                _v.forall_0 = uint256_to_mapping_uint256_to_uint256.get(m, _v.k0)[0] > 1;
+                if (!_v.forall_0) break;
+            }
+            if (!(_v.forall_0)) {
+                emit AssertionFailed("0: ");
+                assert(false);
+            }
+        }
     }
 }

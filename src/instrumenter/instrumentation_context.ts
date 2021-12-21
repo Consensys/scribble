@@ -22,7 +22,7 @@ import {
 import { print } from "../ast_to_source_printer";
 import { SUserFunctionDefinition } from "../spec-lang/ast";
 import { SemMap, TypeEnv } from "../spec-lang/tc";
-import { dedup } from "../util/misc";
+import { dedup, single } from "../util/misc";
 import { NameGenerator } from "../util/name_generator";
 import { SourceMap } from "../util/sources";
 import { AnnotationFilterOptions, AnnotationMetaData } from "./annotations";
@@ -486,6 +486,67 @@ export class InstrumentationContext {
      */
     needsUtils(unit: SourceUnit): void {
         this.unitsNeedingUtils.add(unit);
+    }
+
+    /**
+     * Helper function to add the scribble utils contract as a base to `to`.
+     * If `to` already inherits from the utils contract nothing is changed.
+     */
+    addScribbleUtils(to: ContractDefinition): void {
+        // Make sure `base` is not already a base
+        for (const existingBase of to.vLinearizedBaseContracts) {
+            if (existingBase === this.utilsContract) {
+                return;
+            }
+        }
+
+        const inheritanceSpecifier = this.factory.makeInheritanceSpecifier(
+            this.factory.makeUserDefinedTypeName(
+                "<missing>",
+                this.utilsContractName,
+                this.utilsContract.id
+            ),
+            []
+        );
+
+        to.linearizedBaseContracts.unshift(this.utilsContract.id);
+
+        const specs = to.vInheritanceSpecifiers;
+
+        if (specs.length !== 0) {
+            to.insertBefore(inheritanceSpecifier, specs[0]);
+        } else {
+            to.appendChild(inheritanceSpecifier);
+        }
+
+        // Mark that the containing source units needs to import the generated utils unit
+        this.needsUtils(to.vScope);
+    }
+
+    getAssertionFailedEvent(ctx: ASTNode): EventDefinition {
+        const containingContract =
+            ctx instanceof ContractDefinition
+                ? ctx
+                : ctx.getClosestParentByType(ContractDefinition);
+
+        assert(containingContract !== undefined, `Node {0} not under a contract`, ctx);
+        this.addScribbleUtils(containingContract);
+
+        return single(this.utilsContract.vEvents.filter((evt) => evt.name === "AssertionFailed"));
+    }
+
+    getAssertionFailedDataEvent(ctx: ASTNode): EventDefinition {
+        const containingContract =
+            ctx instanceof ContractDefinition
+                ? ctx
+                : ctx.getClosestParentByType(ContractDefinition);
+
+        assert(containingContract !== undefined, `Node {0} not under a contract`, ctx);
+        this.addScribbleUtils(containingContract);
+
+        return single(
+            this.utilsContract.vEvents.filter((evt) => evt.name === "AssertionFailedData")
+        );
     }
 
     /**

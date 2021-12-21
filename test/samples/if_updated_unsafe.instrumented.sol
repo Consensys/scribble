@@ -2,10 +2,17 @@
 /// Use --disarm prior to make any changes.
 pragma solidity 0.8.7;
 
-/// #define id(uint x) uint = x + 1 - 1;
-contract TestUnchecked {
+/// Utility contract holding a stack counter
+contract __scribble_ReentrancyUtils {
     event AssertionFailed(string message);
 
+    event AssertionFailedData(int eventId, bytes encodingData);
+
+    bool __scribble_out_of_contract = true;
+}
+
+/// #define id(uint x) uint = x + 1 - 1;
+contract TestUnchecked is __scribble_ReentrancyUtils {
     uint8 internal x = 100;
 
     function foo() public {
@@ -96,9 +103,4 @@ contract TestUnchecked {
             }
         }
     }
-}
-
-/// Utility contract holding a stack counter
-contract __scribble_ReentrancyUtils {
-    bool __scribble_out_of_contract = true;
 }

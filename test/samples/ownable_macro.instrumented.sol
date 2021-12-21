@@ -2,11 +2,18 @@
 /// Use --disarm prior to make any changes.
 pragma solidity 0.8.7;
 
-///  #macro ownable(owner);
-contract Ownable {
-    event OwnershipTransferred(address indexed from, address indexed to);
-
+/// Utility contract holding a stack counter
+contract __scribble_ReentrancyUtils {
     event AssertionFailed(string message);
+
+    event AssertionFailedData(int eventId, bytes encodingData);
+
+    bool __scribble_out_of_contract = true;
+}
+
+///  #macro ownable(owner);
+contract Ownable is __scribble_ReentrancyUtils {
+    event OwnershipTransferred(address indexed from, address indexed to);
 
     struct vars0 {
         address old_0;
@@ -43,11 +50,6 @@ contract Ownable {
             }
         }
     }
-}
-
-/// Utility contract holding a stack counter
-contract __scribble_ReentrancyUtils {
-    bool __scribble_out_of_contract = true;
 }
 
 contract Test is Ownable {}

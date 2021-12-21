@@ -2,9 +2,16 @@
 /// Use --disarm prior to make any changes.
 pragma solidity 0.8.7;
 
-contract AssertForall {
+/// Utility contract holding a stack counter
+contract __scribble_ReentrancyUtils {
     event AssertionFailed(string message);
 
+    event AssertionFailedData(int eventId, bytes encodingData);
+
+    bool __scribble_out_of_contract = true;
+}
+
+contract AssertForall is __scribble_ReentrancyUtils {
     struct vars0 {
         uint256 i0;
         bool forall_0;
@@ -28,9 +35,4 @@ contract AssertForall {
             sum += n[i];
         }
     }
-}
-
-/// Utility contract holding a stack counter
-contract __scribble_ReentrancyUtils {
-    bool __scribble_out_of_contract = true;
 }
