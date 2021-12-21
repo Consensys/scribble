@@ -1,6 +1,6 @@
 #!/usr/bin/env node
 import fse from "fs-extra";
-import { dirname, join, relative } from "path";
+import { dirname, join, relative, resolve } from "path";
 import {
     assert,
     ASTContext,
@@ -70,6 +70,7 @@ import {
     flatten,
     generateInstrumentationMetadata,
     getOr,
+    InstrumentationMetaData,
     isChangingState,
     isExternallyVisible,
     Location,
@@ -439,6 +440,10 @@ function makeUtilsUnit(
 }
 
 function copy(from: string, to: string, options: any): void {
+    if (!fse.existsSync(from)) {
+        error(`Unable to copy "${from}" as file or folder does not exist.`);
+    }
+
     if (!options.quiet) {
         console.error(`Copying ${from} to ${to}`);
     }
@@ -447,6 +452,10 @@ function copy(from: string, to: string, options: any): void {
 }
 
 function move(from: string, to: string, options: any): void {
+    if (!fse.existsSync(from)) {
+        error(`Unable to move "${from}" as file or folder does not exist.`);
+    }
+
     if (!options.quiet) {
         console.error(`Moving ${from} to ${to}`);
     }
@@ -472,13 +481,49 @@ function isInstrumented(filePath: string, prefix: string): boolean {
     return source.startsWith(prefix);
 }
 
-function getFilesInMetaData(fileName: string): { original: string[]; instrumentation: string[] } {
-    const metaData = fse.readJsonSync(fileName, { encoding: "utf-8" });
+function detectInstrMetdataFilePath(targets: string[], options: any): string {
+    if (options["instrumentation-metadata-file"]) {
+        return options["instrumentation-metadata-file"];
+    }
 
-    const original = metaData.originalSourceList;
-    const instrumentation = metaData.instrSourceList.filter((file: string) => file !== "--");
+    const projectRoot = detectProjectRoot(targets.map((t) => resolve(t)));
 
-    return { original, instrumentation };
+    if (projectRoot !== undefined) {
+        return join(projectRoot, "instrumentation.scribble.json");
+    }
+
+    error(
+        'Unable to detect project root to place instrumentation metadata file. Use "--instrumentation-metadata-file" option to explicitly specify location of the metadata file.'
+    );
+}
+
+/**
+ * Loads instrumentation metadata from file and validates its structure.
+ *
+ * @todo At some point consider to use JsonSchema validation package instead of own logic.
+ */
+function loadInstrMetaData(fileName: string): InstrumentationMetaData {
+    let metaData: any;
+
+    try {
+        metaData = fse.readJsonSync(fileName, { encoding: "utf-8" });
+    } catch (e: any) {
+        error(`Unable to read instrumentation metadata file: ${e.message}`);
+    }
+
+    if (!Array.isArray(metaData.originalSourceList)) {
+        error(
+            `Metadata validation failed for ${fileName}: "originalSourceList" is required to be an instance of Array`
+        );
+    }
+
+    if (!Array.isArray(metaData.instrSourceList)) {
+        error(
+            `Metadata validation failed for ${fileName}: "instrSourceList" is required to be an instance of Array`
+        );
+    }
+
+    return metaData;
 }
 
 /**
@@ -571,24 +616,7 @@ if ("version" in options) {
     const ctxtsMap: Map<string, ASTContext> = new Map();
     const filesMap: Map<string, Map<string, string>> = new Map();
 
-    let metaDataFile: string;
-    let originalFiles: Set<string>;
-    let instrumentationFiles: Set<string>;
-
-    if (options["instrumentation-metadata-file"]) {
-        metaDataFile = options["instrumentation-metadata-file"];
-    } else {
-        const projectRoot = detectProjectRoot(targets);
-
-        if (projectRoot !== undefined) {
-            metaDataFile = join(projectRoot, "instrumentation.scribble.json");
-        } else {
-            error(
-                'Unable to detect project root to place instrumentation metadata file. Use "--instrumentation-metadata-file" option to explictly specify location.'
-            );
-        }
-    }
-
+    const metaDataFile = detectInstrMetdataFilePath(targets, options);
     const isMetaDataFile = fse.existsSync(metaDataFile);
 
     const instrumentationMarker =
@@ -599,19 +627,18 @@ if ("version" in options) {
      * In disarm mode we don't need to instrument - just replace the instrumented files with the `.original` files
      */
     if (options["disarm"]) {
-        if (isMetaDataFile) {
-            const { original, instrumentation } = getFilesInMetaData(metaDataFile);
-
-            originalFiles = new Set(original);
-            instrumentationFiles = new Set(instrumentation);
-        } else {
-            /**
-             * @todo: Can not throw here due to previous instrumentation will remain in projects.
-             */
-
-            originalFiles = new Set();
-            instrumentationFiles = new Set();
+        if (!isMetaDataFile) {
+            error(
+                `Unable to disarm: instrumentation metadata file "${metaDataFile}" does not exist.`
+            );
         }
+
+        const metaData = loadInstrMetaData(metaDataFile);
+
+        const originalFiles = new Set(metaData.originalSourceList);
+        const instrumentationFiles = new Set(
+            metaData.instrSourceList.filter((file: string) => file !== "--")
+        );
 
         for (const originalFileName of originalFiles) {
             if (originalFileName.endsWith(".sol.original")) {
@@ -968,7 +995,7 @@ if ("version" in options) {
     } else {
         if (options["arm"] && isMetaDataFile) {
             error(
-                `Instrumentation file "${metaDataFile}" already exists. Consider disarming or providing other path for metadata file.`
+                `Instrumentation metadata file "${metaDataFile}" already exists. Consider disarming or providing other path for instrumentation metadata file.`
             );
         }
 
