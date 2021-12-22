@@ -259,7 +259,7 @@ export function generateUtilsContract(
     assertionFailedDataEvtDef.vParameters.appendChild(encodingData);
     contract.appendChild(assertionFailedDataEvtDef);
 
-    ctx.utilsContract = contract;
+    ctx.setUtilsContract(contract);
 
     return sourceUnit;
 }
