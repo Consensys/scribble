@@ -9,12 +9,14 @@ abstract contract Base {
 
 /// Utility contract holding a stack counter
 contract __scribble_ReentrancyUtils {
+    event AssertionFailed(string message);
+
+    event AssertionFailedData(int eventId, bytes encodingData);
+
     bool __scribble_out_of_contract = true;
 }
 
-contract Foo is Base {
-    event AssertionFailed(string message);
-
+contract Foo is __scribble_ReentrancyUtils, Base {
     function foo(uint256 x) override public returns (uint256 y) {
         y = _original_Foo_foo(x);
         if (!(y == (x + 1))) {

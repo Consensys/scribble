@@ -4,13 +4,15 @@ pragma solidity 0.6.8;
 
 /// Utility contract holding a stack counter
 contract __scribble_ReentrancyUtils {
+    event AssertionFailed(string message);
+
+    event AssertionFailedData(int eventId, bytes encodingData);
+
     bool __scribble_out_of_contract = true;
 }
 
 /// #invariant {:msg "P1"} true;
 contract Test is __scribble_ReentrancyUtils {
-    event AssertionFailed(string message);
-
     function foo(bytes calldata x) external returns (uint RET_0) {
         __scribble_out_of_contract = false;
         RET_0 = _original_Test_foo(x);

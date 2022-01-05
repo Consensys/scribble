@@ -2,9 +2,326 @@
 /// Use --disarm prior to make any changes.
 pragma solidity 0.8.4;
 
-contract Foo {
+/// Utility contract holding a stack counter
+contract __scribble_ReentrancyUtils {
     event AssertionFailed(string message);
 
+    event AssertionFailedData(int eventId, bytes encodingData);
+
+    bool __scribble_out_of_contract = true;
+}
+
+library string_to_uint256 {
+    struct S {
+        mapping(string => uint256) innerM;
+        string[] keys;
+        mapping(string => uint256) keyIdxM;
+        uint256 sum;
+    }
+
+    function addKey(S storage m, string memory key) private {
+        uint idx = m.keyIdxM[key];
+        if (idx == 0) {
+            if (m.keys.length == 0) {
+                m.keys.push();
+            }
+            m.keyIdxM[key] = m.keys.length;
+            m.keys.push(key);
+        }
+    }
+
+    function removeKey(S storage m, string memory key) private {
+        uint256 idx = m.keyIdxM[key];
+        if (idx == 0) return;
+        if (idx != (m.keys.length - 1)) {
+            string storage lastKey = m.keys[m.keys.length - 1];
+            m.keys[idx] = lastKey;
+            m.keyIdxM[lastKey] = idx;
+        }
+        m.keys.pop();
+        delete m.keyIdxM[key];
+    }
+
+    function set(S storage m, string memory key, uint256 val) internal returns (uint256) {
+        unchecked {
+            m.sum -= m.innerM[key];
+            m.sum += val;
+        }
+        m.innerM[key] = val;
+        addKey(m, key);
+        return m.innerM[key];
+    }
+
+    function get(S storage m, string memory key) internal view returns (uint256) {
+        return m.innerM[key];
+    }
+}
+
+library uint8_to_int8 {
+    struct S {
+        mapping(uint8 => int8) innerM;
+        uint8[] keys;
+        mapping(uint8 => uint256) keyIdxM;
+        int256 sum;
+    }
+
+    function addKey(S storage m, uint8 key) private {
+        uint idx = m.keyIdxM[key];
+        if (idx == 0) {
+            if (m.keys.length == 0) {
+                m.keys.push();
+            }
+            m.keyIdxM[key] = m.keys.length;
+            m.keys.push(key);
+        }
+    }
+
+    function removeKey(S storage m, uint8 key) private {
+        uint256 idx = m.keyIdxM[key];
+        if (idx == 0) return;
+        if (idx != (m.keys.length - 1)) {
+            uint8 lastKey = m.keys[m.keys.length - 1];
+            m.keys[idx] = lastKey;
+            m.keyIdxM[lastKey] = idx;
+        }
+        m.keys.pop();
+        delete m.keyIdxM[key];
+    }
+
+    function set(S storage m, uint8 key, int8 val) internal returns (int8) {
+        unchecked {
+            m.sum -= m.innerM[key];
+            m.sum += val;
+        }
+        m.innerM[key] = val;
+        addKey(m, key);
+        return m.innerM[key];
+    }
+
+    function get(S storage m, uint8 key) internal view returns (int8) {
+        return m.innerM[key];
+    }
+}
+
+library uint256_to_uint256 {
+    struct S {
+        mapping(uint256 => uint256) innerM;
+        uint256[] keys;
+        mapping(uint256 => uint256) keyIdxM;
+        uint256 sum;
+    }
+
+    function addKey(S storage m, uint256 key) private {
+        uint idx = m.keyIdxM[key];
+        if (idx == 0) {
+            if (m.keys.length == 0) {
+                m.keys.push();
+            }
+            m.keyIdxM[key] = m.keys.length;
+            m.keys.push(key);
+        }
+    }
+
+    function removeKey(S storage m, uint256 key) private {
+        uint256 idx = m.keyIdxM[key];
+        if (idx == 0) return;
+        if (idx != (m.keys.length - 1)) {
+            uint256 lastKey = m.keys[m.keys.length - 1];
+            m.keys[idx] = lastKey;
+            m.keyIdxM[lastKey] = idx;
+        }
+        m.keys.pop();
+        delete m.keyIdxM[key];
+    }
+
+    function set(S storage m, uint256 key, uint256 val) internal returns (uint256) {
+        unchecked {
+            m.sum -= m.innerM[key];
+            m.sum += val;
+        }
+        m.innerM[key] = val;
+        addKey(m, key);
+        return m.innerM[key];
+    }
+
+    function dec(S storage m, uint256 key) internal returns (uint256 RET) {
+        RET = m.innerM[key];
+        set(m, key, m.innerM[key] - 1);
+    }
+
+    function get(S storage m, uint256 key) internal view returns (uint256) {
+        return m.innerM[key];
+    }
+}
+
+library string_to_int16 {
+    struct S {
+        mapping(string => int16) innerM;
+        string[] keys;
+        mapping(string => uint256) keyIdxM;
+        int256 sum;
+    }
+
+    function addKey(S storage m, string memory key) private {
+        uint idx = m.keyIdxM[key];
+        if (idx == 0) {
+            if (m.keys.length == 0) {
+                m.keys.push();
+            }
+            m.keyIdxM[key] = m.keys.length;
+            m.keys.push(key);
+        }
+    }
+
+    function removeKey(S storage m, string memory key) private {
+        uint256 idx = m.keyIdxM[key];
+        if (idx == 0) return;
+        if (idx != (m.keys.length - 1)) {
+            string storage lastKey = m.keys[m.keys.length - 1];
+            m.keys[idx] = lastKey;
+            m.keyIdxM[lastKey] = idx;
+        }
+        m.keys.pop();
+        delete m.keyIdxM[key];
+    }
+
+    function set(S storage m, string memory key, int16 val) internal returns (int16) {
+        unchecked {
+            m.sum -= m.innerM[key];
+            m.sum += val;
+        }
+        m.innerM[key] = val;
+        addKey(m, key);
+        return m.innerM[key];
+    }
+
+    function get(S storage m, string memory key) internal view returns (int16) {
+        return m.innerM[key];
+    }
+}
+
+library string_to_uint8_to_int8_S_514 {
+    struct S {
+        mapping(string => uint8_to_int8.S) innerM;
+        string[] keys;
+        mapping(string => uint256) keyIdxM;
+    }
+
+    function addKey(S storage m, string memory key) private {
+        uint idx = m.keyIdxM[key];
+        if (idx == 0) {
+            if (m.keys.length == 0) {
+                m.keys.push();
+            }
+            m.keyIdxM[key] = m.keys.length;
+            m.keys.push(key);
+        }
+    }
+
+    function removeKey(S storage m, string memory key) private {
+        uint256 idx = m.keyIdxM[key];
+        if (idx == 0) return;
+        if (idx != (m.keys.length - 1)) {
+            string storage lastKey = m.keys[m.keys.length - 1];
+            m.keys[idx] = lastKey;
+            m.keyIdxM[lastKey] = idx;
+        }
+        m.keys.pop();
+        delete m.keyIdxM[key];
+    }
+
+    function get_lhs(S storage m, string memory key) internal returns (uint8_to_int8.S storage) {
+        addKey(m, key);
+        return m.innerM[key];
+    }
+
+    function get(S storage m, string memory key) internal view returns (uint8_to_int8.S storage) {
+        return m.innerM[key];
+    }
+}
+
+library uint256_to_uint256_arr {
+    struct S {
+        mapping(uint256 => uint256[]) innerM;
+        uint256[] keys;
+        mapping(uint256 => uint256) keyIdxM;
+    }
+
+    function addKey(S storage m, uint256 key) private {
+        uint idx = m.keyIdxM[key];
+        if (idx == 0) {
+            if (m.keys.length == 0) {
+                m.keys.push();
+            }
+            m.keyIdxM[key] = m.keys.length;
+            m.keys.push(key);
+        }
+    }
+
+    function removeKey(S storage m, uint256 key) private {
+        uint256 idx = m.keyIdxM[key];
+        if (idx == 0) return;
+        if (idx != (m.keys.length - 1)) {
+            uint256 lastKey = m.keys[m.keys.length - 1];
+            m.keys[idx] = lastKey;
+            m.keyIdxM[lastKey] = idx;
+        }
+        m.keys.pop();
+        delete m.keyIdxM[key];
+    }
+
+    function set(S storage m, uint256 key, uint256[] memory val) internal returns (uint256[] storage) {
+        m.innerM[key] = val;
+        addKey(m, key);
+        return m.innerM[key];
+    }
+
+    function get(S storage m, uint256 key) internal view returns (uint256[] storage) {
+        return m.innerM[key];
+    }
+}
+
+library string_to_mapping_uint8_to_int8 {
+    struct S {
+        mapping(string => mapping(uint8 => int8)) innerM;
+        string[] keys;
+        mapping(string => uint256) keyIdxM;
+    }
+
+    function addKey(S storage m, string memory key) private {
+        uint idx = m.keyIdxM[key];
+        if (idx == 0) {
+            if (m.keys.length == 0) {
+                m.keys.push();
+            }
+            m.keyIdxM[key] = m.keys.length;
+            m.keys.push(key);
+        }
+    }
+
+    function removeKey(S storage m, string memory key) private {
+        uint256 idx = m.keyIdxM[key];
+        if (idx == 0) return;
+        if (idx != (m.keys.length - 1)) {
+            string storage lastKey = m.keys[m.keys.length - 1];
+            m.keys[idx] = lastKey;
+            m.keyIdxM[lastKey] = idx;
+        }
+        m.keys.pop();
+        delete m.keyIdxM[key];
+    }
+
+    function get_lhs(S storage m, string memory key) internal returns (mapping(uint8 => int8) storage) {
+        addKey(m, key);
+        return m.innerM[key];
+    }
+
+    function get(S storage m, string memory key) internal view returns (mapping(uint8 => int8) storage) {
+        return m.innerM[key];
+    }
+}
+
+contract Foo is __scribble_ReentrancyUtils {
     struct SA {
         string_to_uint256.S m;
         uint cnt;
@@ -94,7 +411,7 @@ contract Foo {
     uint256_to_uint256.S internal a;
     string_to_int16.S c0;
     string internal sS;
-    string_to_uint8_to_int8_S_504.S internal d;
+    string_to_uint8_to_int8_S_514.S internal d;
     uint256_to_uint256_arr.S internal e;
     mapping(uint => uint)[] internal f;
     uint256_to_uint256.S[] internal g;
@@ -174,9 +491,9 @@ contract Foo {
             for (_v.i3 = 1; _v.i3 < d.keys.length; _v.i3++) {
                 _v.s1 = d.keys[_v.i3];
                 _v.forall_4 = true;
-                for (_v.i4 = 1; _v.i4 < string_to_uint8_to_int8_S_504.get(d, _v.s1).keys.length; _v.i4++) {
-                    _v.k2 = string_to_uint8_to_int8_S_504.get(d, _v.s1).keys[_v.i4];
-                    _v.forall_4 = uint8_to_int8.get(string_to_uint8_to_int8_S_504.get(d, _v.s1), _v.k2) > 0;
+                for (_v.i4 = 1; _v.i4 < string_to_uint8_to_int8_S_514.get(d, _v.s1).keys.length; _v.i4++) {
+                    _v.k2 = string_to_uint8_to_int8_S_514.get(d, _v.s1).keys[_v.i4];
+                    _v.forall_4 = uint8_to_int8.get(string_to_uint8_to_int8_S_514.get(d, _v.s1), _v.k2) > 0;
                     if (!_v.forall_4) break;
                 }
                 _v.forall_3 = _v.forall_4;
@@ -190,7 +507,7 @@ contract Foo {
     }
 
     function _original_Foo_setD(string memory s, uint8 k, int8 v) private {
-        uint8_to_int8.set(string_to_uint8_to_int8_S_504.get_lhs(d, s), k, v);
+        uint8_to_int8.set(string_to_uint8_to_int8_S_514.get_lhs(d, s), k, v);
     }
 
     function setE(uint k, uint[] memory v) public {
@@ -391,320 +708,5 @@ contract Foo {
 
     function c(string memory ARG_0) public view returns (int16 RET_0) {
         return string_to_int16.get(c0, ARG_0);
-    }
-}
-
-/// Utility contract holding a stack counter
-contract __scribble_ReentrancyUtils {
-    bool __scribble_out_of_contract = true;
-}
-
-library string_to_uint256 {
-    struct S {
-        mapping(string => uint256) innerM;
-        string[] keys;
-        mapping(string => uint256) keyIdxM;
-        uint256 sum;
-    }
-
-    function addKey(S storage m, string memory key) private {
-        uint idx = m.keyIdxM[key];
-        if (idx == 0) {
-            if (m.keys.length == 0) {
-                m.keys.push();
-            }
-            m.keyIdxM[key] = m.keys.length;
-            m.keys.push(key);
-        }
-    }
-
-    function removeKey(S storage m, string memory key) private {
-        uint256 idx = m.keyIdxM[key];
-        if (idx == 0) return;
-        if (idx != (m.keys.length - 1)) {
-            string storage lastKey = m.keys[m.keys.length - 1];
-            m.keys[idx] = lastKey;
-            m.keyIdxM[lastKey] = idx;
-        }
-        m.keys.pop();
-        delete m.keyIdxM[key];
-    }
-
-    function set(S storage m, string memory key, uint256 val) internal returns (uint256) {
-        unchecked {
-            m.sum -= m.innerM[key];
-            m.sum += val;
-        }
-        m.innerM[key] = val;
-        addKey(m, key);
-        return m.innerM[key];
-    }
-
-    function get(S storage m, string memory key) internal view returns (uint256) {
-        return m.innerM[key];
-    }
-}
-
-library uint8_to_int8 {
-    struct S {
-        mapping(uint8 => int8) innerM;
-        uint8[] keys;
-        mapping(uint8 => uint256) keyIdxM;
-        int256 sum;
-    }
-
-    function addKey(S storage m, uint8 key) private {
-        uint idx = m.keyIdxM[key];
-        if (idx == 0) {
-            if (m.keys.length == 0) {
-                m.keys.push();
-            }
-            m.keyIdxM[key] = m.keys.length;
-            m.keys.push(key);
-        }
-    }
-
-    function removeKey(S storage m, uint8 key) private {
-        uint256 idx = m.keyIdxM[key];
-        if (idx == 0) return;
-        if (idx != (m.keys.length - 1)) {
-            uint8 lastKey = m.keys[m.keys.length - 1];
-            m.keys[idx] = lastKey;
-            m.keyIdxM[lastKey] = idx;
-        }
-        m.keys.pop();
-        delete m.keyIdxM[key];
-    }
-
-    function set(S storage m, uint8 key, int8 val) internal returns (int8) {
-        unchecked {
-            m.sum -= m.innerM[key];
-            m.sum += val;
-        }
-        m.innerM[key] = val;
-        addKey(m, key);
-        return m.innerM[key];
-    }
-
-    function get(S storage m, uint8 key) internal view returns (int8) {
-        return m.innerM[key];
-    }
-}
-
-library uint256_to_uint256 {
-    struct S {
-        mapping(uint256 => uint256) innerM;
-        uint256[] keys;
-        mapping(uint256 => uint256) keyIdxM;
-        uint256 sum;
-    }
-
-    function addKey(S storage m, uint256 key) private {
-        uint idx = m.keyIdxM[key];
-        if (idx == 0) {
-            if (m.keys.length == 0) {
-                m.keys.push();
-            }
-            m.keyIdxM[key] = m.keys.length;
-            m.keys.push(key);
-        }
-    }
-
-    function removeKey(S storage m, uint256 key) private {
-        uint256 idx = m.keyIdxM[key];
-        if (idx == 0) return;
-        if (idx != (m.keys.length - 1)) {
-            uint256 lastKey = m.keys[m.keys.length - 1];
-            m.keys[idx] = lastKey;
-            m.keyIdxM[lastKey] = idx;
-        }
-        m.keys.pop();
-        delete m.keyIdxM[key];
-    }
-
-    function set(S storage m, uint256 key, uint256 val) internal returns (uint256) {
-        unchecked {
-            m.sum -= m.innerM[key];
-            m.sum += val;
-        }
-        m.innerM[key] = val;
-        addKey(m, key);
-        return m.innerM[key];
-    }
-
-    function dec(S storage m, uint256 key) internal returns (uint256 RET) {
-        RET = m.innerM[key];
-        set(m, key, m.innerM[key] - 1);
-    }
-
-    function get(S storage m, uint256 key) internal view returns (uint256) {
-        return m.innerM[key];
-    }
-}
-
-library string_to_int16 {
-    struct S {
-        mapping(string => int16) innerM;
-        string[] keys;
-        mapping(string => uint256) keyIdxM;
-        int256 sum;
-    }
-
-    function addKey(S storage m, string memory key) private {
-        uint idx = m.keyIdxM[key];
-        if (idx == 0) {
-            if (m.keys.length == 0) {
-                m.keys.push();
-            }
-            m.keyIdxM[key] = m.keys.length;
-            m.keys.push(key);
-        }
-    }
-
-    function removeKey(S storage m, string memory key) private {
-        uint256 idx = m.keyIdxM[key];
-        if (idx == 0) return;
-        if (idx != (m.keys.length - 1)) {
-            string storage lastKey = m.keys[m.keys.length - 1];
-            m.keys[idx] = lastKey;
-            m.keyIdxM[lastKey] = idx;
-        }
-        m.keys.pop();
-        delete m.keyIdxM[key];
-    }
-
-    function set(S storage m, string memory key, int16 val) internal returns (int16) {
-        unchecked {
-            m.sum -= m.innerM[key];
-            m.sum += val;
-        }
-        m.innerM[key] = val;
-        addKey(m, key);
-        return m.innerM[key];
-    }
-
-    function get(S storage m, string memory key) internal view returns (int16) {
-        return m.innerM[key];
-    }
-}
-
-library string_to_uint8_to_int8_S_504 {
-    struct S {
-        mapping(string => uint8_to_int8.S) innerM;
-        string[] keys;
-        mapping(string => uint256) keyIdxM;
-    }
-
-    function addKey(S storage m, string memory key) private {
-        uint idx = m.keyIdxM[key];
-        if (idx == 0) {
-            if (m.keys.length == 0) {
-                m.keys.push();
-            }
-            m.keyIdxM[key] = m.keys.length;
-            m.keys.push(key);
-        }
-    }
-
-    function removeKey(S storage m, string memory key) private {
-        uint256 idx = m.keyIdxM[key];
-        if (idx == 0) return;
-        if (idx != (m.keys.length - 1)) {
-            string storage lastKey = m.keys[m.keys.length - 1];
-            m.keys[idx] = lastKey;
-            m.keyIdxM[lastKey] = idx;
-        }
-        m.keys.pop();
-        delete m.keyIdxM[key];
-    }
-
-    function get_lhs(S storage m, string memory key) internal returns (uint8_to_int8.S storage) {
-        addKey(m, key);
-        return m.innerM[key];
-    }
-
-    function get(S storage m, string memory key) internal view returns (uint8_to_int8.S storage) {
-        return m.innerM[key];
-    }
-}
-
-library uint256_to_uint256_arr {
-    struct S {
-        mapping(uint256 => uint256[]) innerM;
-        uint256[] keys;
-        mapping(uint256 => uint256) keyIdxM;
-    }
-
-    function addKey(S storage m, uint256 key) private {
-        uint idx = m.keyIdxM[key];
-        if (idx == 0) {
-            if (m.keys.length == 0) {
-                m.keys.push();
-            }
-            m.keyIdxM[key] = m.keys.length;
-            m.keys.push(key);
-        }
-    }
-
-    function removeKey(S storage m, uint256 key) private {
-        uint256 idx = m.keyIdxM[key];
-        if (idx == 0) return;
-        if (idx != (m.keys.length - 1)) {
-            uint256 lastKey = m.keys[m.keys.length - 1];
-            m.keys[idx] = lastKey;
-            m.keyIdxM[lastKey] = idx;
-        }
-        m.keys.pop();
-        delete m.keyIdxM[key];
-    }
-
-    function set(S storage m, uint256 key, uint256[] memory val) internal returns (uint256[] storage) {
-        m.innerM[key] = val;
-        addKey(m, key);
-        return m.innerM[key];
-    }
-
-    function get(S storage m, uint256 key) internal view returns (uint256[] storage) {
-        return m.innerM[key];
-    }
-}
-
-library string_to_mapping_uint8_to_int8 {
-    struct S {
-        mapping(string => mapping(uint8 => int8)) innerM;
-        string[] keys;
-        mapping(string => uint256) keyIdxM;
-    }
-
-    function addKey(S storage m, string memory key) private {
-        uint idx = m.keyIdxM[key];
-        if (idx == 0) {
-            if (m.keys.length == 0) {
-                m.keys.push();
-            }
-            m.keyIdxM[key] = m.keys.length;
-            m.keys.push(key);
-        }
-    }
-
-    function removeKey(S storage m, string memory key) private {
-        uint256 idx = m.keyIdxM[key];
-        if (idx == 0) return;
-        if (idx != (m.keys.length - 1)) {
-            string storage lastKey = m.keys[m.keys.length - 1];
-            m.keys[idx] = lastKey;
-            m.keyIdxM[lastKey] = idx;
-        }
-        m.keys.pop();
-        delete m.keyIdxM[key];
-    }
-
-    function get_lhs(S storage m, string memory key) internal returns (mapping(uint8 => int8) storage) {
-        addKey(m, key);
-        return m.innerM[key];
-    }
-
-    function get(S storage m, string memory key) internal view returns (mapping(uint8 => int8) storage) {
-        return m.innerM[key];
     }
 }

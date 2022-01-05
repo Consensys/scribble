@@ -7,8 +7,6 @@ import "./__scribble_ReentrancyUtils.sol";
 
 /// #invariant sum < 200;
 contract Base is __scribble_ReentrancyUtils {
-    event AssertionFailed(string message);
-
     struct vars1 {
         bool __scribble_check_invs_at_end;
     }

@@ -2,9 +2,48 @@
 /// Use --disarm prior to make any changes.
 pragma solidity 0.8.4;
 
-contract Foo {
+/// Utility contract holding a stack counter
+contract __scribble_ReentrancyUtils {
     event AssertionFailed(string message);
 
+    event AssertionFailedData(int eventId, bytes encodingData);
+
+    bool __scribble_out_of_contract = true;
+}
+
+library arr_sum_funs {
+    function sum_arr_uint256_arr_storage(uint256[] storage arr) internal returns (uint256 ret) {
+        unchecked {
+            for (uint256 idx = 0; idx < arr.length; idx++) ret += arr[idx];
+        }
+    }
+
+    function sum_arr_int8_arr_storage(int8[] storage arr) internal returns (int256 ret) {
+        unchecked {
+            for (uint256 idx = 0; idx < arr.length; idx++) ret += arr[idx];
+        }
+    }
+
+    function sum_arr_int16_arr_memory(int16[] memory arr) internal returns (int256 ret) {
+        unchecked {
+            for (uint256 idx = 0; idx < arr.length; idx++) ret += arr[idx];
+        }
+    }
+
+    function sum_arr_int16_arr_calldata(int16[] calldata arr) internal returns (int256 ret) {
+        unchecked {
+            for (uint256 idx = 0; idx < arr.length; idx++) ret += arr[idx];
+        }
+    }
+
+    function sum_arr_uint256_arr_calldata(uint256[] calldata arr) internal returns (uint256 ret) {
+        unchecked {
+            for (uint256 idx = 0; idx < arr.length; idx++) ret += arr[idx];
+        }
+    }
+}
+
+contract Foo is __scribble_ReentrancyUtils {
     uint[] internal a = [10];
     int8[] internal b;
 
@@ -90,41 +129,4 @@ contract Foo {
     }
 
     function _original_Foo_overflowCheck(uint[] calldata c) private {}
-}
-
-/// Utility contract holding a stack counter
-contract __scribble_ReentrancyUtils {
-    bool __scribble_out_of_contract = true;
-}
-
-library arr_sum_funs {
-    function sum_arr_uint256_arr_storage(uint256[] storage arr) internal returns (uint256 ret) {
-        unchecked {
-            for (uint256 idx = 0; idx < arr.length; idx++) ret += arr[idx];
-        }
-    }
-
-    function sum_arr_int8_arr_storage(int8[] storage arr) internal returns (int256 ret) {
-        unchecked {
-            for (uint256 idx = 0; idx < arr.length; idx++) ret += arr[idx];
-        }
-    }
-
-    function sum_arr_int16_arr_memory(int16[] memory arr) internal returns (int256 ret) {
-        unchecked {
-            for (uint256 idx = 0; idx < arr.length; idx++) ret += arr[idx];
-        }
-    }
-
-    function sum_arr_int16_arr_calldata(int16[] calldata arr) internal returns (int256 ret) {
-        unchecked {
-            for (uint256 idx = 0; idx < arr.length; idx++) ret += arr[idx];
-        }
-    }
-
-    function sum_arr_uint256_arr_calldata(uint256[] calldata arr) internal returns (uint256 ret) {
-        unchecked {
-            for (uint256 idx = 0; idx < arr.length; idx++) ret += arr[idx];
-        }
-    }
 }

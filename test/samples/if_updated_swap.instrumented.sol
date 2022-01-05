@@ -2,9 +2,16 @@
 /// Use --disarm prior to make any changes.
 pragma solidity 0.5.17;
 
-contract PointerSwap {
+/// Utility contract holding a stack counter
+contract __scribble_ReentrancyUtils {
     event AssertionFailed(string message);
 
+    event AssertionFailedData(int eventId, bytes encodingData);
+
+    bool __scribble_out_of_contract = true;
+}
+
+contract PointerSwap is __scribble_ReentrancyUtils {
     struct vars0 {
         uint256[] tuple_tmp_0;
         uint256[] tuple_tmp_1;
@@ -40,9 +47,4 @@ contract PointerSwap {
             assert(false);
         }
     }
-}
-
-/// Utility contract holding a stack counter
-contract __scribble_ReentrancyUtils {
-    bool __scribble_out_of_contract = true;
 }

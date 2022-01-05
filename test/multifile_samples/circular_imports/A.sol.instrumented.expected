@@ -5,8 +5,6 @@ import "./__scribble_ReentrancyUtils.sol";
 
 /// #invariant true;
 contract A is __scribble_ReentrancyUtils {
-    event AssertionFailed(string message);
-
     function a(B b) external returns (B RET_0) {
         __scribble_out_of_contract = false;
         RET_0 = _original_A_a(b);

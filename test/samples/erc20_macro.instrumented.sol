@@ -35,6 +35,10 @@ library SafeMath {
 
 /// Utility contract holding a stack counter
 contract __scribble_ReentrancyUtils {
+    event AssertionFailed(string message);
+
+    event AssertionFailedData(int eventId, bytes encodingData);
+
     bool __scribble_out_of_contract = true;
 }
 
@@ -83,14 +87,12 @@ library address_to_uint256 {
 }
 
 ///  #macro erc20(balances, allowances);
-contract ERC20Example is IERC20 {
+contract ERC20Example is __scribble_ReentrancyUtils, IERC20 {
     using SafeMath for uint;
 
     event Approval(address indexed tokenOwner, address indexed spender, uint tokens);
 
     event Transfer(address indexed from, address indexed to, uint tokens);
-
-    event AssertionFailed(string message);
 
     string public constant name = "ERC20Example";
     string public constant symbol = "XMPL";

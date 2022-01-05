@@ -4,9 +4,7 @@ pragma solidity 0.8.4;
 
 import "./__scribble_ReentrancyUtils.sol";
 
-contract Foo {
-    event AssertionFailed(string message);
-
+contract Foo is __scribble_ReentrancyUtils {
     uint[] internal a = [10];
     int8[] internal b;
 

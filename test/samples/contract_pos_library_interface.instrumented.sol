@@ -14,14 +14,16 @@ library SillyMath {
 
 /// Utility contract holding a stack counter
 contract __scribble_ReentrancyUtils {
+    event AssertionFailed(string message);
+
+    event AssertionFailedData(int eventId, bytes encodingData);
+
     bool __scribble_out_of_contract = true;
 }
 
 /// #invariant {:msg ""} x>0;
 contract Foo is __scribble_ReentrancyUtils, IFoo {
     using SillyMath for int;
-
-    event AssertionFailed(string message);
 
     struct vars2 {
         bool __scribble_check_invs_at_end;

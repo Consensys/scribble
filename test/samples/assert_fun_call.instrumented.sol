@@ -2,9 +2,16 @@
 /// Use --disarm prior to make any changes.
 pragma solidity 0.8.7;
 
-contract AssertFunCall {
+/// Utility contract holding a stack counter
+contract __scribble_ReentrancyUtils {
     event AssertionFailed(string message);
 
+    event AssertionFailedData(int eventId, bytes encodingData);
+
+    bool __scribble_out_of_contract = true;
+}
+
+contract AssertFunCall is __scribble_ReentrancyUtils {
     struct vars0 {
         uint256 oldSum;
         uint256 a1;
@@ -38,9 +45,4 @@ contract AssertFunCall {
         }
         boo(a, b);
     }
-}
-
-/// Utility contract holding a stack counter
-contract __scribble_ReentrancyUtils {
-    bool __scribble_out_of_contract = true;
 }

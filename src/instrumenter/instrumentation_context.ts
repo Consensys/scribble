@@ -22,7 +22,7 @@ import {
 import { print } from "../ast_to_source_printer";
 import { SUserFunctionDefinition } from "../spec-lang/ast";
 import { SemMap, TypeEnv } from "../spec-lang/tc";
-import { dedup } from "../util/misc";
+import { dedup, single } from "../util/misc";
 import { NameGenerator } from "../util/name_generator";
 import { SourceMap } from "../util/sources";
 import { AnnotationFilterOptions, AnnotationMetaData } from "./annotations";
@@ -295,6 +295,18 @@ export class InstrumentationContext {
      * to use `ctx.nameGenerator`.
      */
     public utilsContract!: ContractDefinition;
+    private assertionFailedEvent!: EventDefinition;
+    private assertionFailedDataEvent!: EventDefinition;
+
+    setUtilsContract(contract: ContractDefinition): void {
+        this.utilsContract = contract;
+        this.assertionFailedEvent = single(
+            contract.vEvents.filter((evt) => evt.name === "AssertionFailed")
+        );
+        this.assertionFailedDataEvent = single(
+            contract.vEvents.filter((evt) => evt.name === "AssertionFailedData")
+        );
+    }
 
     public get utilsUnit(): SourceUnit {
         return this.utilsContract.parent as SourceUnit;
@@ -486,6 +498,58 @@ export class InstrumentationContext {
      */
     needsUtils(unit: SourceUnit): void {
         this.unitsNeedingUtils.add(unit);
+    }
+
+    /**
+     * Helper function to add the scribble utils contract as a base to `to`.
+     * If `to` already inherits from the utils contract nothing is changed.
+     */
+    addScribbleUtils(ctx: ASTNode): void {
+        const containingContract =
+            ctx instanceof ContractDefinition
+                ? ctx
+                : ctx.getClosestParentByType(ContractDefinition);
+
+        assert(containingContract !== undefined, `Node {0} not under a contract`, ctx);
+
+        // Make sure `base` is not already a base
+        for (const existingBase of containingContract.vLinearizedBaseContracts) {
+            if (existingBase === this.utilsContract) {
+                return;
+            }
+        }
+
+        const inheritanceSpecifier = this.factory.makeInheritanceSpecifier(
+            this.factory.makeUserDefinedTypeName(
+                "<missing>",
+                this.utilsContractName,
+                this.utilsContract.id
+            ),
+            []
+        );
+
+        containingContract.linearizedBaseContracts.unshift(this.utilsContract.id);
+
+        const specs = containingContract.vInheritanceSpecifiers;
+
+        if (specs.length !== 0) {
+            containingContract.insertBefore(inheritanceSpecifier, specs[0]);
+        } else {
+            containingContract.appendChild(inheritanceSpecifier);
+        }
+
+        // Mark that the containing source units needs to import the generated utils unit
+        this.needsUtils(containingContract.vScope);
+    }
+
+    getAssertionFailedEvent(ctx: ASTNode): EventDefinition {
+        this.addScribbleUtils(ctx);
+        return this.assertionFailedEvent;
+    }
+
+    getAssertionFailedDataEvent(ctx: ASTNode): EventDefinition {
+        this.addScribbleUtils(ctx);
+        return this.assertionFailedDataEvent;
     }
 
     /**

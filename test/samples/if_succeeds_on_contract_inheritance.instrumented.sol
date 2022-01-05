@@ -2,10 +2,17 @@
 /// Use --disarm prior to make any changes.
 pragma solidity 0.7.0;
 
-/// #if_succeeds {:msg ""} b == a + 1; 
-contract Foo {
+/// Utility contract holding a stack counter
+contract __scribble_ReentrancyUtils {
     event AssertionFailed(string message);
 
+    event AssertionFailedData(int eventId, bytes encodingData);
+
+    bool __scribble_out_of_contract = true;
+}
+
+/// #if_succeeds {:msg ""} b == a + 1; 
+contract Foo is __scribble_ReentrancyUtils {
     uint internal a;
     uint internal b;
 
@@ -32,12 +39,7 @@ contract Foo {
     function _original_Foo_inc2(uint x) private returns (uint y) {}
 }
 
-/// Utility contract holding a stack counter
-contract __scribble_ReentrancyUtils {
-    bool __scribble_out_of_contract = true;
-}
-
-contract Bar is Foo {
+contract Bar is __scribble_ReentrancyUtils, Foo {
     function inc2(uint x) override public returns (uint y) {
         y = _original_Bar_inc2(x);
         if (!(b == (a + 1))) {
