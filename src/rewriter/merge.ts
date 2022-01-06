@@ -55,7 +55,8 @@ import {
     UsingForDirective,
     VariableDeclaration,
     VariableDeclarationStatement,
-    WhileStatement
+    WhileStatement,
+    ErrorDefinition
 } from "solc-typed-ast";
 import { reNumber } from "../util/json_output";
 import { getOrInit } from "../util/misc";
@@ -280,6 +281,8 @@ export function merge(groups: SourceUnit[][]): [SourceUnit[], ASTContext] {
             } else if (child instanceof VariableDeclaration) {
                 // scope
                 child.scope = getNew(child.scope).id;
+            } else if (child instanceof ErrorDefinition) {
+                // Nothing to do
             } else if (child instanceof Block) {
                 /// ======== STATEMENT NODES ==========================================
                 // Nothing to do...

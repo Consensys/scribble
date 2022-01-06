@@ -12,17 +12,17 @@ contract __scribble_ReentrancyUtils {
 }
 
 contract Foo is __scribble_ReentrancyUtils {
-    function main(uint n) public {
-        uint sum = 0;
-        for (uint i = 0; i < n; ) {
-            sum += i;
-            unchecked {
-                if (!(true)) {
-                    emit AssertionFailed("0: ");
-                    assert(false);
-                }
+    error E();
+
+    function foo() public {
+        _original_Foo_foo();
+        unchecked {
+            if (!(true)) {
+                emit AssertionFailed("0: ");
+                assert(false);
             }
-            i++;
         }
     }
+
+    function _original_Foo_foo() private {}
 }

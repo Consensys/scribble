@@ -2,9 +2,16 @@
 /// Use --disarm prior to make any changes.
 pragma solidity 0.5.17;
 
-contract TokenSale {
+/// Utility contract holding a stack counter
+contract __scribble_ReentrancyUtils {
     event AssertionFailed(string message);
 
+    event AssertionFailedData(int eventId, bytes encodingData);
+
+    bool __scribble_out_of_contract = true;
+}
+
+contract TokenSale is __scribble_ReentrancyUtils {
     mapping(address => uint256) public balanceOf;
     uint256 internal constant PRICE_PER_TOKEN = 1 ether;
 
@@ -42,9 +49,4 @@ contract TokenSale {
         balanceOf[msg.sender] -= numTokens;
         msg.sender.transfer(numTokens * PRICE_PER_TOKEN);
     }
-}
-
-/// Utility contract holding a stack counter
-contract __scribble_ReentrancyUtils {
-    bool __scribble_out_of_contract = true;
 }

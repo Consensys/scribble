@@ -2,11 +2,11 @@
 /// Use --disarm prior to make any changes.
 pragma solidity ^0.8.0;
 
-///  #macro ownable(owner);
-contract Ownable {
-    event OwnershipTransferred(address indexed from, address indexed to);
+import "./__scribble_ReentrancyUtils.sol";
 
-    event AssertionFailed(string message);
+///  #macro ownable(owner);
+contract Ownable is __scribble_ReentrancyUtils {
+    event OwnershipTransferred(address indexed from, address indexed to);
 
     struct vars1 {
         address old_0;

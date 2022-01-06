@@ -8,9 +8,16 @@ function addSome(uint v) pure returns (uint) {
     return v + SOME;
 }
 
-contract Test {
+/// Utility contract holding a stack counter
+contract __scribble_ReentrancyUtils {
     event AssertionFailed(string message);
 
+    event AssertionFailedData(int eventId, bytes encodingData);
+
+    bool __scribble_out_of_contract = true;
+}
+
+contract Test is __scribble_ReentrancyUtils {
     uint internal num;
 
     function operate() public {
@@ -24,9 +31,4 @@ contract Test {
     function _original_Test_operate() private {
         num = addSome(15);
     }
-}
-
-/// Utility contract holding a stack counter
-contract __scribble_ReentrancyUtils {
-    bool __scribble_out_of_contract = true;
 }

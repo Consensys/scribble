@@ -10,12 +10,14 @@ contract Base {
 
 /// Utility contract holding a stack counter
 contract __scribble_ReentrancyUtils {
+    event AssertionFailed(string message);
+
+    event AssertionFailedData(int eventId, bytes encodingData);
+
     bool __scribble_out_of_contract = true;
 }
 
-contract Foo is Base {
-    event AssertionFailed(string message);
-
+contract Foo is __scribble_ReentrancyUtils, Base {
     uint internal x = 1;
 
     function getX() virtual override public returns (uint RET_0) {
@@ -31,7 +33,7 @@ contract Foo is Base {
     }
 }
 
-contract Child is Foo {
+contract Child is __scribble_ReentrancyUtils, Foo {
     function getX() virtual override public returns (uint RET_0) {
         RET_0 = _original_Child_getX();
         if (!(x > 0)) {

@@ -2,9 +2,16 @@
 /// Use --disarm prior to make any changes.
 pragma solidity 0.8.7;
 
-contract Foo {
+/// Utility contract holding a stack counter
+contract __scribble_ReentrancyUtils {
     event AssertionFailed(string message);
 
+    event AssertionFailedData(int eventId, bytes encodingData);
+
+    bool __scribble_out_of_contract = true;
+}
+
+contract Foo is __scribble_ReentrancyUtils {
     function main() public {
         _original_Foo_main();
         unchecked {
@@ -16,9 +23,4 @@ contract Foo {
     }
 
     function _original_Foo_main() private {}
-}
-
-/// Utility contract holding a stack counter
-contract __scribble_ReentrancyUtils {
-    bool __scribble_out_of_contract = true;
 }

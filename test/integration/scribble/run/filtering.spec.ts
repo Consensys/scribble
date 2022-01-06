@@ -9,12 +9,19 @@ const cases: Array<[string, string, string, string]> = [
         `
 pragma solidity 0.6.10;
 
+/// Utility contract holding a stack counter
+contract __scribble_ReentrancyUtils {
+    event AssertionFailed(string message);
+
+    event AssertionFailedData(int eventId, bytes encodingData);
+
+    bool __scribble_out_of_contract = true;
+}
+
 /// #invariant {:msg "Low.P0"} x > 0;
 ///  #invariant {:msg "Medium.P1"} x == 0;
 ///  #invariant {:msg "Critical.P2"} x < 0;
-contract Foo {
-    event AssertionFailed(string message);
-
+contract Foo is __scribble_ReentrancyUtils {
     uint internal x;
 
     constructor(uint _x) public {
@@ -33,11 +40,6 @@ contract Foo {
         return a + 1;
     }
 }
-
-/// Utility contract holding a stack counter
-contract __scribble_ReentrancyUtils {
-    bool __scribble_out_of_contract = true;
-}
         `
     ],
     [
@@ -46,8 +48,6 @@ contract __scribble_ReentrancyUtils {
         "P1",
         `
 contract Foo is __scribble_ReentrancyUtils {
-    event AssertionFailed(string message);
-
     struct vars1 {
         bool __scribble_check_invs_at_end;
     }
@@ -95,8 +95,6 @@ contract Foo is __scribble_ReentrancyUtils {
         "Critical\\..+",
         `
 contract Foo is __scribble_ReentrancyUtils {
-    event AssertionFailed(string message);
-
     struct vars1 {
         bool __scribble_check_invs_at_end;
     }

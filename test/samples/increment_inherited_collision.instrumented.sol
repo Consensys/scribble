@@ -4,6 +4,10 @@ pragma solidity 0.7.5;
 
 /// Utility contract holding a stack counter
 contract __scribble_ReentrancyUtils1 {
+    event AssertionFailed(string message);
+
+    event AssertionFailedData(int eventId, bytes encodingData);
+
     bool __scribble_out_of_contract1 = true;
 }
 
@@ -81,8 +85,6 @@ abstract contract __scribble_ReentrancyUtils is __scribble_ReentrancyUtils1 {
 
 /// #invariant {:msg ""} t >= 1;
 contract Foo is __scribble_ReentrancyUtils1, __scribble_ReentrancyUtils {
-    event AssertionFailed(string message);
-
     struct vars7 {
         uint256 foo1;
         uint256 __mstore_scratch__1;

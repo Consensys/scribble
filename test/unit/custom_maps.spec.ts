@@ -303,7 +303,7 @@ contract Foo {
 contract Foo {
     mapping(uint => address_to_bool.S) internal x;
     uint256_to_mapping_bool_to_string.S internal y;
-    uint256_to_int8_to_uint256_S_354.S internal z;
+    uint256_to_int8_to_uint256_S_374.S internal z;
     uint256_to_uint256.S internal w;
 
     function main() public {
@@ -313,11 +313,11 @@ contract Foo {
         uint256_to_mapping_bool_to_string.get_lhs(y, 1)[false] = "hi";
         uint256_to_mapping_bool_to_string.get_lhs(y, 2)[true] = uint256_to_mapping_bool_to_string.get(y, 1)[false];
         assert(keccak256(bytes(uint256_to_mapping_bool_to_string.get(y, 2)[true])) == keccak256(bytes("hi")));
-        int8_to_uint256.set(uint256_to_int8_to_uint256_S_354.get_lhs(z, 0), 1, 1);
-        int8_to_uint256.set(uint256_to_int8_to_uint256_S_354.get_lhs(z, int8_to_uint256.get(uint256_to_int8_to_uint256_S_354.get(z, 0), 1)), 2, 2);
-        assert(int8_to_uint256.get(uint256_to_int8_to_uint256_S_354.get(z, 1), 2) == 2);
-        int8_to_uint256.set(uint256_to_int8_to_uint256_S_354.get_lhs(z, uint256_to_uint256.set(w, 0, uint256_to_uint256.get(w, 1) + 3)), int8(uint8(uint256_to_uint256.get(w, 2))), 42);
-        assert((uint256_to_uint256.get(w, 0) == 3) && (int8_to_uint256.get(uint256_to_int8_to_uint256_S_354.get(z, 3), 0) == 42));
+        int8_to_uint256.set(uint256_to_int8_to_uint256_S_374.get_lhs(z, 0), 1, 1);
+        int8_to_uint256.set(uint256_to_int8_to_uint256_S_374.get_lhs(z, int8_to_uint256.get(uint256_to_int8_to_uint256_S_374.get(z, 0), 1)), 2, 2);
+        assert(int8_to_uint256.get(uint256_to_int8_to_uint256_S_374.get(z, 1), 2) == 2);
+        int8_to_uint256.set(uint256_to_int8_to_uint256_S_374.get_lhs(z, uint256_to_uint256.set(w, 0, uint256_to_uint256.get(w, 1) + 3)), int8(uint8(uint256_to_uint256.get(w, 2))), 42);
+        assert((uint256_to_uint256.get(w, 0) == 3) && (int8_to_uint256.get(uint256_to_int8_to_uint256_S_374.get(z, 3), 0) == 42));
     }
 }`,
         [
@@ -470,16 +470,16 @@ contract Foo {
     enum E { A, B, C }
 
     uint256_to_uint256.S x0;
-    uint256_to_uint256_to_uint256_S_141.S y0;
+    uint256_to_uint256_to_uint256_S_161.S y0;
     string_to_uint256_arr.S z0;
     bytes_to_Foo_E_5.S u0;
 
     function main() public {
         uint256_to_uint256.set(x0, 2, 5);
         assert(uint256_to_uint256.get(x0, 2) == 5);
-        uint256_to_uint256.set(uint256_to_uint256_to_uint256_S_141.get_lhs(y0, 0), 1, 6);
-        assert(uint256_to_uint256.get(uint256_to_uint256_to_uint256_S_141.get(y0, 0), 1) == 6);
-        uint256_to_uint256.set(x0, 1, uint256_to_uint256.get(uint256_to_uint256_to_uint256_S_141.get(y0, 0), 1) + uint256_to_uint256.get(x0, 2));
+        uint256_to_uint256.set(uint256_to_uint256_to_uint256_S_161.get_lhs(y0, 0), 1, 6);
+        assert(uint256_to_uint256.get(uint256_to_uint256_to_uint256_S_161.get(y0, 0), 1) == 6);
+        uint256_to_uint256.set(x0, 1, uint256_to_uint256.get(uint256_to_uint256_to_uint256_S_161.get(y0, 0), 1) + uint256_to_uint256.get(x0, 2));
         assert(uint256_to_uint256.get(x0, 1) == 11);
         string_to_uint256_arr.set_uint8_arr_3(z0, "hi", [1, 2, 3]);
         assert((string_to_uint256_arr.get(z0, "hi").length == 3) && (string_to_uint256_arr.get(z0, "hi")[2] == 3));
@@ -488,7 +488,7 @@ contract Foo {
     }
 
     function y(uint256 ARG_0, uint256 ARG_1) public view returns (uint256 RET_0) {
-        return uint256_to_uint256.get(uint256_to_uint256_to_uint256_S_141.get(y0, ARG_0), ARG_1);
+        return uint256_to_uint256.get(uint256_to_uint256_to_uint256_S_161.get(y0, ARG_0), ARG_1);
     }
 
     function x(uint256 ARG_2) public view returns (uint256 RET_1) {
