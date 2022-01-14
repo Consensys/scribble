@@ -56,7 +56,8 @@ import {
     VariableDeclaration,
     VariableDeclarationStatement,
     WhileStatement,
-    ErrorDefinition
+    ErrorDefinition,
+    UserDefinedValueTypeDefinition
 } from "solc-typed-ast";
 import { reNumber } from "../util/json_output";
 import { getOrInit } from "../util/misc";
@@ -283,8 +284,10 @@ export function merge(groups: SourceUnit[][]): [SourceUnit[], ASTContext] {
                 child.scope = getNew(child.scope).id;
             } else if (child instanceof ErrorDefinition) {
                 // Nothing to do
-            } else if (child instanceof Block) {
+            } else if (child instanceof UserDefinedValueTypeDefinition) {
+                // Nothing to do
                 /// ======== STATEMENT NODES ==========================================
+            } else if (child instanceof Block) {
                 // Nothing to do...
             } else if (child instanceof UncheckedBlock) {
                 // Nothing to do

@@ -32,6 +32,7 @@ import {
     TypeNameType,
     TypeNode,
     UserDefinedType,
+    UserDefinedValueTypeDefinition,
     VariableDeclaration
 } from "solc-typed-ast";
 import {
@@ -375,7 +376,8 @@ function transpileId(expr: SId, ctx: TranspilingContext): Expression {
         | EnumDefinition
         | ContractDefinition
         | VariableDeclaration
-        | ImportDirective;
+        | ImportDirective
+        | UserDefinedValueTypeDefinition;
 
     const exprT = typeEnv.typeOf(expr);
 

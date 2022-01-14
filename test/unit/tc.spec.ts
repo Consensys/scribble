@@ -27,6 +27,7 @@ import {
     TypeNameType,
     TypeNode,
     UserDefinedType,
+    UserDefinedValueTypeDefinition,
     UserDefinition
 } from "solc-typed-ast";
 import { ABIEncoderVersion } from "solc-typed-ast/dist/types/abi";
@@ -43,7 +44,8 @@ function findTypeDef(name: string, units: SourceUnit[]): UserDefinition {
             (child) =>
                 (child instanceof ContractDefinition ||
                     child instanceof StructDefinition ||
-                    child instanceof EnumDefinition) &&
+                    child instanceof EnumDefinition ||
+                    child instanceof UserDefinedValueTypeDefinition) &&
                 child.name === name
         )) {
             return child as UserDefinition;
@@ -574,6 +576,53 @@ describe("TypeChecker Expression Unit Tests", () => {
             }
             `,
             [["addr.code", ["Some"], new PointerType(new BytesType(), DataLocation.Memory)]]
+        ],
+        [
+            "userDefinedValueTypes.sol",
+            `
+            pragma solidity 0.8.8;
+
+enum A {
+    A,
+    B,
+    C
+}
+
+type Price is uint32;
+Price constant OneDollar = Price.wrap(1);
+
+contract UserDefinedValueTypes {
+    type Quantity is uint32;
+
+    /// #if_succeeds Price.unwrap(p) * Quantity.unwrap(q) == Price.unwrap($result);
+    function orderPrice(Price p, Quantity q) public returns (Price) {
+        return Price.wrap(Price.unwrap(p) * Quantity.unwrap(q));
+    }
+}
+            `,
+            [
+                [
+                    "Price.wrap(1)",
+                    ["UserDefinedValueTypes"],
+                    (units) => new UserDefinedType("Price", findTypeDef("Price", units))
+                ],
+                ["Price.unwrap(Price.wrap(1))", ["UserDefinedValueTypes"], new IntType(32, false)],
+                ["Price.unwrap(OneDollar)", ["UserDefinedValueTypes"], new IntType(32, false)],
+                [
+                    "q",
+                    ["UserDefinedValueTypes", "orderPrice"],
+                    (units) =>
+                        new UserDefinedType(
+                            "UserDefinedValueTypes.Quantity",
+                            findTypeDef("Quantity", units)
+                        )
+                ],
+                [
+                    "Price.wrap(Price.unwrap(p) * Quantity.unwrap(q))",
+                    ["UserDefinedValueTypes", "orderPrice"],
+                    (units) => new UserDefinedType("Price", findTypeDef("Price", units))
+                ]
+            ]
         ]
     ];
 
@@ -704,6 +753,39 @@ describe("TypeChecker Expression Unit Tests", () => {
             }
             `,
             [["addr.code", ["Some"]]]
+        ],
+        [
+            "userDefinedValueTypes.sol",
+            `
+            pragma solidity 0.8.8;
+
+enum A {
+    A,
+    B,
+    C
+}
+
+type Price is uint32;
+Price constant OneDollar = Price.wrap(1);
+
+contract UserDefinedValueTypes {
+    type Quantity is uint32;
+
+    /// #if_succeeds Price.unwrap(p) * Quantity.unwrap(q) == Price.unwrap($result);
+    function orderPrice(Price p, Quantity q) public returns (Price) {
+        return Price.wrap(Price.unwrap(p) * Quantity.unwrap(q));
+    }
+}
+            `,
+            [
+                ["Price.wrap(false)", ["UserDefinedValueTypes"]],
+                ["Price.unwrap(1)", ["UserDefinedValueTypes"]],
+                ["Price.wrap(Price.wrap(1))", ["UserDefinedValueTypes"]],
+                ["Price.unwrap(Price.unwrap(Price.wrap(1)))", ["UserDefinedValueTypes"]],
+                ["Price.warp(1) + Price.wrap(2)", ["UserDefinedValueTypes"]],
+                ["Price.warp(1) > Price.wrap(2)", ["UserDefinedValueTypes"]],
+                ["Price.warp(1) == Price.wrap(2)", ["UserDefinedValueTypes"]]
+            ]
         ]
     ];
 

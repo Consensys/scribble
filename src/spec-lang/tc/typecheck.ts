@@ -45,6 +45,7 @@ import {
     TypeNode,
     UserDefinedType,
     UserDefinedTypeName,
+    UserDefinedValueTypeDefinition,
     VariableDeclaration,
     VariableDeclarationStatement,
     variableDeclarationToTypeNode
@@ -355,7 +356,8 @@ function lookupTypeDef(
         (x) =>
             x instanceof StructDefinition ||
             x instanceof EnumDefinition ||
-            x instanceof ContractDefinition
+            x instanceof ContractDefinition ||
+            x instanceof UserDefinedValueTypeDefinition
     ) as Array<StructDefinition | EnumDefinition | ContractDefinition>;
 
     return res.length > 0 ? single(res) : undefined;
@@ -1462,11 +1464,40 @@ export function tcMemberAccess(expr: SMemberAccess, ctx: STypingCtx, typeEnv: Ty
         }
     }
 
+    // Address type builtin members
     if (baseT instanceof AddressType) {
         const type = tcIdBuiltinSymbol(expr, expr.member, typeEnv, true);
 
         if (type) {
             return type;
+        }
+    }
+
+    // User defined value types wrap() and unwrap()
+    if (
+        baseT instanceof TypeNameType &&
+        baseT.type instanceof UserDefinedType &&
+        baseT.type.definition instanceof UserDefinedValueTypeDefinition
+    ) {
+        const userDefValType = baseT.type.definition;
+        const underlyingType = userDefValType.underlyingType;
+
+        if (expr.member === "wrap") {
+            return new FunctionType(
+                "wrap",
+                [typeNameToTypeNode(underlyingType)],
+                [baseT.type],
+                FunctionVisibility.Default,
+                FunctionStateMutability.Pure
+            );
+        } else if (expr.member === "unwrap") {
+            return new FunctionType(
+                "unwrap",
+                [baseT.type],
+                [typeNameToTypeNode(underlyingType)],
+                FunctionVisibility.Default,
+                FunctionStateMutability.Pure
+            );
         }
     }
 

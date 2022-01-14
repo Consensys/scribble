@@ -40,7 +40,7 @@ function makeStruct(
     valueT: TypeNode,
     lib: ContractDefinition
 ): StructDefinition {
-    const struct = factory.makeStructDefinition("S", "S", lib.id, "", []);
+    const struct = factory.makeStructDefinition("S", lib.id, "", []);
 
     factory.addStructField("innerM", new MappingType(keyT, valueT), struct);
     factory.addStructField("keys", new ArrayType(keyT), struct);

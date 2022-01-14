@@ -165,10 +165,8 @@ export class TranspilingContext {
 
         this.contract = contract;
         const structName = instrCtx.nameGenerator.getFresh("vars");
-        const canonicalStructName = `${contract.name}.${structName}`;
         this.bindingsStructDef = this.factory.makeStructDefinition(
             structName,
-            canonicalStructName,
             contract.id,
             FunctionVisibility.Private,
             []
