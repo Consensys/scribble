@@ -81,7 +81,7 @@ import {
     SUserFunctionDefinition,
     VarDefSite
 } from "../ast";
-import { BuiltinAddressMembers, BuiltinSymbols } from "./builtins";
+import { AddressMembers, BuiltinSymbols } from "./builtins";
 import { BuiltinStructType, FunctionSetType, ImportRefType, VariableTypes } from "./internal_types";
 import { TypeEnv } from "./typeenv";
 
@@ -730,7 +730,7 @@ function tcIdBuiltinSymbol(
     typeEnv: TypeEnv,
     isAddressMember = false
 ): TypeNode | undefined {
-    const mapping = isAddressMember ? BuiltinAddressMembers : BuiltinSymbols;
+    const mapping = isAddressMember ? AddressMembers : BuiltinSymbols;
     const typing = mapping.get(name);
 
     /**
@@ -1492,7 +1492,9 @@ export function tcMemberAccess(expr: SMemberAccess, ctx: STypingCtx, typeEnv: Ty
                 FunctionVisibility.Default,
                 FunctionStateMutability.Pure
             );
-        } else if (expr.member === "unwrap") {
+        }
+
+        if (expr.member === "unwrap") {
             return new FunctionType(
                 "unwrap",
                 [baseT.type],

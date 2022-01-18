@@ -199,7 +199,7 @@ export const BuiltinSymbols = new Map<string, TypeNode | [TypeNode, string]>([
     ]
 ]);
 
-export const BuiltinAddressMembers = new Map<string, TypeNode | [TypeNode, string]>([
+export const AddressMembers = new Map<string, TypeNode | [TypeNode, string]>([
     ["balance", new IntType(256, false)],
     [
         "staticcall",
@@ -225,18 +225,19 @@ export const ContractTypeMembers = new BuiltinStructType(
 
 export const InterfaceTypeMembers = new BuiltinStructType(
     "<type(interface)>",
-    new Map<string, TypeNode>([
+    new Map<string, TypeNode | [TypeNode, string]>([
         ["name", new PointerType(new StringType(), DataLocation.Memory)],
-        ["interfaceId", new FixedBytesType(4)]
+        ["interfaceId", [new FixedBytesType(4), ">=0.6.7"]]
     ])
 );
 
 export const NumberLikeTypeMembers = (type: IntType | UserDefinedType): BuiltinStructType => {
+    const minVersion = type instanceof IntType ? ">=0.6.8" : ">=0.8.8";
     return new BuiltinStructType(
         "<type(number-like)>",
-        new Map<string, TypeNode>([
-            ["min", type],
-            ["max", type]
+        new Map<string, TypeNode | [TypeNode, string]>([
+            ["min", [type, minVersion]],
+            ["max", [type, minVersion]]
         ])
     );
 };
