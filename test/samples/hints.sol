@@ -1,3 +1,4 @@
+pragma solidity 0.8.10;
 /// #require z > 1;
 /// #try msg.sender == address(0x0); 
 contract Foo {

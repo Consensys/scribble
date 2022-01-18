@@ -1,3 +1,4 @@
+pragma solidity 0.8.10;
 contract Foo {
     /// #if_updated forall(uint i in m) m[i] > 0;
     mapping(uint=>uint) m;
