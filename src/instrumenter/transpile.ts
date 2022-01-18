@@ -37,7 +37,7 @@ import {
 } from "solc-typed-ast";
 import {
     AnnotationType,
-    BuiltinFunctions,
+    ScribbleBuiltinFunctions,
     SAddressLiteral,
     SBinaryOperation,
     SBooleanLiteral,
@@ -55,7 +55,8 @@ import {
     SStringLiteral,
     SUnaryOperation,
     SUserFunctionDefinition,
-    VarDefSite
+    VarDefSite,
+    SolidityBuiltinFunctions
 } from "../spec-lang/ast";
 import {
     BuiltinSymbols,
@@ -560,49 +561,72 @@ function transpileConditional(expr: SConditional, ctx: TranspilingContext): Expr
 function transpileFunctionCall(expr: SFunctionCall, ctx: TranspilingContext): Expression {
     const factory = ctx.factory;
 
-    if (
-        expr.callee instanceof SId &&
-        expr.callee.name === BuiltinFunctions.unchecked_sum &&
-        expr.callee.defSite === "builtin_fun"
-    ) {
-        const arg = single(expr.args);
-        const argT = ctx.typeEnv.typeOf(arg);
-
-        assert(argT instanceof PointerType, "sum expects a pointer to array/map, not {0}", argT);
-
-        if (argT.to instanceof MappingType) {
-            const [sVar, path] = decomposeStateVarRef(arg);
+    // Builtin functions
+    if (expr.callee instanceof SId && expr.callee.defSite === "builtin_fun") {
+        /// unchecked_sum()
+        if (expr.callee.name === ScribbleBuiltinFunctions.unchecked_sum) {
+            const arg = single(expr.args);
+            const argT = ctx.typeEnv.typeOf(arg);
 
             assert(
-                sVar !== undefined,
-                "sum argument should be a state var(or a part of it), not {0}",
-                arg
+                argT instanceof PointerType,
+                "sum expects a pointer to array/map, not {0}",
+                argT
             );
 
-            const lib = ctx.instrCtx.sVarToLibraryMap.get(
-                sVar,
-                path.map((el) => (el instanceof SNode ? null : el))
+            if (argT.to instanceof MappingType) {
+                const [sVar, path] = decomposeStateVarRef(arg);
+
+                assert(
+                    sVar !== undefined,
+                    "sum argument should be a state var(or a part of it), not {0}",
+                    arg
+                );
+
+                const lib = ctx.instrCtx.sVarToLibraryMap.get(
+                    sVar,
+                    path.map((el) => (el instanceof SNode ? null : el))
+                );
+
+                assert(lib !== undefined, `State var ${sVar.name} should already be interposed`);
+
+                const struct = single(lib.vStructs);
+
+                return factory.mkStructFieldAcc(transpile(arg, ctx), struct, "sum");
+            }
+
+            assert(
+                argT.to instanceof ArrayType,
+                "sum expects a pointer to array/map, not {0}",
+                argT
             );
 
-            assert(lib !== undefined, `State var ${sVar.name} should already be interposed`);
+            const sumFun = ctx.instrCtx.arraySumFunMap.get(argT.to, argT.location);
 
-            const struct = single(lib.vStructs);
+            ctx.instrCtx.needsUtils(ctx.containerContract.vScope);
 
-            return factory.mkStructFieldAcc(transpile(arg, ctx), struct, "sum");
+            return factory.makeFunctionCall(
+                "<missing>",
+                FunctionCallKind.FunctionCall,
+                factory.mkLibraryFunRef(ctx.instrCtx, sumFun),
+                [transpile(arg, ctx)]
+            );
         }
 
-        assert(argT.to instanceof ArrayType, "sum expects a pointer to array/map, not {0}", argT);
+        /// type()
+        if (expr.callee.name === SolidityBuiltinFunctions.type) {
+            const arg = single(expr.args);
+            const argT = ctx.typeEnv.typeOf(arg);
 
-        const sumFun = ctx.instrCtx.arraySumFunMap.get(argT.to, argT.location);
+            assert(argT instanceof TypeNameType, `type() expects a TypeNameType`);
 
-        ctx.instrCtx.needsUtils(ctx.containerContract.vScope);
-
-        return factory.makeFunctionCall(
-            "<missing>",
-            FunctionCallKind.FunctionCall,
-            factory.mkLibraryFunRef(ctx.instrCtx, sumFun),
-            [transpile(arg, ctx)]
-        );
+            return factory.makeFunctionCall(
+                "<missing>",
+                FunctionCallKind.FunctionCall,
+                factory.makeIdentifier("<missing>", SolidityBuiltinFunctions.type, -1),
+                [transpileType(argT.type, factory)]
+            );
+        }
     }
 
     const calleeT = ctx.typeEnv.typeOf(expr.callee);

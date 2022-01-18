@@ -31,8 +31,9 @@ import {
     SProperty,
     SUserFunctionDefinition,
     AnnotationType,
-    BuiltinFunctions,
-    NodeLocation
+    ScribbleBuiltinFunctions,
+    NodeLocation,
+    SolidityBuiltinFunctions
 } from "../ast";
 import { FunctionSetType } from "./internal_types";
 import { TypeEnv } from "./typeenv";
@@ -419,25 +420,27 @@ export function scFunctionCall(
     // Compute whether all args are constant
     const allArgsConst = argsInfo.map((argInfo) => argInfo.isConst).reduce((a, b) => a && b, true);
 
-    if (
-        callee instanceof SId &&
-        callee.name === BuiltinFunctions.unchecked_sum &&
-        callee.defSite === "builtin_fun"
-    ) {
-        const arg = expr.args[0];
-        const argT = typeEnv.typeOf(arg);
-        const isOld = ctx.isOld || argsInfo[0].isOld;
+    if (callee instanceof SId && callee.defSite === "builtin_fun") {
+        if (callee.name === ScribbleBuiltinFunctions.unchecked_sum) {
+            const arg = expr.args[0];
+            const argT = typeEnv.typeOf(arg);
+            const isOld = ctx.isOld || argsInfo[0].isOld;
 
-        if (argT instanceof PointerType && argT.to instanceof MappingType) {
-            const [sVar, path] = decomposeStateVarRef(unwrapOld(arg));
-            if (sVar === undefined) {
-                throw new SemError(`Don't support forall over a map pointer ${arg.pp()}`, arg);
+            if (argT instanceof PointerType && argT.to instanceof MappingType) {
+                const [sVar, path] = decomposeStateVarRef(unwrapOld(arg));
+                if (sVar === undefined) {
+                    throw new SemError(`Don't support forall over a map pointer ${arg.pp()}`, arg);
+                }
+
+                ctx.interposingQueue.push([sVar, path.map((x) => (x instanceof SNode ? null : x))]);
             }
 
-            ctx.interposingQueue.push([sVar, path.map((x) => (x instanceof SNode ? null : x))]);
+            return { isOld: isOld, isConst: allArgsConst, canFail: argsInfo[0].canFail };
         }
 
-        return { isOld: isOld, isConst: allArgsConst, canFail: argsInfo[0].canFail };
+        if (callee.name === SolidityBuiltinFunctions.type) {
+            return { isOld: ctx.isOld, isConst: true, canFail: false };
+        }
     }
 
     const calleeT = typeEnv.typeOf(callee);

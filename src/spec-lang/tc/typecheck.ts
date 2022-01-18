@@ -10,6 +10,7 @@ import {
     BoolType,
     BytesType,
     ContractDefinition,
+    ContractKind,
     DataLocation,
     EnumDefinition,
     eq,
@@ -50,11 +51,12 @@ import {
     VariableDeclarationStatement,
     variableDeclarationToTypeNode
 } from "solc-typed-ast";
+import { ContractTypeMembers, InterfaceTypeMembers, NumberLikeTypeMembers } from ".";
 import { AnnotationMap, AnnotationMetaData, AnnotationTarget } from "../../instrumenter";
 import { Logger } from "../../logger";
 import { last, single, topoSort } from "../../util";
 import {
-    BuiltinFunctions,
+    ScribbleBuiltinFunctions,
     DatastructurePath,
     NodeLocation,
     SAddressLiteral,
@@ -1813,7 +1815,7 @@ export function tcForAll(expr: SForAll, ctx: STypingCtx, typeEnv: TypeEnv): Type
 export function tcFunctionCall(expr: SFunctionCall, ctx: STypingCtx, typeEnv: TypeEnv): TypeNode {
     const callee = expr.callee;
 
-    if (callee instanceof SId && callee.name === BuiltinFunctions.unchecked_sum) {
+    if (callee instanceof SId && callee.name === ScribbleBuiltinFunctions.unchecked_sum) {
         callee.defSite = "builtin_fun";
 
         if (expr.args.length !== 1) {
@@ -1843,6 +1845,52 @@ export function tcFunctionCall(expr: SFunctionCall, ctx: STypingCtx, typeEnv: Ty
 
         throw new SWrongType(
             `sum expects a numeric array or map to numbers, not ${argT.pp()} in ${expr.pp()}`,
+            expr,
+            argT
+        );
+    }
+
+    if (callee instanceof SId && callee.name === "type") {
+        callee.defSite = "builtin_fun";
+
+        if (expr.args.length !== 1) {
+            throw new SExprCountMismatch(
+                `type() expects a single argument, not ${expr.args.length} in ${expr.pp()}`,
+                expr
+            );
+        }
+
+        const argT = tc(expr.args[0], ctx, typeEnv);
+
+        if (!(argT instanceof TypeNameType)) {
+            throw new SWrongType(
+                `type() expects a type name as argument, not ${argT.pp()} in ${expr.pp()}`,
+                expr,
+                argT
+            );
+        }
+
+        const underlyingType = argT.type;
+
+        if (
+            underlyingType instanceof IntType ||
+            (underlyingType instanceof UserDefinedType &&
+                underlyingType.definition instanceof EnumDefinition)
+        ) {
+            return NumberLikeTypeMembers(underlyingType);
+        }
+
+        if (
+            underlyingType instanceof UserDefinedType &&
+            underlyingType.definition instanceof ContractDefinition
+        ) {
+            return underlyingType.definition.kind === ContractKind.Interface
+                ? InterfaceTypeMembers
+                : ContractTypeMembers;
+        }
+
+        throw new SWrongType(
+            `type() expects a contract name, numeric or enum type, not ${argT.pp()} in ${expr.pp()}`,
             expr,
             argT
         );

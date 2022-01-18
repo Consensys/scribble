@@ -564,7 +564,36 @@ describe("TypeChecker Expression Unit Tests", () => {
                     'abi.encodeWithSignature("foo", sV, sV1)',
                     ["Foo"],
                     new PointerType(new BytesType(), DataLocation.Memory)
-                ]
+                ],
+                ["type(int24).min", ["Foo"], new IntType(24, true)],
+                ["type(uint).max", ["Foo"], new IntType(256, false)],
+                [
+                    "type(FooEnum).max",
+                    ["Foo"],
+                    (units) => new UserDefinedType("Foo.FooEnum", findTypeDef("FooEnum", units))
+                ],
+                [
+                    "type(FooEnum).min",
+                    ["Foo"],
+                    (units) => new UserDefinedType("Foo.FooEnum", findTypeDef("FooEnum", units))
+                ],
+                ["type(Foo).name", ["Foo"], new PointerType(new StringType(), DataLocation.Memory)],
+                [
+                    "type(Foo).creationCode",
+                    ["Foo"],
+                    new PointerType(new BytesType(), DataLocation.Memory)
+                ],
+                [
+                    "type(Foo).runtimeCode",
+                    ["Foo"],
+                    new PointerType(new BytesType(), DataLocation.Memory)
+                ],
+                [
+                    "type(IFace).name",
+                    ["Foo"],
+                    new PointerType(new StringType(), DataLocation.Memory)
+                ],
+                ["type(IFace).interfaceId", ["Foo"], new FixedBytesType(4)]
             ]
         ],
         [
@@ -741,7 +770,15 @@ contract UserDefinedValueTypes {
                 ["abi.encodeWithSelector()", ["Foo"]],
                 ["abi.encodeWithSelector(sV)", ["Foo"]],
                 ["abi.encodeWithSignature()", ["Foo"]],
-                ["abi.encodeWithSignature(sV)", ["Foo"]]
+                ["abi.encodeWithSignature(sV)", ["Foo"]],
+                ["type(int24, int24).min", ["Foo"]],
+                ["type(1).min", ["Foo"]],
+                ["int24.max", ["Foo"]],
+                ["type(Foo).min", ["Foo"]],
+                ["type(GlobalEnum).name", ["Foo"]],
+                ["type(true).name", ["Foo"]],
+                ["type(Foo).interfaceId", ["Foo"]],
+                ["type(IFace).runtimeCode", ["Foo"]]
             ]
         ],
         [
