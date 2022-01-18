@@ -27,6 +27,7 @@ import {
     TypeNameType,
     TypeNode,
     UserDefinedType,
+    UserDefinedValueTypeDefinition,
     UserDefinition
 } from "solc-typed-ast";
 import { ABIEncoderVersion } from "solc-typed-ast/dist/types/abi";
@@ -43,7 +44,8 @@ function findTypeDef(name: string, units: SourceUnit[]): UserDefinition {
             (child) =>
                 (child instanceof ContractDefinition ||
                     child instanceof StructDefinition ||
-                    child instanceof EnumDefinition) &&
+                    child instanceof EnumDefinition ||
+                    child instanceof UserDefinedValueTypeDefinition) &&
                 child.name === name
         )) {
             return child as UserDefinition;
@@ -562,6 +564,22 @@ describe("TypeChecker Expression Unit Tests", () => {
                     'abi.encodeWithSignature("foo", sV, sV1)',
                     ["Foo"],
                     new PointerType(new BytesType(), DataLocation.Memory)
+                ],
+                ["type(Foo).name", ["Foo"], new PointerType(new StringType(), DataLocation.Memory)],
+                [
+                    "type(Foo).creationCode",
+                    ["Foo"],
+                    new PointerType(new BytesType(), DataLocation.Memory)
+                ],
+                [
+                    "type(Foo).runtimeCode",
+                    ["Foo"],
+                    new PointerType(new BytesType(), DataLocation.Memory)
+                ],
+                [
+                    "type(IFace).name",
+                    ["Foo"],
+                    new PointerType(new StringType(), DataLocation.Memory)
                 ]
             ]
         ],
@@ -574,6 +592,101 @@ describe("TypeChecker Expression Unit Tests", () => {
             }
             `,
             [["addr.code", ["Some"], new PointerType(new BytesType(), DataLocation.Memory)]]
+        ],
+        [
+            "userDefinedValueTypes.sol",
+            `
+            pragma solidity 0.8.8;
+
+enum A {
+    A,
+    B,
+    C
+}
+
+type Price is uint32;
+Price constant OneDollar = Price.wrap(1);
+
+contract UserDefinedValueTypes {
+    type Quantity is uint32;
+
+    /// #if_succeeds Price.unwrap(p) * Quantity.unwrap(q) == Price.unwrap($result);
+    function orderPrice(Price p, Quantity q) public returns (Price) {
+        return Price.wrap(Price.unwrap(p) * Quantity.unwrap(q));
+    }
+}
+            `,
+            [
+                [
+                    "Price.wrap(1)",
+                    ["UserDefinedValueTypes"],
+                    (units) => new UserDefinedType("Price", findTypeDef("Price", units))
+                ],
+                ["Price.unwrap(Price.wrap(1))", ["UserDefinedValueTypes"], new IntType(32, false)],
+                ["Price.unwrap(OneDollar)", ["UserDefinedValueTypes"], new IntType(32, false)],
+                [
+                    "q",
+                    ["UserDefinedValueTypes", "orderPrice"],
+                    (units) =>
+                        new UserDefinedType(
+                            "UserDefinedValueTypes.Quantity",
+                            findTypeDef("Quantity", units)
+                        )
+                ],
+                [
+                    "Price.wrap(Price.unwrap(p) * Quantity.unwrap(q))",
+                    ["UserDefinedValueTypes", "orderPrice"],
+                    (units) => new UserDefinedType("Price", findTypeDef("Price", units))
+                ]
+            ]
+        ],
+        [
+            "min_max_builtins.sol",
+            `pragma solidity 0.6.8;
+
+            contract Foo {
+            }
+            `,
+            [
+                ["type(int24).min", ["Foo"], new IntType(24, true)],
+                ["type(uint).max", ["Foo"], new IntType(256, false)]
+            ]
+        ],
+        [
+            "enum_min_max.sol",
+            `pragma solidity 0.8.8;
+
+            contract Foo {
+                enum FooEnum {
+                    D,
+                    E,
+                    F
+                }
+            }
+            `,
+            [
+                [
+                    "type(FooEnum).max",
+                    ["Foo"],
+                    (units) => new UserDefinedType("Foo.FooEnum", findTypeDef("FooEnum", units))
+                ],
+                [
+                    "type(FooEnum).min",
+                    ["Foo"],
+                    (units) => new UserDefinedType("Foo.FooEnum", findTypeDef("FooEnum", units))
+                ]
+            ]
+        ],
+        [
+            "interface_id_builtin.sol",
+            `pragma solidity 0.6.7;
+
+            interface IFace {
+            }
+
+            contract Foo {}
+            `,
+            [["type(IFace).interfaceId", ["Foo"], new FixedBytesType(4)]]
         ]
     ];
 
@@ -692,7 +805,11 @@ describe("TypeChecker Expression Unit Tests", () => {
                 ["abi.encodeWithSelector()", ["Foo"]],
                 ["abi.encodeWithSelector(sV)", ["Foo"]],
                 ["abi.encodeWithSignature()", ["Foo"]],
-                ["abi.encodeWithSignature(sV)", ["Foo"]]
+                ["abi.encodeWithSignature(sV)", ["Foo"]],
+                ["type(int24).min", ["Foo"]],
+                ["type(uint).max", ["Foo"]],
+                ["type(FooEnum).max", ["Foo"]],
+                ["type(FooEnum).min", ["Foo"]]
             ]
         ],
         [
@@ -704,6 +821,68 @@ describe("TypeChecker Expression Unit Tests", () => {
             }
             `,
             [["addr.code", ["Some"]]]
+        ],
+        [
+            "userDefinedValueTypes.sol",
+            `
+            pragma solidity 0.8.8;
+
+enum A {
+    A,
+    B,
+    C
+}
+
+type Price is uint32;
+Price constant OneDollar = Price.wrap(1);
+
+contract UserDefinedValueTypes {
+    type Quantity is uint32;
+
+    /// #if_succeeds Price.unwrap(p) * Quantity.unwrap(q) == Price.unwrap($result);
+    function orderPrice(Price p, Quantity q) public returns (Price) {
+        return Price.wrap(Price.unwrap(p) * Quantity.unwrap(q));
+    }
+}
+            `,
+            [
+                ["Price.wrap(false)", ["UserDefinedValueTypes"]],
+                ["Price.unwrap(1)", ["UserDefinedValueTypes"]],
+                ["Price.wrap(Price.wrap(1))", ["UserDefinedValueTypes"]],
+                ["Price.unwrap(Price.unwrap(Price.wrap(1)))", ["UserDefinedValueTypes"]],
+                ["Price.warp(1) + Price.wrap(2)", ["UserDefinedValueTypes"]],
+                ["Price.warp(1) > Price.wrap(2)", ["UserDefinedValueTypes"]],
+                ["Price.warp(1) == Price.wrap(2)", ["UserDefinedValueTypes"]]
+            ]
+        ],
+        [
+            "type_builtins.sol",
+            `pragma solidity 0.8.8;
+
+            enum GlobalEnum {
+                A,
+                B,
+                C
+            }
+
+            interface IFace {
+                function imoo(int8 d, int16 e) external returns (address, string memory);
+            }
+
+            contract Foo {
+                address public addr;
+            }
+            `,
+            [
+                ["type(int24, int24).min", ["Foo"]],
+                ["type(1).min", ["Foo"]],
+                ["int24.max", ["Foo"]],
+                ["type(Foo).min", ["Foo"]],
+                ["type(GlobalEnum).name", ["Foo"]],
+                ["type(true).name", ["Foo"]],
+                ["type(Foo).interfaceId", ["Foo"]],
+                ["type(IFace).runtimeCode", ["Foo"]]
+            ]
         ]
     ];
 

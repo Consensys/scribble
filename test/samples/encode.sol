@@ -1,3 +1,4 @@
+pragma solidity 0.8.10;
 contract Foo {
  /// #if_succeeds abi.encode(v).length > 0;
  function foo(uint v) public {

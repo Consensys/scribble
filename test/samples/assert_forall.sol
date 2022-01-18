@@ -1,3 +1,4 @@
+pragma solidity 0.8.10;
 contract AssertForall {
 	function main(uint[] memory n) public {
 		uint sum = 0;

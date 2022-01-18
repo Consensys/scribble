@@ -10,6 +10,7 @@ import {
     BoolType,
     BytesType,
     ContractDefinition,
+    ContractKind,
     DataLocation,
     EnumDefinition,
     eq,
@@ -45,15 +46,17 @@ import {
     TypeNode,
     UserDefinedType,
     UserDefinedTypeName,
+    UserDefinedValueTypeDefinition,
     VariableDeclaration,
     VariableDeclarationStatement,
     variableDeclarationToTypeNode
 } from "solc-typed-ast";
+import { ContractTypeMembers, InterfaceTypeMembers, NumberLikeTypeMembers } from ".";
 import { AnnotationMap, AnnotationMetaData, AnnotationTarget } from "../../instrumenter";
 import { Logger } from "../../logger";
 import { last, single, topoSort } from "../../util";
 import {
-    BuiltinFunctions,
+    ScribbleBuiltinFunctions,
     DatastructurePath,
     NodeLocation,
     SAddressLiteral,
@@ -78,7 +81,7 @@ import {
     SUserFunctionDefinition,
     VarDefSite
 } from "../ast";
-import { BuiltinAddressMembers, BuiltinSymbols } from "./builtins";
+import { AddressMembers, BuiltinSymbols } from "./builtins";
 import { BuiltinStructType, FunctionSetType, ImportRefType, VariableTypes } from "./internal_types";
 import { TypeEnv } from "./typeenv";
 
@@ -355,7 +358,8 @@ function lookupTypeDef(
         (x) =>
             x instanceof StructDefinition ||
             x instanceof EnumDefinition ||
-            x instanceof ContractDefinition
+            x instanceof ContractDefinition ||
+            x instanceof UserDefinedValueTypeDefinition
     ) as Array<StructDefinition | EnumDefinition | ContractDefinition>;
 
     return res.length > 0 ? single(res) : undefined;
@@ -726,7 +730,7 @@ function tcIdBuiltinSymbol(
     typeEnv: TypeEnv,
     isAddressMember = false
 ): TypeNode | undefined {
-    const mapping = isAddressMember ? BuiltinAddressMembers : BuiltinSymbols;
+    const mapping = isAddressMember ? AddressMembers : BuiltinSymbols;
     const typing = mapping.get(name);
 
     /**
@@ -1462,11 +1466,42 @@ export function tcMemberAccess(expr: SMemberAccess, ctx: STypingCtx, typeEnv: Ty
         }
     }
 
+    // Address type builtin members
     if (baseT instanceof AddressType) {
         const type = tcIdBuiltinSymbol(expr, expr.member, typeEnv, true);
 
         if (type) {
             return type;
+        }
+    }
+
+    // User defined value types wrap() and unwrap()
+    if (
+        baseT instanceof TypeNameType &&
+        baseT.type instanceof UserDefinedType &&
+        baseT.type.definition instanceof UserDefinedValueTypeDefinition
+    ) {
+        const userDefValType = baseT.type.definition;
+        const underlyingType = userDefValType.underlyingType;
+
+        if (expr.member === "wrap") {
+            return new FunctionType(
+                "wrap",
+                [typeNameToTypeNode(underlyingType)],
+                [baseT.type],
+                FunctionVisibility.Default,
+                FunctionStateMutability.Pure
+            );
+        }
+
+        if (expr.member === "unwrap") {
+            return new FunctionType(
+                "unwrap",
+                [baseT.type],
+                [typeNameToTypeNode(underlyingType)],
+                FunctionVisibility.Default,
+                FunctionStateMutability.Pure
+            );
         }
     }
 
@@ -1782,7 +1817,7 @@ export function tcForAll(expr: SForAll, ctx: STypingCtx, typeEnv: TypeEnv): Type
 export function tcFunctionCall(expr: SFunctionCall, ctx: STypingCtx, typeEnv: TypeEnv): TypeNode {
     const callee = expr.callee;
 
-    if (callee instanceof SId && callee.name === BuiltinFunctions.unchecked_sum) {
+    if (callee instanceof SId && callee.name === ScribbleBuiltinFunctions.unchecked_sum) {
         callee.defSite = "builtin_fun";
 
         if (expr.args.length !== 1) {
@@ -1812,6 +1847,52 @@ export function tcFunctionCall(expr: SFunctionCall, ctx: STypingCtx, typeEnv: Ty
 
         throw new SWrongType(
             `sum expects a numeric array or map to numbers, not ${argT.pp()} in ${expr.pp()}`,
+            expr,
+            argT
+        );
+    }
+
+    if (callee instanceof SId && callee.name === "type") {
+        callee.defSite = "builtin_fun";
+
+        if (expr.args.length !== 1) {
+            throw new SExprCountMismatch(
+                `type() expects a single argument, not ${expr.args.length} in ${expr.pp()}`,
+                expr
+            );
+        }
+
+        const argT = tc(expr.args[0], ctx, typeEnv);
+
+        if (!(argT instanceof TypeNameType)) {
+            throw new SWrongType(
+                `type() expects a type name as argument, not ${argT.pp()} in ${expr.pp()}`,
+                expr,
+                argT
+            );
+        }
+
+        const underlyingType = argT.type;
+
+        if (
+            underlyingType instanceof IntType ||
+            (underlyingType instanceof UserDefinedType &&
+                underlyingType.definition instanceof EnumDefinition)
+        ) {
+            return NumberLikeTypeMembers(underlyingType);
+        }
+
+        if (
+            underlyingType instanceof UserDefinedType &&
+            underlyingType.definition instanceof ContractDefinition
+        ) {
+            return underlyingType.definition.kind === ContractKind.Interface
+                ? InterfaceTypeMembers
+                : ContractTypeMembers;
+        }
+
+        throw new SWrongType(
+            `type() expects a contract name, numeric or enum type, not ${argT.pp()} in ${expr.pp()}`,
             expr,
             argT
         );

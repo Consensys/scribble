@@ -10,7 +10,8 @@ import {
     IntType,
     PointerType,
     StringType,
-    TypeNode
+    TypeNode,
+    UserDefinedType
 } from "solc-typed-ast";
 import { BuiltinStructType, VariableTypes } from "./internal_types";
 
@@ -198,7 +199,7 @@ export const BuiltinSymbols = new Map<string, TypeNode | [TypeNode, string]>([
     ]
 ]);
 
-export const BuiltinAddressMembers = new Map<string, TypeNode | [TypeNode, string]>([
+export const AddressMembers = new Map<string, TypeNode | [TypeNode, string]>([
     ["balance", new IntType(256, false)],
     [
         "staticcall",
@@ -212,3 +213,31 @@ export const BuiltinAddressMembers = new Map<string, TypeNode | [TypeNode, strin
     ],
     ["code", [new PointerType(new BytesType(), DataLocation.Memory), ">=0.8.0"]]
 ]);
+
+export const ContractTypeMembers = new BuiltinStructType(
+    "<type(contract)>",
+    new Map([
+        ["name", new PointerType(new StringType(), DataLocation.Memory)],
+        ["creationCode", new PointerType(new BytesType(), DataLocation.Memory)],
+        ["runtimeCode", new PointerType(new BytesType(), DataLocation.Memory)]
+    ])
+);
+
+export const InterfaceTypeMembers = new BuiltinStructType(
+    "<type(interface)>",
+    new Map<string, TypeNode | [TypeNode, string]>([
+        ["name", new PointerType(new StringType(), DataLocation.Memory)],
+        ["interfaceId", [new FixedBytesType(4), ">=0.6.7"]]
+    ])
+);
+
+export const NumberLikeTypeMembers = (type: IntType | UserDefinedType): BuiltinStructType => {
+    const minVersion = type instanceof IntType ? ">=0.6.8" : ">=0.8.8";
+    return new BuiltinStructType(
+        "<type(number-like)>",
+        new Map<string, TypeNode | [TypeNode, string]>([
+            ["min", [type, minVersion]],
+            ["max", [type, minVersion]]
+        ])
+    );
+};
