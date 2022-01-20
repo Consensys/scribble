@@ -59,8 +59,9 @@ MDExpressionList =
     }
 
 
-AnnotationMD =
-    "{" __  exprs: MDExpressionList? __ "}" { return exprs === null ? undefined : exprs; }
+AnnotationMD
+    = "{" __  exprs: MDExpressionList? __ "}" { return exprs === null ? undefined : exprs; }
+    / msg: StringLiteral { return { msg } }
 
 Invariant =
     type: INVARIANT __ md: AnnotationMD? __ expr: Expression __ ";" {
