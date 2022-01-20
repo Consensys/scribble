@@ -909,7 +909,27 @@ describe("Annotation Parser Unit Tests", () => {
                     new SId("a")
                 )
             )
-        ]
+        ],
+        [
+            '/// #if_succeeds "test" forall (uint x in a) a[x]>10;',
+            new SProperty(
+                AnnotationType.IfSucceeds,
+                new SForAll(
+                    new IntType(256, false),
+                    new SId("x"),
+                    new SBinaryOperation(
+                        new SIndexAccess(new SId("a"), new SId("x")),
+                        ">",
+                        new SNumber(BigInt(10), 10)
+                    ),
+                    undefined,
+                    undefined,
+                    new SId("a")
+                ),
+                { msg: new SStringLiteral("test") }
+            )
+        ],
+        ["/// #assert true;", new SProperty(AnnotationType.Assert, new SBooleanLiteral(true))]
     ];
 
     const badSamples: string[] = [
