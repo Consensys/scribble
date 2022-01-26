@@ -1,0 +1,48 @@
+erc721:
+    variables:
+    properties:
+        balanceOf(owner):
+            - msg: "NFTs cannot be owned by the 0 address"
+              prop: "#if_succeeds owner != address(0);"
+        ownerOf(tokenId):
+            - msg: "NFTs cannot be owned by the 0 address"
+              prop: "#if_succeeds $result != address(0);"
+            - msg: "ownerOf() should not contradict balanceOf"
+              prop: "#if_succeeds balanceOf($result) > 0;"
+        safeTransferFrom(from, to, tokenId, data):
+            - msg: "Cannot transfer to 0 address"
+              prop: "#if_succeeds to != address(0);"
+            - msg: "from must be the current owner"
+              prop: "#if_succeeds old(ownerOf(tokenId)) == from;"
+            - msg: "Sender must be properly authorized to transfer"
+              prop: "#if_succeeds msg.sender == old(ownerOf(tokenId)) || old(isApprovedForAll(ownerOf(tokenId), msg.sender)) || old(getApproved(tokenId)) == msg.sender;"
+            - msg: "Transfer worked"
+              prop: "#if_succeeds ownerOf(tokenId) == to;"
+        safeTransferFrom(from, to, tokenId):
+            - msg: "Cannot transfer to 0 address"
+              prop: "#if_succeeds to != address(0);"
+            - msg: "from must be the current owner"
+              prop: "#if_succeeds old(ownerOf(tokenId)) == from;"
+            - msg: "Sender must be properly authorized to transfer"
+              prop: "#if_succeeds msg.sender == old(ownerOf(tokenId)) || old(isApprovedForAll(ownerOf(tokenId), msg.sender)) || old(getApproved(tokenId)) == msg.sender;"
+            - msg: "Transfer worked"
+              prop: "#if_succeeds ownerOf(tokenId) == to;"
+        transferFrom(from, to, tokenId):
+            - msg: "Cannot transfer to 0 address"
+              prop: "#if_succeeds to != address(0);"
+            - msg: "from must be the current owner"
+              prop: "#if_succeeds old(ownerOf(tokenId)) == from;"
+            - msg: "Sender must be properly authorized to transfer"
+              prop: "#if_succeeds msg.sender == old(ownerOf(tokenId)) || old(isApprovedForAll(ownerOf(tokenId), msg.sender)) || old(getApproved(tokenId)) == msg.sender;"
+            - msg: "Transfer worked"
+              prop: "#if_succeeds ownerOf(tokenId) == to;"
+        approve(approved, tokenId):
+            - msg: "Sender must be properly authorized to approve"
+              prop: "#if_succeeds msg.sender == ownerOf(tokenId) || isApprovedForAll(ownerOf(tokenId), msg.sender);"
+            - msg: "Approve works correctly"
+              prop: "#if_succeeds getApproved(tokenId) == approved;"
+            - msg: "Approve doesn't change ownership"
+              prop: "#if_succeeds ownerOf(tokenId) == old(ownerOf(tokenId));"
+        setApprovalForAll(operator, approved):
+            - msg: "setApprovalForAll worked correctly"
+              prop: "#if_succeeds approved == isApprovedForAll(msg.sender, operator);"

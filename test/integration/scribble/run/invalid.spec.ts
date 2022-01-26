@@ -128,19 +128,11 @@ describe(`Command "scribble <filename>" is failing as expected`, () => {
             /^.*\/macro.empty.invalid.yaml:1:0 YamlSchemaError: Unexpected empty yaml file in .*macro.empty.invalid.yaml.*/
         ],
         [
-            [
-                "test/samples/invalid/ownable_macro.no_var.invalid.sol",
-                "--macro-path",
-                "test/samples/macros/ownable.scribble.yaml"
-            ],
+            ["test/samples/invalid/ownable_macro.no_var.invalid.sol"],
             /^.*\/ownable_macro.no_var.invalid.sol:5:4 MacroError: No target owner1 found in contract Ownable for macro ownable\(owner1\).*/
         ],
         [
-            [
-                "test/samples/invalid/ownable_macro.bad_var_type.invalid.sol",
-                "--macro-path",
-                "test/samples/macros/ownable.scribble.yaml"
-            ],
+            ["test/samples/invalid/ownable_macro.bad_var_type.invalid.sol"],
             /^.*\/ownable.scribble.yaml:7:32 TypeError: Types of old\(owner\) \(uint256\) and msg.sender \(address payable\) are incompatible.*/
         ],
         [

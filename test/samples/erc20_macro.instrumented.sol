@@ -11,7 +11,7 @@ interface IERC20 {
 
     function balanceOf(address account) external returns (uint);
 
-    function allowance(address owner, address spender) external view returns (uint);
+    function allowance(address owner, address spender) external returns (uint);
 
     function transfer(address recipient, uint amount) external returns (bool);
 
@@ -86,13 +86,57 @@ library address_to_uint256 {
     }
 }
 
-///  #macro erc20(balances, allowances);
+///  #macro erc20(balances, allowances, _totalSupply);
 contract ERC20Example is __scribble_ReentrancyUtils, IERC20 {
     using SafeMath for uint;
 
     event Approval(address indexed tokenOwner, address indexed spender, uint tokens);
 
     event Transfer(address indexed from, address indexed to, uint tokens);
+
+    struct vars1 {
+        uint256 old_0;
+        bool __scribble_check_invs_at_end;
+    }
+
+    struct vars2 {
+        bool __scribble_check_invs_at_end;
+    }
+
+    struct vars3 {
+        bool __scribble_check_invs_at_end;
+    }
+
+    struct vars4 {
+        bool old_1;
+        uint256 old_2;
+        uint256 old_3;
+        uint256 old_4;
+        uint256 old_5;
+        uint256 old_6;
+        bool __scribble_check_invs_at_end;
+    }
+
+    struct vars5 {
+        uint256 old_7;
+        bool __scribble_check_invs_at_end;
+    }
+
+    struct vars6 {
+        bool __scribble_check_invs_at_end;
+    }
+
+    struct vars7 {
+        bool old_8;
+        uint256 old_9;
+        uint256 old_10;
+        uint256 old_11;
+        uint256 old_12;
+        uint256 old_13;
+        uint256 old_14;
+        uint256 old_15;
+        bool __scribble_check_invs_at_end;
+    }
 
     string public constant name = "ERC20Example";
     string public constant symbol = "XMPL";
@@ -102,16 +146,38 @@ contract ERC20Example is __scribble_ReentrancyUtils, IERC20 {
     uint internal _totalSupply;
 
     constructor(uint total) public {
+        vars1 memory _v;
+        _v.__scribble_check_invs_at_end = __scribble_out_of_contract;
+        __scribble_out_of_contract = false;
+        _v.old_0 = balances.sum;
+        _original_ERC20Example_constructor(total);
+        if (!((balances.sum == _v.old_0) || (msg.sig == bytes4(0x0)))) {
+            emit AssertionFailed("2: The token has a fixed supply.");
+            assert(false);
+        }
+        if (_v.__scribble_check_invs_at_end) __scribble_check_state_invariants();
+        __scribble_out_of_contract = _v.__scribble_check_invs_at_end;
+    }
+
+    function _original_ERC20Example_constructor(uint total) private {
+        __scribble_out_of_contract = false;
         _totalSupply = total;
         address_to_uint256.set(balances, msg.sender, _totalSupply);
+        __scribble_check_state_invariants();
+        __scribble_out_of_contract = true;
     }
 
     function totalSupply() override public returns (uint RET_0) {
+        vars2 memory _v;
+        _v.__scribble_check_invs_at_end = __scribble_out_of_contract;
+        __scribble_out_of_contract = false;
         RET_0 = _original_ERC20Example_totalSupply();
         if (!(RET_0 == balances.sum)) {
-            emit AssertionFailed("1: Result is equal to sum of balances");
+            emit AssertionFailed("3: Result is equal to sum of balances");
             assert(false);
         }
+        if (_v.__scribble_check_invs_at_end) __scribble_check_state_invariants();
+        __scribble_out_of_contract = _v.__scribble_check_invs_at_end;
     }
 
     function _original_ERC20Example_totalSupply() private view returns (uint) {
@@ -119,18 +185,58 @@ contract ERC20Example is __scribble_ReentrancyUtils, IERC20 {
     }
 
     function balanceOf(address account) override public returns (uint RET_0) {
+        vars3 memory _v;
+        _v.__scribble_check_invs_at_end = __scribble_out_of_contract;
+        __scribble_out_of_contract = false;
         RET_0 = _original_ERC20Example_balanceOf(account);
         if (!(RET_0 == address_to_uint256.get(balances, account))) {
-            emit AssertionFailed("2: Returns the balance of owner in the balances mapping");
+            emit AssertionFailed("4: Returns the balance of owner in the balances mapping");
             assert(false);
         }
+        if (_v.__scribble_check_invs_at_end) __scribble_check_state_invariants();
+        __scribble_out_of_contract = _v.__scribble_check_invs_at_end;
     }
 
     function _original_ERC20Example_balanceOf(address account) private view returns (uint) {
         return address_to_uint256.get(balances, account);
     }
 
-    function transfer(address receiver, uint amount) override public returns (bool) {
+    function transfer(address receiver, uint amount) override public returns (bool RET_0) {
+        vars4 memory _v;
+        _v.__scribble_check_invs_at_end = __scribble_out_of_contract;
+        __scribble_out_of_contract = false;
+        _v.old_1 = address_to_uint256.get(balances, msg.sender) >= amount;
+        _v.old_2 = address_to_uint256.get(balances, msg.sender);
+        _v.old_3 = address_to_uint256.get(balances, receiver);
+        _v.old_4 = address_to_uint256.get(balances, receiver);
+        _v.old_5 = address_to_uint256.get(balances, msg.sender);
+        _v.old_6 = balances.sum;
+        RET_0 = _original_ERC20Example_transfer(receiver, amount);
+        if (!(_v.old_1)) {
+            emit AssertionFailed("6: The sender has sufficient balance at the start");
+            assert(false);
+        }
+        if (!((!(msg.sender != receiver)) || ((_v.old_2 - amount) == address_to_uint256.get(balances, msg.sender)))) {
+            emit AssertionFailed("7: The sender has value less balance");
+            assert(false);
+        }
+        if (!((!(msg.sender != receiver)) || ((_v.old_3 + amount) == address_to_uint256.get(balances, receiver)))) {
+            emit AssertionFailed("8: The receiver receives _value");
+            assert(false);
+        }
+        if (!((_v.old_4 + _v.old_5) == (address_to_uint256.get(balances, receiver) + address_to_uint256.get(balances, msg.sender)))) {
+            emit AssertionFailed("9: Transfer does not modify the sum of balances");
+            assert(false);
+        }
+        if (!((balances.sum == _v.old_6) || (msg.sig == bytes4(0x0)))) {
+            emit AssertionFailed("2: The token has a fixed supply.");
+            assert(false);
+        }
+        if (_v.__scribble_check_invs_at_end) __scribble_check_state_invariants();
+        __scribble_out_of_contract = _v.__scribble_check_invs_at_end;
+    }
+
+    function _original_ERC20Example_transfer(address receiver, uint amount) private returns (bool) {
         require(amount <= address_to_uint256.get(balances, msg.sender));
         address_to_uint256.set(balances, msg.sender, address_to_uint256.get(balances, msg.sender).sub(amount));
         address_to_uint256.set(balances, receiver, address_to_uint256.get(balances, receiver).add(amount));
@@ -138,17 +244,93 @@ contract ERC20Example is __scribble_ReentrancyUtils, IERC20 {
         return true;
     }
 
-    function approve(address delegate, uint amount) override public returns (bool) {
+    function approve(address delegate, uint amount) override public returns (bool RET_0) {
+        vars5 memory _v;
+        _v.__scribble_check_invs_at_end = __scribble_out_of_contract;
+        __scribble_out_of_contract = false;
+        _v.old_7 = balances.sum;
+        RET_0 = _original_ERC20Example_approve(delegate, amount);
+        if (!(allowances[msg.sender][delegate] == amount)) {
+            emit AssertionFailed("10: spender will have an allowance of value for this sender's balance");
+            assert(false);
+        }
+        if (!((balances.sum == _v.old_7) || (msg.sig == bytes4(0x0)))) {
+            emit AssertionFailed("2: The token has a fixed supply.");
+            assert(false);
+        }
+        if (_v.__scribble_check_invs_at_end) __scribble_check_state_invariants();
+        __scribble_out_of_contract = _v.__scribble_check_invs_at_end;
+    }
+
+    function _original_ERC20Example_approve(address delegate, uint amount) private returns (bool) {
         allowances[msg.sender][delegate] = amount;
         emit Approval(msg.sender, delegate, amount);
         return true;
     }
 
-    function allowance(address owner, address delegate) override public view returns (uint) {
+    function allowance(address owner, address delegate) override public returns (uint RET_0) {
+        vars6 memory _v;
+        _v.__scribble_check_invs_at_end = __scribble_out_of_contract;
+        __scribble_out_of_contract = false;
+        RET_0 = _original_ERC20Example_allowance(owner, delegate);
+        if (!(RET_0 == allowances[owner][delegate])) {
+            emit AssertionFailed("5: Returns spenders allowance for this owner");
+            assert(false);
+        }
+        if (_v.__scribble_check_invs_at_end) __scribble_check_state_invariants();
+        __scribble_out_of_contract = _v.__scribble_check_invs_at_end;
+    }
+
+    function _original_ERC20Example_allowance(address owner, address delegate) private view returns (uint) {
         return allowances[owner][delegate];
     }
 
-    function transferFrom(address owner, address buyer, uint amount) override public returns (bool) {
+    function transferFrom(address owner, address buyer, uint amount) override public returns (bool RET_0) {
+        vars7 memory _v;
+        _v.__scribble_check_invs_at_end = __scribble_out_of_contract;
+        __scribble_out_of_contract = false;
+        _v.old_8 = address_to_uint256.get(balances, owner) >= amount;
+        _v.old_9 = address_to_uint256.get(balances, owner);
+        _v.old_10 = allowances[owner][msg.sender];
+        _v.old_11 = allowances[owner][msg.sender];
+        _v.old_12 = address_to_uint256.get(balances, buyer);
+        _v.old_13 = address_to_uint256.get(balances, buyer);
+        _v.old_14 = address_to_uint256.get(balances, owner);
+        _v.old_15 = balances.sum;
+        RET_0 = _original_ERC20Example_transferFrom(owner, buyer, amount);
+        if (!(_v.old_8)) {
+            emit AssertionFailed("11: The sender has sufficient balance at the start");
+            assert(false);
+        }
+        if (!((!(owner != buyer)) || ((_v.old_9 - amount) == address_to_uint256.get(balances, owner)))) {
+            emit AssertionFailed("12: The sender has value less balance");
+            assert(false);
+        }
+        if (!((_v.old_10 - amount) == allowances[owner][msg.sender])) {
+            emit AssertionFailed("13: The actor has value less allowance");
+            assert(false);
+        }
+        if (!(_v.old_11 >= amount)) {
+            emit AssertionFailed("14: The actor has enough allowance");
+            assert(false);
+        }
+        if (!((!(owner != buyer)) || ((_v.old_12 + amount) == address_to_uint256.get(balances, buyer)))) {
+            emit AssertionFailed("15: The receiver receives value");
+            assert(false);
+        }
+        if (!((_v.old_13 + _v.old_14) == (address_to_uint256.get(balances, buyer) + address_to_uint256.get(balances, owner)))) {
+            emit AssertionFailed("16: Transfer does not modify the sum of balances");
+            assert(false);
+        }
+        if (!((balances.sum == _v.old_15) || (msg.sig == bytes4(0x0)))) {
+            emit AssertionFailed("2: The token has a fixed supply.");
+            assert(false);
+        }
+        if (_v.__scribble_check_invs_at_end) __scribble_check_state_invariants();
+        __scribble_out_of_contract = _v.__scribble_check_invs_at_end;
+    }
+
+    function _original_ERC20Example_transferFrom(address owner, address buyer, uint amount) private returns (bool) {
         require(amount <= address_to_uint256.get(balances, owner));
         require(amount <= allowances[owner][msg.sender]);
         address_to_uint256.set(balances, owner, address_to_uint256.get(balances, owner).sub(amount));
@@ -156,5 +338,18 @@ contract ERC20Example is __scribble_ReentrancyUtils, IERC20 {
         address_to_uint256.set(balances, buyer, address_to_uint256.get(balances, buyer).add(amount));
         emit Transfer(owner, buyer, amount);
         return true;
+    }
+
+    /// Check only the current contract's state invariants
+    function __scribble_ERC20Example_check_state_invariants_internal() internal {
+        if (!(balances.sum == _totalSupply)) {
+            emit AssertionFailed("1: The sum of balances is always equal to the total supply");
+            assert(false);
+        }
+    }
+
+    /// Check the state invariant for the current contract and all its bases
+    function __scribble_check_state_invariants() virtual internal {
+        __scribble_ERC20Example_check_state_invariants_internal();
     }
 }

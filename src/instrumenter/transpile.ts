@@ -211,10 +211,25 @@ function addTracingInfo(id: SId, transpiledExpr: Expression, ctx: TranspilingCon
         return;
     }
 
-    const idDebugMap = ctx.dbgInfo.get(ctx.curAnnotation);
+    /**
+     * funDebugMap contains the debug ids for ALL annotations in the current function
+     */
+    const funDebugMap = ctx.dbIdsMap;
+    /**
+     * annotDebugMap contains only the debug ids for the currently transpiled annotation
+     */
+    const annotDebugMap = ctx.annotationDebugMap.get(ctx.curAnnotation);
     const defSite = id.defSite as VarDefSite;
 
-    if (!idDebugMap.has(defSite)) {
+    let argValue: Expression;
+
+    /**
+     * If we have already computed the value of this `SId` for debugging in this function, then re-use it
+     *
+     * TODO: This whole logic should be replaced by some form of 'available expressions' analysis attached to the
+     * TranspilingContext.
+     */
+    if (!funDebugMap.has(defSite)) {
         const isOld = (ctx.semInfo.get(id) as SemInfo).isOld;
 
         if (isOld) {
@@ -231,13 +246,27 @@ function addTracingInfo(id: SId, transpiledExpr: Expression, ctx: TranspilingCon
 
             ctx.instrCtx.addAnnotationInstrumentation(ctx.curAnnotation, assignment);
 
-            idDebugMap.set([[id], ctx.refBinding(dbgBinding), exprT], defSite);
+            argValue = ctx.refBinding(dbgBinding);
         } else {
-            idDebugMap.set([[id], factory.copy(transpiledExpr), exprT], defSite);
+            argValue = factory.copy(transpiledExpr);
         }
+
+        funDebugMap.set([[id], argValue, exprT], defSite);
     } else {
-        const [ids] = idDebugMap.mustGet(defSite);
+        let ids: SId[];
+
+        [ids, argValue] = funDebugMap.mustGet(defSite);
         ids.push(id);
+    }
+
+    /**
+     * Add this id's information to the per-annotation map used for computing
+     * event signatures later on.
+     */
+    if (!annotDebugMap.has(defSite)) {
+        annotDebugMap.set([[id], argValue, exprT], defSite);
+    } else {
+        annotDebugMap.mustGet(defSite)[0].push(id);
     }
 }
 

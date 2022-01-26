@@ -502,20 +502,48 @@ function processMacroAnnotations(
 
                 const localAliases = new Map(globalAliases);
 
-                const targets = [...resolveAny(name, scope, ctx.compilerVersion, true)];
+                let target: AnnotationTarget;
 
-                if (targets.length !== 1) {
-                    throw new MacroError(
-                        `No target ${name} found in contract ${
-                            (scope as ContractDefinition).name
-                        } for ${meta.original}`,
-                        meta.original,
-                        meta.parsedAnnot.src as Range,
-                        meta.target
-                    );
+                if (name === "<contract>") {
+                    target = scope;
+                    assert(target instanceof ContractDefinition, ``);
+                } else {
+                    let targets = [...resolveAny(name, scope, ctx.compilerVersion, true)];
+
+                    if (targets.length > 1) {
+                        targets = targets.filter((target) => {
+                            // TODO: Add support for public getters
+                            return (
+                                target instanceof FunctionDefinition &&
+                                target.vParameters.vParameters.length == args.length
+                            );
+                        });
+                    }
+
+                    if (targets.length === 0) {
+                        throw new MacroError(
+                            `No target ${name} found in contract ${
+                                (scope as ContractDefinition).name
+                            } for ${meta.original}`,
+                            meta.original,
+                            meta.parsedAnnot.src as Range,
+                            meta.target
+                        );
+                    }
+
+                    if (targets.length > 1) {
+                        throw new MacroError(
+                            `Multiple possible targets ${name} found in contract ${
+                                (scope as ContractDefinition).name
+                            } for ${meta.original}`,
+                            meta.original,
+                            meta.parsedAnnot.src as Range,
+                            meta.target
+                        );
+                    }
+
+                    target = targets[0];
                 }
-
-                const target = targets[0];
 
                 if (target instanceof FunctionDefinition && args.length > 0) {
                     const params = target.vParameters.vParameters;

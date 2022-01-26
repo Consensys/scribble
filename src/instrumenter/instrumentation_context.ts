@@ -20,7 +20,7 @@ import {
     VariableDeclaration
 } from "solc-typed-ast";
 import { print } from "../ast_to_source_printer";
-import { SUserFunctionDefinition } from "../spec-lang/ast";
+import { SId, SUserFunctionDefinition } from "../spec-lang/ast";
 import { SemMap, TypeEnv } from "../spec-lang/tc";
 import { dedup, single } from "../util/misc";
 import { NameGenerator } from "../util/name_generator";
@@ -39,7 +39,7 @@ import {
 } from "./custom_maps_templates";
 import { makeArraySumFun, UnsupportedConstruct } from "./instrument";
 import { findAliasedStateVars } from "./state_vars";
-import { DbgIdsMap, InstrumentationSiteType, TranspilingContext } from "./transpiling_context";
+import { InstrumentationSiteType, TranspilingContext } from "./transpiling_context";
 import { FactoryMap, ScribbleFactory, StructMap } from "./utils";
 
 /**
@@ -288,6 +288,12 @@ export class InstrumentationContext {
      * Map containing debug event associated with a given annotation.
      */
     public readonly debugEventsMap: Map<AnnotationMetaData, EventDefinition> = new Map();
+    /**
+     * Map from an annotation to an array describing the arguments to the debug
+     * event emitted for this annotation.
+     */
+    public readonly debugEventsDescMap: Map<AnnotationMetaData, Array<[SId[], TypeNode]>> =
+        new Map();
 
     /**
      * Bit of a hack - this is set by `generateUtilsContract`. We need an
@@ -375,7 +381,6 @@ export class InstrumentationContext {
         public readonly files: SourceMap,
         public readonly compilerVersion: string,
         public readonly debugEvents: boolean,
-        public readonly debugEventsEncoding: Map<number, DbgIdsMap>,
         public readonly outputMode: "files" | "flat" | "json",
         public readonly typeEnv: TypeEnv,
         public readonly semMap: SemMap,

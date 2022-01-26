@@ -740,9 +740,15 @@ if ("version" in options) {
     // First load any macros if `--macro-path` was specified
     const macros = new Map<string, MacroDefinition>();
 
+    const macroPaths: string[] = [join(__dirname, "..", "stdlib")];
+
     if (options["macro-path"]) {
+        macroPaths.push(options["macro-path"]);
+    }
+
+    for (const macroPath of macroPaths) {
         try {
-            detectMacroDefinitions(options["macro-path"], macros, contentsMap);
+            detectMacroDefinitions(macroPath, macros, contentsMap);
         } catch (e) {
             if (e instanceof YamlSchemaError) {
                 prettyError(e.constructor.name, e.message, e.range);
@@ -887,7 +893,6 @@ if ("version" in options) {
         contentsMap,
         compilerVersionUsed,
         debugEvents,
-        new Map(),
         outputMode,
         typeEnv,
         semMap,

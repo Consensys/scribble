@@ -135,13 +135,7 @@ export function scribble(fileName: string | string[], ...args: string[]): string
     return result.stdout;
 }
 
-const defaultArgsMap = new Map<string, string[]>([
-    [
-        "test/samples/ownable_macro.sol",
-        ["--macro-path", "test/samples/macros/ownable.scribble.yaml"]
-    ],
-    ["test/samples/erc20_macro.sol", ["--macro-path", "test/samples/macros"]]
-]);
+const defaultArgsMap = new Map<string, string[]>([]);
 
 /**
  * Wrapper around `scribble()` to run on a specific sample in our test suite.
