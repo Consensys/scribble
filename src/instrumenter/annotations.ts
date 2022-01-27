@@ -464,6 +464,62 @@ export function gatherContractAnnotations(
 export class MacroError extends AnnotationError {}
 
 /**
+ * Given a parsed property P, from a macro definition, and the scope in which that macro definition is
+ * expanded, find the actual AnnotationTarget of the property P.
+ */
+function getMacroPropertyTarget(
+    scope: AnnotationTarget,
+    name: string,
+    args: string[],
+    meta: MacroMetaData,
+    ctx: AnnotationExtractionContext
+): AnnotationTarget {
+    if (name === "<contract>") {
+        assert(
+            scope instanceof ContractDefinition,
+            `Macro annotation ${meta.parsedAnnot.name} added on non-contract node ${meta.targetName}`
+        );
+        return scope;
+    }
+
+    let targets = [...resolveAny(name, scope, ctx.compilerVersion, true)];
+
+    if (targets.length > 1) {
+        targets = targets.filter((target) => {
+            // TODO: Add support for public getters
+            return (
+                target instanceof FunctionDefinition &&
+                target.vParameters.vParameters.length == args.length
+            );
+        });
+    }
+
+    if (targets.length === 0) {
+        throw new MacroError(
+            `No target ${name} found in contract ${(scope as ContractDefinition).name} for ${
+                meta.original
+            }`,
+            meta.original,
+            meta.parsedAnnot.src as Range,
+            meta.target
+        );
+    }
+
+    if (targets.length > 1) {
+        throw new MacroError(
+            `Multiple possible targets ${name} found in contract ${
+                (scope as ContractDefinition).name
+            } for ${meta.original}`,
+            meta.original,
+            meta.parsedAnnot.src as Range,
+            meta.target
+        );
+    }
+
+    return targets[0];
+}
+
+/**
  * Detects macro annotations, produces annotations that are defined by macro
  * and injects them target nodes. Macro annotations are removed afterwards.
  */
@@ -502,20 +558,13 @@ function processMacroAnnotations(
 
                 const localAliases = new Map(globalAliases);
 
-                const targets = [...resolveAny(name, scope, ctx.compilerVersion, true)];
-
-                if (targets.length !== 1) {
-                    throw new MacroError(
-                        `No target ${name} found in contract ${
-                            (scope as ContractDefinition).name
-                        } for ${meta.original}`,
-                        meta.original,
-                        meta.parsedAnnot.src as Range,
-                        meta.target
-                    );
-                }
-
-                const target = targets[0];
+                const target: AnnotationTarget = getMacroPropertyTarget(
+                    scope,
+                    name,
+                    args,
+                    meta,
+                    ctx
+                );
 
                 if (target instanceof FunctionDefinition && args.length > 0) {
                     const params = target.vParameters.vParameters;

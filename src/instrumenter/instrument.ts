@@ -32,7 +32,7 @@ import {
     TypeNode,
     UncheckedBlock
 } from "solc-typed-ast";
-import { AnnotationType, SId, SNode } from "../spec-lang/ast";
+import { AnnotationType, SNode } from "../spec-lang/ast";
 import {
     filterByType,
     isChangingState,
@@ -280,29 +280,22 @@ function getDebugInfoEmits(
     const instrCtx = transCtx.instrCtx;
 
     for (const annot of annotations) {
-        const dbgIdsMap = transCtx.dbgInfo.get(annot);
-
-        const evtArgs: Expression[] = [];
-        const typeList: Array<[SId, TypeNode]> = [];
-
-        // Walk over the debug id map for the current annotation and add any ids found to `evtArgs` and `typeList`.
-        for (const [, [ids, transpiledId, vType]] of dbgIdsMap.entries()) {
-            evtArgs.push(transpiledId);
-
-            // Note: This works only for primitive types. If we ever allow more complex types, the builtin
-            // `pp()` function for those may differ from the typeString that solc expects.
-            typeList.push([ids[0], vType]);
-        }
+        const dbgIdsMap = transCtx.annotationDebugMap.get(annot);
 
         // If there are no debug ids for the current annotation, there is no debug event to build
-        if (evtArgs.length == 0) {
+        if (dbgIdsMap.size() == 0) {
             res.push(undefined);
 
             continue;
         }
 
-        if (!instrCtx.debugEventsEncoding.has(annot.id)) {
-            instrCtx.debugEventsEncoding.set(annot.id, dbgIdsMap);
+        const evtArgs: Expression[] = [...dbgIdsMap.values()].map((v) => v[1]);
+
+        if (!instrCtx.debugEventsDescMap.has(annot)) {
+            instrCtx.debugEventsDescMap.set(
+                annot,
+                [...dbgIdsMap.values()].map((v) => [v[0], v[2]])
+            );
         }
 
         const assertionFailedDataEvtDef = instrCtx.getAssertionFailedDataEvent(annot.target);

@@ -1,0 +1,45 @@
+erc20:
+    variables:
+        balances: mapping (address => uint256)
+        allowances: mapping (address => mapping (address => uint256))
+        totalSupply: uint256
+    properties:
+        <contract>:
+            - msg: "The sum of balances is always equal to the total supply"
+              prop: "#invariant unchecked_sum(balances) == totalSupply;"
+            - msg: "The token has a fixed supply."
+              prop: "#if_succeeds unchecked_sum(balances) == old(unchecked_sum(balances)) || msg.sig == bytes4(0x00000000);"
+        totalSupply():
+            - msg: "Result is equal to sum of balances"
+              prop: "#if_succeeds $result == unchecked_sum(balances);"
+        balanceOf(owner):
+            - msg: "Returns the balance of owner in the balances mapping"
+              prop: "#if_succeeds $result == balances[owner];"
+        allowance(owner, spender):
+            - msg: "Returns spenders allowance for this owner"
+              prop: "#if_succeeds $result == allowances[owner][spender];"
+        transfer(to, value):
+            - msg: "The sender has sufficient balance at the start"
+              prop: "#if_succeeds old(balances[msg.sender] >= value);"
+            - msg: "The sender has value less balance"
+              prop: "#if_succeeds msg.sender != to ==> old(balances[msg.sender]) - value == balances[msg.sender];"
+            - msg: "The receiver receives _value"
+              prop: "#if_succeeds msg.sender != to ==> old(balances[to]) + value == balances[to];"
+            - msg: "Transfer does not modify the sum of balances"
+              prop: "#if_succeeds old(balances[to]) + old(balances[msg.sender]) == balances[to] + balances[msg.sender];"
+        approve(spender, value):
+            - msg: "spender will have an allowance of value for this sender's balance"
+              prop: "#if_succeeds allowances[msg.sender][spender] == value;"
+        transferFrom(from, to, value):
+            - msg: "The sender has sufficient balance at the start"
+              prop: "#if_succeeds old(balances[from] >= value);"
+            - msg: "The sender has value less balance"
+              prop: "#if_succeeds from != to ==> old(balances[from]) - value == balances[from];"
+            - msg: "The actor has value less allowance"
+              prop: "#if_succeeds old(allowances[from][msg.sender]) - value == allowances[from][msg.sender];"
+            - msg: "The actor has enough allowance"
+              prop: "#if_succeeds old(allowances[from][msg.sender]) >= value;"
+            - msg: "The receiver receives value"
+              prop: "#if_succeeds from != to ==> old(balances[to]) + value == balances[to];"
+            - msg: "Transfer does not modify the sum of balances"
+              prop: "#if_succeeds old(balances[to]) + old(balances[from]) == balances[to] + balances[from];"

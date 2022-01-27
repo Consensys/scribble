@@ -407,6 +407,10 @@ export abstract class BaseStructMap<Args extends any[], KeyT extends string | nu
 
         return res;
     }
+
+    size(): number {
+        return this._cache.size;
+    }
 }
 
 export abstract class StructMap<

@@ -14,10 +14,7 @@ interface IERC20 {
     function transferFrom(address sender, address recipient, uint amount) external returns (bool);
 }
 
-/**
- * #macro erc20(balances, allowances, _totalSupply);
- */
-contract ERC20Example is IERC20 {
+contract ERC20 is IERC20 {
     using SafeMath for uint;
 
     string public constant name = "ERC20Example";
@@ -65,7 +62,7 @@ contract ERC20Example is IERC20 {
         return true;
     }
 
-    function allowance(address owner, address delegate) public override view returns (uint) {
+    function allowance(address owner, address delegate) public virtual override view returns (uint) {
         return allowances[owner][delegate];
     }
 

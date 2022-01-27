@@ -138,7 +138,8 @@ export class TranspilingContext {
 
     public readonly contract: ContractDefinition;
 
-    public readonly dbgInfo = new AnnotationDebugMap();
+    public readonly dbIdsMap = new DbgIdsMap();
+    public readonly annotationDebugMap = new AnnotationDebugMap();
 
     public get containerContract(): ContractDefinition {
         const fun = this.containerFun;

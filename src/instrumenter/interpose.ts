@@ -135,26 +135,47 @@ function changeDependentsMutabilty(
     ctx: InstrumentationContext,
     skipStartingFun = false
 ) {
-    const queue = [fun];
+    const queue: Array<[FunctionDefinition, boolean]> = [[fun, false]];
     const seen = new Set<FunctionDefinition>();
+
     // Walk back recursively through all callers, overriden and overriding functions of fun, and
     // mark all of those that have view/pure mutability to be modified.
+    // Note that in the queue we keep track if the dependence is call-graph based, or inheritance based.
+    // For call-graph dependences, we ignore the 'skipStartingFun' flag.
+    //
+    // TODO(dimo): This whole logic with `skipStartingFun` is somewhat hacky, and needs to be simplified.
+    // I believe we had it originally to try and keep the private interposed original function as
+    // 'view' where possible, to minimize the impact on other view functions that may call it internally.
+    // However the extra small reduction in code modification may not be worth the code complexity in the long term,
+    // especially when mstore mode is also an option for those cases.
     while (queue.length > 0) {
-        const cur = queue.shift() as FunctionDefinition;
+        const [cur, callDependency] = queue.shift() as [FunctionDefinition, boolean];
 
         if (isChangingState(cur) || seen.has(cur)) {
             continue;
         }
 
-        if (cur !== fun || !skipStartingFun) {
+        if (cur !== fun || !skipStartingFun || callDependency) {
             seen.add(cur);
 
             cur.stateMutability = FunctionStateMutability.NonPayable;
         }
 
-        queue.push(...(ctx.callgraph.callers.get(cur) as FunSet));
-        queue.push(...(ctx.callgraph.overridenBy.get(cur) as FunSet));
-        queue.push(...(ctx.callgraph.overrides.get(cur) as FunSet));
+        queue.push(
+            ...[...(ctx.callgraph.callers.get(cur) as FunSet)].map(
+                (fun) => [fun, true] as [FunctionDefinition, boolean]
+            )
+        );
+        queue.push(
+            ...[...(ctx.callgraph.overridenBy.get(cur) as FunSet)].map(
+                (fun) => [fun, false] as [FunctionDefinition, boolean]
+            )
+        );
+        queue.push(
+            ...[...(ctx.callgraph.overrides.get(cur) as FunSet)].map(
+                (fun) => [fun, false] as [FunctionDefinition, boolean]
+            )
+        );
     }
 }
 

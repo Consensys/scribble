@@ -32,7 +32,6 @@ export function makeInstrumentationCtx(
         srcFileMap,
         compilerVersion,
         false,
-        new Map(),
         "flat",
         new TypeEnv(compilerVersion, encVer),
         new Map(),

@@ -13,7 +13,7 @@ import {
     Statement,
     XPath
 } from "solc-typed-ast";
-import { AnnotationTarget, getOr, OriginalJSONLoc, single } from "../../src";
+import { AnnotationTarget, OriginalJSONLoc, single } from "../../src";
 import { SAnnotation, SStateVarProp } from "../../src/spec-lang/ast";
 import { StateVarScope, STypingCtx } from "../../src/spec-lang/tc";
 
@@ -135,14 +135,6 @@ export function scribble(fileName: string | string[], ...args: string[]): string
     return result.stdout;
 }
 
-const defaultArgsMap = new Map<string, string[]>([
-    [
-        "test/samples/ownable_macro.sol",
-        ["--macro-path", "test/samples/macros/ownable.scribble.yaml"]
-    ],
-    ["test/samples/erc20_macro.sol", ["--macro-path", "test/samples/macros"]]
-]);
-
 /**
  * Wrapper around `scribble()` to run on a specific sample in our test suite.
  * It checks if a JSON artefact exists for this sample, to skip compiling, and adds known default
@@ -151,7 +143,6 @@ const defaultArgsMap = new Map<string, string[]>([
 export function scrSample(fileName: string, ...additionalArgs: string[]): string {
     const artefact = fileName + ".json";
     const args: string[] = [];
-    args.push(...getOr(defaultArgsMap, fileName, []));
 
     if (fse.existsSync(fileName + ".json")) {
         fileName = artefact;

@@ -16,7 +16,6 @@ import { getOr } from "./misc";
 import { dedup, MacroFile } from ".";
 import { PropertyMetaData } from "../instrumenter/annotations";
 import { InstrumentationContext } from "../instrumenter/instrumentation_context";
-import { DbgIdsMap } from "../instrumenter/transpiling_context";
 import { AnnotationType } from "../spec-lang/ast/declarations/annotation";
 import { NodeLocation } from "../spec-lang/ast/node";
 
@@ -282,11 +281,11 @@ function generatePropertyMap(
         const targetName = annotation.targetName;
         const filename = annotation.originalFileName;
 
-        const encodingData = ctx.debugEventsEncoding.get(annotation.id);
-        const encoding: DbgIdsMap = encodingData !== undefined ? encodingData : new DbgIdsMap();
+        let encoding = ctx.debugEventsDescMap.get(annotation);
+        encoding = encoding === undefined ? [] : encoding;
 
         const srcEncoding: Array<[string[], string]> = [];
-        for (const [, [ids, , type]] of encoding.entries()) {
+        for (const [ids, type] of encoding) {
             const srcMapList: string[] = [];
             for (const id of ids) {
                 const idSrc = rangeToSrcTriple(id.requiredRange, originalSourceList);
