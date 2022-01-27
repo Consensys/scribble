@@ -88,7 +88,8 @@ describe("Multiple-file project instrumentation", () => {
             ["base.sol", "child.sol"],
             "0.8.7",
             ["--macro-path", "test/multifile_samples/macros"]
-        ]
+        ],
+        ["test/multifile_samples/erc20_macro_inheritance", ["child.sol"], "0.6.12", []]
     ];
 
     for (const [dirName, solFiles, version, additionalArgs] of samples) {
