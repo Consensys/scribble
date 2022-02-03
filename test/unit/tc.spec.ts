@@ -179,6 +179,16 @@ describe("TypeChecker Expression Unit Tests", () => {
                 function idPair(uint x, uint y) public returns (uint, uint) {
                     return (x,y);
                 }
+
+                mapping (address => Boo)[] public pubV;
+
+                struct Loo {
+                    int8 a;
+                    string b;
+                    int[] arr;
+                }
+
+                Loo[] public pubV2;
             }`,
             [
                 ["uint", ["Foo"], new TypeNameType(new IntType(256, false))],
@@ -580,6 +590,19 @@ describe("TypeChecker Expression Unit Tests", () => {
                     "type(IFace).name",
                     ["Foo"],
                     new PointerType(new StringType(), DataLocation.Memory)
+                ],
+                [
+                    "this.pubV(1, address(0))",
+                    ["Foo"],
+                    (units) => new UserDefinedType("Boo", findTypeDef("Boo", units))
+                ],
+                [
+                    "this.pubV2(1)",
+                    ["Foo"],
+                    new TupleType([
+                        new IntType(8, true),
+                        new PointerType(new StringType(), DataLocation.Memory)
+                    ])
                 ]
             ]
         ],
@@ -744,6 +767,8 @@ contract UserDefinedValueTypes {
                 }
 
                 function noReturn(uint x) public {}
+
+                mapping (address => Boo)[] public pubV;
             }`,
             [
                 ["int23", ["Foo"]],
@@ -809,7 +834,11 @@ contract UserDefinedValueTypes {
                 ["type(int24).min", ["Foo"]],
                 ["type(uint).max", ["Foo"]],
                 ["type(FooEnum).max", ["Foo"]],
-                ["type(FooEnum).min", ["Foo"]]
+                ["type(FooEnum).min", ["Foo"]],
+                ["this.pubV()", ["Foo"]],
+                ["this.pubV(false)", ["Foo"]],
+                ["this.pubV(1)", ["Foo"]],
+                ["this.pubV(1, 2)", ["Foo"]]
             ]
         ],
         [

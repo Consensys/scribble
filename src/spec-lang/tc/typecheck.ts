@@ -1683,9 +1683,18 @@ function getFunDefType(fun: FunctionDefinition): FunctionType {
 function matchArguments(
     arg: SNode[],
     argTs: TypeNode[],
-    callable: FunctionDefinition | FunctionType
+    callable: FunctionDefinition | VariableDeclaration | FunctionType
 ) {
-    const funT = callable instanceof FunctionDefinition ? getFunDefType(callable) : callable;
+    let funT: FunctionType;
+
+    if (callable instanceof FunctionDefinition) {
+        funT = getFunDefType(callable);
+    } else if (callable instanceof VariableDeclaration) {
+        funT = callable.getterFunType();
+    } else {
+        funT = callable;
+    }
+
     const isVariadic = funT.parameters.length > 0 && last(funT.parameters) instanceof VariableTypes;
 
     // For non-variadic functions the number of arguments must match the number of formal parameters
@@ -1960,15 +1969,20 @@ export function tcFunctionCall(expr: SFunctionCall, ctx: STypingCtx, typeEnv: Ty
 
         const argTs = args.map((arg) => tc(arg, ctx, typeEnv));
 
-        const matchingFunDefs = calleeT.definitions.filter(
-            (fun) => fun instanceof FunctionDefinition && matchArguments(args, argTs, fun)
-        );
-
-        const matchingVarDefs = calleeT.definitions.filter(
-            (fun) => fun instanceof VariableDeclaration && expr.args.length === 0
-        );
-
-        const matchingDefs = matchingFunDefs.concat(matchingVarDefs);
+        // Filter the from the original set of (potentially overloaded) functions with the
+        // same name just the functions that match the actual argTs in the call
+        const matchingDefs: Array<[FunctionDefinition | VariableDeclaration, FunctionType]> =
+            calleeT.definitions
+                .map(
+                    (def) =>
+                        [
+                            def,
+                            def instanceof FunctionDefinition
+                                ? getFunDefType(def)
+                                : def.getterFunType()
+                        ] as [FunctionDefinition | VariableDeclaration, FunctionType]
+                )
+                .filter(([, funT]) => matchArguments(args, argTs, funT));
 
         if (matchingDefs.length === 0) {
             throw new SUnresolvedFun(
@@ -1983,13 +1997,13 @@ export function tcFunctionCall(expr: SFunctionCall, ctx: STypingCtx, typeEnv: Ty
                 expr
             );
         } else if (matchingDefs.length > 1) {
-            // This is an internal error - shouldn't be encoutered by normal user operations.
+            // This is an internal error - shouldn't be encountered by normal user operations.
             throw new Error(
                 `Multiple functions / public getters match callsite ${expr.pp()}: ${calleeT.pp()}`
             );
         }
 
-        const def = matchingDefs[0];
+        const [def, funT] = matchingDefs[0];
         // Narrow down the set of matching definitions in the callee's type.
         calleeT.definitions = [def];
 
@@ -1997,27 +2011,17 @@ export function tcFunctionCall(expr: SFunctionCall, ctx: STypingCtx, typeEnv: Ty
             callee.defSite = def;
         }
 
-        if (def instanceof FunctionDefinition) {
-            // param.vType is defined, as you can't put a `var x,` in a function definition.
-            const retTs = def.vReturnParameters.vParameters.map((param) => astVarToTypeNode(param));
+        const retTs = funT.returns;
 
-            if (retTs.length === 1) {
-                return retTs[0];
-            }
-
-            if (retTs.length > 1) {
-                return new TupleType(retTs);
-            }
-
-            throw new SFunNoReturn(`Function ${def.name} doesn't return a type`, expr);
-        } else {
-            if (def.vType instanceof UserDefinedTypeName) {
-                throw new Error(`NYI public getters for ${def.vType.print()}`);
-            }
-
-            // def.vType is defined, as you can't put a `var x,` in a contract state var definition.
-            return astVarToTypeNode(def);
+        if (retTs.length === 1) {
+            return retTs[0];
         }
+
+        if (retTs.length > 1) {
+            return new TupleType(retTs);
+        }
+
+        throw new SFunNoReturn(`Function ${def.name} doesn't return a type`, expr);
     }
 
     // Builtin function
