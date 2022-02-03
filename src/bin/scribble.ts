@@ -11,6 +11,7 @@ import {
     compileJson,
     compileJsonData,
     CompileResult,
+    CompilerKind,
     compileSol,
     compileSourceString,
     ContractDefinition,
@@ -144,13 +145,13 @@ function ppWarning(warn: Warning): string[] {
     return [`${ppLoc(start)} Warning: ${warn.msg}`, getSrcLine(warn.location)];
 }
 
-function compile(
+async function compile(
     fileName: string,
     type: "source" | "json",
     compilerVersion: string,
     remapping: string[],
     compilerSettings: any
-): CompileResult {
+): Promise<CompileResult> {
     const astOnlyOutput = [
         CompilationOutput.AST,
         CompilationOutput.ABI,
@@ -168,9 +169,9 @@ function compile(
                   fileName,
                   JSON.parse(content),
                   compilerVersion,
-                  remapping,
                   astOnlyOutput,
-                  compilerSettings
+                  compilerSettings,
+                  CompilerKind.Native
               )
             : compileSourceString(
                   fileName,
@@ -178,7 +179,8 @@ function compile(
                   compilerVersion,
                   remapping,
                   astOnlyOutput,
-                  compilerSettings
+                  compilerSettings,
+                  CompilerKind.Native
               );
     }
 
@@ -193,8 +195,21 @@ function compile(
     }
 
     return type === "json"
-        ? compileJson(fileName, compilerVersion, remapping, astOnlyOutput, compilerSettings)
-        : compileSol(fileName, compilerVersion, remapping, astOnlyOutput, compilerSettings);
+        ? compileJson(
+              fileName,
+              compilerVersion,
+              astOnlyOutput,
+              compilerSettings,
+              CompilerKind.Native
+          )
+        : compileSol(
+              fileName,
+              compilerVersion,
+              remapping,
+              astOnlyOutput,
+              compilerSettings,
+              CompilerKind.Native
+          );
 }
 
 /**
@@ -540,511 +555,528 @@ function pickVersion(versionUsedMap: Map<string, string>): string {
     return versions[0];
 }
 
-const pkg = fse.readJSONSync(join(__dirname, "../../package.json"), { encoding: "utf-8" });
+(async () => {
+    const pkg = fse.readJSONSync(join(__dirname, "../../package.json"), { encoding: "utf-8" });
 
-if ("version" in options) {
-    console.log(pkg.version);
-} else if ("help" in options || !("solFiles" in options)) {
-    const usage = commandLineUsage(params);
+    if ("version" in options) {
+        console.log(pkg.version);
+    } else if ("help" in options || !("solFiles" in options)) {
+        const usage = commandLineUsage(params);
 
-    console.log(usage);
-} else {
-    const targets: string[] = options.solFiles;
-    const addAssert = "no-assert" in options ? false : true;
+        console.log(usage);
+    } else {
+        const targets: string[] = options.solFiles;
+        const addAssert = "no-assert" in options ? false : true;
 
-    const inputMode: "source" | "json" = oneOf(
-        options["input-mode"],
-        ["source", "json"],
-        `Error: --input-mode must be either source or json`
-    );
-
-    const pathRemapping: string[] = options["path-remapping"]
-        ? options["path-remapping"].split(";")
-        : [];
-
-    const compilerVersion: string =
-        options["compiler-version"] !== undefined ? options["compiler-version"] : "auto";
-
-    let compilerSettings: any;
-
-    try {
-        compilerSettings =
-            options["compiler-settings"] !== undefined
-                ? JSON.parse(options["compiler-settings"])
-                : undefined;
-    } catch (e) {
-        error(
-            `--compiler-settings expects a valid JSON string, not ${options["compiler-settings"]}`
+        const inputMode: "source" | "json" = oneOf(
+            options["input-mode"],
+            ["source", "json"],
+            `Error: --input-mode must be either source or json`
         );
-    }
 
-    const filterOptions: AnnotationFilterOptions = {};
+        const pathRemapping: string[] = options["path-remapping"]
+            ? options["path-remapping"].split(";")
+            : [];
 
-    if (options["filter-type"]) {
-        filterOptions.type = options["filter-type"];
-    }
+        const compilerVersion: string =
+            options["compiler-version"] !== undefined ? options["compiler-version"] : "auto";
 
-    if (options["filter-message"]) {
-        filterOptions.message = options["filter-message"];
-    }
+        let compilerSettings: any;
 
-    const targetDir =
-        targets[0] !== "--"
-            ? relative(process.cwd(), dirname(fse.realpathSync(targets[0])))
-            : targets[0];
-
-    const utilsOutputDir =
-        options["utils-output-path"] === undefined ? targetDir : options["utils-output-path"];
-
-    const assertionMode: "log" | "mstore" = oneOf(
-        options["user-assert-mode"],
-        ["log", "mstore"],
-        `Error: --user-assert-mode must be either log or mstore, not ${options["user-assert-mode"]}`
-    );
-
-    const debugEvents: boolean =
-        options["debug-events"] !== undefined ? options["debug-events"] : false;
-
-    const outputMode: "flat" | "files" | "json" = oneOf(
-        options["output-mode"],
-        ["flat", "files", "json"],
-        `Error: --output-mode must be either 'flat', 'files' or 'json`
-    );
-
-    const compilerVersionUsedMap: Map<string, string> = new Map();
-    const groupsMap: Map<string, SourceUnit[]> = new Map();
-    const ctxtsMap: Map<string, ASTContext> = new Map();
-    const filesMap: Map<string, Map<string, string>> = new Map();
-
-    const metaDataFile = detectInstrMetdataFilePath(targets, options);
-    const isMetaDataFile = fse.existsSync(metaDataFile);
-
-    const instrumentationMarker =
-        "/// This file is auto-generated by Scribble and shouldn't be edited directly.\n" +
-        "/// Use --disarm prior to make any changes.\n";
-
-    /**
-     * In disarm mode we don't need to instrument - just replace the instrumented files with the `.original` files
-     */
-    if (options["disarm"]) {
-        if (!isMetaDataFile) {
+        try {
+            compilerSettings =
+                options["compiler-settings"] !== undefined
+                    ? JSON.parse(options["compiler-settings"])
+                    : undefined;
+        } catch (e) {
             error(
-                `Unable to disarm: instrumentation metadata file "${metaDataFile}" does not exist.`
+                `--compiler-settings expects a valid JSON string, not ${options["compiler-settings"]}`
             );
         }
 
-        const metaData = loadInstrMetaData(metaDataFile);
+        const filterOptions: AnnotationFilterOptions = {};
 
-        const originalFiles = new Set(metaData.originalSourceList);
-        const instrumentationFiles = new Set(
-            metaData.instrSourceList.filter((file: string) => file !== "--")
+        if (options["filter-type"]) {
+            filterOptions.type = options["filter-type"];
+        }
+
+        if (options["filter-message"]) {
+            filterOptions.message = options["filter-message"];
+        }
+
+        const targetDir =
+            targets[0] !== "--"
+                ? relative(process.cwd(), dirname(fse.realpathSync(targets[0])))
+                : targets[0];
+
+        const utilsOutputDir =
+            options["utils-output-path"] === undefined ? targetDir : options["utils-output-path"];
+
+        const assertionMode: "log" | "mstore" = oneOf(
+            options["user-assert-mode"],
+            ["log", "mstore"],
+            `Error: --user-assert-mode must be either log or mstore, not ${options["user-assert-mode"]}`
         );
 
-        for (const originalFileName of originalFiles) {
-            if (originalFileName.endsWith(".sol.original")) {
-                move(originalFileName, originalFileName.replace(".sol.original", ".sol"), options);
-            }
-        }
+        const debugEvents: boolean =
+            options["debug-events"] !== undefined ? options["debug-events"] : false;
 
-        if (!options["keep-instrumented"]) {
-            for (const instrFileName of instrumentationFiles) {
-                remove(instrFileName, options);
-            }
-        }
+        const outputMode: "flat" | "files" | "json" = oneOf(
+            options["output-mode"],
+            ["flat", "files", "json"],
+            `Error: --output-mode must be either 'flat', 'files' or 'json`
+        );
 
-        if (isMetaDataFile) {
-            remove(metaDataFile, options);
-        }
+        const compilerVersionUsedMap: Map<string, string> = new Map();
+        const groupsMap: Map<string, SourceUnit[]> = new Map();
+        const ctxtsMap: Map<string, ASTContext> = new Map();
+        const filesMap: Map<string, Map<string, string>> = new Map();
 
-        process.exit(0);
-    }
+        const metaDataFile = detectInstrMetdataFilePath(targets, options);
+        const isMetaDataFile = fse.existsSync(metaDataFile);
 
-    /**
-     * Try to compile each target.
-     */
-    for (const target of targets) {
-        try {
-            let targetResult: CompileResult;
+        const instrumentationMarker =
+            "/// This file is auto-generated by Scribble and shouldn't be edited directly.\n" +
+            "/// Use --disarm prior to make any changes.\n";
 
-            try {
-                targetResult = compile(
-                    target,
-                    inputMode,
-                    compilerVersion,
-                    pathRemapping,
-                    compilerSettings
+        /**
+         * In disarm mode we don't need to instrument - just replace the instrumented files with the `.original` files
+         */
+        if (options["disarm"]) {
+            if (!isMetaDataFile) {
+                error(
+                    `Unable to disarm: instrumentation metadata file "${metaDataFile}" does not exist.`
                 );
-            } catch (e: any) {
-                if (e instanceof CompileFailedError) {
-                    console.error(`Compile errors encountered for ${target}:`);
+            }
 
-                    for (const failure of e.failures) {
-                        console.error(
-                            failure.compilerVersion
-                                ? `SolcJS ${failure.compilerVersion}:`
-                                : `Unknown compiler`
-                        );
+            const metaData = loadInstrMetaData(metaDataFile);
 
-                        for (const error of failure.errors) {
-                            console.error(error);
-                        }
-                    }
-                } else {
-                    console.error(e.message);
+            const originalFiles = new Set(metaData.originalSourceList);
+            const instrumentationFiles = new Set(
+                metaData.instrSourceList.filter((file: string) => file !== "--")
+            );
+
+            for (const originalFileName of originalFiles) {
+                if (originalFileName.endsWith(".sol.original")) {
+                    move(
+                        originalFileName,
+                        originalFileName.replace(".sol.original", ".sol"),
+                        options
+                    );
                 }
+            }
+
+            if (!options["keep-instrumented"]) {
+                for (const instrFileName of instrumentationFiles) {
+                    remove(instrFileName, options);
+                }
+            }
+
+            if (isMetaDataFile) {
+                remove(metaDataFile, options);
+            }
+
+            process.exit(0);
+        }
+
+        /**
+         * Try to compile each target.
+         */
+        for (const target of targets) {
+            try {
+                let targetResult: CompileResult;
+
+                try {
+                    targetResult = await compile(
+                        target,
+                        inputMode,
+                        compilerVersion,
+                        pathRemapping,
+                        compilerSettings
+                    );
+                } catch (e: any) {
+                    if (e instanceof CompileFailedError) {
+                        console.error(`Compile errors encountered for ${target}:`);
+
+                        for (const failure of e.failures) {
+                            console.error(
+                                failure.compilerVersion
+                                    ? `SolcJS ${failure.compilerVersion}:`
+                                    : `Unknown compiler`
+                            );
+
+                            for (const error of failure.errors) {
+                                console.error(error);
+                            }
+                        }
+                    } else {
+                        console.error(e.message);
+                    }
+
+                    process.exit(1);
+                }
+
+                const compilerVersionUsed: string =
+                    targetResult.compilerVersion !== undefined
+                        ? targetResult.compilerVersion
+                        : compilerVersion;
+
+                if (compilerVersionUsed === "auto") {
+                    error(
+                        `When passing in JSON you must specify an explicit compiler version with --compiler-version`
+                    );
+                }
+
+                const ctx = new ASTContext();
+                const reader = new ASTReader(ctx);
+
+                if (targetResult.files.size === 0) {
+                    error(
+                        `Missing source files in input. Did you pass in JSON without a sources entry?`
+                    );
+                }
+
+                const originalUnits = reader.read(targetResult.data, undefined, targetResult.files);
+                /**
+                 * This is inefficient, but we re-create the utils source unit for every target. This is due to
+                 * the inability to merge the id-spaces of the nodes of different compilation results.
+                 */
+                compilerVersionUsedMap.set(target, compilerVersionUsed);
+                groupsMap.set(target, originalUnits);
+                ctxtsMap.set(target, ctx);
+                filesMap.set(target, targetResult.files);
+            } catch (e) {
+                console.error(e);
 
                 process.exit(1);
             }
-
-            const compilerVersionUsed: string =
-                targetResult.compilerVersion !== undefined
-                    ? targetResult.compilerVersion
-                    : compilerVersion;
-
-            if (compilerVersionUsed === "auto") {
-                error(
-                    `When passing in JSON you must specify an explicit compiler version with --compiler-version`
-                );
-            }
-
-            const ctx = new ASTContext();
-            const reader = new ASTReader(ctx);
-
-            if (targetResult.files.size === 0) {
-                error(
-                    `Missing source files in input. Did you pass in JSON without a sources entry?`
-                );
-            }
-
-            const originalUnits = reader.read(targetResult.data, undefined, targetResult.files);
-            /**
-             * This is inefficient, but we re-create the utils source unit for every target. This is due to
-             * the inability to merge the id-spaces of the nodes of different compilation results.
-             */
-            compilerVersionUsedMap.set(target, compilerVersionUsed);
-            groupsMap.set(target, originalUnits);
-            ctxtsMap.set(target, ctx);
-            filesMap.set(target, targetResult.files);
-        } catch (e) {
-            console.error(e);
-
-            process.exit(1);
         }
-    }
 
-    /**
-     * Without --disarm we need to instrument and output something.
-     */
-    const contentsMap: SourceMap = new Map();
+        /**
+         * Without --disarm we need to instrument and output something.
+         */
+        const contentsMap: SourceMap = new Map();
 
-    // First load any macros if `--macro-path` was specified
-    const macros = new Map<string, MacroDefinition>();
+        // First load any macros if `--macro-path` was specified
+        const macros = new Map<string, MacroDefinition>();
 
-    const macroPaths: string[] = [join(__dirname, "..", "stdlib")];
+        const macroPaths: string[] = [join(__dirname, "..", "stdlib")];
 
-    if (options["macro-path"]) {
-        macroPaths.push(options["macro-path"]);
-    }
+        if (options["macro-path"]) {
+            macroPaths.push(options["macro-path"]);
+        }
 
-    for (const macroPath of macroPaths) {
+        for (const macroPath of macroPaths) {
+            try {
+                detectMacroDefinitions(macroPath, macros, contentsMap);
+            } catch (e) {
+                if (e instanceof YamlSchemaError) {
+                    prettyError(e.constructor.name, e.message, e.range);
+                }
+
+                throw e;
+            }
+        }
+
+        /**
+         * Merge the CHAs and file maps computed for each target
+         */
+        const groups: SourceUnit[][] = targets.map(
+            (target) => groupsMap.get(target) as SourceUnit[]
+        );
+
+        const [mergedUnits, mergedCtx] = merge(groups);
+
+        // Check that merging produced sane ASTs
+        for (const mergedUnit of mergedUnits) {
+            assert(
+                isSane(mergedUnit, mergedCtx),
+                `Merged unit ${mergedUnit.absolutePath} is insane`
+            );
+        }
+
+        for (const target of targets) {
+            const units = groupsMap.get(target) as SourceUnit[];
+            const files = filesMap.get(target) as Map<string, string>;
+
+            for (const unit of units) {
+                if (!contentsMap.has(unit.absolutePath)) {
+                    if (files.has(unit.sourceEntryKey)) {
+                        contentsMap.set(
+                            unit.absolutePath,
+                            new SolFile(unit.absolutePath, files.get(unit.sourceEntryKey) as string)
+                        );
+                    }
+                }
+            }
+        }
+
+        const cha = getCHA(mergedUnits);
+
+        const compilerVersionUsed = pickVersion(compilerVersionUsedMap);
+        const abiEncoderVersion = getABIEncoderVersion(mergedUnits, compilerVersionUsed);
+        const callgraph = getCallGraph(mergedUnits, abiEncoderVersion);
+
+        const annotExtractionCtx: AnnotationExtractionContext = {
+            filterOptions,
+            compilerVersion: compilerVersionUsed,
+            macros
+        };
+
+        let annotMap: AnnotationMap;
+
         try {
-            detectMacroDefinitions(macroPath, macros, contentsMap);
+            annotMap = buildAnnotationMap(mergedUnits, contentsMap, annotExtractionCtx);
         } catch (e) {
-            if (e instanceof YamlSchemaError) {
-                prettyError(e.constructor.name, e.message, e.range);
+            if (
+                e instanceof SyntaxError ||
+                e instanceof UnsupportedByTargetError ||
+                e instanceof MacroError
+            ) {
+                prettyError(e.constructor.name, e.message, e.range.start);
             }
 
             throw e;
         }
-    }
 
-    /**
-     * Merge the CHAs and file maps computed for each target
-     */
-    const groups: SourceUnit[][] = targets.map((target) => groupsMap.get(target) as SourceUnit[]);
+        const typeEnv = new TypeEnv(compilerVersionUsed, abiEncoderVersion);
+        const semMap: SemMap = new Map();
 
-    const [mergedUnits, mergedCtx] = merge(groups);
+        let interposingQueue: Array<[VariableDeclaration, AbsDatastructurePath]>;
 
-    // Check that merging produced sane ASTs
-    for (const mergedUnit of mergedUnits) {
-        assert(isSane(mergedUnit, mergedCtx), `Merged unit ${mergedUnit.absolutePath} is insane`);
-    }
+        try {
+            // Type check
+            tcUnits(mergedUnits, annotMap, typeEnv);
+            // Semantic check
+            interposingQueue = scUnits(mergedUnits, annotMap, typeEnv, semMap);
+        } catch (err: any) {
+            if (err instanceof STypeError || err instanceof SemError) {
+                prettyError("TypeError", err.message, err.loc());
+            } else {
+                error(`Internal error in type-checking: ${err.message}`);
+            }
+        }
 
-    for (const target of targets) {
-        const units = groupsMap.get(target) as SourceUnit[];
-        const files = filesMap.get(target) as Map<string, string>;
+        // If we are not outputting to stdout directly, print a summary of the
+        // found annotations and warnings for things that were ignored but look like annotations
+        if (!((outputMode === "flat" || outputMode === "json") && options.output === "--")) {
+            const filesWithAnnots = new Set<SourceFile>();
+            let nAnnots = 0;
 
-        for (const unit of units) {
-            if (!contentsMap.has(unit.absolutePath)) {
-                if (files.has(unit.sourceEntryKey)) {
-                    contentsMap.set(
-                        unit.absolutePath,
-                        new SolFile(unit.absolutePath, files.get(unit.sourceEntryKey) as string)
-                    );
+            for (const annots of annotMap.values()) {
+                for (const annot of annots) {
+                    filesWithAnnots.add(annot.originalSourceFile);
+                    nAnnots++;
                 }
             }
-        }
-    }
 
-    const cha = getCHA(mergedUnits);
-
-    const compilerVersionUsed = pickVersion(compilerVersionUsedMap);
-    const abiEncoderVersion = getABIEncoderVersion(mergedUnits, compilerVersionUsed);
-    const callgraph = getCallGraph(mergedUnits, abiEncoderVersion);
-
-    const annotExtractionCtx: AnnotationExtractionContext = {
-        filterOptions,
-        compilerVersion: compilerVersionUsed,
-        macros
-    };
-
-    let annotMap: AnnotationMap;
-
-    try {
-        annotMap = buildAnnotationMap(mergedUnits, contentsMap, annotExtractionCtx);
-    } catch (e) {
-        if (
-            e instanceof SyntaxError ||
-            e instanceof UnsupportedByTargetError ||
-            e instanceof MacroError
-        ) {
-            prettyError(e.constructor.name, e.message, e.range.start);
-        }
-
-        throw e;
-    }
-
-    const typeEnv = new TypeEnv(compilerVersionUsed, abiEncoderVersion);
-    const semMap: SemMap = new Map();
-
-    let interposingQueue: Array<[VariableDeclaration, AbsDatastructurePath]>;
-
-    try {
-        // Type check
-        tcUnits(mergedUnits, annotMap, typeEnv);
-        // Semantic check
-        interposingQueue = scUnits(mergedUnits, annotMap, typeEnv, semMap);
-    } catch (err: any) {
-        if (err instanceof STypeError || err instanceof SemError) {
-            prettyError("TypeError", err.message, err.loc());
-        } else {
-            error(`Internal error in type-checking: ${err.message}`);
-        }
-    }
-
-    // If we are not outputting to stdout directly, print a summary of the
-    // found annotations and warnings for things that were ignored but look like annotations
-    if (!((outputMode === "flat" || outputMode === "json") && options.output === "--")) {
-        const filesWithAnnots = new Set<SourceFile>();
-        let nAnnots = 0;
-
-        for (const annots of annotMap.values()) {
-            for (const annot of annots) {
-                filesWithAnnots.add(annot.originalSourceFile);
-                nAnnots++;
-            }
-        }
-
-        if (nAnnots === 0) {
-            console.log(`Found ${nAnnots} annotations.`);
-        } else {
-            console.log(`Found ${nAnnots} annotations in ${filesWithAnnots.size} different files.`);
-        }
-
-        for (const warning of findDeprecatedAnnotations(
-            mergedUnits,
-            contentsMap,
-            compilerVersionUsed
-        )) {
-            console.error(ppWarning(warning).join("\n"));
-        }
-    }
-
-    /**
-     * Walk over the computed CHA and compute:
-     *  1. The set of contracts that have contract invariants (as the map contractInvs)
-     *  2. The set of contracts that NEED contract instrumentation (because they, a parent of theirs, or a child of theirs has contract invariants)
-     */
-    const contractsNeedingInstr = computeContractsNeedingInstr(cha, annotMap);
-    const factory = new ScribbleFactory(mergedCtx);
-
-    // Next we re-write the imports to fix broken alias references (Some
-    // Solidity versions have broken references imports).
-    mergedUnits.forEach((sourceUnit) => {
-        if (contentsMap.has(sourceUnit.absolutePath)) {
-            rewriteImports(sourceUnit, contentsMap, factory);
-        }
-    });
-
-    /**
-     * Next try to instrument the merged SourceUnits.
-     */
-    const instrCtx = new InstrumentationContext(
-        factory,
-        mergedUnits,
-        assertionMode,
-        options["cov-assertions"],
-        addAssert,
-        callgraph,
-        cha,
-        filterOptions,
-        dedup(flatten(annotMap.values())),
-        new Map(),
-        contentsMap,
-        compilerVersionUsed,
-        debugEvents,
-        outputMode,
-        typeEnv,
-        semMap,
-        interposingQueue
-    );
-
-    /**
-     * Check if there is an instrumentation already in-place
-     */
-    for (const unit of instrCtx.units) {
-        if (isInstrumented(unit.sourceEntryKey, instrumentationMarker)) {
-            error(`File "${unit.sourceEntryKey}" is already instrumented`);
-        }
-    }
-
-    const utilsUnit = makeUtilsUnit(utilsOutputDir, factory, compilerVersionUsed, instrCtx);
-
-    try {
-        // Check that none of the map state vars to be overwritten is aliased
-        for (const [sVar] of interposingQueue) {
-            instrCtx.crashIfAliased(sVar);
-        }
-
-        instrumentFiles(instrCtx, annotMap, contractsNeedingInstr);
-    } catch (e) {
-        if (e instanceof UnsupportedConstruct) {
-            prettyError(e.name, e.message, e.range);
-        }
-
-        throw e;
-    }
-
-    const allUnits: SourceUnit[] = [...instrCtx.units, utilsUnit];
-    const newSrcMap: SrcRangeMap = new Map();
-
-    let modifiedFiles: SourceUnit[];
-
-    if (outputMode === "flat" || outputMode === "json") {
-        // 1. Flatten all the source files in a single SourceUnit
-        const version = pickVersion(compilerVersionUsedMap);
-        const flatUnit = flattenUnits(allUnits, factory, options.output, version);
-
-        modifiedFiles = [flatUnit];
-
-        // 2. Print the flattened unit
-        const flatContents = instrCtx
-            .printUnits(modifiedFiles, newSrcMap, instrumentationMarker)
-            .get(flatUnit) as string;
-
-        // 3. If the output mode is just 'flat' we just write out the contents now.
-        if (outputMode === "flat") {
-            writeOut(flatContents, options.output);
-        } else {
-            // 4. If the output mode is 'json' we have more work - need to re-compile the flattened code.
-            let flatCompiled: CompileResult;
-            try {
-                flatCompiled = compileSourceString(
-                    `flattened.sol`,
-                    flatContents,
-                    version,
-                    pathRemapping,
-                    [CompilationOutput.ALL],
-                    compilerSettings
+            if (nAnnots === 0) {
+                console.log(`Found ${nAnnots} annotations.`);
+            } else {
+                console.log(
+                    `Found ${nAnnots} annotations in ${filesWithAnnots.size} different files.`
                 );
-            } catch (e: any) {
-                if (e instanceof CompileFailedError) {
-                    console.error(`Compile errors encountered for flattend instrumetned file:`);
-
-                    for (const failure of e.failures) {
-                        console.error(
-                            failure.compilerVersion
-                                ? `SolcJS ${failure.compilerVersion}:`
-                                : `Unknown compiler`
-                        );
-
-                        for (const error of failure.errors) {
-                            console.error(error);
-                        }
-                    }
-                } else {
-                    console.error(e.message);
-                }
-
-                process.exit(1);
             }
 
-            // 5. Build the output and write it out
-            const resultJSON = JSON.stringify(
-                buildOutputJSON(
-                    instrCtx,
-                    flatCompiled,
-                    instrCtx.units,
-                    modifiedFiles,
-                    newSrcMap,
-                    pkg.version,
-                    options.output,
-                    false
-                ),
-                undefined,
-                2
-            );
-
-            writeOut(resultJSON, options.output);
-        }
-    } else {
-        if (options["arm"] && isMetaDataFile) {
-            error(
-                `Instrumentation metadata file "${metaDataFile}" already exists. Consider disarming or providing other path for instrumentation metadata file.`
-            );
-        }
-
-        modifiedFiles = [...instrCtx.changedUnits, utilsUnit];
-        // 1. In 'files' mode first write out the files
-        const newContents = instrCtx.printUnits(modifiedFiles, newSrcMap, instrumentationMarker);
-
-        // 2. For all changed files write out a `.instrumented` version of the file.
-        for (const unit of instrCtx.changedUnits) {
-            const instrumentedFileName = unit.absolutePath + ".instrumented";
-
-            if (!options.quiet) {
-                console.error(`${unit.absolutePath} -> ${instrumentedFileName}`);
-            }
-
-            fse.writeFileSync(instrumentedFileName, newContents.get(unit) as string);
-        }
-
-        // 3. Write out the utils contract
-        fse.writeFileSync(utilsUnit.absolutePath, newContents.get(utilsUnit) as string);
-
-        // 4. Finally if --arm is passed put the instrumented files in-place
-        if (options["arm"]) {
-            for (const unit of instrCtx.changedUnits) {
-                const instrumentedFileName = unit.absolutePath + ".instrumented";
-                const originalFileName = unit.absolutePath + ".original";
-
-                copy(unit.absolutePath, originalFileName, options);
-                copy(instrumentedFileName, unit.absolutePath, options);
+            for (const warning of findDeprecatedAnnotations(
+                mergedUnits,
+                contentsMap,
+                compilerVersionUsed
+            )) {
+                console.error(ppWarning(warning).join("\n"));
             }
         }
-    }
 
-    if (options["arm"] || options["instrumentation-metadata-file"]) {
-        const metadata = generateInstrumentationMetadata(
-            instrCtx,
-            newSrcMap,
-            instrCtx.units,
-            modifiedFiles,
-            options["arm"] !== undefined,
-            pkg.version,
-            options["output"]
+        /**
+         * Walk over the computed CHA and compute:
+         *  1. The set of contracts that have contract invariants (as the map contractInvs)
+         *  2. The set of contracts that NEED contract instrumentation (because they, a parent of theirs, or a child of theirs has contract invariants)
+         */
+        const contractsNeedingInstr = computeContractsNeedingInstr(cha, annotMap);
+        const factory = new ScribbleFactory(mergedCtx);
+
+        // Next we re-write the imports to fix broken alias references (Some
+        // Solidity versions have broken references imports).
+        mergedUnits.forEach((sourceUnit) => {
+            if (contentsMap.has(sourceUnit.absolutePath)) {
+                rewriteImports(sourceUnit, contentsMap, factory);
+            }
+        });
+
+        /**
+         * Next try to instrument the merged SourceUnits.
+         */
+        const instrCtx = new InstrumentationContext(
+            factory,
+            mergedUnits,
+            assertionMode,
+            options["cov-assertions"],
+            addAssert,
+            callgraph,
+            cha,
+            filterOptions,
+            dedup(flatten(annotMap.values())),
+            new Map(),
+            contentsMap,
+            compilerVersionUsed,
+            debugEvents,
+            outputMode,
+            typeEnv,
+            semMap,
+            interposingQueue
         );
 
-        writeOut(JSON.stringify(metadata, undefined, 2), metaDataFile);
+        /**
+         * Check if there is an instrumentation already in-place
+         */
+        for (const unit of instrCtx.units) {
+            if (isInstrumented(unit.sourceEntryKey, instrumentationMarker)) {
+                error(`File "${unit.sourceEntryKey}" is already instrumented`);
+            }
+        }
+
+        const utilsUnit = makeUtilsUnit(utilsOutputDir, factory, compilerVersionUsed, instrCtx);
+
+        try {
+            // Check that none of the map state vars to be overwritten is aliased
+            for (const [sVar] of interposingQueue) {
+                instrCtx.crashIfAliased(sVar);
+            }
+
+            instrumentFiles(instrCtx, annotMap, contractsNeedingInstr);
+        } catch (e) {
+            if (e instanceof UnsupportedConstruct) {
+                prettyError(e.name, e.message, e.range);
+            }
+
+            throw e;
+        }
+
+        const allUnits: SourceUnit[] = [...instrCtx.units, utilsUnit];
+        const newSrcMap: SrcRangeMap = new Map();
+
+        let modifiedFiles: SourceUnit[];
+
+        if (outputMode === "flat" || outputMode === "json") {
+            // 1. Flatten all the source files in a single SourceUnit
+            const version = pickVersion(compilerVersionUsedMap);
+            const flatUnit = flattenUnits(allUnits, factory, options.output, version);
+
+            modifiedFiles = [flatUnit];
+
+            // 2. Print the flattened unit
+            const flatContents = instrCtx
+                .printUnits(modifiedFiles, newSrcMap, instrumentationMarker)
+                .get(flatUnit) as string;
+
+            // 3. If the output mode is just 'flat' we just write out the contents now.
+            if (outputMode === "flat") {
+                writeOut(flatContents, options.output);
+            } else {
+                // 4. If the output mode is 'json' we have more work - need to re-compile the flattened code.
+                let flatCompiled: CompileResult;
+                try {
+                    flatCompiled = await compileSourceString(
+                        `flattened.sol`,
+                        flatContents,
+                        version,
+                        pathRemapping,
+                        [CompilationOutput.ALL],
+                        compilerSettings
+                    );
+                } catch (e: any) {
+                    if (e instanceof CompileFailedError) {
+                        console.error(`Compile errors encountered for flattend instrumetned file:`);
+
+                        for (const failure of e.failures) {
+                            console.error(
+                                failure.compilerVersion
+                                    ? `SolcJS ${failure.compilerVersion}:`
+                                    : `Unknown compiler`
+                            );
+
+                            for (const error of failure.errors) {
+                                console.error(error);
+                            }
+                        }
+                    } else {
+                        console.error(e.message);
+                    }
+
+                    process.exit(1);
+                }
+
+                // 5. Build the output and write it out
+                const resultJSON = JSON.stringify(
+                    buildOutputJSON(
+                        instrCtx,
+                        flatCompiled,
+                        instrCtx.units,
+                        modifiedFiles,
+                        newSrcMap,
+                        pkg.version,
+                        options.output,
+                        false
+                    ),
+                    undefined,
+                    2
+                );
+
+                writeOut(resultJSON, options.output);
+            }
+        } else {
+            if (options["arm"] && isMetaDataFile) {
+                error(
+                    `Instrumentation metadata file "${metaDataFile}" already exists. Consider disarming or providing other path for instrumentation metadata file.`
+                );
+            }
+
+            modifiedFiles = [...instrCtx.changedUnits, utilsUnit];
+            // 1. In 'files' mode first write out the files
+            const newContents = instrCtx.printUnits(
+                modifiedFiles,
+                newSrcMap,
+                instrumentationMarker
+            );
+
+            // 2. For all changed files write out a `.instrumented` version of the file.
+            for (const unit of instrCtx.changedUnits) {
+                const instrumentedFileName = unit.absolutePath + ".instrumented";
+
+                if (!options.quiet) {
+                    console.error(`${unit.absolutePath} -> ${instrumentedFileName}`);
+                }
+
+                fse.writeFileSync(instrumentedFileName, newContents.get(unit) as string);
+            }
+
+            // 3. Write out the utils contract
+            fse.writeFileSync(utilsUnit.absolutePath, newContents.get(utilsUnit) as string);
+
+            // 4. Finally if --arm is passed put the instrumented files in-place
+            if (options["arm"]) {
+                for (const unit of instrCtx.changedUnits) {
+                    const instrumentedFileName = unit.absolutePath + ".instrumented";
+                    const originalFileName = unit.absolutePath + ".original";
+
+                    copy(unit.absolutePath, originalFileName, options);
+                    copy(instrumentedFileName, unit.absolutePath, options);
+                }
+            }
+        }
+
+        if (options["arm"] || options["instrumentation-metadata-file"]) {
+            const metadata = generateInstrumentationMetadata(
+                instrCtx,
+                newSrcMap,
+                instrCtx.units,
+                modifiedFiles,
+                options["arm"] !== undefined,
+                pkg.version,
+                options["output"]
+            );
+
+            writeOut(JSON.stringify(metadata, undefined, 2), metaDataFile);
+        }
     }
-}
+})();

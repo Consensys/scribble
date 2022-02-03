@@ -155,8 +155,8 @@ describe("Interface compatibility test", () => {
             let inAst: SourceUnit[];
             let encVer: ABIEncoderVersion;
 
-            before(() => {
-                const result = toAstUsingCache(sample);
+            before(async () => {
+                const result = await toAstUsingCache(sample);
 
                 compilerVersion = result.compilerVersion;
                 inAst = result.units;
@@ -181,14 +181,17 @@ describe("Interface compatibility test", () => {
                 }
             };
 
-            it("Instrumented source in 'log' mode has compatible external interface", () => {
-                const result = toAst(sample + ".log.sol", scrSample(sample, "--debug-events"));
+            it("Instrumented source in 'log' mode has compatible external interface", async () => {
+                const result = await toAst(
+                    sample + ".log.sol",
+                    scrSample(sample, "--debug-events")
+                );
 
                 compareSourceUnits(inAst, result.units);
             });
 
-            it("Instrumented source in 'mstore' mode has compatible external interface", () => {
-                const result = toAst(
+            it("Instrumented source in 'mstore' mode has compatible external interface", async () => {
+                const result = await toAst(
                     sample + ".mstore.sol",
                     scrSample(sample, "--user-assert-mode", "mstore")
                 );

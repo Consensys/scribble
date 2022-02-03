@@ -70,12 +70,14 @@ describe("Maps with keys library generation", () => {
     let writer: ASTWriter;
     let instrCtx: InstrumentationContext;
 
-    before("", () => {
-        const res = toAst("sample.sol", content);
+    before(async () => {
+        const res = await toAst("sample.sol", content);
+
         unit = single(res.units);
         ctx = res.reader.context;
         version = res.compilerVersion;
         factory = new ScribbleFactory(ctx);
+
         instrCtx = makeInstrumentationCtx(res.units, factory, res.files, "log", version);
 
         writer = new ASTWriter(DefaultASTWriterMapping, new PrettyFormatter(4, 0), version);
@@ -84,17 +86,20 @@ describe("Maps with keys library generation", () => {
     for (const [keyT, valueArg] of testTypes) {
         it(`Can generate compiling map library for ${keyT.pp()}->${
             valueArg instanceof TypeNode ? valueArg.pp() : "?"
-        }`, () => {
+        }`, async () => {
             const valueT = valueArg instanceof TypeNode ? valueArg : valueArg(unit);
 
             const lib = instrCtx.typesToLibraryMap.get(keyT, valueT);
+
             instrCtx.libToMapGetterMap.get(lib, true);
             instrCtx.libToMapGetterMap.get(lib, false);
             instrCtx.libToMapSetterMap.get(
                 lib,
                 valueT instanceof ArrayType ? new PointerType(valueT, DataLocation.Memory) : valueT
             );
+
             instrCtx.libToDeleteFunMap.get(lib);
+
             if (valueT instanceof IntType) {
                 instrCtx.libToMapIncDecMap.get(lib, "++", false, false);
                 instrCtx.libToMapIncDecMap.get(lib, "++", true, true);
@@ -105,10 +110,10 @@ describe("Maps with keys library generation", () => {
             const src = writer.write(lib);
             const newContent = content + "\n" + src;
 
-            const compRes = compileSourceString("foo.sol", newContent, version, []);
+            const compRes = await compileSourceString("foo.sol", newContent, version, []);
 
-            expect(compRes.data.contracts["foo.sol"]).toBeDefined();
-            expect(compRes.data.contracts["foo.sol"][lib.name]).toBeDefined();
+            expect(compRes.data.contracts["./foo.sol"]).toBeDefined();
+            expect(compRes.data.contracts["./foo.sol"][lib.name]).toBeDefined();
             expect(forAll(compRes.data.errors, (error: any) => error.severity === "warning"));
         });
     }
@@ -519,8 +524,8 @@ describe("Interposing on a map", () => {
         let newContent: string;
         let version: string;
 
-        it(`Code compiles after interposing on ${pp(svs)} in sample ${name}`, () => {
-            const res = toAst(name, sample);
+        it(`Code compiles after interposing on ${pp(svs)} in sample ${name}`, async () => {
+            const res = await toAst(name, sample);
             const unit = single(res.units);
             const ctx = res.reader.context;
 
@@ -562,9 +567,10 @@ describe("Interposing on a map", () => {
 
             instrCode = writer.write(unit);
             newContent = [unit, instrCtx.utilsUnit].map((unit) => writer.write(unit)).join("\n");
-            const compRes = compileSourceString("foo.sol", newContent, version, []);
 
-            expect(compRes.data.contracts["foo.sol"]).toBeDefined();
+            const compRes = await compileSourceString("foo.sol", newContent, version, []);
+
+            expect(compRes.data.contracts["./foo.sol"]).toBeDefined();
             expect(forAll(compRes.data.errors, (error: any) => error.severity === "warning"));
         });
 
@@ -600,7 +606,7 @@ describe("Interposing on a map", () => {
                 ]
             };
 
-            executeTestSuiteInternal("foo.json", cfg, version);
+            executeTestSuiteInternal(cfg, version);
         });
     }
 });

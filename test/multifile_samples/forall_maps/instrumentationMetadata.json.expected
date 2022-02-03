@@ -1015,7 +1015,7 @@
     {
       "id": 0,
       "contract": "Foo",
-      "filename": "test/multifile_samples/forall_maps/child.sol",
+      "filename": "./test/multifile_samples/forall_maps/child.sol",
       "propertySource": "89:28:1",
       "annotationSource": "77:41:1",
       "target": "function",
@@ -1051,7 +1051,7 @@
     {
       "id": 1,
       "contract": "Foo",
-      "filename": "test/multifile_samples/forall_maps/child.sol",
+      "filename": "./test/multifile_samples/forall_maps/child.sol",
       "propertySource": "216:28:1",
       "annotationSource": "204:41:1",
       "target": "function",
@@ -1087,7 +1087,7 @@
     {
       "id": 2,
       "contract": "Foo",
-      "filename": "test/multifile_samples/forall_maps/child.sol",
+      "filename": "./test/multifile_samples/forall_maps/child.sol",
       "propertySource": "329:39:1",
       "annotationSource": "317:52:1",
       "target": "function",
@@ -1123,7 +1123,7 @@
     {
       "id": 3,
       "contract": "Foo",
-      "filename": "test/multifile_samples/forall_maps/child.sol",
+      "filename": "./test/multifile_samples/forall_maps/child.sol",
       "propertySource": "469:66:1",
       "annotationSource": "457:79:1",
       "target": "function",
@@ -1170,7 +1170,7 @@
     {
       "id": 4,
       "contract": "Foo",
-      "filename": "test/multifile_samples/forall_maps/child.sol",
+      "filename": "./test/multifile_samples/forall_maps/child.sol",
       "propertySource": "647:36:1",
       "annotationSource": "635:49:1",
       "target": "function",
@@ -1206,7 +1206,7 @@
     {
       "id": 5,
       "contract": "Foo",
-      "filename": "test/multifile_samples/forall_maps/child.sol",
+      "filename": "./test/multifile_samples/forall_maps/child.sol",
       "propertySource": "837:32:1",
       "annotationSource": "825:45:1",
       "target": "function",
@@ -1242,7 +1242,7 @@
     {
       "id": 6,
       "contract": "Foo",
-      "filename": "test/multifile_samples/forall_maps/child.sol",
+      "filename": "./test/multifile_samples/forall_maps/child.sol",
       "propertySource": "1026:35:1",
       "annotationSource": "1014:48:1",
       "target": "function",
@@ -1285,7 +1285,7 @@
     {
       "id": 7,
       "contract": "Foo",
-      "filename": "test/multifile_samples/forall_maps/child.sol",
+      "filename": "./test/multifile_samples/forall_maps/child.sol",
       "propertySource": "1163:41:1",
       "annotationSource": "1151:54:1",
       "target": "function",
@@ -1321,7 +1321,7 @@
     {
       "id": 8,
       "contract": "Foo",
-      "filename": "test/multifile_samples/forall_maps/child.sol",
+      "filename": "./test/multifile_samples/forall_maps/child.sol",
       "propertySource": "1316:36:1",
       "annotationSource": "1304:49:1",
       "target": "function",
@@ -1364,7 +1364,7 @@
     {
       "id": 9,
       "contract": "Foo",
-      "filename": "test/multifile_samples/forall_maps/child.sol",
+      "filename": "./test/multifile_samples/forall_maps/child.sol",
       "propertySource": "1523:60:1",
       "annotationSource": "1511:73:1",
       "target": "function",
@@ -1407,7 +1407,7 @@
     {
       "id": 10,
       "contract": "Foo",
-      "filename": "test/multifile_samples/forall_maps/child.sol",
+      "filename": "./test/multifile_samples/forall_maps/child.sol",
       "propertySource": "1704:80:1",
       "annotationSource": "1692:93:1",
       "target": "function",
@@ -1453,8 +1453,8 @@
     }
   ],
   "originalSourceList": [
-    "test/multifile_samples/forall_maps/base.sol",
-    "test/multifile_samples/forall_maps/child.sol"
+    "./test/multifile_samples/forall_maps/base.sol",
+    "./test/multifile_samples/forall_maps/child.sol"
   ],
   "instrSourceList": [
     "--"

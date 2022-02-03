@@ -117,7 +117,7 @@ describe("Src2src map test", () => {
     });
 
     for (const sample of samples) {
-        describe(`Sample ${sample}`, () => {
+        describe(sample, () => {
             let inAst: SourceUnit[];
             let contents: string;
             let instrContents: string;
@@ -129,20 +129,20 @@ describe("Src2src map test", () => {
             let instrMD: InstrumentationMetaData;
             const coveredOriginalNodes = new Set<ASTNode>();
 
-            before(() => {
-                const result = toAstUsingCache(sample);
+            before(async () => {
+                const result = await toAstUsingCache(sample);
 
-                if (!result.files.has(sample)) {
+                if (!result.files.has("./" + sample)) {
                     throw new Error(`Missing source for ${sample} in files mapping`);
                 }
 
                 inAst = result.units;
-                contents = result.files.get(sample) as string;
+                contents = result.files.get("./" + sample) as string;
 
                 outJSON = JSON.parse(scrSample(sample, "--output-mode", "json"));
-                instrContents = outJSON["sources"]["flattened.sol"]["source"];
+                instrContents = outJSON["sources"]["./flattened.sol"]["source"];
 
-                const contentsMap = new Map<string, string>([["flattened.sol", instrContents]]);
+                const contentsMap = new Map<string, string>([["./flattened.sol", instrContents]]);
                 const reader = new ASTReader();
 
                 [outAST] = reader.read(outJSON, ASTKind.Modern, contentsMap);

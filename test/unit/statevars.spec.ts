@@ -98,19 +98,21 @@ describe("Finding all assignments.", () => {
     ];
 
     for (const [fileName, content, expectedAssignmentDescs] of samples) {
-        it(`Sample #${fileName}`, () => {
-            const { units } = toAst(fileName, content);
+        it(`Sample #${fileName}`, async () => {
+            const { units } = await toAst(fileName, content);
             const unit = single(units);
 
             const assignments = getAssignments(unit);
             const assignmentDescs = new Set(
                 [...assignments].map(([lhs, rhs]) => `${print(rhs)} -> ${print(lhs)}`)
             );
+
             Logger.debug(
                 `Expected aliased set ${pp(expectedAssignmentDescs)} got ${pp([
                     ...assignmentDescs
                 ])}`
             );
+
             expect(assignmentDescs).toEqual(expectedAssignmentDescs);
         });
     }
@@ -311,8 +313,8 @@ describe("Finding aliased vars.", () => {
     ];
 
     for (const [fileName, content, expectedAliasedNames] of samples) {
-        it(`Sample #${fileName}`, () => {
-            const { units } = toAst(fileName, content);
+        it(`Sample #${fileName}`, async () => {
+            const { units } = await toAst(fileName, content);
             const unit = single(units);
 
             const aliased = findAliasedStateVars([unit]);
@@ -734,19 +736,21 @@ describe("Finding all state variable updates.", () => {
     ];
 
     for (const [fileName, content, expectedStateVarUpdates] of samples) {
-        it(`Sample #${fileName}`, () => {
-            const { units, reader, files, compilerVersion } = toAst(fileName, content);
+        it(`Sample #${fileName}`, async () => {
+            const { units, reader, files, compilerVersion } = await toAst(fileName, content);
             const unit = single(units);
             const factory = new ScribbleFactory(reader.context);
             const ctx = makeInstrumentationCtx(units, factory, files, "log", compilerVersion);
 
             const assignments = findStateVarUpdates([unit], ctx);
             const assignmentDescs = new Set([...assignments].map(printStateVarUpdateDesc));
+
             Logger.debug(
                 `Expected aliased set ${pp(expectedStateVarUpdates)} got ${pp([
                     ...assignmentDescs
                 ])}`
             );
+
             expect(assignmentDescs).toEqual(expectedStateVarUpdates);
         });
     }

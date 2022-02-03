@@ -654,7 +654,7 @@ describe("Expression Parser Unit Tests", () => {
     ];
 
     for (const [sample, expectedAST] of goodSamples) {
-        describe(`Sample ${sample}`, () => {
+        describe(sample, () => {
             it("Parses correctly", () => {
                 const parsed = parseExpr(
                     sample,
@@ -669,7 +669,7 @@ describe("Expression Parser Unit Tests", () => {
     }
 
     for (const sample of badSamples) {
-        describe(`Sample ${sample}`, () => {
+        describe(sample, () => {
             it("Fails as expected", () => {
                 expect(() => {
                     parseExpr(
@@ -980,7 +980,7 @@ describe("Annotation Parser Unit Tests", () => {
     ];
 
     for (const [sample, expected] of goodSamples) {
-        describe(`Sample ${sample}`, () => {
+        describe(sample, () => {
             it("Parses correctly", () => {
                 const parsed = parseAnnotation(
                     sample,
@@ -996,7 +996,7 @@ describe("Annotation Parser Unit Tests", () => {
     }
 
     for (const sample of badSamples) {
-        describe(`Sample ${sample}`, () => {
+        describe(sample, () => {
             it("Fails as expected", () => {
                 expect(() => {
                     parseAnnotation(

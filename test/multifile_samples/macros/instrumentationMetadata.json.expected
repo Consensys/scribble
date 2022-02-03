@@ -265,7 +265,7 @@
     {
       "id": 2,
       "contract": "Ownable",
-      "filename": "test/multifile_samples/macros/base.sol",
+      "filename": "./test/multifile_samples/macros/base.sol",
       "propertySource": [
         "165:25:2",
         "72:21:0"
@@ -305,7 +305,7 @@
     {
       "id": 3,
       "contract": "Foo",
-      "filename": "test/multifile_samples/macros/child.sol",
+      "filename": "./test/multifile_samples/macros/child.sol",
       "propertySource": [
         "120:9:3",
         "27:15:1"
@@ -348,8 +348,8 @@
     }
   ],
   "originalSourceList": [
-    "test/multifile_samples/macros/base.sol",
-    "test/multifile_samples/macros/child.sol",
+    "./test/multifile_samples/macros/base.sol",
+    "./test/multifile_samples/macros/child.sol",
     "test/multifile_samples/macros/macro1.scribble.yaml",
     "test/multifile_samples/macros/macro2.scribble.yaml"
   ],

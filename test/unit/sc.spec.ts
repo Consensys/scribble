@@ -365,8 +365,8 @@ describe("SemanticChecker Expression Unit Tests", () => {
             let encVer: ABIEncoderVersion;
             let sourceFile: SourceFile;
 
-            before(() => {
-                const result = toAst(fileName, content);
+            before(async () => {
+                const result = await toAst(fileName, content);
 
                 units = result.units;
                 encVer = getABIEncoderVersion(units, compilerVersion);
@@ -375,7 +375,7 @@ describe("SemanticChecker Expression Unit Tests", () => {
 
             for (const [specString, loc, expectedType, expectedInfo] of testCases) {
                 it(`SemCheck for ${specString} returns ${JSON.stringify(expectedInfo)}`, () => {
-                    const [ctx, target] = getTypeCtxAndTarget(loc, units, compilerVersion);
+                    const [ctx, target] = getTypeCtxAndTarget(loc, units);
                     const parsed = parse(specString, target, compilerVersion, sourceFile, 0);
                     const annotationType =
                         target instanceof ContractDefinition
@@ -412,8 +412,8 @@ describe("SemanticChecker Expression Unit Tests", () => {
             let encVer: ABIEncoderVersion;
             let sourceFile: SourceFile;
 
-            before(() => {
-                const result = toAst(fileName, content);
+            before(async () => {
+                const result = await toAst(fileName, content);
 
                 units = result.units;
                 encVer = getABIEncoderVersion(units, compilerVersion);
@@ -422,7 +422,7 @@ describe("SemanticChecker Expression Unit Tests", () => {
 
             for (const [specString, loc] of testCases) {
                 it(`SemCheck for ${specString} throws SemError`, () => {
-                    const [ctx, target] = getTypeCtxAndTarget(loc, units, compilerVersion);
+                    const [ctx, target] = getTypeCtxAndTarget(loc, units);
                     const parsed = parse(specString, target, compilerVersion, sourceFile, 0);
                     const annotationType =
                         target instanceof ContractDefinition
@@ -523,8 +523,8 @@ describe("SemanticChecker Annotation Unit Tests", () => {
             let encVer: ABIEncoderVersion;
             let sourceFile: SourceFile;
 
-            before(() => {
-                const result = toAst(fileName, content);
+            before(async () => {
+                const result = await toAst(fileName, content);
 
                 units = result.units;
                 encVer = getABIEncoderVersion(units, compilerVersion);
@@ -541,8 +541,10 @@ describe("SemanticChecker Annotation Unit Tests", () => {
                         sourceFile,
                         0
                     );
-                    const [ctx] = getTypeCtxAndTarget(loc, units, compilerVersion, annotation);
+
+                    const [ctx] = getTypeCtxAndTarget(loc, units, annotation);
                     const typeEnv = new TypeEnv(compilerVersion, encVer);
+
                     tcAnnotation(annotation, ctx, target, typeEnv);
                     scAnnotation(annotation, typeEnv, new Map(), {
                         isOld: false,
@@ -562,8 +564,8 @@ describe("SemanticChecker Annotation Unit Tests", () => {
             let encVer: ABIEncoderVersion;
             let sourceFile: SourceFile;
 
-            before(() => {
-                const result = toAst(fileName, content);
+            before(async () => {
+                const result = await toAst(fileName, content);
 
                 units = result.units;
                 encVer = getABIEncoderVersion(units, compilerVersion);
@@ -580,9 +582,12 @@ describe("SemanticChecker Annotation Unit Tests", () => {
                         sourceFile,
                         0
                     );
-                    const [ctx] = getTypeCtxAndTarget(loc, units, compilerVersion, annotation);
+
+                    const [ctx] = getTypeCtxAndTarget(loc, units, annotation);
                     const typeEnv = new TypeEnv(compilerVersion, encVer);
+
                     tcAnnotation(annotation, ctx, target, typeEnv);
+
                     expect(
                         scAnnotation.bind(scAnnotation, annotation, typeEnv, new Map(), {
                             isOld: false,

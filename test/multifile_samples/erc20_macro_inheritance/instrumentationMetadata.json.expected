@@ -1724,7 +1724,7 @@
     {
       "id": 1,
       "contract": "Token",
-      "filename": "test/multifile_samples/erc20_macro_inheritance/child.sol",
+      "filename": "./test/multifile_samples/erc20_macro_inheritance/child.sol",
       "propertySource": [
         "312:38:2",
         "35:48:0"
@@ -1762,7 +1762,7 @@
     {
       "id": 2,
       "contract": "Token",
-      "filename": "test/multifile_samples/erc20_macro_inheritance/child.sol",
+      "filename": "./test/multifile_samples/erc20_macro_inheritance/child.sol",
       "propertySource": [
         "438:88:2",
         "35:48:0"
@@ -1792,7 +1792,7 @@
     {
       "id": 5,
       "contract": "Token",
-      "filename": "test/multifile_samples/erc20_macro_inheritance/child.sol",
+      "filename": "./test/multifile_samples/erc20_macro_inheritance/child.sol",
       "propertySource": [
         "974:37:2",
         "35:48:0"
@@ -1836,7 +1836,7 @@
     {
       "id": 3,
       "contract": "ERC20",
-      "filename": "test/multifile_samples/erc20_macro_inheritance/child.sol",
+      "filename": "./test/multifile_samples/erc20_macro_inheritance/child.sol",
       "propertySource": [
         "642:34:2",
         "35:48:0"
@@ -1865,7 +1865,7 @@
     {
       "id": 4,
       "contract": "ERC20",
-      "filename": "test/multifile_samples/erc20_macro_inheritance/child.sol",
+      "filename": "./test/multifile_samples/erc20_macro_inheritance/child.sol",
       "propertySource": [
         "813:26:2",
         "35:48:0"
@@ -1903,7 +1903,7 @@
     {
       "id": 6,
       "contract": "ERC20",
-      "filename": "test/multifile_samples/erc20_macro_inheritance/child.sol",
+      "filename": "./test/multifile_samples/erc20_macro_inheritance/child.sol",
       "propertySource": [
         "1145:34:2",
         "35:48:0"
@@ -1943,7 +1943,7 @@
     {
       "id": 7,
       "contract": "ERC20",
-      "filename": "test/multifile_samples/erc20_macro_inheritance/child.sol",
+      "filename": "./test/multifile_samples/erc20_macro_inheritance/child.sol",
       "propertySource": [
         "1271:78:2",
         "35:48:0"
@@ -1988,7 +1988,7 @@
     {
       "id": 8,
       "contract": "ERC20",
-      "filename": "test/multifile_samples/erc20_macro_inheritance/child.sol",
+      "filename": "./test/multifile_samples/erc20_macro_inheritance/child.sol",
       "propertySource": [
         "1436:62:2",
         "35:48:0"
@@ -2035,7 +2035,7 @@
     {
       "id": 9,
       "contract": "ERC20",
-      "filename": "test/multifile_samples/erc20_macro_inheritance/child.sol",
+      "filename": "./test/multifile_samples/erc20_macro_inheritance/child.sol",
       "propertySource": [
         "1601:84:2",
         "35:48:0"
@@ -2076,7 +2076,7 @@
     {
       "id": 10,
       "contract": "ERC20",
-      "filename": "test/multifile_samples/erc20_macro_inheritance/child.sol",
+      "filename": "./test/multifile_samples/erc20_macro_inheritance/child.sol",
       "propertySource": [
         "1842:40:2",
         "35:48:0"
@@ -2120,7 +2120,7 @@
     {
       "id": 11,
       "contract": "ERC20",
-      "filename": "test/multifile_samples/erc20_macro_inheritance/child.sol",
+      "filename": "./test/multifile_samples/erc20_macro_inheritance/child.sol",
       "propertySource": [
         "2026:28:2",
         "35:48:0"
@@ -2167,7 +2167,7 @@
     {
       "id": 12,
       "contract": "ERC20",
-      "filename": "test/multifile_samples/erc20_macro_inheritance/child.sol",
+      "filename": "./test/multifile_samples/erc20_macro_inheritance/child.sol",
       "propertySource": [
         "2146:60:2",
         "35:48:0"
@@ -2220,7 +2220,7 @@
     {
       "id": 13,
       "contract": "ERC20",
-      "filename": "test/multifile_samples/erc20_macro_inheritance/child.sol",
+      "filename": "./test/multifile_samples/erc20_macro_inheritance/child.sol",
       "propertySource": [
         "2299:73:2",
         "35:48:0"
@@ -2266,7 +2266,7 @@
     {
       "id": 14,
       "contract": "ERC20",
-      "filename": "test/multifile_samples/erc20_macro_inheritance/child.sol",
+      "filename": "./test/multifile_samples/erc20_macro_inheritance/child.sol",
       "propertySource": [
         "2461:42:2",
         "35:48:0"
@@ -2311,7 +2311,7 @@
     {
       "id": 15,
       "contract": "ERC20",
-      "filename": "test/multifile_samples/erc20_macro_inheritance/child.sol",
+      "filename": "./test/multifile_samples/erc20_macro_inheritance/child.sol",
       "propertySource": [
         "2589:56:2",
         "35:48:0"
@@ -2364,7 +2364,7 @@
     {
       "id": 16,
       "contract": "ERC20",
-      "filename": "test/multifile_samples/erc20_macro_inheritance/child.sol",
+      "filename": "./test/multifile_samples/erc20_macro_inheritance/child.sol",
       "propertySource": [
         "2748:72:2",
         "35:48:0"
@@ -2411,8 +2411,8 @@
     }
   ],
   "originalSourceList": [
-    "test/multifile_samples/erc20_macro_inheritance/child.sol",
-    "test/multifile_samples/erc20_macro_inheritance/erc20_base.sol",
+    "./test/multifile_samples/erc20_macro_inheritance/child.sol",
+    "./test/multifile_samples/erc20_macro_inheritance/erc20_base.sol",
     "dist/stdlib/erc20.scribble.yaml"
   ],
   "instrSourceList": [

@@ -202,7 +202,7 @@
     {
       "id": 0,
       "contract": "A",
-      "filename": "test/multifile_samples/inheritance1/A.sol",
+      "filename": "./test/multifile_samples/inheritance1/A.sol",
       "propertySource": "35:12:0",
       "annotationSource": "23:25:0",
       "target": "function",
@@ -241,7 +241,7 @@
     {
       "id": 1,
       "contract": "C",
-      "filename": "test/multifile_samples/inheritance1/C.sol",
+      "filename": "./test/multifile_samples/inheritance1/C.sol",
       "propertySource": "63:4:2",
       "annotationSource": "41:27:2",
       "target": "contract",
@@ -264,7 +264,7 @@
     {
       "id": 2,
       "contract": "C",
-      "filename": "test/multifile_samples/inheritance1/C.sol",
+      "filename": "./test/multifile_samples/inheritance1/C.sol",
       "propertySource": "112:14:2",
       "annotationSource": "100:27:2",
       "target": "function",
@@ -295,10 +295,10 @@
     }
   ],
   "originalSourceList": [
-    "test/multifile_samples/inheritance1/A.sol",
-    "test/multifile_samples/inheritance1/B.sol",
-    "test/multifile_samples/inheritance1/C.sol",
-    "test/multifile_samples/inheritance1/D.sol"
+    "./test/multifile_samples/inheritance1/A.sol",
+    "./test/multifile_samples/inheritance1/B.sol",
+    "./test/multifile_samples/inheritance1/C.sol",
+    "./test/multifile_samples/inheritance1/D.sol"
   ],
   "instrSourceList": [
     "--"

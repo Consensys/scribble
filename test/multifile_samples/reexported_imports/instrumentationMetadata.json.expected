@@ -46,10 +46,10 @@
   ],
   "propertyMap": [],
   "originalSourceList": [
-    "test/multifile_samples/reexported_imports/imp1.sol",
-    "test/multifile_samples/reexported_imports/imp2.sol",
-    "test/multifile_samples/reexported_imports/imp3.sol",
-    "test/multifile_samples/reexported_imports/main.sol"
+    "./test/multifile_samples/reexported_imports/imp1.sol",
+    "./test/multifile_samples/reexported_imports/imp2.sol",
+    "./test/multifile_samples/reexported_imports/imp3.sol",
+    "./test/multifile_samples/reexported_imports/main.sol"
   ],
   "instrSourceList": [
     "--"
