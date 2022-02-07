@@ -22,6 +22,7 @@ import {
     FunctionVisibility,
     getABIEncoderVersion,
     isSane,
+    PossibleCompilerKinds,
     SourceUnit,
     SrcRangeMap,
     Statement,
@@ -142,6 +143,7 @@ function prettyError(type: string, message: string, location: NodeLocation | Loc
 
 function ppWarning(warn: Warning): string[] {
     const start = "start" in warn.location ? warn.location.start : warn.location;
+
     return [`${ppLoc(start)} Warning: ${warn.msg}`, getSrcLine(warn.location)];
 }
 
@@ -150,7 +152,8 @@ async function compile(
     type: "source" | "json",
     compilerVersion: string,
     remapping: string[],
-    compilerSettings: any
+    compilerSettings: any,
+    compilerKind: CompilerKind
 ): Promise<CompileResult> {
     const astOnlyOutput = [
         CompilationOutput.AST,
@@ -171,7 +174,7 @@ async function compile(
                   compilerVersion,
                   astOnlyOutput,
                   compilerSettings,
-                  CompilerKind.Native
+                  compilerKind
               )
             : compileSourceString(
                   fileName,
@@ -180,7 +183,7 @@ async function compile(
                   remapping,
                   astOnlyOutput,
                   compilerSettings,
-                  CompilerKind.Native
+                  compilerKind
               );
     }
 
@@ -195,20 +198,14 @@ async function compile(
     }
 
     return type === "json"
-        ? compileJson(
-              fileName,
-              compilerVersion,
-              astOnlyOutput,
-              compilerSettings,
-              CompilerKind.Native
-          )
+        ? compileJson(fileName, compilerVersion, astOnlyOutput, compilerSettings, compilerKind)
         : compileSol(
               fileName,
               compilerVersion,
               remapping,
               astOnlyOutput,
               compilerSettings,
-              CompilerKind.Native
+              compilerKind
           );
 }
 
@@ -236,12 +233,16 @@ function computeContractsNeedingInstr(
                 ).length > 0
         )
         .map(([contract]) => contract);
+
     const visited = new Set<ContractDefinition>();
 
     while (wave.length > 0) {
         const cur = wave.pop() as ContractDefinition;
 
-        if (visited.has(cur)) continue;
+        if (visited.has(cur)) {
+            continue;
+        }
+
         visited.add(cur);
 
         for (const parent of cha.parents.get(cur) as ContractDefinition[]) {
@@ -268,6 +269,7 @@ function detectMacroDefinitions(
         const macroFile = new MacroFile(fileName, data);
 
         sources.set(fileName, macroFile);
+
         readMacroDefinitions(macroFile, defs);
     }
 }
@@ -336,6 +338,7 @@ function instrumentFiles(
                 }
 
                 let annotations = gatherFunctionAnnotations(fun, annotMap);
+
                 if (
                     (fun.visibility == FunctionVisibility.External ||
                         fun.visibility == FunctionVisibility.Public) &&
@@ -496,6 +499,29 @@ function isInstrumented(filePath: string, prefix: string): boolean {
     return source.startsWith(prefix);
 }
 
+function detectCompilerKind(options: any): CompilerKind {
+    const customCompilerKind = options["compiler-kind"];
+    const envCompilerKind = process.env["SCRIBBLE_DEFAULT_COMPILER_KIND"];
+
+    let kind: string;
+
+    if (customCompilerKind) {
+        kind = customCompilerKind;
+    } else if (envCompilerKind) {
+        kind = envCompilerKind;
+    } else {
+        kind = CompilerKind.Native;
+    }
+
+    if (PossibleCompilerKinds.has(kind)) {
+        return kind as CompilerKind;
+    }
+
+    const kinds = Array.from(PossibleCompilerKinds).join(", ");
+
+    error(`Unsupported compiler kind "${kind}". Possible values: ${kinds}`);
+}
+
 function detectInstrMetdataFilePath(targets: string[], options: any): string {
     if (options["instrumentation-metadata-file"]) {
         return options["instrumentation-metadata-file"];
@@ -581,6 +607,8 @@ function pickVersion(versionUsedMap: Map<string, string>): string {
         const compilerVersion: string =
             options["compiler-version"] !== undefined ? options["compiler-version"] : "auto";
 
+        const compilerKind = detectCompilerKind(options);
+
         let compilerSettings: any;
 
         try {
@@ -624,7 +652,7 @@ function pickVersion(versionUsedMap: Map<string, string>): string {
         const outputMode: "flat" | "files" | "json" = oneOf(
             options["output-mode"],
             ["flat", "files", "json"],
-            `Error: --output-mode must be either 'flat', 'files' or 'json`
+            "Error: --output-mode must be either 'flat', 'files' or 'json'"
         );
 
         const compilerVersionUsedMap: Map<string, string> = new Map();
@@ -692,7 +720,8 @@ function pickVersion(versionUsedMap: Map<string, string>): string {
                         inputMode,
                         compilerVersion,
                         pathRemapping,
-                        compilerSettings
+                        compilerSettings,
+                        compilerKind
                     );
                 } catch (e: any) {
                     if (e instanceof CompileFailedError) {

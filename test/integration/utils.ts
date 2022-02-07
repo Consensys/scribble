@@ -10,6 +10,7 @@ import {
     CompilerKind,
     compileSol,
     compileSourceString,
+    PossibleCompilerKinds,
     SourceUnit,
     Statement,
     XPath
@@ -17,6 +18,20 @@ import {
 import { AnnotationTarget, OriginalJSONLoc, single } from "../../src";
 import { SAnnotation, SStateVarProp } from "../../src/spec-lang/ast";
 import { StateVarScope, STypingCtx } from "../../src/spec-lang/tc";
+
+export function getCompilerKind(): CompilerKind {
+    const kind = process.env["SCRIBBLE_DEFAULT_COMPILER_KIND"]
+        ? process.env["SCRIBBLE_DEFAULT_COMPILER_KIND"]
+        : CompilerKind.Native;
+
+    if (PossibleCompilerKinds.has(kind)) {
+        return kind as CompilerKind;
+    }
+
+    const kinds = Array.from(PossibleCompilerKinds).join(", ");
+
+    throw new Error(`Unsupported compiler kind "${kind}". Possible values: ${kinds}`);
+}
 
 export interface ExtendedCompileResult extends CompileResult {
     compilerVersion: string;
@@ -59,9 +74,10 @@ export function makeArtefact(result: CompileResult): string {
 
 export async function toAst(fileName: string, content?: string): Promise<ExtendedCompileResult> {
     const remapping: string[] = [];
+    const compilerKind = getCompilerKind();
 
     const result = await (content === undefined
-        ? compileSol(fileName, "auto", remapping, undefined, undefined, CompilerKind.Native)
+        ? compileSol(fileName, "auto", remapping, undefined, undefined, compilerKind)
         : compileSourceString(
               fileName,
               content,
@@ -69,7 +85,7 @@ export async function toAst(fileName: string, content?: string): Promise<Extende
               remapping,
               undefined,
               undefined,
-              CompilerKind.Native
+              compilerKind
           ));
 
     const compilerVersion = result.compilerVersion;
@@ -95,6 +111,7 @@ export async function toAstUsingCache(
     const artefact = fileName + ".json";
     const jsonData = fse.readJSONSync(artefact, { encoding: "utf-8" });
     const compilerVersion = jsonData.compilerVersion;
+    const compilerKind = getCompilerKind();
 
     const result = await compileJsonData(
         fileName,
@@ -102,7 +119,7 @@ export async function toAstUsingCache(
         compilerVersion,
         undefined,
         undefined,
-        CompilerKind.Native
+        compilerKind
     );
 
     if (compilerVersion === undefined) {

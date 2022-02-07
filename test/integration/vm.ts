@@ -1,9 +1,3 @@
-import {
-    CompilerKind,
-    compileSol,
-    compileSourceString,
-    LatestCompilerVersion
-} from "solc-typed-ast";
 import BN from "bn.js";
 import crypto from "crypto";
 import Account from "ethereumjs-account";
@@ -12,6 +6,8 @@ import * as util from "ethereumjs-util";
 import VM from "ethereumjs-vm";
 import { RunTxResult } from "ethereumjs-vm/dist/runTx";
 import expect from "expect";
+import { compileSol, compileSourceString, LatestCompilerVersion } from "solc-typed-ast";
+import { getCompilerKind } from "./utils";
 
 const abi = require("ethereumjs-abi");
 const { promisify } = require("util");
@@ -88,17 +84,11 @@ async function compileSource(
     contents?: string,
     version: string = LatestCompilerVersion
 ): Promise<ContractBytecodeMap> {
+    const compilerKind = getCompilerKind();
+
     const { data } = await (contents
-        ? compileSourceString(
-              fileName,
-              contents,
-              version,
-              [],
-              undefined,
-              undefined,
-              CompilerKind.Native
-          )
-        : compileSol(fileName, "auto", [], undefined, undefined, CompilerKind.Native));
+        ? compileSourceString(fileName, contents, version, [], undefined, undefined, compilerKind)
+        : compileSol(fileName, "auto", [], undefined, undefined, compilerKind));
 
     const result = new Map<string, Buffer>();
 

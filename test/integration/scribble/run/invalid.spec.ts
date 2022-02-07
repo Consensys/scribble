@@ -162,6 +162,10 @@ describe(`Command "scribble <filename>" is failing as expected`, () => {
         [
             ["test/samples/invalid/garbage_at_start.warning.sol", "-o", "tmp.sol"],
             /.*test\/samples\/invalid\/garbage_at_start.warning.sol:2:4 Warning: The following looks like an annotation but was ignored due to garbage before first keyword.*/g
+        ],
+        [
+            ["test/samples/hints.sol", "--compiler-kind", "unknown"],
+            /.*Unsupported compiler kind "unknown". Possible values: wasm, native.*/g
         ]
     ];
 
