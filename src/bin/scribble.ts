@@ -766,10 +766,7 @@ function pickVersion(versionUsedMap: Map<string, string>): string {
                 }
 
                 const originalUnits = reader.read(targetResult.data, undefined, targetResult.files);
-                /**
-                 * This is inefficient, but we re-create the utils source unit for every target. This is due to
-                 * the inability to merge the id-spaces of the nodes of different compilation results.
-                 */
+
                 compilerVersionUsedMap.set(target, compilerVersionUsed);
                 groupsMap.set(target, originalUnits);
                 ctxtsMap.set(target, ctx);
@@ -781,9 +778,6 @@ function pickVersion(versionUsedMap: Map<string, string>): string {
             }
         }
 
-        /**
-         * Without --disarm we need to instrument and output something.
-         */
         const contentsMap: SourceMap = new Map();
 
         // First load any macros if `--macro-path` was specified
