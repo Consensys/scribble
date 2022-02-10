@@ -57,7 +57,8 @@ import {
     VariableDeclarationStatement,
     WhileStatement,
     ErrorDefinition,
-    UserDefinedValueTypeDefinition
+    UserDefinedValueTypeDefinition,
+    RevertStatement
 } from "solc-typed-ast";
 import { reNumber } from "../util/json_output";
 import { getOrInit } from "../util/misc";
@@ -327,6 +328,8 @@ export function merge(groups: SourceUnit[][]): [SourceUnit[], ASTContext] {
                     child.assignments[i] = getNew(assignment).id;
                 }
             } else if (child instanceof WhileStatement) {
+                // Nothing to do
+            } else if (child instanceof RevertStatement) {
                 // Nothing to do
             } else if (child instanceof ArrayTypeName) {
                 /// ======== TYPE NODES ==========================================
