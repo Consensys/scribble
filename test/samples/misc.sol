@@ -133,3 +133,13 @@ contract CallinInstrumentedFun {
         return x + getX();
     }
 }
+
+// --------------------------------------------
+contract IndexAccessOnResult {
+        /// #if_succeeds $result[0] > 1;
+        function foo() public pure returns (uint[] memory) {
+                uint[] memory x = new uint[](1);
+                x[1] = 2;
+                return x;
+        }
+}

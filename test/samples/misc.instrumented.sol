@@ -253,3 +253,19 @@ contract CallinInstrumentedFun is __scribble_ReentrancyUtils {
         return x + getX();
     }
 }
+
+contract IndexAccessOnResult is __scribble_ReentrancyUtils {
+    function foo() public returns (uint[] memory RET_0) {
+        RET_0 = _original_IndexAccessOnResult_foo();
+        if (!(RET_0[0] > 1)) {
+            emit AssertionFailed("13: ");
+            assert(false);
+        }
+    }
+
+    function _original_IndexAccessOnResult_foo() private pure returns (uint[] memory) {
+        uint[] memory x = new uint[](1);
+        x[1] = 2;
+        return x;
+    }
+}
