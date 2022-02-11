@@ -578,7 +578,7 @@ describe("Interposing on a map", () => {
             expect(instrCode).toEqual(expectedInstrCode);
         });
 
-        it(`Interposed code executes successfully in sample ${name}`, () => {
+        it(`Interposed code executes successfully in sample ${name}`, async () => {
             const cfg: Config = {
                 file: "sample.sol",
                 contents: newContent,
@@ -606,7 +606,7 @@ describe("Interposing on a map", () => {
                 ]
             };
 
-            executeTestSuiteInternal(cfg, version);
+            await executeTestSuiteInternal(cfg, version);
         });
     }
 });
