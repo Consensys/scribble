@@ -150,7 +150,7 @@
     {
       "id": 0,
       "contract": "Base",
-      "filename": "./test/multifile_samples/proj1/base.sol",
+      "filename": "test/multifile_samples/proj1/base.sol",
       "propertySource": "53:5:0",
       "annotationSource": "31:28:0",
       "target": "contract",
@@ -182,7 +182,7 @@
     {
       "id": 1,
       "contract": "Child1",
-      "filename": "./test/multifile_samples/proj1/child1.sol",
+      "filename": "test/multifile_samples/proj1/child1.sol",
       "propertySource": "118:15:1",
       "annotationSource": "94:40:1",
       "target": "function",
@@ -222,7 +222,7 @@
     {
       "id": 2,
       "contract": "Child2",
-      "filename": "./test/multifile_samples/proj1/child2.sol",
+      "filename": "test/multifile_samples/proj1/child2.sol",
       "propertySource": "118:14:2",
       "annotationSource": "94:39:2",
       "target": "function",
@@ -255,9 +255,9 @@
     }
   ],
   "originalSourceList": [
-    "./test/multifile_samples/proj1/base.sol",
-    "./test/multifile_samples/proj1/child1.sol",
-    "./test/multifile_samples/proj1/child2.sol"
+    "test/multifile_samples/proj1/base.sol",
+    "test/multifile_samples/proj1/child1.sol",
+    "test/multifile_samples/proj1/child2.sol"
   ],
   "instrSourceList": [
     "--"

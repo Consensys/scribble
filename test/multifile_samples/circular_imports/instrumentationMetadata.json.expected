@@ -138,7 +138,7 @@
     {
       "id": 0,
       "contract": "A",
-      "filename": "./test/multifile_samples/circular_imports/A.sol",
+      "filename": "test/multifile_samples/circular_imports/A.sol",
       "propertySource": "34:4:0",
       "annotationSource": "24:15:0",
       "target": "contract",
@@ -161,7 +161,7 @@
     {
       "id": 1,
       "contract": "B",
-      "filename": "./test/multifile_samples/circular_imports/B.sol",
+      "filename": "test/multifile_samples/circular_imports/B.sol",
       "propertySource": "34:4:1",
       "annotationSource": "24:15:1",
       "target": "contract",
@@ -183,8 +183,8 @@
     }
   ],
   "originalSourceList": [
-    "./test/multifile_samples/circular_imports/A.sol",
-    "./test/multifile_samples/circular_imports/B.sol"
+    "test/multifile_samples/circular_imports/A.sol",
+    "test/multifile_samples/circular_imports/B.sol"
   ],
   "instrSourceList": [
     "--"

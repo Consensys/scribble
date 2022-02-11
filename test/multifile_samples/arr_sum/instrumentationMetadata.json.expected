@@ -358,7 +358,7 @@
     {
       "id": 0,
       "contract": "Foo",
-      "filename": "./test/multifile_samples/arr_sum/main.sol",
+      "filename": "test/multifile_samples/arr_sum/main.sol",
       "propertySource": "114:46:0",
       "annotationSource": "102:59:0",
       "target": "function",
@@ -391,7 +391,7 @@
     {
       "id": 1,
       "contract": "Foo",
-      "filename": "./test/multifile_samples/arr_sum/main.sol",
+      "filename": "test/multifile_samples/arr_sum/main.sol",
       "propertySource": "245:46:0",
       "annotationSource": "233:59:0",
       "target": "function",
@@ -424,7 +424,7 @@
     {
       "id": 2,
       "contract": "Foo",
-      "filename": "./test/multifile_samples/arr_sum/main.sol",
+      "filename": "test/multifile_samples/arr_sum/main.sol",
       "propertySource": "382:47:0",
       "annotationSource": "370:60:0",
       "target": "function",
@@ -457,7 +457,7 @@
     {
       "id": 3,
       "contract": "Foo",
-      "filename": "./test/multifile_samples/arr_sum/main.sol",
+      "filename": "test/multifile_samples/arr_sum/main.sol",
       "propertySource": "514:47:0",
       "annotationSource": "502:60:0",
       "target": "function",
@@ -490,7 +490,7 @@
     {
       "id": 4,
       "contract": "Foo",
-      "filename": "./test/multifile_samples/arr_sum/main.sol",
+      "filename": "test/multifile_samples/arr_sum/main.sol",
       "propertySource": "657:47:0",
       "annotationSource": "645:60:0",
       "target": "function",
@@ -523,7 +523,7 @@
     {
       "id": 5,
       "contract": "Foo",
-      "filename": "./test/multifile_samples/arr_sum/main.sol",
+      "filename": "test/multifile_samples/arr_sum/main.sol",
       "propertySource": "781:47:0",
       "annotationSource": "769:60:0",
       "target": "function",
@@ -556,7 +556,7 @@
     {
       "id": 6,
       "contract": "Foo",
-      "filename": "./test/multifile_samples/arr_sum/main.sol",
+      "filename": "test/multifile_samples/arr_sum/main.sol",
       "propertySource": "914:21:0",
       "annotationSource": "902:34:0",
       "target": "function",
@@ -587,7 +587,7 @@
     }
   ],
   "originalSourceList": [
-    "./test/multifile_samples/arr_sum/main.sol"
+    "test/multifile_samples/arr_sum/main.sol"
   ],
   "instrSourceList": [
     "--"

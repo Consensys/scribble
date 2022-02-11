@@ -127,7 +127,7 @@ describe("Property map test", () => {
             before(async () => {
                 const result = await toAstUsingCache(sample);
 
-                if (!result.files.has("./" + sample)) {
+                if (!result.files.has(sample)) {
                     throw new Error(`Missing source for ${sample} in files mapping`);
                 }
 
@@ -141,7 +141,7 @@ describe("Property map test", () => {
                 const preds = findPredicates(inAst, instrMetadata);
 
                 for (const entry of instrMetadata.propertyMap) {
-                    expect(entry.filename).toEqual("./" + sample);
+                    expect(entry.filename).toEqual(sample);
 
                     const [start, len, fileInd] = getSrcTripple(loc2Src(entry.propertySource));
 

@@ -310,10 +310,10 @@
   ],
   "propertyMap": [],
   "originalSourceList": [
-    "./test/multifile_samples/reexported_imports_05/imp1.sol",
-    "./test/multifile_samples/reexported_imports_05/imp2.sol",
-    "./test/multifile_samples/reexported_imports_05/imp3.sol",
-    "./test/multifile_samples/reexported_imports_05/main.sol"
+    "test/multifile_samples/reexported_imports_05/imp1.sol",
+    "test/multifile_samples/reexported_imports_05/imp2.sol",
+    "test/multifile_samples/reexported_imports_05/imp3.sol",
+    "test/multifile_samples/reexported_imports_05/main.sol"
   ],
   "instrSourceList": [
     "--"

@@ -114,10 +114,10 @@
   ],
   "propertyMap": [],
   "originalSourceList": [
-    "./test/multifile_samples/import_rewrites/imp1.sol",
-    "./test/multifile_samples/import_rewrites/imp2.sol",
-    "./test/multifile_samples/import_rewrites/imp3.sol",
-    "./test/multifile_samples/import_rewrites/main.sol"
+    "test/multifile_samples/import_rewrites/imp1.sol",
+    "test/multifile_samples/import_rewrites/imp2.sol",
+    "test/multifile_samples/import_rewrites/imp3.sol",
+    "test/multifile_samples/import_rewrites/main.sol"
   ],
   "instrSourceList": [
     "--"

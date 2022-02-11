@@ -92,7 +92,7 @@ async function compileSource(
 
     const result = new Map<string, Buffer>();
 
-    const contracts: { [name: string]: any } = data.contracts["./" + fileName];
+    const contracts: { [name: string]: any } = data.contracts[fileName];
 
     for (const [name, meta] of Object.entries(contracts)) {
         const bytecode = meta && meta.evm && meta.evm.bytecode && meta.evm.bytecode.object;

@@ -376,7 +376,7 @@
     {
       "id": 0,
       "contract": "Base",
-      "filename": "./test/multifile_samples/asserts/B.sol",
+      "filename": "test/multifile_samples/asserts/B.sol",
       "propertySource": "57:9:1",
       "annotationSource": "47:20:1",
       "target": "contract",
@@ -408,7 +408,7 @@
     {
       "id": 1,
       "contract": "Base",
-      "filename": "./test/multifile_samples/asserts/B.sol",
+      "filename": "test/multifile_samples/asserts/B.sol",
       "propertySource": "101:20:1",
       "annotationSource": "90:32:1",
       "target": "variable",
@@ -448,7 +448,7 @@
     {
       "id": 2,
       "contract": "Base",
-      "filename": "./test/multifile_samples/asserts/B.sol",
+      "filename": "test/multifile_samples/asserts/B.sol",
       "propertySource": "153:13:1",
       "annotationSource": "141:26:1",
       "target": "function",
@@ -480,7 +480,7 @@
     {
       "id": 3,
       "contract": "Base",
-      "filename": "./test/multifile_samples/asserts/B.sol",
+      "filename": "test/multifile_samples/asserts/B.sol",
       "propertySource": "223:31:1",
       "annotationSource": "216:39:1",
       "target": "statement",
@@ -523,7 +523,7 @@
     {
       "id": 4,
       "contract": "Base",
-      "filename": "./test/multifile_samples/asserts/B.sol",
+      "filename": "test/multifile_samples/asserts/B.sol",
       "propertySource": "312:8:1",
       "annotationSource": "305:16:1",
       "target": "statement",
@@ -567,7 +567,7 @@
     {
       "id": 5,
       "contract": "Child",
-      "filename": "./test/multifile_samples/asserts/C.sol",
+      "filename": "test/multifile_samples/asserts/C.sol",
       "propertySource": "219:54:2",
       "annotationSource": "212:62:2",
       "target": "statement",
@@ -606,7 +606,7 @@
     {
       "id": 6,
       "contract": "Child",
-      "filename": "./test/multifile_samples/asserts/C.sol",
+      "filename": "test/multifile_samples/asserts/C.sol",
       "propertySource": "369:13:2",
       "annotationSource": "362:21:2",
       "target": "statement",
@@ -628,9 +628,9 @@
     }
   ],
   "originalSourceList": [
-    "./test/multifile_samples/asserts/A.sol",
-    "./test/multifile_samples/asserts/B.sol",
-    "./test/multifile_samples/asserts/C.sol"
+    "test/multifile_samples/asserts/A.sol",
+    "test/multifile_samples/asserts/B.sol",
+    "test/multifile_samples/asserts/C.sol"
   ],
   "instrSourceList": [
     "--"

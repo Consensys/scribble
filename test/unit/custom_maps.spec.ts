@@ -112,8 +112,8 @@ describe("Maps with keys library generation", () => {
 
             const compRes = await compileSourceString("foo.sol", newContent, version, []);
 
-            expect(compRes.data.contracts["./foo.sol"]).toBeDefined();
-            expect(compRes.data.contracts["./foo.sol"][lib.name]).toBeDefined();
+            expect(compRes.data.contracts["foo.sol"]).toBeDefined();
+            expect(compRes.data.contracts["foo.sol"][lib.name]).toBeDefined();
             expect(forAll(compRes.data.errors, (error: any) => error.severity === "warning"));
         });
     }
@@ -570,7 +570,7 @@ describe("Interposing on a map", () => {
 
             const compRes = await compileSourceString("foo.sol", newContent, version, []);
 
-            expect(compRes.data.contracts["./foo.sol"]).toBeDefined();
+            expect(compRes.data.contracts["foo.sol"]).toBeDefined();
             expect(forAll(compRes.data.errors, (error: any) => error.severity === "warning"));
         });
 
