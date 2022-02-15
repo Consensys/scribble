@@ -46,6 +46,13 @@ contract OldInOld {
 
 // ---------------------------------------------
 
+contract OldInOld2{
+    /// #if_succeeds let t:= OldInOld2(address(0x0)) in old(t.balanceOf()) == 42;
+    function balanceOf() public view returns (uint) {}
+}
+
+// ---------------------------------------------
+
 contract OldTuple {
 	uint x;
 	uint y;

@@ -102,11 +102,33 @@ contract OldInOld is __scribble_ReentrancyUtils {
     }
 }
 
-contract OldTuple is __scribble_ReentrancyUtils {
+contract OldInOld2 is __scribble_ReentrancyUtils {
     struct vars4 {
+        OldInOld2 t1;
+        uint256 old_0;
+        bool let_3;
+    }
+
+    function balanceOf() public returns (uint RET_0) {
+        vars4 memory _v;
+        _v.t1 = OldInOld2(address(0x0));
+        _v.old_0 = _v.t1.balanceOf();
+        RET_0 = _original_OldInOld2_balanceOf();
+        _v.let_3 = _v.old_0 == 42;
+        if (!(_v.let_3)) {
+            emit AssertionFailed("4: ");
+            assert(false);
+        }
+    }
+
+    function _original_OldInOld2_balanceOf() private view returns (uint) {}
+}
+
+contract OldTuple is __scribble_ReentrancyUtils {
+    struct vars5 {
         uint256 oldX;
         uint256 oldY;
-        bool let_3;
+        bool let_4;
     }
 
     uint internal x;
@@ -117,12 +139,12 @@ contract OldTuple is __scribble_ReentrancyUtils {
     }
 
     function main(uint k) public {
-        vars4 memory _v;
+        vars5 memory _v;
         (_v.oldX, _v.oldY) = dbl();
         _original_OldTuple_main(k);
-        _v.let_3 = (x == (_v.oldX + k)) && (y == (_v.oldY + k));
-        if (!(_v.let_3)) {
-            emit AssertionFailed("4: ");
+        _v.let_4 = (x == (_v.oldX + k)) && (y == (_v.oldY + k));
+        if (!(_v.let_4)) {
+            emit AssertionFailed("5: ");
             assert(false);
         }
     }
@@ -134,21 +156,21 @@ contract OldTuple is __scribble_ReentrancyUtils {
 }
 
 contract Result is __scribble_ReentrancyUtils {
-    struct vars6 {
-        uint256 t1;
-        bool let_4;
+    struct vars7 {
+        uint256 t2;
+        bool let_5;
     }
 
-    struct vars7 {
+    struct vars8 {
         uint256 a1;
         uint256 b1;
-        bool let_5;
+        bool let_6;
     }
 
     function a() public returns (uint RET_0) {
         RET_0 = _original_Result_a();
         if (!(RET_0 == 1)) {
-            emit AssertionFailed("5: ");
+            emit AssertionFailed("6: ");
             assert(false);
         }
     }
@@ -158,16 +180,16 @@ contract Result is __scribble_ReentrancyUtils {
     }
 
     function b() public returns (uint x) {
-        vars6 memory _v;
+        vars7 memory _v;
         x = _original_Result_b();
-        _v.t1 = x;
-        _v.let_4 = _v.t1 == x;
+        _v.t2 = x;
+        _v.let_5 = _v.t2 == x;
         if (!(x == x)) {
-            emit AssertionFailed("6: ");
+            emit AssertionFailed("7: ");
             assert(false);
         }
-        if (!(_v.let_4)) {
-            emit AssertionFailed("7: ");
+        if (!(_v.let_5)) {
+            emit AssertionFailed("8: ");
             assert(false);
         }
     }
@@ -177,12 +199,12 @@ contract Result is __scribble_ReentrancyUtils {
     }
 
     function d() public returns (uint RET_0, uint t) {
-        vars7 memory _v;
+        vars8 memory _v;
         (RET_0, t) = _original_Result_d();
         (_v.a1, _v.b1) = (RET_0, t);
-        _v.let_5 = ((_v.a1 == 1) && (_v.b1 == 2)) && (t == _v.b1);
-        if (!(_v.let_5)) {
-            emit AssertionFailed("8: ");
+        _v.let_6 = ((_v.a1 == 1) && (_v.b1 == 2)) && (t == _v.b1);
+        if (!(_v.let_6)) {
+            emit AssertionFailed("9: ");
             assert(false);
         }
     }
@@ -200,7 +222,7 @@ contract UsingForRefType is __scribble_ReentrancyUtils {
     function main(string memory mS) public {
         _original_UsingForRefType_main(mS);
         if (!(sS.len() == mS.len())) {
-            emit AssertionFailed("9: F");
+            emit AssertionFailed("10: F");
             assert(false);
         }
     }
@@ -212,7 +234,7 @@ contract ExternalCall is __scribble_ReentrancyUtils {
     function process(bytes calldata _bytes) external returns (bool result) {
         result = _original_ExternalCall_process(_bytes);
         if (!(this.checkBytes(_bytes) == result)) {
-            emit AssertionFailed("10: wrong byte");
+            emit AssertionFailed("11: wrong byte");
             assert(false);
         }
     }
@@ -232,7 +254,7 @@ contract CallinInstrumentedFun is __scribble_ReentrancyUtils {
     function getX() public returns (uint res) {
         res = _original_CallinInstrumentedFun_getX();
         if (!(res > 0)) {
-            emit AssertionFailed("11: ");
+            emit AssertionFailed("12: ");
             assert(false);
         }
     }
@@ -244,7 +266,7 @@ contract CallinInstrumentedFun is __scribble_ReentrancyUtils {
     function inc(uint x) public returns (uint res) {
         res = _original_CallinInstrumentedFun_inc(x);
         if (!(res == (x + _original_CallinInstrumentedFun_getX()))) {
-            emit AssertionFailed("12: ");
+            emit AssertionFailed("13: ");
             assert(false);
         }
     }
@@ -258,7 +280,7 @@ contract IndexAccessOnResult is __scribble_ReentrancyUtils {
     function foo() public returns (uint[] memory RET_0) {
         RET_0 = _original_IndexAccessOnResult_foo();
         if (!(RET_0[0] > 1)) {
-            emit AssertionFailed("13: ");
+            emit AssertionFailed("14: ");
             assert(false);
         }
     }
