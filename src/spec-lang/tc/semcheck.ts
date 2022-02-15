@@ -236,6 +236,31 @@ export function scId(expr: SId, ctx: SemCtx, typings: TypeEnv, semMap: SemMap): 
             isConst = false;
             isOld = false;
         }
+    } else if (def instanceof SForAll) {
+        isConst = false;
+        if (def.container !== undefined) {
+            isOld = (semMap.get(def.container) as SemInfo).isOld;
+        } else {
+            assert(def.start !== undefined && def.end !== undefined, `Missing start/end`);
+            isOld =
+                (semMap.get(def.start) as SemInfo).isOld || (semMap.get(def.end) as SemInfo).isOld;
+        }
+
+        // Its a semantic error for a forall variable defined over post-condition state to be used in pre-condition state
+        if (ctx.isOld && !isOld) {
+            throw new SemError(
+                `Forall variable ${expr.name} doesn't have old() in its range definition, but used in an old() expression`,
+                expr
+            );
+        }
+
+        // Its a semantic error for a forall variable defined over pre-condition state to be used in post-condition state
+        if (!ctx.isOld && isOld) {
+            throw new SemError(
+                `Forall variable ${expr.name} has old() in its range definition but used outside of an old()`,
+                expr
+            );
+        }
     } else if (def === "function_name" || def === "type_name") {
         isConst = true;
     } else if (def === "this") {
@@ -547,13 +572,12 @@ export function decomposeStateVarRef(
  * throw an error if the expression depends on t.
  */
 export function scForAll(expr: SForAll, ctx: SemCtx, typeEnv: TypeEnv, semMap: SemMap): SemInfo {
-    const exprSemInfo = sc(expr.expression, ctx, typeEnv, semMap);
-    const itrSemInfo = sc(expr.iteratorVariable, ctx, typeEnv, semMap);
     const startSemInfo = expr.start ? sc(expr.start, ctx, typeEnv, semMap) : undefined;
     const endSemInfo = expr.end ? sc(expr.end, ctx, typeEnv, semMap) : undefined;
     const containerSemInfo = expr.container ? sc(expr.container, ctx, typeEnv, semMap) : undefined;
+    const exprSemInfo = sc(expr.expression, ctx, typeEnv, semMap);
 
-    let canFail = exprSemInfo.canFail || itrSemInfo.canFail;
+    let canFail = exprSemInfo.canFail;
 
     if (startSemInfo) {
         canFail ||= startSemInfo.canFail;
@@ -571,8 +595,7 @@ export function scForAll(expr: SForAll, ctx: SemCtx, typeEnv: TypeEnv, semMap: S
         (containerSemInfo !== undefined && containerSemInfo.isOld) ||
         (startSemInfo !== undefined &&
             endSemInfo !== undefined &&
-            startSemInfo.isOld &&
-            endSemInfo.isOld);
+            (startSemInfo.isOld || endSemInfo.isOld));
 
     // We treat `forall (x in old(exp1)) old(exp2)` same as `old(forall (x in exp1) exp2)`
     const isOld = ctx.isOld || (rangeIsOld && exprSemInfo.isOld);
