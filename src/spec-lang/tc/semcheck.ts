@@ -217,15 +217,19 @@ export function scId(expr: SId, ctx: SemCtx, typings: TypeEnv, semMap: SemMap): 
             const defInfo = semMap.get(defNode.rhs) as SemInfo;
 
             isConst = defInfo.isConst;
-            isOld = defInfo.isOld || (ctx.isOld && isConst);
-            // Using a non-constant let-binding from a new context in an old expression is a semantic error
-            if (ctx.isOld && !defInfo.isOld && !isConst) {
-                throw new SemError(
-                    `Variable ${
-                        expr.name
-                    } is defined in the new context in ${defNode.pp()} but used in an old() expression`,
-                    expr
-                );
+            isOld = defInfo.isOld;
+            if (ctx.isOld && !defInfo.isOld) {
+                // Using a non-constant let-binding from a new context in an old expression is a semantic error
+                if (!defInfo.isConst) {
+                    throw new SemError(
+                        `Variable ${
+                            expr.name
+                        } is defined in the new context in ${defNode.pp()} but used in an old() expression`,
+                        expr
+                    );
+                }
+                // Need to retro-actively make the constant let-binding "old"
+                defInfo.isOld = true;
             }
         } else {
             /// SUserFunctionDefinition parameter
