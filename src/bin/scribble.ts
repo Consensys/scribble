@@ -21,6 +21,7 @@ import {
     FunctionStateMutability,
     FunctionVisibility,
     getABIEncoderVersion,
+    getCompilerPrefixForOs,
     isSane,
     PossibleCompilerKinds,
     SourceUnit,
@@ -510,7 +511,16 @@ function detectCompilerKind(options: any): CompilerKind {
     } else if (envCompilerKind) {
         kind = envCompilerKind;
     } else {
-        kind = CompilerKind.Native;
+        /**
+         * @see https://github.com/ethereum/solc-bin
+         */
+        const nativePrefixes = ["linux-amd64", "windows-amd64", "macosx-amd64"];
+        const osPrefix = getCompilerPrefixForOs();
+
+        kind =
+            osPrefix !== undefined && nativePrefixes.includes(osPrefix)
+                ? CompilerKind.Native
+                : CompilerKind.WASM;
     }
 
     if (PossibleCompilerKinds.has(kind)) {
