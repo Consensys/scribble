@@ -1,4 +1,5 @@
 import {
+    ArrayType,
     assert,
     FunctionStateMutability,
     FunctionType,
@@ -305,6 +306,17 @@ export function scUnary(
     const annotType = ctx.annotation.type;
 
     if (expr.op === "old") {
+        const exprT = typeEnv.typeOf(expr);
+
+        if (exprT instanceof PointerType) {
+            if (exprT.to instanceof ArrayType) {
+                throw new SemError(`old() expressions over arrays are not allowed`, expr);
+            }
+
+            if (exprT.to instanceof MappingType) {
+                throw new SemError(`old() expressions over maps are not allowed`, expr);
+            }
+        }
         if (
             !(
                 ctx.annotation.type === AnnotationType.IfSucceeds ||

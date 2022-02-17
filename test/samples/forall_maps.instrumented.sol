@@ -683,14 +683,14 @@ contract Foo is __scribble_ReentrancyUtils {
             _v.forall_13 = true;
             for (_v.i14 = 1; _v.i14 < k.keys.length; _v.i14++) {
                 _v.i13 = k.keys[_v.i14];
-                _v.old_0 = uint256_to_uint256.get(k, _v.i13) > 0;
-                _v.forall_13 = _v.old_0;
+                _v.forall_13 = uint256_to_uint256.get(k, _v.i13) > 0;
                 if (!_v.forall_13) break;
             }
+            _v.old_0 = _v.forall_13;
         }
         _original_Foo_setK1(i, v);
         unchecked {
-            if (!(_v.forall_13)) {
+            if (!(_v.old_0)) {
                 emit AssertionFailed("11: ");
                 assert(false);
             }
