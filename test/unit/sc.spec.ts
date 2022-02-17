@@ -291,7 +291,7 @@ describe("SemanticChecker Expression Unit Tests", () => {
                     { isOld: false, isConst: false, canFail: false }
                 ],
                 [
-                    "unchecked_sum(old(m1))",
+                    "old(unchecked_sum(m1))",
                     ["Foo", "add"],
                     new IntType(256, false),
                     { isOld: true, isConst: false, canFail: false }
@@ -315,7 +315,7 @@ describe("SemanticChecker Expression Unit Tests", () => {
                     { isOld: true, isConst: false, canFail: true }
                 ],
                 [
-                    "forall (string memory s in old(m1)) old(m1[s] > 0)",
+                    "old(forall (string memory s in m1) m1[s] > 0)",
                     ["Foo", "add"],
                     new BoolType(),
                     { isOld: true, isConst: false, canFail: true }

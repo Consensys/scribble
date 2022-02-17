@@ -590,24 +590,34 @@ export function scForAll(expr: SForAll, ctx: SemCtx, typeEnv: TypeEnv, semMap: S
     const exprSemInfo = sc(expr.expression, ctx, typeEnv, semMap);
 
     let canFail = exprSemInfo.canFail;
+    let rangeIsOld = false;
 
     if (startSemInfo) {
         canFail ||= startSemInfo.canFail;
+        rangeIsOld ||= startSemInfo.isOld;
     }
 
     if (endSemInfo) {
         canFail ||= endSemInfo.canFail;
+        rangeIsOld ||= endSemInfo.isOld;
     }
 
     if (containerSemInfo) {
         canFail ||= containerSemInfo.canFail;
+        rangeIsOld ||= containerSemInfo.isOld;
     }
 
-    const rangeIsOld =
-        (containerSemInfo !== undefined && containerSemInfo.isOld) ||
-        (startSemInfo !== undefined &&
-            endSemInfo !== undefined &&
-            (startSemInfo.isOld || endSemInfo.isOld));
+    if (
+        startSemInfo &&
+        endSemInfo &&
+        (startSemInfo.isOld || endSemInfo.isOld) &&
+        !(startSemInfo.isOld && endSemInfo.isOld)
+    ) {
+        throw new SemError(
+            `Cannot have one end of a range be in old() and the other not in ${expr.pp()}`,
+            expr
+        );
+    }
 
     // We treat `forall (x in old(exp1)) old(exp2)` same as `old(forall (x in exp1) exp2)`
     const isOld = ctx.isOld || (rangeIsOld && exprSemInfo.isOld);
