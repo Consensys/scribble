@@ -1,11 +1,13 @@
 import {
     ArrayType,
     assert,
+    BytesType,
     FunctionStateMutability,
     FunctionType,
     MappingType,
     PointerType,
     SourceUnit,
+    StringType,
     TypeNameType,
     VariableDeclaration
 } from "solc-typed-ast";
@@ -308,15 +310,19 @@ export function scUnary(
     if (expr.op === "old") {
         const exprT = typeEnv.typeOf(expr);
 
-        if (exprT instanceof PointerType) {
-            if (exprT.to instanceof ArrayType) {
-                throw new SemError(`old() expressions over arrays are not allowed`, expr);
-            }
-
-            if (exprT.to instanceof MappingType) {
-                throw new SemError(`old() expressions over maps are not allowed`, expr);
-            }
+        if (
+            exprT instanceof PointerType &&
+            (exprT.to instanceof ArrayType ||
+                exprT.to instanceof MappingType ||
+                exprT.to instanceof StringType ||
+                exprT.to instanceof BytesType)
+        ) {
+            throw new SemError(
+                `old() expressions over dynamically sized types (e.g. arrays, maps, strings, bytes) are not allowed`,
+                expr
+            );
         }
+
         if (
             !(
                 ctx.annotation.type === AnnotationType.IfSucceeds ||
