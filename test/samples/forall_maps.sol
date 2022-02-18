@@ -108,7 +108,7 @@ contract Foo {
         k[i] = v;
     }
 
-    /// #if_succeeds forall(uint i in old(k)) old(k[i] > 0);
+    /// #if_succeeds old(forall(uint i in k) k[i] > 0);
     function setK1(uint i, uint v) public {
         k[i] = v;
     }

@@ -1,10 +1,13 @@
 import {
+    ArrayType,
     assert,
+    BytesType,
     FunctionStateMutability,
     FunctionType,
     MappingType,
     PointerType,
     SourceUnit,
+    StringType,
     TypeNameType,
     VariableDeclaration
 } from "solc-typed-ast";
@@ -236,6 +239,31 @@ export function scId(expr: SId, ctx: SemCtx, typings: TypeEnv, semMap: SemMap): 
             isConst = false;
             isOld = false;
         }
+    } else if (def instanceof SForAll) {
+        isConst = false;
+        if (def.container !== undefined) {
+            isOld = (semMap.get(def.container) as SemInfo).isOld;
+        } else {
+            assert(def.start !== undefined && def.end !== undefined, `Missing start/end`);
+            isOld =
+                (semMap.get(def.start) as SemInfo).isOld || (semMap.get(def.end) as SemInfo).isOld;
+        }
+
+        // Its a semantic error for a forall variable defined over post-condition state to be used in pre-condition state
+        if (ctx.isOld && !isOld) {
+            throw new SemError(
+                `Forall variable ${expr.name} doesn't have old() in its range definition, but used in an old() expression`,
+                expr
+            );
+        }
+
+        // Its a semantic error for a forall variable defined over pre-condition state to be used in post-condition state
+        if (!ctx.isOld && isOld) {
+            throw new SemError(
+                `Forall variable ${expr.name} has old() in its range definition but used outside of an old()`,
+                expr
+            );
+        }
     } else if (def === "function_name" || def === "type_name") {
         isConst = true;
     } else if (def === "this") {
@@ -280,6 +308,21 @@ export function scUnary(
     const annotType = ctx.annotation.type;
 
     if (expr.op === "old") {
+        const exprT = typeEnv.typeOf(expr);
+
+        if (
+            exprT instanceof PointerType &&
+            (exprT.to instanceof ArrayType ||
+                exprT.to instanceof MappingType ||
+                exprT.to instanceof StringType ||
+                exprT.to instanceof BytesType)
+        ) {
+            throw new SemError(
+                `old() expressions over dynamically sized types (e.g. arrays, maps, strings, bytes) are not allowed`,
+                expr
+            );
+        }
+
         if (
             !(
                 ctx.annotation.type === AnnotationType.IfSucceeds ||
@@ -547,32 +590,40 @@ export function decomposeStateVarRef(
  * throw an error if the expression depends on t.
  */
 export function scForAll(expr: SForAll, ctx: SemCtx, typeEnv: TypeEnv, semMap: SemMap): SemInfo {
-    const exprSemInfo = sc(expr.expression, ctx, typeEnv, semMap);
-    const itrSemInfo = sc(expr.iteratorVariable, ctx, typeEnv, semMap);
     const startSemInfo = expr.start ? sc(expr.start, ctx, typeEnv, semMap) : undefined;
     const endSemInfo = expr.end ? sc(expr.end, ctx, typeEnv, semMap) : undefined;
     const containerSemInfo = expr.container ? sc(expr.container, ctx, typeEnv, semMap) : undefined;
+    const exprSemInfo = sc(expr.expression, ctx, typeEnv, semMap);
 
-    let canFail = exprSemInfo.canFail || itrSemInfo.canFail;
+    let canFail = exprSemInfo.canFail;
+    let rangeIsOld = false;
 
     if (startSemInfo) {
         canFail ||= startSemInfo.canFail;
+        rangeIsOld ||= startSemInfo.isOld;
     }
 
     if (endSemInfo) {
         canFail ||= endSemInfo.canFail;
+        rangeIsOld ||= endSemInfo.isOld;
     }
 
     if (containerSemInfo) {
         canFail ||= containerSemInfo.canFail;
+        rangeIsOld ||= containerSemInfo.isOld;
     }
 
-    const rangeIsOld =
-        (containerSemInfo !== undefined && containerSemInfo.isOld) ||
-        (startSemInfo !== undefined &&
-            endSemInfo !== undefined &&
-            startSemInfo.isOld &&
-            endSemInfo.isOld);
+    if (
+        startSemInfo &&
+        endSemInfo &&
+        (startSemInfo.isOld || endSemInfo.isOld) &&
+        !(startSemInfo.isOld && endSemInfo.isOld)
+    ) {
+        throw new SemError(
+            `Cannot have one end of a range be in old() and the other not in ${expr.pp()}`,
+            expr
+        );
+    }
 
     // We treat `forall (x in old(exp1)) old(exp2)` same as `old(forall (x in exp1) exp2)`
     const isOld = ctx.isOld || (rangeIsOld && exprSemInfo.isOld);
