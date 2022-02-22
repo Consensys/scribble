@@ -6,9 +6,9 @@ describe("Contract hierarchy test", () => {
     let contracts: readonly ContractDefinition[];
     let cha: CHA<ContractDefinition>;
 
-    before("CHA is built", () => {
+    before("CHA is built", async () => {
         const reader = new ASTReader();
-        const { data } = compileSol("test/samples/cha.sol", "auto", []);
+        const { data } = await compileSol("test/samples/cha.sol", "auto", []);
 
         const units = reader.read(data);
 

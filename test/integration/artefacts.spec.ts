@@ -20,8 +20,8 @@ describe("Artefacts validation", () => {
             continue;
         }
 
-        it(`Artefact ${artefact} is up-to-date with ${sample}`, () => {
-            const expected = makeArtefact(toAst(sample));
+        it(`Artefact ${artefact} is up-to-date with ${sample}`, async () => {
+            const expected = makeArtefact(await toAst(sample));
 
             // Uncomment next line to update all of the artefacts
             // fse.writeFileSync(artefact, expected);

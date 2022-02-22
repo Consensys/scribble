@@ -283,8 +283,8 @@ contract Foo {
         [contractName, funName],
         expectedInstrumented
     ] of goodSamples) {
-        it(`Interpose on ${contractName}.${funName} in #${fileName}`, () => {
-            const { units, reader, files, compilerVersion } = toAst(fileName, content);
+        it(`Interpose on ${contractName}.${funName} in #${fileName}`, async () => {
+            const { units, reader, files, compilerVersion } = await toAst(fileName, content);
             const target = getTarget([contractName, funName], units);
             const fun = target as FunctionDefinition;
             const factory = new ScribbleFactory(reader.context);
@@ -405,8 +405,8 @@ contract Foo is __scribble_ReentrancyUtils {
         contractName,
         expectedInstrumented
     ] of goodSamples) {
-        it(`Instrument ${contractName} in #${fileName}`, () => {
-            const { units, reader, files, compilerVersion } = toAst(fileName, content);
+        it(`Instrument ${contractName} in #${fileName}`, async () => {
+            const { units, reader, files, compilerVersion } = await toAst(fileName, content);
 
             const target = getTarget([contractName], units);
             const contract: ContractDefinition = target as ContractDefinition;
@@ -617,13 +617,9 @@ contract Foo {
         [contractName, funName],
         expectedInstrumented
     ] of goodSamples) {
-        it(`Instrument ${contractName} in #${fileName}`, () => {
-            const { units, reader, files, compilerVersion } = toAst(fileName, content);
-            const [typeCtx, target] = getTypeCtxAndTarget(
-                [contractName, funName],
-                units,
-                compilerVersion
-            );
+        it(`Instrument ${contractName} in #${fileName}`, async () => {
+            const { units, reader, files, compilerVersion } = await toAst(fileName, content);
+            const [typeCtx, target] = getTypeCtxAndTarget([contractName, funName], units);
             const contract = getScopeOfType(ContractDefinition, typeCtx) as ContractDefinition;
             const fun = target as FunctionDefinition;
             const factory = new ScribbleFactory(reader.context);
@@ -1611,8 +1607,8 @@ contract Child is Foo {
         ]
     ];
     for (const [fileName, content, selector, expectedInstrumented] of goodSamples) {
-        it(`Interpose on state vars in #${fileName}`, () => {
-            const { units, reader, files, compilerVersion } = toAst(fileName, content);
+        it(`Interpose on state vars in #${fileName}`, async () => {
+            const { units, reader, files, compilerVersion } = await toAst(fileName, content);
             const result = new XPath(units[0]).query(selector);
             const nodes = result instanceof Array ? result : [result];
             const factory = new ScribbleFactory(reader.context);

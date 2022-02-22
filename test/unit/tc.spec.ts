@@ -922,8 +922,8 @@ contract UserDefinedValueTypes {
             let encVer: ABIEncoderVersion;
             let sourceFile: SourceFile;
 
-            before(() => {
-                const result = toAst(fileName, content);
+            before(async () => {
+                const result = await toAst(fileName, content);
 
                 units = result.units;
                 compilerVersion = result.compilerVersion;
@@ -935,13 +935,15 @@ contract UserDefinedValueTypes {
             for (const [specString, loc, expected] of testCases) {
                 it(`Typecheck for ${specString}`, () => {
                     const expectedType = expected instanceof TypeNode ? expected : expected(units);
-                    const [typeCtx, target] = getTypeCtxAndTarget(loc, units, compilerVersion);
+                    const [typeCtx, target] = getTypeCtxAndTarget(loc, units);
                     const parsed = parse(specString, target, compilerVersion, sourceFile, 0);
                     const typeEnv = new TypeEnv(compilerVersion, encVer);
                     const type = tc(parsed, typeCtx, typeEnv);
+
                     Logger.debug(
                         `[${specString}]: Got: ${type.pp()} expected: ${expectedType.pp()}`
                     );
+
                     expect(eq(type, expectedType)).toEqual(true);
                 });
             }
@@ -956,8 +958,8 @@ contract UserDefinedValueTypes {
             let typeEnv: TypeEnv;
             let sourceFile: SourceFile;
 
-            before(() => {
-                const result = toAst(fileName, content);
+            before(async () => {
+                const result = await toAst(fileName, content);
 
                 units = result.units;
                 compilerVersion = result.compilerVersion;
@@ -969,7 +971,7 @@ contract UserDefinedValueTypes {
 
             for (const [specString, loc] of testCases) {
                 it(`Typecheck for ${specString} throws`, () => {
-                    const [typeCtx, target] = getTypeCtxAndTarget(loc, units, compilerVersion);
+                    const [typeCtx, target] = getTypeCtxAndTarget(loc, units);
                     const parsed = parse(specString, target, compilerVersion, sourceFile, 0);
 
                     expect(() => tc(parsed, typeCtx, typeEnv)).toThrow();
@@ -1584,8 +1586,8 @@ contract Statements08 {
             let encVer: ABIEncoderVersion;
             let sourceFile: SourceFile;
 
-            before(() => {
-                const result = toAst(fileName, content);
+            before(async () => {
+                const result = await toAst(fileName, content);
 
                 units = result.units;
                 compilerVersion = result.compilerVersion;
@@ -1605,21 +1607,26 @@ contract Statements08 {
                         sourceFile,
                         0
                     );
-                    const [ctx] = getTypeCtxAndTarget(loc, units, compilerVersion, parsed);
+
+                    const [ctx] = getTypeCtxAndTarget(loc, units, parsed);
 
                     if (clearFunsBefore) {
                         typeEnv = new TypeEnv(compilerVersion, encVer);
                     }
 
                     tcAnnotation(parsed, ctx, target, typeEnv);
+
                     if (parsed instanceof SUserFunctionDefinition) {
                         assert(expectedType !== undefined, ``);
+
                         const received = tc(new SId(parsed.name.name), ctx, typeEnv);
+
                         Logger.debug(
                             `[${specString}]: Expected type ${expectedType.pp()} received: ${(
                                 received as TypeNode
                             ).pp()}`
                         );
+
                         expect(eq(received, expectedType)).toEqual(true);
                     }
                 });
@@ -1635,8 +1642,8 @@ contract Statements08 {
             let encVer: ABIEncoderVersion;
             let sourceFile: SourceFile;
 
-            before(() => {
-                const result = toAst(fileName, content);
+            before(async () => {
+                const result = await toAst(fileName, content);
 
                 units = result.units;
                 compilerVersion = result.compilerVersion;
@@ -1647,7 +1654,7 @@ contract Statements08 {
 
                 // Setup any definitions
                 for (const [specString, loc] of setupSteps) {
-                    const [ctx, target] = getTypeCtxAndTarget(loc, units, compilerVersion);
+                    const [ctx, target] = getTypeCtxAndTarget(loc, units);
                     const parsed = parseAnnotation(
                         specString,
                         target,
@@ -1670,12 +1677,15 @@ contract Statements08 {
                         sourceFile,
                         0
                     );
-                    const [ctx] = getTypeCtxAndTarget(loc, units, compilerVersion, parsed);
+
+                    const [ctx] = getTypeCtxAndTarget(loc, units, parsed);
+
                     Logger.debug(
                         `[${specString}]: Expect typechecking of ${parsed.pp()} in ctx ${pp(
                             ctx as PPIsh
                         )} to throw`
                     );
+
                     expect(() => tcAnnotation(parsed, ctx, target, typeEnv)).toThrow();
                 });
             }

@@ -1,4 +1,3 @@
-import { compileSol, compileSourceString, LatestCompilerVersion } from "solc-typed-ast";
 import BN from "bn.js";
 import crypto from "crypto";
 import Account from "ethereumjs-account";
@@ -7,6 +6,8 @@ import * as util from "ethereumjs-util";
 import VM from "ethereumjs-vm";
 import { RunTxResult } from "ethereumjs-vm/dist/runTx";
 import expect from "expect";
+import { compileSol, compileSourceString, LatestCompilerVersion } from "solc-typed-ast";
+import { getCompilerKind } from "./utils";
 
 const abi = require("ethereumjs-abi");
 const { promisify } = require("util");
@@ -78,18 +79,16 @@ class User {
 /**
  * @see https://github.com/b-mueller/sabre/blob/master/lib/compiler.js#L222-L229
  */
-function compileSource(
+async function compileSource(
     fileName: string,
     contents?: string,
     version: string = LatestCompilerVersion
-): ContractBytecodeMap {
-    let data: any;
+): Promise<ContractBytecodeMap> {
+    const compilerKind = getCompilerKind();
 
-    if (contents) {
-        data = compileSourceString(fileName, contents, version, []).data;
-    } else {
-        data = compileSol(fileName, "auto", []).data;
-    }
+    const { data } = await (contents
+        ? compileSourceString(fileName, contents, version, [], undefined, undefined, compilerKind)
+        : compileSol(fileName, "auto", [], undefined, undefined, compilerKind));
 
     const result = new Map<string, Buffer>();
 
@@ -496,16 +495,16 @@ const processors = new Map<string, StepProcessor>([
 /**
  * @see https://github.com/ethereumjs/ethereumjs-vm/tree/master/packages/vm/examples/run-solidity-contract
  */
-export function executeTestSuite(fileName: string, config: Config): void {
+export async function executeTestSuite(fileName: string, config: Config): Promise<void> {
     const sample = config.file;
 
     describe(`Test suite ${fileName} with sample ${sample}`, () => {
         const env = {} as Environment;
 
-        before(() => {
+        before(async () => {
             env.vm = new VM();
             env.aliases = new Map<string, any>();
-            env.contracts = compileSource(sample, config.contents);
+            env.contracts = await compileSource(sample, config.contents);
         });
 
         for (const step of config.steps) {
@@ -524,14 +523,14 @@ export function executeTestSuite(fileName: string, config: Config): void {
  * Internal version of executeTestSuite that may be called from another mocha test.
  * @todo remove code duplication with executeTestSuite
  */
-export function executeTestSuiteInternal(fileName: string, config: Config, version: string): void {
+export async function executeTestSuiteInternal(config: Config, version: string): Promise<void> {
     const sample = config.file;
 
     const env = {} as Environment;
 
     env.vm = new VM();
     env.aliases = new Map<string, any>();
-    env.contracts = compileSource(sample, config.contents, version);
+    env.contracts = await compileSource(sample, config.contents, version);
 
     for (const step of config.steps) {
         const processor = processors.get(step.act);

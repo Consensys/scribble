@@ -117,7 +117,7 @@ describe("Src2src map test", () => {
     });
 
     for (const sample of samples) {
-        describe(`Sample ${sample}`, () => {
+        describe(sample, () => {
             let inAst: SourceUnit[];
             let contents: string;
             let instrContents: string;
@@ -129,8 +129,8 @@ describe("Src2src map test", () => {
             let instrMD: InstrumentationMetaData;
             const coveredOriginalNodes = new Set<ASTNode>();
 
-            before(() => {
-                const result = toAstUsingCache(sample);
+            before(async () => {
+                const result = await toAstUsingCache(sample);
 
                 if (!result.files.has(sample)) {
                     throw new Error(`Missing source for ${sample} in files mapping`);

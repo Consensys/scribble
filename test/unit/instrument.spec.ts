@@ -63,15 +63,17 @@ contract Main {
     ];
 
     for (const [fileName, content, loc, expectedExtCalls] of goodSamples) {
-        it(`Find external calls in ${loc} in #${fileName}`, () => {
+        it(`Find external calls in ${loc} in #${fileName}`, async () => {
             const compilerVersion = "0.6.0";
-            const { units } = toAst(fileName, content);
+            const { units } = await toAst(fileName, content);
 
-            const [ctx] = getTypeCtxAndTarget(loc, units, compilerVersion);
+            const [ctx] = getTypeCtxAndTarget(loc, units);
+
             const contract: ContractDefinition = getScopeOfType(
                 ContractDefinition,
                 ctx
             ) as ContractDefinition;
+
             const extCalls: string[] = findExternalCalls(contract, compilerVersion).map((call) =>
                 nodeToSource(call.vExpression)
             );

@@ -2,7 +2,7 @@ import fse from "fs-extra";
 import path from "path";
 import { executeTestSuite } from "./vm";
 
-describe("VM", () => {
+describe("VM", async () => {
     const directory = "test/samples/vm/";
     const suites = fse.readdirSync(directory).filter((name) => name.endsWith(".vm.json"));
 
@@ -10,6 +10,6 @@ describe("VM", () => {
         const fileName = path.join(directory, suite);
         const config = fse.readJsonSync(fileName);
 
-        executeTestSuite(suite, config);
+        await executeTestSuite(suite, config);
     }
 });

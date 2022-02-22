@@ -6,9 +6,9 @@ describe("Call graph test", () => {
     let contracts: readonly ContractDefinition[];
     let callGraph: CallGraph;
 
-    before("Call graph is built", () => {
+    before("Call graph is built", async () => {
         const reader = new ASTReader();
-        const { data, compilerVersion } = compileSol("test/samples/cha.sol", "auto", []);
+        const { data, compilerVersion } = await compileSol("test/samples/cha.sol", "auto", []);
 
         const units = reader.read(data);
         const encVer = getABIEncoderVersion(units, compilerVersion as string);

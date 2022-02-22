@@ -7,8 +7,10 @@ import {
     ASTReader,
     compileJsonData,
     CompileResult,
+    CompilerKind,
     compileSol,
     compileSourceString,
+    PossibleCompilerKinds,
     SourceUnit,
     Statement,
     XPath
@@ -16,6 +18,20 @@ import {
 import { AnnotationTarget, OriginalJSONLoc, single } from "../../src";
 import { SAnnotation, SStateVarProp } from "../../src/spec-lang/ast";
 import { StateVarScope, STypingCtx } from "../../src/spec-lang/tc";
+
+export function getCompilerKind(): CompilerKind {
+    const kind = process.env["SCRIBBLE_DEFAULT_COMPILER_KIND"]
+        ? process.env["SCRIBBLE_DEFAULT_COMPILER_KIND"]
+        : CompilerKind.Native;
+
+    if (PossibleCompilerKinds.has(kind)) {
+        return kind as CompilerKind;
+    }
+
+    const kinds = Array.from(PossibleCompilerKinds).join(", ");
+
+    throw new Error(`Unsupported compiler kind "${kind}". Possible values: ${kinds}`);
+}
 
 export interface ExtendedCompileResult extends CompileResult {
     compilerVersion: string;
@@ -56,13 +72,21 @@ export function makeArtefact(result: CompileResult): string {
     return removeProcWd(JSON.stringify(artefact));
 }
 
-export function toAst(fileName: string, content?: string): ExtendedCompileResult {
+export async function toAst(fileName: string, content?: string): Promise<ExtendedCompileResult> {
     const remapping: string[] = [];
+    const compilerKind = getCompilerKind();
 
-    const result =
-        content === undefined
-            ? compileSol(fileName, "auto", remapping)
-            : compileSourceString(fileName, content, "auto", remapping);
+    const result = await (content === undefined
+        ? compileSol(fileName, "auto", remapping, undefined, undefined, compilerKind)
+        : compileSourceString(
+              fileName,
+              content,
+              "auto",
+              remapping,
+              undefined,
+              undefined,
+              compilerKind
+          ));
 
     const compilerVersion = result.compilerVersion;
 
@@ -76,7 +100,10 @@ export function toAst(fileName: string, content?: string): ExtendedCompileResult
     return { ...result, units, reader, compilerVersion };
 }
 
-export function toAstUsingCache(fileName: string, content?: string): ExtendedCompileResult {
+export async function toAstUsingCache(
+    fileName: string,
+    content?: string
+): Promise<ExtendedCompileResult> {
     if (!fse.existsSync(fileName + ".json")) {
         return toAst(fileName, content);
     }
@@ -84,8 +111,16 @@ export function toAstUsingCache(fileName: string, content?: string): ExtendedCom
     const artefact = fileName + ".json";
     const jsonData = fse.readJSONSync(artefact, { encoding: "utf-8" });
     const compilerVersion = jsonData.compilerVersion;
+    const compilerKind = getCompilerKind();
 
-    const result = compileJsonData(fileName, jsonData, compilerVersion, []);
+    const result = await compileJsonData(
+        fileName,
+        jsonData,
+        compilerVersion,
+        undefined,
+        undefined,
+        compilerKind
+    );
 
     if (compilerVersion === undefined) {
         throw new Error(`Missing compiler version in ${artefact}`);
@@ -146,11 +181,14 @@ export function scrSample(fileName: string, ...additionalArgs: string[]): string
 
     if (fse.existsSync(fileName + ".json")) {
         fileName = artefact;
+
         const compilerVersion = fse.readJSONSync(artefact).compilerVersion;
+
         args.push("--input-mode", "json", "--compiler-version", compilerVersion);
     }
 
     args.push(...additionalArgs);
+
     return scribble(fileName, ...args);
 }
 
@@ -194,7 +232,6 @@ export function getTarget(loc: LocationDesc, sources: SourceUnit[]): AnnotationT
 export function getTypeCtxAndTarget(
     loc: LocationDesc,
     sources: SourceUnit[],
-    compilerVersion: string,
     annotation?: SAnnotation
 ): [STypingCtx, AnnotationTarget] {
     for (const unit of sources) {
@@ -235,15 +272,13 @@ export function getTypeCtxAndTarget(
             }
         }
     }
+
     throw new Error(`Couldn't find contract ${loc[0]}`);
 }
 /**
  * Helper function to check that 2 ASTNodes are (roughly) isomorphic. It checks that:
  *  1) They have the same tree structure (i.e. type of node at each branch, and number of children)
  *  2) Any string/int/bool properties on every node are the same
- *
- * @param a
- * @param b
  */
 export function isomorphic(a: ASTNode, b: ASTNode): boolean {
     if (a.constructor !== b.constructor) {
