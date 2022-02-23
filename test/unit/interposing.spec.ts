@@ -616,7 +616,7 @@ contract Foo {
         [contractName, funName],
         expectedInstrumented
     ] of goodSamples) {
-        it(`Instrument ${contractName} in #${fileName}`, () => {
+        it(`Instrument ${contractName} in #${fileName}`, async () => {
             const { units, reader, files, compilerVersion } = await toAst(fileName, content);
             const [contract, fun] = findContractAndFun(units, contractName, funName);
             const factory = new ScribbleFactory(reader.context);

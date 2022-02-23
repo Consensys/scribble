@@ -324,7 +324,6 @@ function makeTypingCtx(
 export function getTypeCtxAndTarget(
     loc: LocationDesc,
     sources: SourceUnit[],
-    compilerVersion: string,
     annotation?: SAnnotation
 ): [STypingCtx, AnnotationTarget] {
     const type: AnnotationType | undefined = annotation === undefined ? undefined : annotation.type;

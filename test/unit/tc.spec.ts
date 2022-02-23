@@ -1708,7 +1708,7 @@ contract Statements08 {
                         0
                     );
 
-                    const [ctx] = getTypeCtxAndTarget(loc, units, compilerVersion, parsed);
+                    const [ctx] = getTypeCtxAndTarget(loc, units, parsed);
                     tcAnnotation(parsed, ctx, target, typeEnv);
                 }
             });
