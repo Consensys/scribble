@@ -286,7 +286,7 @@ contract Foo {
             const { units, reader, files, compilerVersion } = await toAst(fileName, content);
             const target = getTarget([contractName, funName], units);
             const fun = target as FunctionDefinition;
-            const factory = new ScribbleFactory(reader.context);
+            const factory = new ScribbleFactory(compilerVersion, reader.context);
 
             const ctx = makeInstrumentationCtx(
                 units,
@@ -409,7 +409,7 @@ contract Foo is __scribble_ReentrancyUtils {
 
             const target = getTarget([contractName], units);
             const contract: ContractDefinition = target as ContractDefinition;
-            const factory = new ScribbleFactory(reader.context);
+            const factory = new ScribbleFactory(compilerVersion, reader.context);
 
             const ctx = makeInstrumentationCtx(
                 units,
@@ -619,7 +619,7 @@ contract Foo {
         it(`Instrument ${contractName} in #${fileName}`, async () => {
             const { units, reader, files, compilerVersion } = await toAst(fileName, content);
             const [contract, fun] = findContractAndFun(units, contractName, funName);
-            const factory = new ScribbleFactory(reader.context);
+            const factory = new ScribbleFactory(compilerVersion, reader.context);
 
             const callSite: FunctionCall = single(
                 findExternalCalls(fun, "0.6.0"),
@@ -1608,7 +1608,7 @@ contract Child is Foo {
             const { units, reader, files, compilerVersion } = await toAst(fileName, content);
             const result = new XPath(units[0]).query(selector);
             const nodes = result instanceof Array ? result : [result];
-            const factory = new ScribbleFactory(reader.context);
+            const factory = new ScribbleFactory(compilerVersion, reader.context);
             const contract = units[0].vContracts[0];
             const vars = new Set(contract.vStateVariables);
 

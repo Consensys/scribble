@@ -739,7 +739,7 @@ describe("Finding all state variable updates.", () => {
         it(`Sample #${fileName}`, async () => {
             const { units, reader, files, compilerVersion } = await toAst(fileName, content);
             const unit = single(units);
-            const factory = new ScribbleFactory(reader.context);
+            const factory = new ScribbleFactory(compilerVersion, reader.context);
             const ctx = makeInstrumentationCtx(units, factory, files, "log", compilerVersion);
 
             const assignments = findStateVarUpdates([unit], ctx);

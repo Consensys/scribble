@@ -1160,9 +1160,7 @@ export function instrumentStatement(
     ensureStmtInBlock(stmt, factory);
 
     const container = stmt.parent as Block;
-    const beforeStmtBlock = gte(ctx.compilerVersion, "0.8.0")
-        ? factory.makeUncheckedBlock([])
-        : factory.makeBlock([]);
+    const beforeStmtBlock = factory.makeInstrBlock();
 
     // Add a new block before the target statement where we will transpile the assertions
     container.insertBefore(beforeStmtBlock, stmt);
@@ -1178,13 +1176,14 @@ export function instrumentStatement(
     insertAnnotations(singlePointAnnots as PropertyMetaData[], transCtx);
 
     if (ifSucceedsAnnots.length > 0) {
-        const afterStmtBlock = gte(ctx.compilerVersion, "0.8.0")
-            ? factory.makeUncheckedBlock([])
-            : factory.makeBlock([]);
+        const afterStmtBlock = factory.makeInstrBlock();
         container.insertAfter(afterStmtBlock, stmt);
+
         const transCtx = ctx.transCtxMap.get(fun, InstrumentationSiteType.Custom);
+
         transCtx.resetMarker([beforeStmtBlock, "end"], true);
         transCtx.resetMarker([afterStmtBlock, "end"], false);
+
         insertAnnotations(ifSucceedsAnnots as PropertyMetaData[], transCtx);
     }
 

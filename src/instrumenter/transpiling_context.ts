@@ -192,47 +192,47 @@ export class TranspilingContext {
             bindingsVarType
         );
 
-        /// TODO(dimo): This logic is convoluted and doesn't belong in the constructor. Instead perhaps we should have
-        /// helper methods like `initMarkersSinglePointWrapper()`, `initMarkersTwoPointWrapper`, `initMarkersSinglePointStatement`
-        /// and `initMarkersTwoPointStatement`
-        if (
-            this.instrSiteType === InstrumentationSiteType.SinglePointWrapper ||
-            this.instrSiteType === InstrumentationSiteType.TwoPointWrapper
-        ) {
-            if (gte(instrCtx.compilerVersion, "0.8.0")) {
-                const containerBody = this.containerFun.vBody as Block;
-                if (this.instrSiteType === InstrumentationSiteType.TwoPointWrapper) {
-                    const uncheckedBlock = this.factory.makeUncheckedBlock([]);
-                    this.uncheckedBlocks.push(uncheckedBlock);
-                    containerBody.insertAtBeginning(uncheckedBlock);
-
-                    this.oldMarkerStack = [[uncheckedBlock, "end"]];
-                }
-
-                const newUncheckedBlock = this.factory.makeUncheckedBlock([]);
-                this.uncheckedBlocks.push(newUncheckedBlock);
-                containerBody.appendChild(newUncheckedBlock);
-                this.newMarkerStack = [[newUncheckedBlock, "end"]];
-            } else {
-                const containerBody = this.containerFun.vBody as Block;
-                if (this.instrSiteType === InstrumentationSiteType.TwoPointWrapper) {
-                    const firstStmt = containerBody.vStatements[0];
-
-                    this.oldMarkerStack = [[containerBody, ["before", firstStmt]]];
-                }
-
-                this.newMarkerStack = [[containerBody, "end"]];
-            }
-        } else {
-            this.oldMarkerStack = undefined;
-            this.newMarkerStack = [];
-        }
-
         if (instrCtx.assertionMode === "mstore") {
             this.addBinding(
                 instrCtx.scratchField,
                 this.factory.makeElementaryTypeName("<missing>", "uint256")
             );
+        }
+    }
+
+    initSinglePointWrapper(): void {
+        const containerBody = this.containerFun.vBody as Block;
+
+        if (gte(this.instrCtx.compilerVersion, "0.8.0")) {
+            const newUncheckedBlock = this.factory.makeUncheckedBlock([]);
+            this.uncheckedBlocks.push(newUncheckedBlock);
+            containerBody.appendChild(newUncheckedBlock);
+            this.newMarkerStack = [[newUncheckedBlock, "end"]];
+        } else {
+            this.newMarkerStack = [[containerBody, "end"]];
+        }
+    }
+
+    initTwoPointWrapper(): void {
+        const containerBody = this.containerFun.vBody as Block;
+
+        if (gte(this.instrCtx.compilerVersion, "0.8.0")) {
+            const uncheckedBlock = this.factory.makeUncheckedBlock([]);
+
+            this.uncheckedBlocks.push(uncheckedBlock);
+            containerBody.insertAtBeginning(uncheckedBlock);
+            this.oldMarkerStack = [[uncheckedBlock, "end"]];
+
+            const newUncheckedBlock = this.factory.makeUncheckedBlock([]);
+
+            this.uncheckedBlocks.push(newUncheckedBlock);
+            containerBody.appendChild(newUncheckedBlock);
+            this.newMarkerStack = [[newUncheckedBlock, "end"]];
+        } else {
+            const firstStmt = containerBody.vStatements[0];
+
+            this.oldMarkerStack = [[containerBody, ["before", firstStmt]]];
+            this.newMarkerStack = [[containerBody, "end"]];
         }
     }
 

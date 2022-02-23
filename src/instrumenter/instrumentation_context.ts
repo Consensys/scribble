@@ -114,7 +114,19 @@ class TranspilingContextCache extends ContextFactoryMap<
     }
 
     protected makeNew(fun: FunctionDefinition, type: InstrumentationSiteType): TranspilingContext {
-        return new TranspilingContext(this.ctx.typeEnv, this.ctx.semMap, fun, this.ctx, type);
+        const res = new TranspilingContext(this.ctx.typeEnv, this.ctx.semMap, fun, this.ctx, type);
+
+        if (type === InstrumentationSiteType.SinglePointWrapper) {
+            res.initSinglePointWrapper();
+        } else if (type === InstrumentationSiteType.TwoPointWrapper) {
+            res.initTwoPointWrapper();
+        } else {
+            assert(
+                type === InstrumentationSiteType.Custom,
+                `Unexpected instrumentation site type ${type}`
+            );
+        }
+        return res;
     }
 }
 

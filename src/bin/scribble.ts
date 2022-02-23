@@ -926,7 +926,7 @@ function pickVersion(versionUsedMap: Map<string, string>): string {
          *  2. The set of contracts that NEED contract instrumentation (because they, a parent of theirs, or a child of theirs has contract invariants)
          */
         const contractsNeedingInstr = computeContractsNeedingInstr(cha, annotMap);
-        const factory = new ScribbleFactory(mergedCtx);
+        const factory = new ScribbleFactory(compilerVersionUsed, mergedCtx);
 
         // Next we re-write the imports to fix broken alias references (Some
         // Solidity versions have broken references imports).
