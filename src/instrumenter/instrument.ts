@@ -612,7 +612,7 @@ function makeUserFunctions(
             ? (factory.addStmt(userFun, factory.makeUncheckedBlock([])) as UncheckedBlock)
             : (userFun.vBody as Block);
 
-        const transCtx = ctx.transCtxMap.get(userFun, InstrumentationSiteType.UserDefinedFunction);
+        const transCtx = ctx.transCtxMap.get(userFun, InstrumentationSiteType.SinglePointWrapper);
 
         for (let i = 0; i < funDef.parameters.length; i++) {
             const [, paramType] = funDef.parameters[i];
@@ -666,7 +666,7 @@ function makeInternalInvariantChecker(
         factory.makeStructuredDocumentation(`Check only the current contract's state invariants`)
     );
 
-    const transCtx = ctx.transCtxMap.get(checker, InstrumentationSiteType.ContractInvariant);
+    const transCtx = ctx.transCtxMap.get(checker, InstrumentationSiteType.SinglePointWrapper);
 
     insertAnnotations(annotations, transCtx);
 
@@ -916,7 +916,7 @@ export function instrumentFunction(
     );
 
     const stub = interpose(fn, ctx);
-    const transCtx = ctx.transCtxMap.get(stub, InstrumentationSiteType.FunctionAnnotation);
+    const transCtx = ctx.transCtxMap.get(stub, InstrumentationSiteType.TwoPointWrapper);
 
     insertAnnotations(annotations, transCtx);
 
@@ -1139,36 +1139,54 @@ export function instrumentStatement(
     stmt: Statement
 ): void {
     const factory = ctx.factory;
+    const singlePointAnnots: AnnotationMetaData[] = [];
+    const ifSucceedsAnnots: AnnotationMetaData[] = [];
 
     for (const annot of allAnnotations) {
-        assert(
+        if (
             annot.type === AnnotationType.Assert ||
-                annot.type === AnnotationType.Try ||
-                annot.type === AnnotationType.Require,
-            `Unexpected annotaiton on statement ${annot.original}`
-        );
+            annot.type === AnnotationType.Try ||
+            annot.type === AnnotationType.Require
+        ) {
+            singlePointAnnots.push(annot);
+        } else if (annot.type == AnnotationType.IfSucceeds) {
+            ifSucceedsAnnots.push(annot);
+        } else {
+            assert(false, `Unexpected annotaiton on statement ${annot.original}`);
+        }
     }
 
     // Make sure stmt is contained in a block. (converts cases like `while () i++` to `while () { i++}`
     ensureStmtInBlock(stmt, factory);
 
     const container = stmt.parent as Block;
-    const assertionBlock = gte(ctx.compilerVersion, "0.8.0")
+    const beforeStmtBlock = gte(ctx.compilerVersion, "0.8.0")
         ? factory.makeUncheckedBlock([])
         : factory.makeBlock([]);
 
     // Add a new block before the target statement where we will transpile the assertions
-    container.insertBefore(assertionBlock, stmt);
+    container.insertBefore(beforeStmtBlock, stmt);
 
     const fun = stmt.getClosestParentByType(FunctionDefinition);
 
     assert(fun !== undefined, "Unexpected orphan stmt", stmt);
 
-    const transCtx = ctx.transCtxMap.get(fun, InstrumentationSiteType.Assert);
+    const transCtx = ctx.transCtxMap.get(fun, InstrumentationSiteType.Custom);
 
-    transCtx.resetMarkser([assertionBlock, "end"], false);
+    transCtx.resetMarker([beforeStmtBlock, "end"], false);
 
-    insertAnnotations(allAnnotations as PropertyMetaData[], transCtx);
+    insertAnnotations(singlePointAnnots as PropertyMetaData[], transCtx);
+
+    if (ifSucceedsAnnots.length > 0) {
+        const afterStmtBlock = gte(ctx.compilerVersion, "0.8.0")
+            ? factory.makeUncheckedBlock([])
+            : factory.makeBlock([]);
+        container.insertAfter(afterStmtBlock, stmt);
+        const transCtx = ctx.transCtxMap.get(fun, InstrumentationSiteType.Custom);
+        transCtx.resetMarker([beforeStmtBlock, "end"], true);
+        transCtx.resetMarker([afterStmtBlock, "end"], false);
+        insertAnnotations(ifSucceedsAnnots as PropertyMetaData[], transCtx);
+    }
 
     stmt.documentation = undefined;
 }

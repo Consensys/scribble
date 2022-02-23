@@ -23,9 +23,8 @@ import {
     ScribbleFactory
 } from "../../src/instrumenter";
 import { InstrumentationSiteType } from "../../src/instrumenter/transpiling_context";
-import { getScopeOfType } from "../../src/spec-lang/tc";
 import { single, SolFile } from "../../src/util";
-import { getTarget, getTypeCtxAndTarget, toAst } from "../integration/utils";
+import { findContractAndFun, getTarget, toAst } from "../integration/utils";
 import { makeInstrumentationCtx } from "./utils";
 
 function print(units: SourceUnit[], contents: string[], version: string): Map<SourceUnit, string> {
@@ -617,11 +616,9 @@ contract Foo {
         [contractName, funName],
         expectedInstrumented
     ] of goodSamples) {
-        it(`Instrument ${contractName} in #${fileName}`, async () => {
+        it(`Instrument ${contractName} in #${fileName}`, () => {
             const { units, reader, files, compilerVersion } = await toAst(fileName, content);
-            const [typeCtx, target] = getTypeCtxAndTarget([contractName, funName], units);
-            const contract = getScopeOfType(ContractDefinition, typeCtx) as ContractDefinition;
-            const fun = target as FunctionDefinition;
+            const [contract, fun] = findContractAndFun(units, contractName, funName);
             const factory = new ScribbleFactory(reader.context);
 
             const callSite: FunctionCall = single(
@@ -1624,7 +1621,7 @@ contract Child is Foo {
 
                     const transCtx = ctx.transCtxMap.get(
                         container,
-                        InstrumentationSiteType.StateVarUpdated
+                        InstrumentationSiteType.TwoPointWrapper
                     );
 
                     interposeTupleAssignment(transCtx, node, vars);

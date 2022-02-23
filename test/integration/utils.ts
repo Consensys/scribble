@@ -10,14 +10,17 @@ import {
     CompilerKind,
     compileSol,
     compileSourceString,
+    ContractDefinition,
+    FunctionDefinition,
     PossibleCompilerKinds,
     SourceUnit,
     Statement,
+    VariableDeclaration,
     XPath
 } from "solc-typed-ast";
 import { AnnotationTarget, OriginalJSONLoc, single } from "../../src";
-import { SAnnotation, SStateVarProp } from "../../src/spec-lang/ast";
-import { StateVarScope, STypingCtx } from "../../src/spec-lang/tc";
+import { AnnotationType, SAnnotation, SStateVarProp } from "../../src/spec-lang/ast";
+import { SScope, StateVarScope, STypingCtx } from "../../src/spec-lang/tc";
 
 export function getCompilerKind(): CompilerKind {
     const kind = process.env["SCRIBBLE_DEFAULT_COMPILER_KIND"]
@@ -229,16 +232,44 @@ export function getTarget(loc: LocationDesc, sources: SourceUnit[]): AnnotationT
     throw new Error(`Couldn't find contract ${loc[0]}`);
 }
 
-export function getTypeCtxAndTarget(
-    loc: LocationDesc,
+export function findContract(sources: SourceUnit[], contractName: string): ContractDefinition {
+    for (const unit of sources) {
+        for (const contract of unit.vContracts) {
+            if (contract.name === contractName) {
+                return contract;
+            }
+        }
+    }
+
+    assert(false, `Contract ${contractName} not found.`);
+}
+
+export function findContractAndFun(
     sources: SourceUnit[],
-    annotation?: SAnnotation
-): [STypingCtx, AnnotationTarget] {
+    contractName: string,
+    funName: string
+): [ContractDefinition, FunctionDefinition] {
+    for (const unit of sources) {
+        for (const contract of unit.vContracts) {
+            if (contract.name === contractName) {
+                for (const fun of contract.vFunctions) {
+                    if (fun.name == funName) {
+                        return [contract, fun];
+                    }
+                }
+            }
+        }
+    }
+
+    assert(false, `Fun ${funName} in contract ${contractName} not found.`);
+}
+
+export function findTarget(loc: LocationDesc, sources: SourceUnit[]): AnnotationTarget {
     for (const unit of sources) {
         for (const contract of unit.vContracts) {
             if (contract.name === loc[0]) {
                 if (loc.length === 1) {
-                    return [[contract], contract];
+                    return contract;
                 }
 
                 const subTarget = loc[1];
@@ -247,10 +278,74 @@ export function getTypeCtxAndTarget(
                     if (fun.name == subTarget) {
                         if (loc.length === 3) {
                             const stmt = single(new XPath(fun).query(loc[2])) as Statement;
-                            return [[stmt], stmt];
+                            return stmt;
                         }
 
-                        return [[fun], fun];
+                        return fun;
+                    }
+                }
+
+                for (const stateVar of contract.vStateVariables) {
+                    if (stateVar.name == subTarget) {
+                        return stateVar;
+                    }
+                }
+
+                throw new Error(
+                    `Couldn't find annotation target ${subTarget} in contract ${loc[0]}`
+                );
+            }
+        }
+    }
+    throw new Error(`Couldn't find contract ${loc[0]}`);
+}
+
+function makeTypingCtx(
+    scopes: SScope[],
+    target: AnnotationTarget,
+    type?: AnnotationType
+): STypingCtx {
+    if (type === undefined) {
+        if (target instanceof ContractDefinition) {
+            type = AnnotationType.Invariant;
+        } else if (target instanceof FunctionDefinition) {
+            type = AnnotationType.IfSucceeds;
+        } else if (target instanceof VariableDeclaration) {
+            type = AnnotationType.IfUpdated;
+        } else if (target instanceof Statement) {
+            type = AnnotationType.Assert;
+        } else {
+            assert(false, `Unknown annotation type ${type}`);
+        }
+    }
+    return { scopes, target, type, isOld: false };
+}
+
+export function getTypeCtxAndTarget(
+    loc: LocationDesc,
+    sources: SourceUnit[],
+    compilerVersion: string,
+    annotation?: SAnnotation
+): [STypingCtx, AnnotationTarget] {
+    const type: AnnotationType | undefined = annotation === undefined ? undefined : annotation.type;
+
+    for (const unit of sources) {
+        for (const contract of unit.vContracts) {
+            if (contract.name === loc[0]) {
+                if (loc.length === 1) {
+                    return [makeTypingCtx([contract], contract, type), contract];
+                }
+
+                const subTarget = loc[1];
+
+                for (const fun of contract.vFunctions) {
+                    if (fun.name == subTarget) {
+                        if (loc.length === 3) {
+                            const stmt = single(new XPath(fun).query(loc[2])) as Statement;
+                            return [makeTypingCtx([stmt], stmt, type), stmt];
+                        }
+
+                        return [makeTypingCtx([fun], fun, type), fun];
                     }
                 }
 
@@ -262,7 +357,14 @@ export function getTypeCtxAndTarget(
                             annotation
                         );
 
-                        return [[contract, new StateVarScope(stateVar, annotation)], stateVar];
+                        return [
+                            makeTypingCtx(
+                                [contract, new StateVarScope(stateVar, annotation)],
+                                stateVar,
+                                type
+                            ),
+                            stateVar
+                        ];
                     }
                 }
 
