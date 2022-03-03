@@ -14,6 +14,7 @@ import {
     SIfUpdated,
     SIndexAccess,
     SLet,
+    SLetAnnotation,
     SMemberAccess,
     SNode,
     SNumber,
@@ -929,7 +930,24 @@ describe("Annotation Parser Unit Tests", () => {
                 { msg: new SStringLiteral("test") }
             )
         ],
-        ["/// #assert true;", new SProperty(AnnotationType.Assert, new SBooleanLiteral(true))]
+        ["/// #assert true;", new SProperty(AnnotationType.Assert, new SBooleanLiteral(true))],
+        [
+            "/// #let a := true;",
+            new SLetAnnotation(
+                AnnotationType.LetAnnotation,
+                new SId("a"),
+                new SBooleanLiteral(true)
+            )
+        ],
+        [
+            "/// #let {:msg 'blah'} fooBar := 3+4;",
+            new SLetAnnotation(
+                AnnotationType.LetAnnotation,
+                new SId("fooBar"),
+                new SBinaryOperation(new SNumber(BigInt(3), 10), "+", new SNumber(BigInt(4), 10)),
+                { msg: new SStringLiteral("blah") }
+            )
+        ]
     ];
 
     const badSamples: string[] = [
@@ -976,7 +994,10 @@ describe("Annotation Parser Unit Tests", () => {
         `///blah blah @custom:scrible #if_succeeds  false; dhsgf gfds jdhsg s`,
         `/// @custom:scribble #if_succeeds a +;`,
         `/// @custom:scribble if_succeeds true;`,
-        `/// @custom:scribble blah`
+        `/// @custom:scribble blah`,
+        "/// #let 1 := true;",
+        "/// #let (a) := true;",
+        "/// #let a := ;"
     ];
 
     for (const [sample, expected] of goodSamples) {

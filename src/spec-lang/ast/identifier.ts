@@ -1,7 +1,7 @@
 import { NodeLocation, SNode } from "./node";
 import { ImportDirective, VariableDeclaration } from "solc-typed-ast";
 import { SLet, SForAll } from ".";
-import { SUserFunctionDefinition } from "./declarations";
+import { SLetAnnotation, SUserFunctionDefinition } from "./declarations";
 import { StateVarScope } from "../tc";
 
 export type VarDefSite =
@@ -9,7 +9,8 @@ export type VarDefSite =
     | [SLet, number]
     | [SUserFunctionDefinition, number]
     | [StateVarScope, number]
-    | SForAll;
+    | SForAll
+    | SLetAnnotation;
 
 export type IdDefSite =
     | VarDefSite

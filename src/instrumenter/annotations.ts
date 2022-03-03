@@ -17,6 +17,7 @@ import {
     AnnotationType,
     SAnnotation,
     SId,
+    SLetAnnotation,
     SMacro,
     SNode,
     SProperty,
@@ -122,6 +123,11 @@ export class UserFunctionDefinitionMetaData extends AnnotationMetaData<SUserFunc
  * Metadata specific to a property annotation (invariant, if_succeeds)
  */
 export class PropertyMetaData extends AnnotationMetaData<SProperty> {}
+
+/**
+ * Metadata specific to a ghost var definition (invariant, if_succeeds)
+ */
+export class LetAnnotationMetaData extends AnnotationMetaData<SLetAnnotation> {}
 
 export class MacroMetaData extends AnnotationMetaData<SMacro> {
     readonly macroDefinition: MacroDefinition;
@@ -237,6 +243,10 @@ function makeAnnotationFromMatch(
         }
     }
 
+    if (annotation instanceof SLetAnnotation) {
+        return new LetAnnotationMetaData(meta.node, meta.target, annotation, source);
+    }
+
     throw new Error(`Unknown annotation ${annotation.pp()}`);
 }
 
@@ -301,7 +311,8 @@ function validateAnnotation(target: AnnotationTarget, annotation: AnnotationMeta
             annotation.type !== AnnotationType.Assert &&
             annotation.type !== AnnotationType.Try &&
             annotation.type !== AnnotationType.Require &&
-            annotation.type !== AnnotationType.IfSucceeds
+            annotation.type !== AnnotationType.IfSucceeds &&
+            annotation.type !== AnnotationType.LetAnnotation
         ) {
             throw new UnsupportedByTargetError(
                 `The "${annotation.type}" annotation is not applicable inside functions`,
@@ -367,7 +378,7 @@ function findAnnotations(
     const result: AnnotationMetaData[] = [];
 
     const rx =
-        /\s*(\*|\/\/\/)\s*(@custom:scribble)?\s*#(if_succeeds|if_updated|if_assigned|invariant|assert|try|require|macro|define)/g;
+        /\s*(\*|\/\/\/)\s*(@custom:scribble)?\s*#(if_succeeds|if_updated|if_assigned|invariant|assert|try|require|macro|define|let)/g;
 
     let match = rx.exec(meta.text);
 

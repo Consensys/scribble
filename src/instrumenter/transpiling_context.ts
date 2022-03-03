@@ -23,6 +23,7 @@ import {
     SForAll,
     SId,
     SLet,
+    SLetAnnotation,
     SUnaryOperation,
     SUserFunctionDefinition,
     VarDefSite
@@ -74,6 +75,10 @@ export function defSiteToKey(defSite: VarDefSite): string {
 
     if (defSite instanceof SForAll) {
         return `forall_${defSite.id}`;
+    }
+
+    if (defSite instanceof SLetAnnotation) {
+        return `let_annotation_${defSite.id}`;
     }
 
     assert(false, "NYI debug info for def site {0}", defSite as PPIsh);
@@ -354,6 +359,26 @@ export class TranspilingContext {
             const fieldName = this.instrCtx.nameGenerator.getFresh(`tuple_tmp_`);
             this.bindingMap.set(key, fieldName);
             return fieldName;
+        }
+
+        return this.bindingMap.get(key) as string;
+    }
+
+    /**
+     * Get the binding name for a particular let annotation identifier. E.g. in this code:
+     * ```
+     *      /// #let x : = a;
+     *      somefunc();
+     *      /// #assert a == x + 1;
+     * ```
+     *
+     * We will return xI where I is an optional number added to avoid unintened shadowing
+     */
+    getLetAnnotationBinding(arg: SLetAnnotation): string {
+        const key = `<let_annot_${arg.id}>`;
+        if (!this.bindingMap.has(key)) {
+            const fieldName = this.instrCtx.nameGenerator.getFresh(arg.name.name, true);
+            this.bindingMap.set(key, fieldName);
         }
 
         return this.bindingMap.get(key) as string;

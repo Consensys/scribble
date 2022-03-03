@@ -1618,7 +1618,11 @@ contract Statements08 {
                 ["#assert loc + arg1 + g > 0;", ["Statements08", "main", "//Block/*[6]/Block"]],
                 ["#if_succeeds old(loc) == 0;", ["Statements08", "main", "//Block/*[1]"]],
                 ["#if_succeeds loc == t + 3;", ["Statements08", "main", "//Block/*[3]/Block"]],
-                ["#if_succeeds iter1 > 0;", ["Statements08", "main", "//Block/*[5]"]]
+                ["#if_succeeds iter1 > 0;", ["Statements08", "main", "//Block/*[5]"]],
+                ["#let loc := 0;", ["Statements08", "main", "//Block/*[2]"]],
+                ["#let main := 0;", ["Statements08", "main", "//Block/*[2]"]],
+                ["#let sVar := 0;", ["Statements08", "main", "//Block/*[2]"]],
+                ["#let Statements08 := 0;", ["Statements08", "main", "//Block/*[2]"]]
             ]
         ]
     ];

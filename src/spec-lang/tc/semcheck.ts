@@ -36,7 +36,8 @@ import {
     AnnotationType,
     ScribbleBuiltinFunctions,
     NodeLocation,
-    SolidityBuiltinFunctions
+    SolidityBuiltinFunctions,
+    SLetAnnotation
 } from "../ast";
 import { FunctionSetType } from "./internal_types";
 import { TypeEnv } from "./typeenv";
@@ -124,6 +125,8 @@ export function scAnnotation(
         sc(node.expression, ctx, typings, semMap);
     } else if (node instanceof SUserFunctionDefinition) {
         sc(node.body, ctx, typings, semMap);
+    } else if (node instanceof SLetAnnotation) {
+        sc(node.expression, ctx, typings, semMap);
     } else {
         throw new Error(`NYI annotation ${node.pp()}`);
     }

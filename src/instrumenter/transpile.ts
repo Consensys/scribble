@@ -35,6 +35,7 @@ import {
     UserDefinedValueTypeDefinition,
     VariableDeclaration
 } from "solc-typed-ast";
+import { LetAnnotationMetaData } from ".";
 import {
     AnnotationType,
     ScribbleBuiltinFunctions,
@@ -56,7 +57,8 @@ import {
     SUnaryOperation,
     SUserFunctionDefinition,
     VarDefSite,
-    SolidityBuiltinFunctions
+    SolidityBuiltinFunctions,
+    SLetAnnotation
 } from "../spec-lang/ast";
 import {
     BuiltinSymbols,
@@ -215,6 +217,7 @@ function addTracingInfo(id: SId, transpiledExpr: Expression, ctx: TranspilingCon
      * funDebugMap contains the debug ids for ALL annotations in the current function
      */
     const funDebugMap = ctx.dbIdsMap;
+
     /**
      * annotDebugMap contains only the debug ids for the currently transpiled annotation
      */
@@ -318,6 +321,14 @@ function transpileId(expr: SId, ctx: TranspilingContext): Expression {
             res = factory.makeIdentifier("<missing>", expr.name, expr.defSite.id);
         }
 
+        addTracingInfo(expr, res, ctx);
+
+        return res;
+    }
+
+    // Let-statement annotation
+    if (expr.defSite instanceof SLetAnnotation) {
+        const res = ctx.refBinding(ctx.getLetAnnotationBinding(expr.defSite));
         addTracingInfo(expr, res, ctx);
 
         return res;
@@ -957,6 +968,15 @@ export function transpileAnnotation(
 
     if (annotMD instanceof UserFunctionDefinitionMetaData) {
         return transpile(annotMD.parsedAnnot.body, ctx);
+    }
+
+    if (annotMD instanceof LetAnnotationMetaData) {
+        const rhs = annotMD.parsedAnnot.expression;
+        const rhsType = ctx.typeEnv.typeOf(rhs);
+        const solRhs = transpile(rhs, ctx);
+        const name = ctx.getLetAnnotationBinding(annotMD.parsedAnnot);
+        ctx.addBinding(name, transpileType(rhsType, ctx.factory));
+        return solRhs;
     }
 
     throw new Error(`NYI Annotation metadata type ${annotMD.constructor.name}`);

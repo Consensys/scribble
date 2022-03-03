@@ -33,6 +33,7 @@ import {
     SIfAssigned,
     SMacro,
     BinaryOperator,
+    SLetAnnotation,
     // @ts-ignore
     RelationalBinaryOperator
 } from "./ast";
@@ -187,3 +188,4 @@ assert;
 makeRange;
 buildBinaryExpression;
 makeUserDefinedType;
+SLetAnnotation;
