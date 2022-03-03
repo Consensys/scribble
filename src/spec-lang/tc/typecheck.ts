@@ -124,18 +124,7 @@ function oldCtx(ctx: STypingCtx): STypingCtx {
 }
 
 function fromCtx(ctx: STypingCtx, other: Partial<STypingCtx>): STypingCtx {
-    const t: any = {
-        type: ctx.type,
-        target: ctx.target,
-        scopes: ctx.scopes,
-        isOld: ctx.isOld
-    };
-
-    for (const key of Object.keys(other) as Array<keyof STypingCtx>) {
-        t[key] = other[key];
-    }
-
-    return t;
+    return { ...ctx, ...other };
 }
 
 export function ppTypingCtx(ctx: STypingCtx): string {

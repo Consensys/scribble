@@ -34,6 +34,20 @@ import { InstrumentationContext } from "./instrumentation_context";
 import { makeTypeString } from "./type_string";
 import { FactoryMap, ScribbleFactory, StructMap } from "./utils";
 
+/**
+ * Currently each `TranspilingContext` instance is tied to a specific location
+ * where the instrumenting happens. There are 3 supported types of
+ * instrumentation locations:
+ *
+ * - TwoPointWrapper is a wrapper function with a statement from the original
+ *  program (or a call to the original function) in the middle. In wrapper functions
+ *  you can transpile 'old' expressions before the original statement, and the rest after.
+ *
+ * - SinglePointWrapper is an empty wrapper function - we append any transpiled expressions only in the end.
+ *   It is an error to try and transpile `old(..)` in a SinglePointWrapper context
+ *
+ * - Custom - any other custom context (currently used for #assert, #let and #if_succeeds on a statement)
+ */
 export enum InstrumentationSiteType {
     TwoPointWrapper,
     SinglePointWrapper,
