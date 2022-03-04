@@ -18,6 +18,7 @@ steps:
           # see https://binaries.soliditylang.org/
           - apt-get -qq update && apt-get -qq install jq
           - ./download.sh 'linux-amd64' $SOL_AST_COMPILER_CACHE
+          - ./download.sh 'wasm' $SOL_AST_COMPILER_CACHE
           # perform testing
           - npm install --unsafe-perm
           - npm link --unsafe-perm
