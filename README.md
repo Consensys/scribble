@@ -49,15 +49,24 @@ For more information on the Scribble specification language, and any other docum
 
 ## Development installation
 
--   Install prerequisites:
-    -   NodeJS version **10.x** - **12.x**.
-    -   NPM version **6.9.0** or newer.
--   Clone repository:
-    ```console
-    git clone https://github.com/ConsenSys/scribble.git
-    ```
--   Install and link:
-    ```console
-    npm install
-    npm link
-    ```
+### Prerequisites
+
+We suggest to use latest NodeJS LTS release `lts/gallium` (v16.14.0) and associated version of NPM. If there is a need to run different NodeJS versions, consider using [NVM](https://github.com/nvm-sh/nvm) or similar tool, that is available for your platform.
+
+### Clone and build
+
+Clone repository, install and link:
+
+```bash
+git clone https://github.com/ConsenSys/scribble.git
+cd scribble/
+npm install
+npm link
+```
+
+Prior to running tests the compiler pre-downloading script `download.sh` may be used to setup local compiler cache:
+
+```bash
+download.sh 'linux-amd64' '.compiler_cache'  # platform-dependent native compiler builds
+download.sh 'wasm' '.compiler_cache'         # cross-platform WASM compiler builds
+```

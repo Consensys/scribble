@@ -1,16 +1,15 @@
+import { Transaction } from "@ethereumjs/tx";
+import VM from "@ethereumjs/vm";
+import { RunTxResult } from "@ethereumjs/vm/dist/runTx";
+import bigInt from "big-integer";
 import BN from "bn.js";
 import crypto from "crypto";
-import Account from "ethereumjs-account";
-import { Transaction } from "ethereumjs-tx";
-import * as util from "ethereumjs-util";
-import VM from "ethereumjs-vm";
-import { RunTxResult } from "ethereumjs-vm/dist/runTx";
+import { Account, Address, privateToAddress } from "ethereumjs-util";
 import expect from "expect";
 import { compileSol, compileSourceString, LatestCompilerVersion } from "solc-typed-ast";
 import { getCompilerKind } from "./utils";
 
 const abi = require("ethereumjs-abi");
-const { promisify } = require("util");
 
 export type AliasMap = Map<string, any>;
 export type ContractBytecodeMap = Map<string, Buffer>;
@@ -54,25 +53,27 @@ type StepProcessor = (env: Environment, step: Step) => void;
 
 class User {
     readonly privateKey: Buffer;
-    readonly address: Buffer;
+    readonly address: Address;
 
     constructor(privateKey: Buffer) {
         this.privateKey = privateKey;
-        this.address = util.privateToAddress(privateKey);
+        this.address = new Address(privateToAddress(privateKey));
     }
 
-    async register(vm: VM, data?: any) {
-        const stateManager = vm.stateManager;
-        const put = promisify(stateManager.putAccount.bind(stateManager));
+    async register(vm: VM, data?: any): Promise<void> {
+        if ("balance" in data) {
+            /**
+             * Workaround for support of scientific notation numbers.
+             * Convert them to hexadecimal instead.
+             */
+            data.balance = "0x" + bigInt(data.balance).toString(16);
+        }
 
-        await put(this.address, new Account(data));
+        return vm.stateManager.putAccount(this.address, Account.fromAccountData(data));
     }
 
     async getAccount(vm: VM): Promise<Account> {
-        const stateManager = vm.stateManager;
-        const get = promisify(stateManager.getAccount.bind(stateManager));
-
-        return get(this.address);
+        return vm.stateManager.getAccount(this.address);
     }
 }
 
@@ -91,7 +92,6 @@ async function compileSource(
         : compileSol(fileName, "auto", [], undefined, undefined, compilerKind));
 
     const result = new Map<string, Buffer>();
-
     const contracts: { [name: string]: any } = data.contracts[fileName];
 
     for (const [name, meta] of Object.entries(contracts)) {
@@ -146,17 +146,15 @@ async function deployContract(
     logs?: string[][]
 ): Promise<[Buffer | undefined, LogEntry[]]> {
     const payload = args ? Buffer.concat([bytecode, encodeCallArgs(args)]) : bytecode;
-
-    const tx = new Transaction({
+    const txData = {
         value: 0,
         gasLimit: 200000000,
         gasPrice: 1,
         data: payload,
         nonce: (await sender.getAccount(vm)).nonce
-    });
+    };
 
-    tx.sign(sender.privateKey);
-
+    const tx = Transaction.fromTxData(txData).sign(sender.privateKey);
     const result = await vm.runTx({ tx });
     const exception = result.execResult.exceptionError;
 
@@ -166,7 +164,7 @@ async function deployContract(
 
     const emittedLogs = logs ? extractTxLogs(logs, result) : [];
 
-    return [result.createdAddress, emittedLogs];
+    return [result.createdAddress ? result.createdAddress.buf : undefined, emittedLogs];
 }
 
 async function txCall(
@@ -175,17 +173,16 @@ async function txCall(
     contractAddress: Buffer,
     options: CallOptions
 ): Promise<[any[], LogEntry[]]> {
-    const tx = new Transaction({
+    const txData = {
         to: contractAddress,
         value: 0,
         gasLimit: 2000000,
         gasPrice: 1,
         data: createCallPayload(options),
         nonce: (await sender.getAccount(vm)).nonce
-    });
+    };
 
-    tx.sign(sender.privateKey);
-
+    const tx = Transaction.fromTxData(txData).sign(sender.privateKey);
     const result = await vm.runTx({ tx });
     const exception = result.execResult.exceptionError;
 
@@ -210,7 +207,7 @@ async function staticCall(
     options: CallOptions
 ): Promise<any[]> {
     const result = await vm.runCall({
-        to: contractAddress,
+        to: new Address(contractAddress),
         caller: caller.address,
         origin: caller.address,
         data: createCallPayload(options)
@@ -297,7 +294,7 @@ function patchCallValues(values: any[], aliases: AliasMap): any[] {
             let resolved = resolveAlias(aliases, value.alias);
 
             if (resolved instanceof User) {
-                resolved = resolved.address;
+                resolved = resolved.address.buf;
             }
 
             if (resolved instanceof Buffer) {
