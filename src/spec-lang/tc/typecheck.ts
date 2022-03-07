@@ -79,7 +79,8 @@ import {
     SStringLiteral,
     SUnaryOperation,
     SUserFunctionDefinition,
-    VarDefSite
+    VarDefSite,
+    AnnotationType
 } from "../ast";
 import { AddressMembers, BuiltinSymbols } from "./builtins";
 import { BuiltinStructType, FunctionSetType, ImportRefType, VariableTypes } from "./internal_types";
@@ -107,10 +108,27 @@ export type SScope =
     | SForAll
     | VariableDeclarationStatement;
 
-export type STypingCtx = SScope[];
+export interface STypingCtx {
+    type: AnnotationType;
+    target: AnnotationTarget;
+    scopes: SScope[];
+    isOld: boolean;
+}
+
+function addScope(ctx: STypingCtx, scope: SScope): STypingCtx {
+    return { type: ctx.type, target: ctx.target, scopes: [...ctx.scopes, scope], isOld: ctx.isOld };
+}
+
+function oldCtx(ctx: STypingCtx): STypingCtx {
+    return { type: ctx.type, target: ctx.target, scopes: ctx.scopes, isOld: true };
+}
+
+function fromCtx(ctx: STypingCtx, other: Partial<STypingCtx>): STypingCtx {
+    return { ...ctx, ...other };
+}
 
 export function ppTypingCtx(ctx: STypingCtx): string {
-    return ctx
+    return ctx.scopes
         .map((entry) => {
             if (entry instanceof ContractDefinition) {
                 return entry.name;
@@ -140,11 +158,11 @@ export function getScopeOfType<T extends ContractDefinition | FunctionDefinition
     constr: ASTNodeConstructor<T>,
     ctx: STypingCtx
 ): T | undefined {
-    if (ctx[0] instanceof constr) {
-        return ctx[0];
+    if (ctx.scopes[0] instanceof constr) {
+        return ctx.scopes[0];
     }
 
-    return (ctx[0] as ASTNode).getClosestParentByType(constr);
+    return (ctx.scopes[0] as ASTNode).getClosestParentByType(constr);
 }
 
 export abstract class STypeError extends Error {
@@ -269,11 +287,9 @@ function resolveAnyOfType<T extends AnyResolvable>(
     name: string,
     scope: ASTNode,
     version: string,
-    t: ASTNodeConstructor<T>
+    t: ASTNodeConstructor<T>,
+    inclusive: boolean
 ): T[] {
-    // If the context is a VariableDecarationStatement we must be in the case of an
-    // assert placed right before it. Therefore excluse the `VariableDeclarationStatemetn` itself from the scope.
-    const inclusive = !(scope instanceof VariableDeclarationStatement);
     return [...resolveAny(name, scope, version, inclusive)].filter((x) => x instanceof t) as T[];
 }
 
@@ -281,14 +297,22 @@ function resolveAnyOfType<T extends AnyResolvable>(
  * Given a variable name and a stack of scopes find the definition of this variable.
  *
  * @param name variable name
- * @param ctx stack of scopes in which we are looking for `name`'s defintion
+ * @param ctx stack of scopes in which we are looking for `name`'s definition
  */
 function lookupVarDef(name: string, ctx: STypingCtx, version: string): VarDefSite | undefined {
     // Walk the scope stack down looking for the definition of v
-    for (let i = ctx.length - 1; i >= 0; i--) {
-        const scope = ctx[i];
+    for (let i = ctx.scopes.length - 1; i >= 0; i--) {
+        const scope = ctx.scopes[i];
         if (scope instanceof ASTNode) {
-            const res = resolveAnyOfType(name, scope, version, VariableDeclaration);
+            // We want to exclude the current node is if:
+            //  a) Its VariableDeclarationStatement and the annotation is not an IfSucceeds
+            //     or
+            //  b) Its VariableDeclarationStatement and the annotation is an IfSucceeds and its in the old ctx
+            const exclude =
+                scope instanceof VariableDeclarationStatement &&
+                (ctx.type !== AnnotationType.IfSucceeds || ctx.isOld);
+
+            const res = resolveAnyOfType(name, scope, version, VariableDeclaration, !exclude);
             return res.length > 0 ? single(res) : undefined;
         } else if (scope instanceof SUserFunctionDefinition) {
             for (let paramIdx = 0; paramIdx < scope.parameters.length; paramIdx++) {
@@ -330,11 +354,11 @@ function lookupVarDef(name: string, ctx: STypingCtx, version: string): VarDefSit
  * able to pass on to `resolveAny`.
  */
 function lookupFun(name: string, ctx: STypingCtx, version: string): FunctionDefinition[] {
-    const scope = ctx[0];
+    const scope = ctx.scopes[0];
 
     assert(scope instanceof ASTNode, "Expected root scope to be an ASTNode, not {0}", scope);
 
-    const res = resolveAnyOfType(name, scope, version, FunctionDefinition);
+    const res = resolveAnyOfType(name, scope, version, FunctionDefinition, true);
 
     return res as FunctionDefinition[];
 }
@@ -350,7 +374,7 @@ function lookupTypeDef(
     ctx: STypingCtx,
     version: string
 ): StructDefinition | EnumDefinition | ContractDefinition | undefined {
-    const scope = ctx[0];
+    const scope = ctx.scopes[0];
 
     assert(scope instanceof ASTNode, "Expected root scope to be an ASTNode, not {0}", scope);
 
@@ -470,12 +494,20 @@ export function tcUnits(units: SourceUnit[], annotMap: AnnotationMap, typeEnv: T
 
     // Walk over all targets, and TC the annotations for each target
     for (const target of targets) {
-        const typingCtx: STypingCtx = [
-            target instanceof VariableDeclaration ? (target.vScope as ContractDefinition) : target
-        ];
         const annotations = annotMap.get(target) as AnnotationMetaData[];
 
         for (const annotationMD of annotations) {
+            const typingCtx: STypingCtx = {
+                target: target,
+                type: annotationMD.type,
+                scopes: [
+                    target instanceof VariableDeclaration
+                        ? (target.vScope as ContractDefinition)
+                        : target
+                ],
+                isOld: false
+            };
+
             try {
                 tcAnnotation(annotationMD.parsedAnnot, typingCtx, target, typeEnv);
             } catch (e) {
@@ -509,7 +541,7 @@ export function tcAnnotation(
                 target
             );
 
-            predCtx = [...ctx, new StateVarScope(target, annot)];
+            predCtx = addScope(ctx, new StateVarScope(target, annot));
 
             assert(target.vType !== undefined, `State var ${target.name} is missing a type.`);
 
@@ -530,7 +562,7 @@ export function tcAnnotation(
             );
         }
     } else if (annot instanceof SUserFunctionDefinition) {
-        const funScope = last(ctx);
+        const funScope = last(ctx.scopes);
         if (!(funScope instanceof ContractDefinition)) {
             throw new SGenericTypeError(
                 `User functions can only be defined on contract annotations at the moment.`,
@@ -547,7 +579,7 @@ export function tcAnnotation(
             );
         }
 
-        const bodyType = tc(annot.body, [...ctx, annot], typeEnv);
+        const bodyType = tc(annot.body, addScope(ctx, annot), typeEnv);
 
         if (!isImplicitlyCastable(bodyType, annot.returnType)) {
             throw new SWrongType(
@@ -903,11 +935,11 @@ export function tcIdImportUnitRef(
     ctx: STypingCtx,
     typeEnv: TypeEnv
 ): ImportRefType | undefined {
-    const scope = ctx[0];
+    const scope = ctx.scopes[0];
 
     assert(scope instanceof ASTNode, "Expected root scope to be an ASTNode, not {0}", scope);
 
-    const res = resolveAnyOfType(expr.name, scope, typeEnv.compilerVersion, ImportDirective);
+    const res = resolveAnyOfType(expr.name, scope, typeEnv.compilerVersion, ImportDirective, true);
 
     return res.length > 0 ? new ImportRefType(single(res)) : undefined;
 }
@@ -1048,7 +1080,7 @@ export function tcUnary(expr: SUnaryOperation, ctx: STypingCtx, typeEnv: TypeEnv
 
     assert(expr.op === "old", `Internal error: NYI unary op ${expr.op}`);
 
-    return tc(expr.subexp, ctx, typeEnv);
+    return tc(expr.subexp, oldCtx(ctx), typeEnv);
 }
 
 /**
@@ -1511,7 +1543,11 @@ export function tcMemberAccess(expr: SMemberAccess, ctx: STypingCtx, typeEnv: Ty
         baseT.type.definition instanceof ContractDefinition
     ) {
         // First check if this is a type name
-        const type = lookupTypeDef(expr.member, [baseT.type.definition], typeEnv.compilerVersion);
+        const type = lookupTypeDef(
+            expr.member,
+            fromCtx(ctx, { scopes: [baseT.type.definition], isOld: false }),
+            typeEnv.compilerVersion
+        );
 
         if (type) {
             expr.defSite = type;
@@ -1531,7 +1567,11 @@ export function tcMemberAccess(expr: SMemberAccess, ctx: STypingCtx, typeEnv: Ty
         }
 
         // Next check if this is a library constant
-        const def = lookupVarDef(expr.member, [baseT.type.definition], typeEnv.compilerVersion);
+        const def = lookupVarDef(
+            expr.member,
+            fromCtx(ctx, { scopes: [baseT.type.definition], isOld: false }),
+            typeEnv.compilerVersion
+        );
 
         if (def !== undefined && def instanceof VariableDeclaration && def.constant) {
             return variableDeclarationToTypeNode(def);
@@ -1564,7 +1604,7 @@ export function tcMemberAccess(expr: SMemberAccess, ctx: STypingCtx, typeEnv: Ty
         const sourceUnit = baseT.impStatement.vSourceUnit;
         try {
             const tmpId = new SId(expr.member, expr.src);
-            const res = tc(tmpId, [sourceUnit], typeEnv);
+            const res = tc(tmpId, fromCtx(ctx, { scopes: [sourceUnit], isOld: false }), typeEnv);
             if (
                 tmpId.defSite instanceof VariableDeclaration ||
                 tmpId.defSite instanceof FunctionDefinition ||
@@ -1658,7 +1698,7 @@ export function tcLet(expr: SLet, ctx: STypingCtx, typeEnv: TypeEnv): TypeNode {
         );
     }
 
-    const res = tc(expr.in, ctx.concat(expr), typeEnv);
+    const res = tc(expr.in, addScope(ctx, expr), typeEnv);
 
     if (res instanceof IntLiteralType) {
         throw new SGenericTypeError(
@@ -1737,7 +1777,7 @@ function matchArguments(
  */
 export function tcForAll(expr: SForAll, ctx: STypingCtx, typeEnv: TypeEnv): TypeNode {
     // Call tc on iterator variable to make sure its defSite is set
-    const varT = tc(expr.iteratorVariable, ctx.concat(expr), typeEnv);
+    const varT = tc(expr.iteratorVariable, addScope(ctx, expr), typeEnv);
     const uintT = new IntType(256, false);
 
     if (expr.container !== undefined) {
@@ -1811,7 +1851,7 @@ export function tcForAll(expr: SForAll, ctx: STypingCtx, typeEnv: TypeEnv): Type
         }
     }
 
-    const exprT = tc(expr.expression, ctx.concat(expr), typeEnv);
+    const exprT = tc(expr.expression, addScope(ctx, expr), typeEnv);
     if (!(exprT instanceof BoolType)) {
         throw new SWrongType(
             `The expected type for ${expr.expression.pp()} is boolean and not ${exprT}.`,

@@ -76,7 +76,7 @@ describe("Maps with keys library generation", () => {
         unit = single(res.units);
         ctx = res.reader.context;
         version = res.compilerVersion;
-        factory = new ScribbleFactory(ctx);
+        factory = new ScribbleFactory(version, ctx);
 
         instrCtx = makeInstrumentationCtx(res.units, factory, res.files, "log", version);
 
@@ -531,7 +531,7 @@ describe("Interposing on a map", () => {
 
             version = res.compilerVersion;
 
-            const factory = new ScribbleFactory(ctx);
+            const factory = new ScribbleFactory(version, ctx);
             const instrCtx = makeInstrumentationCtx(
                 [unit],
                 factory,

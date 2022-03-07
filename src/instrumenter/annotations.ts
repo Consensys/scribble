@@ -300,7 +300,8 @@ function validateAnnotation(target: AnnotationTarget, annotation: AnnotationMeta
         if (
             annotation.type !== AnnotationType.Assert &&
             annotation.type !== AnnotationType.Try &&
-            annotation.type !== AnnotationType.Require
+            annotation.type !== AnnotationType.Require &&
+            annotation.type !== AnnotationType.IfSucceeds
         ) {
             throw new UnsupportedByTargetError(
                 `The "${annotation.type}" annotation is not applicable inside functions`,
