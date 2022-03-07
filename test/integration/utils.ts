@@ -177,7 +177,9 @@ export function scribble(fileName: string | string[], ...args: string[]): string
  */
 export function scrSample(fileName: string, ...additionalArgs: string[]): string {
     const artefact = fileName + ".json";
-    const args: string[] = [];
+    const compilerKind = getCompilerKind();
+
+    const args: string[] = ["--compiler-kind", compilerKind];
 
     if (fse.existsSync(fileName + ".json")) {
         fileName = artefact;
