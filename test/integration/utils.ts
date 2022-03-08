@@ -320,7 +320,14 @@ function makeTypingCtx(
             assert(false, `Unknown annotation type ${type}`);
         }
     }
-    return { scopes, target, type, isOld: false };
+    return {
+        scopes,
+        target,
+        type,
+        isOld: false,
+        annotation: undefined as unknown as SAnnotation,
+        annotationMap: new Map()
+    };
 }
 
 export function getTypeCtxAndTarget(

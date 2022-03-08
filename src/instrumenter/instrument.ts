@@ -32,7 +32,7 @@ import {
     TypeNode,
     UncheckedBlock
 } from "solc-typed-ast";
-import { AnnotationType, SNode } from "../spec-lang/ast";
+import { AnnotationType, SLetAnnotation, SNode } from "../spec-lang/ast";
 import {
     filterByType,
     isChangingState,
@@ -318,7 +318,6 @@ function getDebugInfoEmits(
             )
         );
 
-        instrCtx.addAnnotationInstrumentation(annot, emitStmt);
         res.push(emitStmt);
     }
 
@@ -412,6 +411,7 @@ function emitAssert(
     const ifBody: Statement[] = [userAssertFailed];
 
     if (emitStmt) {
+        instrCtx.addAnnotationInstrumentation(annotation, emitStmt);
         ifBody.push(emitStmt);
     }
 
@@ -524,12 +524,25 @@ export function insertAnnotations(annotations: PropertyMetaData[], ctx: Transpil
             );
 
             const stmt = factory.makeIfStatement(predicate, scratchAssign);
-            annotation.type === AnnotationType.Try;
 
             instrCtx.addAnnotationInstrumentation(annotation, stmt);
             instrCtx.addAnnotationCheck(annotation, predicate);
 
             return [stmt, !targetIsStmt];
+        }
+
+        if (annotation.type === AnnotationType.LetAnnotation) {
+            const parsedAnnot = annotation.parsedAnnot as SLetAnnotation;
+            const name = ctx.getLetAnnotationBinding(parsedAnnot);
+            const stmt = factory.makeAssignment("<missing>", "=", ctx.refBinding(name), predicate);
+
+            /// For now keep #let annotations as 'general' annotation, as to not
+            /// confuse consumers of the instrumentation metadata (they only
+            /// expect actual "check" annotations). This however is hacky.
+            /// TODO: Separate src mapping information for all annotations as a separate entity in metadata
+            instrCtx.addGeneralInstrumentation(stmt);
+
+            return [stmt, false];
         }
 
         const event = instrCtx.getAssertionFailedEvent(contract);
@@ -1146,10 +1159,11 @@ export function instrumentStatement(
         if (
             annot.type === AnnotationType.Assert ||
             annot.type === AnnotationType.Try ||
-            annot.type === AnnotationType.Require
+            annot.type === AnnotationType.Require ||
+            annot.type === AnnotationType.LetAnnotation
         ) {
             singlePointAnnots.push(annot);
-        } else if (annot.type == AnnotationType.IfSucceeds) {
+        } else if (annot.type === AnnotationType.IfSucceeds) {
             ifSucceedsAnnots.push(annot);
         } else {
             assert(false, `Unexpected annotaiton on statement ${annot.original}`);

@@ -12,7 +12,8 @@ export enum AnnotationType {
     Assert = "assert",
     Try = "try",
     Require = "require",
-    Macro = "macro"
+    Macro = "macro",
+    LetAnnotation = "let"
 }
 
 export type AnnotationMDExpr = SNumber | SBooleanLiteral | SStringLiteral;

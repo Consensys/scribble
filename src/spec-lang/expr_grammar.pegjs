@@ -13,6 +13,7 @@ Annotation =
         / Assert
         / Try
         / Require
+        / LetAnnotation
         / Macro
     )
     .* {
@@ -103,6 +104,17 @@ Assert =
     type: ASSERT __ md: AnnotationMD? __ expr: Expression __ ";" {
         return new SProperty (
             type as AnnotationType,
+            expr,
+            md === null ? undefined : md,
+            makeRange(location(), options as ParseOptions)
+        );
+    }
+
+LetAnnotation =
+    type: LET __ md: AnnotationMD? __ name: Identifier __ ":=" __ expr: Expression __ ";" {
+        return new SLetAnnotation(
+            type as AnnotationType,
+            name,
             expr,
             md === null ? undefined : md,
             makeRange(location(), options as ParseOptions)
