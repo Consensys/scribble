@@ -1,9 +1,7 @@
 import expect from "expect";
-import { ContractDefinition } from "solc-typed-ast";
 import { findExternalCalls } from "../../src/instrumenter/instrument";
-import { getScopeOfType } from "../../src/spec-lang/tc";
 import { nodeToSource } from "../../src/util";
-import { getTypeCtxAndTarget, LocationDesc, toAst } from "../integration/utils";
+import { findContract, LocationDesc, toAst } from "../integration/utils";
 
 describe("Detecting external calls Unit Tests", () => {
     const goodSamples: Array<[string, string, LocationDesc, string[]]> = [
@@ -67,13 +65,7 @@ contract Main {
             const compilerVersion = "0.6.0";
             const { units } = await toAst(fileName, content);
 
-            const [ctx] = getTypeCtxAndTarget(loc, units);
-
-            const contract: ContractDefinition = getScopeOfType(
-                ContractDefinition,
-                ctx
-            ) as ContractDefinition;
-
+            const contract = findContract(units, loc[0]);
             const extCalls: string[] = findExternalCalls(contract, compilerVersion).map((call) =>
                 nodeToSource(call.vExpression)
             );

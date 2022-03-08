@@ -378,7 +378,7 @@ export function interposeMap(
 
                     const transCtx = instrCtx.transCtxMap.get(
                         containingFun,
-                        InstrumentationSiteType.StateVarUpdated
+                        InstrumentationSiteType.TwoPointWrapper
                     );
 
                     for (const [tempAssignment, tuplePath] of explodeTupleAssignment(

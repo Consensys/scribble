@@ -1401,6 +1401,48 @@ contract Statements08 {
                     ["Statements08", "main", "//Block/*[7]/*[1]"],
                     undefined,
                     true
+                ],
+                [
+                    "#if_succeeds loc == 0;",
+                    ["Statements08", "main", "//Block/*[1]"],
+                    undefined,
+                    true
+                ],
+                [
+                    "#if_succeeds old(loc) == 0 && loc == 1;",
+                    ["Statements08", "main", "//Block/*[2]"],
+                    undefined,
+                    true
+                ],
+                [
+                    "#if_succeeds loc == 2;",
+                    ["Statements08", "main", "//Block/*[3]/Block"],
+                    undefined,
+                    true
+                ],
+                [
+                    "#if_succeeds loc == 3;",
+                    ["Statements08", "main", "//Block/*[3]/Block"],
+                    undefined,
+                    true
+                ],
+                [
+                    "#if_succeeds arg1 > loc;",
+                    ["Statements08", "main", "//Block/*[5]"],
+                    undefined,
+                    true
+                ],
+                [
+                    "#if_succeeds iter > 1;",
+                    ["Statements08", "main", "//Block/*[5]/Block"],
+                    undefined,
+                    true
+                ],
+                [
+                    "#if_succeeds old(iter < arg1);",
+                    ["Statements08", "main", "//Block/*[5]/Block"],
+                    undefined,
+                    true
                 ]
             ]
         ]
@@ -1573,7 +1615,10 @@ contract Statements08 {
                 ["#assert arg1 > loc;", ["Statements08", "main", "//Block/*[1]"]],
                 ["#assert arg1 > loc + t;", ["Statements08", "main", "//Block/*[3]/Block/*[1]"]],
                 ["#assert loc + loc2 + sVar> 0;", ["Statements08", "main", "//Block/*[7]/*[1]"]],
-                ["#assert loc + arg1 + g > 0;", ["Statements08", "main", "//Block/*[6]/Block"]]
+                ["#assert loc + arg1 + g > 0;", ["Statements08", "main", "//Block/*[6]/Block"]],
+                ["#if_succeeds old(loc) == 0;", ["Statements08", "main", "//Block/*[1]"]],
+                ["#if_succeeds loc == t + 3;", ["Statements08", "main", "//Block/*[3]/Block"]],
+                ["#if_succeeds iter1 > 0;", ["Statements08", "main", "//Block/*[5]"]]
             ]
         ]
     ];
@@ -1654,7 +1699,7 @@ contract Statements08 {
 
                 // Setup any definitions
                 for (const [specString, loc] of setupSteps) {
-                    const [ctx, target] = getTypeCtxAndTarget(loc, units);
+                    const target = getTarget(loc, units);
                     const parsed = parseAnnotation(
                         specString,
                         target,
@@ -1663,6 +1708,7 @@ contract Statements08 {
                         0
                     );
 
+                    const [ctx] = getTypeCtxAndTarget(loc, units, parsed);
                     tcAnnotation(parsed, ctx, target, typeEnv);
                 }
             });
@@ -1682,7 +1728,7 @@ contract Statements08 {
 
                     Logger.debug(
                         `[${specString}]: Expect typechecking of ${parsed.pp()} in ctx ${pp(
-                            ctx as PPIsh
+                            ctx.scopes as PPIsh
                         )} to throw`
                     );
 

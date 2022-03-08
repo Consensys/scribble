@@ -1,9 +1,12 @@
+import { gte } from "semver";
 import {
     AddressType,
     ArrayType,
     assert,
+    ASTContext,
     ASTNode,
     ASTNodeFactory,
+    ASTPostprocessor,
     Block,
     BoolType,
     BytesType,
@@ -32,6 +35,7 @@ import {
     StructDefinition,
     TypeName,
     TypeNode,
+    UncheckedBlock,
     UserDefinedType,
     VariableDeclaration
 } from "solc-typed-ast";
@@ -71,6 +75,24 @@ export function getTypeLocation(type: TypeNode, location?: DataLocation): DataLo
  * @todo Move to own file. This will likely grow
  */
 export class ScribbleFactory extends ASTNodeFactory {
+    constructor(
+        public readonly compilerVersion: string,
+        context?: ASTContext,
+        postProcessor?: ASTPostprocessor
+    ) {
+        super(context, postProcessor);
+    }
+
+    /**
+     * Return a new block to be used for some instrumentation code.
+     * On ^0.8.0 we always used UncheckedBlock(s)
+     */
+    makeInstrBlock(): UncheckedBlock | Block {
+        return gte(this.compilerVersion, "0.8.0")
+            ? this.makeUncheckedBlock([])
+            : this.makeBlock([]);
+    }
+
     /**
      * Creates and returns empty public constructor of `contract`
      */

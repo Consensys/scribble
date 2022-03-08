@@ -1283,7 +1283,7 @@ export function instrumentStateVars(
 
             const transCtx = ctx.transCtxMap.get(
                 containingFun,
-                InstrumentationSiteType.StateVarUpdated
+                InstrumentationSiteType.TwoPointWrapper
             );
 
             const tupleWrappedMap = interposeTupleAssignment(transCtx, node, varsOfInterest);
@@ -1315,7 +1315,7 @@ export function instrumentStateVars(
 
         assert(relevantAnnotats !== undefined, "Expected relevant annotations to be defined");
 
-        const transCtx = ctx.transCtxMap.get(wrapper, InstrumentationSiteType.StateVarUpdated);
+        const transCtx = ctx.transCtxMap.get(wrapper, InstrumentationSiteType.TwoPointWrapper);
 
         insertAnnotations(relevantAnnotats, transCtx);
     }

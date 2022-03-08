@@ -34,12 +34,24 @@ import { InstrumentationContext } from "./instrumentation_context";
 import { makeTypeString } from "./type_string";
 import { FactoryMap, ScribbleFactory, StructMap } from "./utils";
 
+/**
+ * Currently each `TranspilingContext` instance is tied to a specific location
+ * where the instrumenting happens. There are 3 supported types of
+ * instrumentation locations:
+ *
+ * - TwoPointWrapper is a wrapper function with a statement from the original
+ *  program (or a call to the original function) in the middle. In wrapper functions
+ *  you can transpile 'old' expressions before the original statement, and the rest after.
+ *
+ * - SinglePointWrapper is an empty wrapper function - we append any transpiled expressions only in the end.
+ *   It is an error to try and transpile `old(..)` in a SinglePointWrapper context
+ *
+ * - Custom - any other custom context (currently used for #assert, #let and #if_succeeds on a statement)
+ */
 export enum InstrumentationSiteType {
-    FunctionAnnotation,
-    ContractInvariant,
-    UserDefinedFunction,
-    StateVarUpdated,
-    Assert
+    TwoPointWrapper,
+    SinglePointWrapper,
+    Custom
 }
 
 export type ASTMap = Map<ASTNode, ASTNode>;
@@ -194,42 +206,47 @@ export class TranspilingContext {
             bindingsVarType
         );
 
-        if (gte(instrCtx.compilerVersion, "0.8.0")) {
-            const containerBody = this.containerFun.vBody as Block;
-            if (
-                this.instrSiteType === InstrumentationSiteType.FunctionAnnotation ||
-                this.instrSiteType === InstrumentationSiteType.StateVarUpdated
-            ) {
-                const uncheckedBlock = this.factory.makeUncheckedBlock([]);
-                this.uncheckedBlocks.push(uncheckedBlock);
-                containerBody.insertAtBeginning(uncheckedBlock);
-
-                this.oldMarkerStack = [[uncheckedBlock, "end"]];
-            }
-
-            const newUncheckedBlock = this.factory.makeUncheckedBlock([]);
-            this.uncheckedBlocks.push(newUncheckedBlock);
-            containerBody.appendChild(newUncheckedBlock);
-            this.newMarkerStack = [[newUncheckedBlock, "end"]];
-        } else {
-            const containerBody = this.containerFun.vBody as Block;
-            if (
-                this.instrSiteType === InstrumentationSiteType.FunctionAnnotation ||
-                this.instrSiteType === InstrumentationSiteType.StateVarUpdated
-            ) {
-                const firstStmt = containerBody.vStatements[0];
-
-                this.oldMarkerStack = [[containerBody, ["before", firstStmt]]];
-            }
-
-            this.newMarkerStack = [[containerBody, "end"]];
-        }
-
         if (instrCtx.assertionMode === "mstore") {
             this.addBinding(
                 instrCtx.scratchField,
                 this.factory.makeElementaryTypeName("<missing>", "uint256")
             );
+        }
+    }
+
+    initSinglePointWrapper(): void {
+        const containerBody = this.containerFun.vBody as Block;
+
+        if (gte(this.instrCtx.compilerVersion, "0.8.0")) {
+            const newUncheckedBlock = this.factory.makeUncheckedBlock([]);
+            this.uncheckedBlocks.push(newUncheckedBlock);
+            containerBody.appendChild(newUncheckedBlock);
+            this.newMarkerStack = [[newUncheckedBlock, "end"]];
+        } else {
+            this.newMarkerStack = [[containerBody, "end"]];
+        }
+    }
+
+    initTwoPointWrapper(): void {
+        const containerBody = this.containerFun.vBody as Block;
+
+        if (gte(this.instrCtx.compilerVersion, "0.8.0")) {
+            const uncheckedBlock = this.factory.makeUncheckedBlock([]);
+
+            this.uncheckedBlocks.push(uncheckedBlock);
+            containerBody.insertAtBeginning(uncheckedBlock);
+            this.oldMarkerStack = [[uncheckedBlock, "end"]];
+
+            const newUncheckedBlock = this.factory.makeUncheckedBlock([]);
+
+            this.uncheckedBlocks.push(newUncheckedBlock);
+            containerBody.appendChild(newUncheckedBlock);
+            this.newMarkerStack = [[newUncheckedBlock, "end"]];
+        } else {
+            const firstStmt = containerBody.vStatements[0];
+
+            this.oldMarkerStack = [[containerBody, ["before", firstStmt]]];
+            this.newMarkerStack = [[containerBody, "end"]];
         }
     }
 
@@ -305,7 +322,7 @@ export class TranspilingContext {
      * @TODO this is a hack. Find a cleaner way to separate the responsibilities between holding function-wide information and
      * specific annotation instance information during transpiling.
      */
-    resetMarkser(marker: Marker, isOld: boolean): void {
+    resetMarker(marker: Marker, isOld: boolean): void {
         if (isOld) {
             this.oldMarkerStack = [marker];
         } else {
