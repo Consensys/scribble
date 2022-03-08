@@ -1,5 +1,4 @@
 pragma solidity 0.8.11;
-
 contract IfSucceedsOnStatement {
 	function foo(uint amount) public {
 		uint[] memory a;

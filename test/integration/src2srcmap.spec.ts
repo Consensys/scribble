@@ -428,12 +428,12 @@ describe("Src2src map test", () => {
 
                         assert(
                             forAll(bytecodeMapEntries, (entry) => entry.sourceIndex === 0),
-                            `Contract ${contractName} in ${fileName} has non-zero source inidices in its bytecode map.`
+                            `Contract ${contractName} in ${fileName} has non-zero source indices in its bytecode map.`
                         );
 
                         assert(
                             forAll(deployedBytecodeMapEntries, (entry) => entry.sourceIndex === 0),
-                            `Contract ${contractName} in ${fileName} has non-zero source inidices in its deployedBytecodemap.`
+                            `Contract ${contractName} in ${fileName} has non-zero source indices in its deployedBytecodemap.`
                         );
 
                         const missing = new Set<string>();

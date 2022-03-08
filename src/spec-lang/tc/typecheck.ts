@@ -80,7 +80,8 @@ import {
     SUnaryOperation,
     SUserFunctionDefinition,
     VarDefSite,
-    AnnotationType
+    AnnotationType,
+    SLetAnnotation
 } from "../ast";
 import { AddressMembers, BuiltinSymbols } from "./builtins";
 import { BuiltinStructType, FunctionSetType, ImportRefType, VariableTypes } from "./internal_types";
@@ -110,17 +111,33 @@ export type SScope =
 
 export interface STypingCtx {
     type: AnnotationType;
+    annotation: SNode;
     target: AnnotationTarget;
     scopes: SScope[];
     isOld: boolean;
+    annotationMap: AnnotationMap;
 }
 
 function addScope(ctx: STypingCtx, scope: SScope): STypingCtx {
-    return { type: ctx.type, target: ctx.target, scopes: [...ctx.scopes, scope], isOld: ctx.isOld };
+    return {
+        type: ctx.type,
+        target: ctx.target,
+        scopes: [...ctx.scopes, scope],
+        isOld: ctx.isOld,
+        annotationMap: ctx.annotationMap,
+        annotation: ctx.annotation
+    };
 }
 
 function oldCtx(ctx: STypingCtx): STypingCtx {
-    return { type: ctx.type, target: ctx.target, scopes: ctx.scopes, isOld: true };
+    return {
+        type: ctx.type,
+        target: ctx.target,
+        scopes: ctx.scopes,
+        isOld: true,
+        annotationMap: ctx.annotationMap,
+        annotation: ctx.annotation
+    };
 }
 
 function fromCtx(ctx: STypingCtx, other: Partial<STypingCtx>): STypingCtx {
@@ -280,6 +297,15 @@ export class IncompatibleTypes extends STypeError {
 export class SInvalidKeyword extends SGenericTypeError<SNode> {
     constructor(msg: string, node: SNode) {
         super(msg, node);
+    }
+}
+
+export class SShadowingError extends SGenericTypeError<SNode> {
+    public readonly original: SNode | ASTNode;
+
+    constructor(msg: string, node: SNode, original: SNode | ASTNode) {
+        super(msg, node);
+        this.original = original;
     }
 }
 
@@ -500,6 +526,8 @@ export function tcUnits(units: SourceUnit[], annotMap: AnnotationMap, typeEnv: T
             const typingCtx: STypingCtx = {
                 target: target,
                 type: annotationMD.type,
+                annotation: annotationMD.parsedAnnot,
+                annotationMap: annotMap,
                 scopes: [
                     target instanceof VariableDeclaration
                         ? (target.vScope as ContractDefinition)
@@ -592,6 +620,19 @@ export function tcAnnotation(
         }
 
         typeEnv.defineUserFunction(funScope, annot);
+    } else if (annot instanceof SLetAnnotation) {
+        const shadowedDefs = resolveAny(annot.name.name, ctx.target, typeEnv.compilerVersion);
+
+        if (shadowedDefs.size > 0) {
+            throw new SShadowingError(
+                `Let-binding of ${annot.name.name} shadows existing definition.`,
+                annot,
+                [...shadowedDefs][0]
+            );
+        }
+
+        const idType = tc(annot.expression, ctx, typeEnv);
+        typeEnv.define(annot.name, idType);
     } else {
         throw new Error(`NYI type-checking of annotation ${annot.pp()}`);
     }
@@ -870,6 +911,52 @@ function locateKeyType(type: TypeName, idx: number, path: Array<SId | string>): 
     );
 }
 
+function tcLetAnnotationId(expr: SId, ctx: STypingCtx, typeEnv: TypeEnv): TypeNode | undefined {
+    let curNode = last(ctx.scopes);
+
+    while (curNode instanceof Statement || curNode instanceof StatementWithChildren) {
+        const annots = ctx.annotationMap.get(curNode);
+
+        if (annots !== undefined) {
+            for (const annot of annots) {
+                // Stop if we've reached the current annotation
+                // Note this depends on all annotations on a single statement being parsed
+                // in the same order as they are written.
+                if (curNode === annot.target && annot.parsedAnnot === ctx.annotation) {
+                    break;
+                }
+
+                if (
+                    annot.parsedAnnot instanceof SLetAnnotation &&
+                    expr.name === annot.parsedAnnot.name.name
+                ) {
+                    // Note: This depends on `let x:=` always being type-checked before the uses of `x`.
+                    expr.defSite = annot.parsedAnnot;
+                    return typeEnv.typeOf(annot.parsedAnnot.expression);
+                }
+            }
+        }
+
+        const pt = curNode.parent;
+
+        if (pt instanceof StatementWithChildren) {
+            const idx = pt.children.indexOf(curNode);
+
+            if (idx > 0) {
+                curNode = pt.children[idx - 1];
+            } else {
+                curNode = pt;
+            }
+        } else if (pt instanceof Statement || pt instanceof StatementWithChildren) {
+            curNode = pt;
+        } else {
+            break;
+        }
+    }
+
+    return undefined;
+}
+
 function tcIdVariable(expr: SId, ctx: STypingCtx, typeEnv: TypeEnv): TypeNode | undefined {
     const def = lookupVarDef(expr.name, ctx, typeEnv.compilerVersion);
 
@@ -891,10 +978,15 @@ function tcIdVariable(expr: SId, ctx: STypingCtx, typeEnv: TypeEnv): TypeNode | 
         return def.iteratorType;
     }
 
+    // For now statement let bindings are handled in tcLetAnnotationId.
+    if (def instanceof SLetAnnotation) {
+        return undefined;
+    }
+
     const [defNode, bindingIdx] = def;
 
     if (defNode instanceof SLet) {
-        const rhsT = tc(defNode.rhs, ctx, typeEnv);
+        const rhsT = typeEnv.typeOf(defNode.rhs);
 
         if (defNode.lhs.length > 1) {
             if (!(rhsT instanceof TupleType && rhsT.elements.length === defNode.lhs.length)) {
@@ -966,6 +1058,13 @@ export function tcId(expr: SId, ctx: STypingCtx, typeEnv: TypeEnv): TypeNode {
 
     // Next try to TC the id as a variable
     retT = tcIdVariable(expr, ctx, typeEnv);
+
+    if (retT !== undefined) {
+        return retT;
+    }
+
+    // Next try to TC the id as a let-annotation
+    retT = tcLetAnnotationId(expr, ctx, typeEnv);
 
     if (retT !== undefined) {
         return retT;
