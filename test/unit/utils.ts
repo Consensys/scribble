@@ -38,7 +38,8 @@ export function makeInstrumentationCtx(
         []
     );
 
-    generateUtilsContract(factory, "", "scribble_utils.sol", compilerVersion, ctx).vContracts;
+    generateUtilsContract(factory, "", undefined, "scribble_utils.sol", compilerVersion, ctx)
+        .vContracts;
 
     return ctx;
 }

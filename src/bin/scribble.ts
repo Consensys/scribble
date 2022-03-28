@@ -23,7 +23,9 @@ import {
     getABIEncoderVersion,
     getCompilerPrefixForOs,
     isSane,
+    parsePathRemapping,
     PossibleCompilerKinds,
+    Remapping,
     SourceUnit,
     SrcRangeMap,
     Statement,
@@ -88,6 +90,7 @@ import {
 import { YamlSchemaError } from "../util/yaml";
 import cli from "./scribble_cli.json";
 
+const glob = require("glob");
 const commandLineArgs = require("command-line-args");
 const commandLineUsage = require("command-line-usage");
 
@@ -440,8 +443,71 @@ function writeOut(contents: string, fileName: string) {
     }
 }
 
+export function applyRemappings(
+    remappings: Remapping[],
+    path: string
+): [string, string | undefined, string | undefined] {
+    for (const [, prefix, mapped_prefix] of remappings) {
+        if (path.startsWith(prefix)) {
+            return [path.replace(prefix, mapped_prefix), prefix, mapped_prefix];
+        }
+    }
+
+    return [path, undefined, undefined];
+}
+
+/**
+ * This functions picks the location where we will place the `__scribble_ReentrancyUtils.sol` file.
+ * Optionally, in some cases it also returns the exact import path we should use. There are 3 cases:
+ *
+ * 1. If the user specified a --utils-output-path command line option just use that
+ * 2. If there is some path remapping from say @openzeppelin to node_modules/@openzeppelin and there is a package.json
+ *    somewhere inside in say node_modules/@openzeppelin/contracts then put the file in the same directory
+ *    as the package.json. Also return an import path starting with the remap prefix (e.g. @openzeppelin)
+ * 3. Otherwise put the utils file in the same director as the first target contract.
+ *
+ * This complex procedure is needed to support truffle in-place compilation when instrumentation
+ * impacts files under node_modules (see https://github.com/ConsenSys/scribble/issues/160) for more details.
+ */
+function pickUtilsLocAndImport(
+    explicitUtilsPath: string | undefined,
+    pathRemappings: Iterable<Remapping>,
+    targets: string[]
+): [string, string | undefined] {
+    // If the the user specified a --utils-module-path then use that
+    if (explicitUtilsPath !== undefined) {
+        return [explicitUtilsPath, undefined];
+    }
+
+    // Otherwise, if we have an import X/Y/Z.sol that is remapped to some
+    // node_modules directory node_modules/X/Y/Z.sol, find a sub-directory
+    // of node_modules/X that contains a package.json and use that.
+    // The requirement for there to be a package.json file comes from hardhat's resolver.
+    for (const [, prefix, remappedPrefix] of pathRemappings) {
+        const pkgPaths: string[] = glob.sync(join(remappedPrefix, "**", "package.json"));
+
+        if (pkgPaths.length === 0) {
+            continue;
+        }
+
+        const pkgPath = dirname(pkgPaths[0]);
+
+        return [pkgPath, pkgPath.replace(remappedPrefix, prefix)];
+    }
+
+    // If no remapping to a node-module was found, then place the utils unit alongside the
+    // first target contract.
+    const targetDir =
+        targets[0] !== "--"
+            ? relative(process.cwd(), dirname(fse.realpathSync(targets[0])))
+            : targets[0];
+
+    return [targetDir, undefined];
+}
+
 function makeUtilsUnit(
     utilsOutputDir: string,
+    utilsRemappedImportPath: string | undefined,
     factory: ASTNodeFactory,
     version: string,
     ctx: InstrumentationContext
@@ -455,7 +521,14 @@ function makeUtilsUnit(
         utilsAbsPath = join(fse.realpathSync(utilsOutputDir), "__scribble_ReentrancyUtils.sol");
     }
 
-    return generateUtilsContract(factory, utilsPath, utilsAbsPath, version, ctx);
+    return generateUtilsContract(
+        factory,
+        utilsPath,
+        utilsRemappedImportPath,
+        utilsAbsPath,
+        version,
+        ctx
+    );
 }
 
 function copy(from: string, to: string, options: any): void {
@@ -610,7 +683,7 @@ function pickVersion(versionUsedMap: Map<string, string>): string {
             `Error: --input-mode must be either source or json`
         );
 
-        const pathRemapping: string[] = options["path-remapping"]
+        const rawPathRemappings: string[] = options["path-remapping"]
             ? options["path-remapping"].split(";")
             : [];
 
@@ -641,14 +714,6 @@ function pickVersion(versionUsedMap: Map<string, string>): string {
         if (options["filter-message"]) {
             filterOptions.message = options["filter-message"];
         }
-
-        const targetDir =
-            targets[0] !== "--"
-                ? relative(process.cwd(), dirname(fse.realpathSync(targets[0])))
-                : targets[0];
-
-        const utilsOutputDir =
-            options["utils-output-path"] === undefined ? targetDir : options["utils-output-path"];
 
         const assertionMode: "log" | "mstore" = oneOf(
             options["user-assert-mode"],
@@ -717,6 +782,17 @@ function pickVersion(versionUsedMap: Map<string, string>): string {
             process.exit(0);
         }
 
+        const pathRemappings = parsePathRemapping(rawPathRemappings);
+        /**
+         * We combine the explicitly passed-in remappings with any remappigns inferred by solc-typed-ast during compiling
+         * into allRemappings. We use a map here to remove any duplicate in the inferred remappings.
+         */
+        const allRemappings = new Map<string, Remapping>();
+
+        for (const remapping of pathRemappings) {
+            allRemappings.set(`${remapping[0]}:${remapping[1]}:${remapping[2]}`, remapping);
+        }
+
         /**
          * Try to compile each target.
          */
@@ -729,7 +805,7 @@ function pickVersion(versionUsedMap: Map<string, string>): string {
                         target,
                         inputMode,
                         compilerVersion,
-                        pathRemapping,
+                        rawPathRemappings,
                         compilerSettings,
                         compilerKind
                     );
@@ -753,6 +829,10 @@ function pickVersion(versionUsedMap: Map<string, string>): string {
                     }
 
                     process.exit(1);
+                }
+
+                for (const remapping of targetResult.inferredRemappings.values()) {
+                    allRemappings.set(`${remapping[0]}:${remapping[1]}:${remapping[2]}`, remapping);
                 }
 
                 const compilerVersionUsed: string =
@@ -968,7 +1048,19 @@ function pickVersion(versionUsedMap: Map<string, string>): string {
             }
         }
 
-        const utilsUnit = makeUtilsUnit(utilsOutputDir, factory, compilerVersionUsed, instrCtx);
+        const [utilsOutputDir, utilsRemappedImportPath] = pickUtilsLocAndImport(
+            options["utils-output-path"],
+            allRemappings.values(),
+            targets
+        );
+
+        const utilsUnit = makeUtilsUnit(
+            utilsOutputDir,
+            utilsRemappedImportPath,
+            factory,
+            compilerVersionUsed,
+            instrCtx
+        );
 
         try {
             // Check that none of the map state vars to be overwritten is aliased
@@ -1013,7 +1105,7 @@ function pickVersion(versionUsedMap: Map<string, string>): string {
                         `flattened.sol`,
                         flatContents,
                         version,
-                        pathRemapping,
+                        rawPathRemappings,
                         [CompilationOutput.ALL],
                         compilerSettings
                     );

@@ -47,6 +47,7 @@ import {
     UserDefinedType,
     UserDefinedTypeName,
     UserDefinedValueTypeDefinition,
+    UsingForDirective,
     VariableDeclaration,
     VariableDeclarationStatement,
     variableDeclarationToTypeNode
@@ -1733,20 +1734,37 @@ export function tcMemberAccess(expr: SMemberAccess, ctx: STypingCtx, typeEnv: Ty
     const contract = getScopeOfType(ContractDefinition, ctx);
 
     if (contract !== undefined) {
-        for (const base of contract.vLinearizedBaseContracts) {
-            for (const usingFor of base.vUsingForDirectives) {
-                const libraryApplies =
-                    usingFor.vTypeName === undefined
-                        ? true
-                        : eq(typeNameToTypeNode(usingFor.vTypeName), generalBaseT);
+        const usingForInScope: UsingForDirective[] = [];
 
-                if (libraryApplies) {
-                    const library = usingFor.vLibraryName
-                        .vReferencedDeclaration as ContractDefinition;
-                    library.vFunctions
-                        .filter((fun) => fun.name === expr.member)
-                        .forEach((funDef) => funs.add(funDef));
-                }
+        for (const base of contract.vLinearizedBaseContracts) {
+            usingForInScope.push(...base.vUsingForDirectives);
+        }
+
+        usingForInScope.push(...contract.vScope.vUsingForDirectives);
+
+        for (const usingFor of usingForInScope) {
+            const usingForApplies =
+                usingFor.vTypeName === undefined
+                    ? true
+                    : eq(typeNameToTypeNode(usingFor.vTypeName), generalBaseT);
+
+            if (!usingForApplies) {
+                continue;
+            }
+
+            if (usingFor.vLibraryName) {
+                const library = usingFor.vLibraryName.vReferencedDeclaration as ContractDefinition;
+                library.vFunctions
+                    .filter((fun) => fun.name === expr.member)
+                    .forEach((funDef) => funs.add(funDef));
+            }
+
+            if (usingFor.vFunctionList !== undefined) {
+                usingFor.vFunctionList
+                    .filter((idPath) => idPath.name === expr.member)
+                    .forEach((idPath) =>
+                        funs.add(idPath.vReferencedDeclaration as FunctionDefinition)
+                    );
             }
         }
 

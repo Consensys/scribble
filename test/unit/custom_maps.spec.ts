@@ -551,6 +551,7 @@ describe("Interposing on a map", () => {
             generateUtilsContract(
                 factory,
                 "__scribble_ReentrancyUtils.sol",
+                undefined,
                 "__scribble_ReentrancyUtils.sol",
                 version,
                 instrCtx
