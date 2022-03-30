@@ -464,7 +464,7 @@ export function applyRemappings(
  * 2. If there is some path remapping from say @openzeppelin to node_modules/@openzeppelin and there is a package.json
  *    somewhere inside in say node_modules/@openzeppelin/contracts then put the file in the same directory
  *    as the package.json. Also return an import path starting with the remap prefix (e.g. @openzeppelin)
- * 3. Otherwise put the utils file in the same director as the first target contract.
+ * 3. Otherwise put the utils file in the same directory as the first target contract.
  *
  * This complex procedure is needed to support truffle in-place compilation when instrumentation
  * impacts files under node_modules (see https://github.com/ConsenSys/scribble/issues/160) for more details.

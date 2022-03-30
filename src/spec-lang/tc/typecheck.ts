@@ -1744,9 +1744,8 @@ export function tcMemberAccess(expr: SMemberAccess, ctx: STypingCtx, typeEnv: Ty
 
         for (const usingFor of usingForInScope) {
             const usingForApplies =
-                usingFor.vTypeName === undefined
-                    ? true
-                    : eq(typeNameToTypeNode(usingFor.vTypeName), generalBaseT);
+                usingFor.vTypeName === undefined ||
+                eq(typeNameToTypeNode(usingFor.vTypeName), generalBaseT);
 
             if (!usingForApplies) {
                 continue;
