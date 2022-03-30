@@ -193,7 +193,7 @@ describe("Multiple-file project instrumentation", () => {
                     );
 
                     // Uncomment next line to update instrumented sources
-                    // fse.writeFileSync(fileName, aсtualInstr);
+                    fse.writeFileSync(fileName, aсtualInstr);
 
                     expect(aсtualInstr).toEqual(expectedContents);
                 }
