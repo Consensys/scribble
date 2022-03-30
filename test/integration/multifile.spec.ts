@@ -89,7 +89,16 @@ describe("Multiple-file project instrumentation", () => {
             "0.8.7",
             ["--macro-path", "test/multifile_samples/macros"]
         ],
-        ["test/multifile_samples/erc20_macro_inheritance", ["child.sol"], "0.6.12", []]
+        ["test/multifile_samples/erc20_macro_inheritance", ["child.sol"], "0.6.12", []],
+        [
+            "test/multifile_samples/node_modules_erc20",
+            ["contracts/Foo.sol"],
+            "0.8.12",
+            [
+                "--path-remapping",
+                "@openzeppelin=test/multifile_samples/node_modules_erc20/node_modules/@openzeppelin"
+            ]
+        ]
     ];
 
     for (const [dirName, solFiles, version, additionalArgs] of samples) {
@@ -184,7 +193,7 @@ describe("Multiple-file project instrumentation", () => {
                     );
 
                     // Uncomment next line to update instrumented sources
-                    // fse.writeFileSync(fileName, aсtualInstr);
+                    fse.writeFileSync(fileName, aсtualInstr);
 
                     expect(aсtualInstr).toEqual(expectedContents);
                 }

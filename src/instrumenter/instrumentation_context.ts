@@ -1,4 +1,4 @@
-import { dirname, relative } from "path";
+import { basename, dirname, relative } from "path";
 import {
     ArrayType,
     assert,
@@ -315,12 +315,16 @@ export class InstrumentationContext {
     public utilsContract!: ContractDefinition;
     private assertionFailedEvent!: EventDefinition;
     private assertionFailedDataEvent!: EventDefinition;
+    private remappedImportPath: string | undefined;
 
-    setUtilsContract(contract: ContractDefinition): void {
+    setUtilsContract(contract: ContractDefinition, importPath: string | undefined): void {
         this.utilsContract = contract;
+        this.remappedImportPath = importPath;
+
         this.assertionFailedEvent = single(
             contract.vEvents.filter((evt) => evt.name === "AssertionFailed")
         );
+
         this.assertionFailedDataEvent = single(
             contract.vEvents.filter((evt) => evt.name === "AssertionFailedData")
         );
@@ -481,10 +485,13 @@ export class InstrumentationContext {
 
         // Add imports in all units that need the ReentrancyUtils contract
         for (const unit of this.unitsNeedingUtils) {
-            const path = relative(dirname(unit.absolutePath), this.utilsUnit.absolutePath);
+            const path = this.remappedImportPath
+                ? this.remappedImportPath + "/" + basename(this.utilsUnit.sourceEntryKey)
+                : `./` + relative(dirname(unit.absolutePath), this.utilsUnit.absolutePath);
+
             unit.appendChild(
                 this.factory.makeImportDirective(
-                    `./${path}`,
+                    path,
                     this.utilsUnit.absolutePath,
                     "",
                     [],

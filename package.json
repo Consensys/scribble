@@ -18,10 +18,11 @@
         "fs-extra": "^10.0.1",
         "logplease": "^1.2.15",
         "semver": "^7.3.5",
-        "solc-typed-ast": "^9.0.0",
+        "solc-typed-ast": "^9.1.1",
         "src-location": "^1.1.0",
         "findup-sync": "^5.0.0",
-        "yaml": "^1.10.2"
+        "yaml": "^1.10.2",
+        "glob": "^7.2.0"
     },
     "scripts": {
         "clean": "rm -rf dist/*",
@@ -29,7 +30,7 @@
         "build-import-parser": "tspegjs -o src/rewriter/import_directive_parser.ts --custom-header-file src/rewriter/import_directive_header.ts --cache src/rewriter/import_directive.pegjs",
         "build-parsers": "npm run build-expr-parser && npm run build-import-parser",
         "transpile": "tsc",
-        "build": "npm run clean && npm run build-parsers && npm run transpile && cp -r stdlib/ dist/stdlib/",
+        "build": "npm run clean && npm run build-parsers && npm run transpile && cp -r stdlib/ dist/stdlib/ && chmod u+x dist/bin/scribble.js",
         "test": "NODE_OPTIONS='--max-old-space-size=2048' nyc mocha",
         "test:ci": "NODE_OPTIONS='--max-old-space-size=2048' nyc mocha --parallel --jobs 4",
         "coverage:upload": "nyc report --reporter=text-lcov > coverage.lcov && codecov -t $CODECOV_TOKEN",
@@ -44,6 +45,7 @@
         "@types/semver": "^7.3.9",
         "@typescript-eslint/eslint-plugin": "^5.13.0",
         "@typescript-eslint/parser": "^5.13.0",
+        "@types/glob": "^7.2.0",
         "codecov": "^3.8.3",
         "eslint": "^8.10.0",
         "eslint-config-prettier": "^8.5.0",

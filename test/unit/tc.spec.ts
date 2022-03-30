@@ -710,6 +710,24 @@ contract UserDefinedValueTypes {
             contract Foo {}
             `,
             [["type(IFace).interfaceId", ["Foo"], new FixedBytesType(4)]]
+        ],
+        [
+            "using_for_0.8.13.sol",
+            `pragma solidity ^0.8.13;
+
+            function foo(uint a) pure returns (uint) { return a + 1; }
+            function boo(int a) pure returns (int) { return a + 1; }
+
+            using {foo} for uint;
+
+            contract Foo {
+                using {boo} for int;
+            }
+            `,
+            [
+                ["uint(1).foo()", ["Foo"], new IntType(256, false)],
+                ["int(1).boo()", ["Foo"], new IntType(256, true)]
+            ]
         ]
     ];
 
@@ -911,6 +929,24 @@ contract UserDefinedValueTypes {
                 ["type(true).name", ["Foo"]],
                 ["type(Foo).interfaceId", ["Foo"]],
                 ["type(IFace).runtimeCode", ["Foo"]]
+            ]
+        ],
+        [
+            "using_for_0.8.13.sol",
+            `pragma solidity ^0.8.13;
+
+            function foo(uint a) pure returns (uint) { return a + 1; }
+            function boo(int a) pure returns (int) { return a + 1; }
+
+            using {foo} for uint;
+
+            contract Foo {
+                using {boo} for int;
+            }
+            `,
+            [
+                ["int(1).foo()", ["Foo"]],
+                ["uint(1).boo()", ["Foo"]]
             ]
         ]
     ];

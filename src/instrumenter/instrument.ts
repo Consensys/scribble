@@ -152,6 +152,7 @@ export function findExternalCalls(
 export function generateUtilsContract(
     factory: ASTNodeFactory,
     sourceEntryKey: string,
+    importPath: string | undefined,
     path: string,
     version: string,
     ctx: InstrumentationContext
@@ -259,7 +260,7 @@ export function generateUtilsContract(
     assertionFailedDataEvtDef.vParameters.appendChild(encodingData);
     contract.appendChild(assertionFailedDataEvtDef);
 
-    ctx.setUtilsContract(contract);
+    ctx.setUtilsContract(contract, importPath);
 
     return sourceUnit;
 }
