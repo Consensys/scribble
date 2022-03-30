@@ -15,6 +15,7 @@ import {
     FunctionCall,
     FunctionCallKind,
     FunctionDefinition,
+    FunctionKind,
     FunctionTypeName,
     Identifier,
     IndexAccess,
@@ -34,7 +35,7 @@ import {
     VariableDeclaration,
     VariableDeclarationStatement
 } from "solc-typed-ast";
-import { single, zip, print } from "../util/misc";
+import { print, single, zip } from "../util/misc";
 import { InstrumentationContext } from "./instrumentation_context";
 
 export type LHS = Expression | VariableDeclaration | [Expression, string];
@@ -296,13 +297,15 @@ export function* getAssignments(node: ASTNode): Iterable<[LHS, RHS]> {
 
             const actuals = [...candidate.vArguments];
 
-            // When we have a library method bound with `using lib for ...`
-            // need to add the implicit first argument
+            // When we have a library method or free function
+            // bound with `using lib for ...`,
+            // there is a need to add the implicit first argument
             if (
                 candidate instanceof FunctionCall &&
                 decl instanceof FunctionDefinition &&
-                decl.parent instanceof ContractDefinition &&
-                decl.parent.kind === ContractKind.Library &&
+                ((decl.parent instanceof ContractDefinition &&
+                    decl.parent.kind === ContractKind.Library) ||
+                    decl.kind === FunctionKind.Free) &&
                 formals.length === candidate.vArguments.length + 1
             ) {
                 assert(
