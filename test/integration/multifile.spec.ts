@@ -98,7 +98,8 @@ describe("Multiple-file project instrumentation", () => {
                 "--path-remapping",
                 "@openzeppelin=test/multifile_samples/node_modules_erc20/node_modules/@openzeppelin"
             ]
-        ]
+        ],
+        ["test/multifile_samples/using_for_free_funcs", ["sample.sol"], "0.8.13", []]
     ];
 
     for (const [dirName, solFiles, version, additionalArgs] of samples) {
@@ -113,7 +114,6 @@ describe("Multiple-file project instrumentation", () => {
             );
 
             let expectedInstrumented: Map<string, string>;
-            let expectedFlat: string;
             let expectedInstrMetadata: any;
 
             before(() => {
@@ -127,8 +127,6 @@ describe("Multiple-file project instrumentation", () => {
                         fse.readFileSync(fileName, { encoding: "utf-8" })
                     ])
                 );
-
-                expectedFlat = fse.readFileSync(expectedFlatFileName, { encoding: "utf-8" });
 
                 // Uncomment below lines to re-generate instrumentationMetadata.json.expected
                 // scribble(
@@ -171,6 +169,8 @@ describe("Multiple-file project instrumentation", () => {
 
                 // Uncomment next line to update flat instrumented source
                 // fse.writeFileSync(expectedFlatFileName, actualFlat.trim(), { encoding: "utf-8" });
+
+                const expectedFlat = fse.readFileSync(expectedFlatFileName, { encoding: "utf-8" });
 
                 expect(actualFlat.trim()).toEqual(expectedFlat.trim());
             });

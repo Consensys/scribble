@@ -1,21 +1,23 @@
 import {
-    SourceUnit,
-    ExportedSymbol,
-    ImportDirective,
-    ContractDefinition,
-    FunctionDefinition,
+    assert,
     ASTNodeFactory,
-    Identifier,
-    IdentifierPath,
-    UserDefinedTypeName,
-    MemberAccess,
-    StructDefinition,
+    ContractDefinition,
     EnumDefinition,
     ErrorDefinition,
-    VariableDeclaration,
+    ExportedSymbol,
+    FunctionDefinition,
+    FunctionKind,
+    Identifier,
+    IdentifierPath,
+    ImportDirective,
+    MemberAccess,
+    PragmaDirective,
     replaceNode,
-    assert,
-    PragmaDirective
+    SourceUnit,
+    StructDefinition,
+    UserDefinedTypeName,
+    UserDefinedValueTypeDefinition,
+    VariableDeclaration
 } from "solc-typed-ast";
 import { getFQName, getOrInit, topoSort } from "../util";
 
@@ -38,6 +40,7 @@ function fixNameConflicts(units: SourceUnit[]): Set<ExportedSymbol> {
         unit.vImportDirectives.forEach((impDef) => {
             if (impDef.unitAlias !== "") getOrInit(impDef.unitAlias, nameMap, []).push(impDef);
         });
+        unit.vUserDefinedValueTypes.forEach((udvt) => getOrInit(udvt.name, nameMap, []).push(udvt));
     }
 
     const renamed = new Set<ExportedSymbol>();
@@ -130,7 +133,8 @@ export function flattenUnits(
                     def instanceof EnumDefinition ||
                     def instanceof ErrorDefinition ||
                     def instanceof FunctionDefinition ||
-                    (def instanceof VariableDeclaration && def.vScope instanceof SourceUnit)
+                    (def instanceof VariableDeclaration && def.vScope instanceof SourceUnit) ||
+                    def instanceof UserDefinedValueTypeDefinition
                 )
             ) {
                 continue;
@@ -156,6 +160,7 @@ export function flattenUnits(
             // 1. Identifiers other than "this"
             // 2. Identifier paths
             // 3. UserDefinedTypeNames with a name (the case when they have a path instead of name is handled in 2.)
+            // 4. using-for member accesses that refer to top-level free functions
             //
             // AND the original definition is part of the `renamed` set, or the name differs from the original def for other reasons,
             // fix the name of the node to the fully-qualified name.
@@ -171,6 +176,19 @@ export function flattenUnits(
             ) {
                 if (renamed.has(def) || refNode.name !== def.name) {
                     refNode.name = fqName;
+                }
+            } else if (
+                refNode instanceof MemberAccess &&
+                refNode.vReferencedDeclaration instanceof FunctionDefinition &&
+                refNode.vReferencedDeclaration.kind === FunctionKind.Free
+            ) {
+                /**
+                 * We have member access where member name is a free function,
+                 * bound via using-for directive. If base function was renamed,
+                 * then alter member access to respect newly assigned name.
+                 */
+                if (renamed.has(def) || refNode.memberName !== def.name) {
+                    refNode.memberName = def.name;
                 }
             }
         }

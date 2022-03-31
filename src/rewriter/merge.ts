@@ -224,21 +224,17 @@ export function merge(groups: SourceUnit[][]): [SourceUnit[], ASTContext] {
                 for (let i = 0; i < child.symbolAliases.length; i++) {
                     const foreign = child.symbolAliases[i].foreign;
 
-                    if (!(foreign instanceof Identifier)) {
-                        // The foreign id is invalid since this is an older compiler version,
-                        // and we haven't re-built the id-map. This happens when the user
-                        // has submited an old compiler AST without source code.
-                        continue;
-                    } else {
-                        // import directives identifier's referencedDeclaration
-                        // is null or undefined (depending on version) from the
-                        // compiler. Nothing to do here.
-                        assert(
-                            foreign.referencedDeclaration === undefined ||
-                                foreign.referencedDeclaration === null ||
-                                foreign.referencedDeclaration === -1,
-                            `Unexpected non-null foreign reference declaration: ${foreign.referencedDeclaration} in imported symbol ${foreign.name} from ${child.file}`
-                        );
+                    // In older compilers the foreign id may be invalid, and thus foreign may be missing.
+                    // Also in some compiler versions, even though foreign is an Identifier, its referencedDeclaration
+                    // node may be invalid (null/undefined/-1). Ignore those cases. Otherwise re-map the id
+                    if (
+                        foreign instanceof Identifier &&
+                        typeof foreign.referencedDeclaration === "number" &&
+                        foreign.referencedDeclaration !== -1
+                    ) {
+                        const newRef = getNew(foreign.referencedDeclaration);
+
+                        foreign.referencedDeclaration = newRef.id;
                     }
                 }
             } else if (child instanceof InheritanceSpecifier) {
