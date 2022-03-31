@@ -237,6 +237,8 @@ export function* getAssignments(node: ASTNode): Iterable<[LHS, RHS]> {
                 for (let i = 0; i < fieldNames.length; i++) {
                     yield [[candidate, fieldNames[i]], candidate.vArguments[i]];
                 }
+
+                continue;
             }
 
             // Skip type conversions (handled in findAliasedStateVars) and builtin calls
@@ -299,21 +301,20 @@ export function* getAssignments(node: ASTNode): Iterable<[LHS, RHS]> {
 
             // When we have a library method or free function
             // bound with `using lib for ...`,
-            // there is a need to add the implicit first argument
+            // there is a need to add the implicit first argument.
+            // To check that the call is due to a `using for` we check that
+            // 1) The call expression is a member access
+            // 2) The referenced functions is a library function or a free function
+            // 3) The referenced function has 1 more formal argument than the provided actuals
             if (
                 candidate instanceof FunctionCall &&
+                candidate.vExpression instanceof MemberAccess &&
                 decl instanceof FunctionDefinition &&
                 ((decl.parent instanceof ContractDefinition &&
                     decl.parent.kind === ContractKind.Library) ||
                     decl.kind === FunctionKind.Free) &&
                 formals.length === candidate.vArguments.length + 1
             ) {
-                assert(
-                    candidate.vExpression instanceof MemberAccess,
-                    "Unexpected callee in library call",
-                    candidate
-                );
-
                 actuals.unshift(candidate.vExpression.vExpression);
             }
 

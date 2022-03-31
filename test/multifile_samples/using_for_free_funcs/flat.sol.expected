@@ -2,12 +2,24 @@
 /// Use --disarm prior to make any changes.
 pragma solidity 0.8.13;
 
+type Y is address;
+
 type X is uint256;
+
+type Y_1 is bool;
 
 using { add_1 } for X global;
 
+function zerroAddr() returns (Y) {
+    return Y.wrap(address(0x0));
+}
+
 function add(X a, X b) pure returns (uint256) {
     return 1;
+}
+
+function not(Y_1 x) returns (Y_1) {
+    return Y_1.wrap(!Y_1.unwrap(x));
 }
 
 function add_1(X a, X b) pure returns (X) {
