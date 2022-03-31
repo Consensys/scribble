@@ -183,7 +183,7 @@ library uint256_to_int8 {
     }
 }
 
-library string_to_uint256_to_int16_S_244 {
+library string_to_uint256_to_int16_S_245 {
     struct S {
         mapping(string => uint256_to_int16.S) innerM;
         string[] keys;
@@ -244,7 +244,7 @@ contract Foo is __scribble_ReentrancyUtils {
 
     uint256_to_uint256.S internal a;
     uint256_to_int8.S internal b;
-    string_to_uint256_to_int16_S_244.S internal c;
+    string_to_uint256_to_int16_S_245.S internal c;
 
     constructor() {
         uint256_to_uint256.set(a, 0, 10);
@@ -366,7 +366,7 @@ contract Foo is __scribble_ReentrancyUtils {
             _v.forall_0 = true;
             for (_v.i0 = 1; _v.i0 < c.keys.length; _v.i0++) {
                 _v.x0 = c.keys[_v.i0];
-                _v.forall_0 = string_to_uint256_to_int16_S_244.get(c, _v.x0).sum > 0;
+                _v.forall_0 = string_to_uint256_to_int16_S_245.get(c, _v.x0).sum > 0;
                 if (!_v.forall_0) break;
             }
             if (!(_v.forall_0)) {
@@ -377,7 +377,7 @@ contract Foo is __scribble_ReentrancyUtils {
     }
 
     function _original_Foo_setC(string memory k1, uint k2, int16 v) private {
-        uint256_to_int16.set(string_to_uint256_to_int16_S_244.get_lhs(c, k1), k2, v);
+        uint256_to_int16.set(string_to_uint256_to_int16_S_245.get_lhs(c, k1), k2, v);
     }
 
     function decC(string memory k1, uint k2) public {
@@ -387,7 +387,7 @@ contract Foo is __scribble_ReentrancyUtils {
             _v.forall_1 = true;
             for (_v.i1 = 1; _v.i1 < c.keys.length; _v.i1++) {
                 _v.x1 = c.keys[_v.i1];
-                _v.forall_1 = string_to_uint256_to_int16_S_244.get(c, _v.x1).sum > 0;
+                _v.forall_1 = string_to_uint256_to_int16_S_245.get(c, _v.x1).sum > 0;
                 if (!_v.forall_1) break;
             }
             if (!(_v.forall_1)) {
@@ -399,7 +399,7 @@ contract Foo is __scribble_ReentrancyUtils {
 
     function _original_Foo_decC(string memory k1, uint k2) private {
         unchecked {
-            uint256_to_int16.dec_unch(string_to_uint256_to_int16_S_244.get_lhs(c, k1), k2);
+            uint256_to_int16.dec_unch(string_to_uint256_to_int16_S_245.get_lhs(c, k1), k2);
         }
     }
 
@@ -410,7 +410,7 @@ contract Foo is __scribble_ReentrancyUtils {
             _v.forall_2 = true;
             for (_v.i2 = 1; _v.i2 < c.keys.length; _v.i2++) {
                 _v.x2 = c.keys[_v.i2];
-                _v.forall_2 = string_to_uint256_to_int16_S_244.get(c, _v.x2).sum > 0;
+                _v.forall_2 = string_to_uint256_to_int16_S_245.get(c, _v.x2).sum > 0;
                 if (!_v.forall_2) break;
             }
             if (!(_v.forall_2)) {
@@ -422,7 +422,7 @@ contract Foo is __scribble_ReentrancyUtils {
 
     function _original_Foo_incC(string memory k1, uint k2) private {
         unchecked {
-            uint256_to_int16.inc_unch(string_to_uint256_to_int16_S_244.get_lhs(c, k1), k2);
+            uint256_to_int16.inc_unch(string_to_uint256_to_int16_S_245.get_lhs(c, k1), k2);
         }
     }
 }
