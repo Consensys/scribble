@@ -1,6 +1,7 @@
 #!/usr/bin/env node
 import fse from "fs-extra";
 import { dirname, join, relative, resolve } from "path";
+import { normalize } from "path/posix";
 import {
     assert,
     ASTContext,
@@ -491,8 +492,8 @@ function pickUtilsLocAndImport(
         }
 
         const pkgPath = dirname(pkgPaths[0]);
-
-        return [pkgPath, pkgPath.replace(remappedPrefix, prefix)];
+        const normalizedPrefix = normalize(remappedPrefix);
+        return [pkgPath, pkgPath.replace(normalizedPrefix, prefix)];
     }
 
     // If no remapping to a node-module was found, then place the utils unit alongside the

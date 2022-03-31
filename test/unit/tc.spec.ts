@@ -728,6 +728,37 @@ contract UserDefinedValueTypes {
                 ["uint(1).foo()", ["Foo"], new IntType(256, false)],
                 ["int(1).boo()", ["Foo"], new IntType(256, true)]
             ]
+        ],
+        [
+            "private_state_var.sol",
+            `pragma solidity 0.8.13;
+        contract Base {
+            uint private x;
+        }
+        
+        contract Child is Base {
+             /// #if_succeeds x == 42;
+             function foo() public {}
+        }
+        `,
+            [["x", ["Base"], new IntType(256, false)]]
+        ],
+        [
+            "private_state_var.sol",
+            `pragma solidity 0.8.13;
+        contract Base {
+            uint internal x;
+        }
+        
+        contract Child is Base {
+             /// #if_succeeds x == 42;
+             function foo() public {}
+        }
+        `,
+            [
+                ["x", ["Base"], new IntType(256, false)],
+                ["x", ["Child"], new IntType(256, false)]
+            ]
         ]
     ];
 
@@ -948,6 +979,34 @@ contract UserDefinedValueTypes {
                 ["int(1).foo()", ["Foo"]],
                 ["uint(1).boo()", ["Foo"]]
             ]
+        ],
+        [
+            "private_state_var.sol",
+            `pragma solidity 0.8.13;
+        contract Base {
+            uint private x;
+        }
+        
+        contract Child is Base {
+             /// #if_succeeds x == 42;
+             function foo() public {}
+        }`,
+            [["x", ["Child"]]]
+        ],
+        [
+            "private_fun.sol",
+            `pragma solidity 0.8.13;
+        contract Base {
+            function plusOne(uint x) private pure returns (uint) {
+                return x + 1;
+            }
+        }
+        
+        contract Child is Base {
+             /// #if_succeeds plusOne(x) == x + 1;
+             function foo(uint x) public {}
+        }`,
+            [["plusOne", ["Child"]]]
         ]
     ];
 
