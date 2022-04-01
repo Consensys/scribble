@@ -1,6 +1,6 @@
 {
     "name": "eth-scribble",
-    "version": "0.6.6",
+    "version": "0.6.7",
     "description": "A Solidity runtime verification tool for property based testing",
     "keywords": [],
     "files": [
@@ -18,7 +18,7 @@
         "fs-extra": "^10.0.1",
         "logplease": "^1.2.15",
         "semver": "^7.3.5",
-        "solc-typed-ast": "^9.1.1",
+        "solc-typed-ast": "^9.1.2",
         "src-location": "^1.1.0",
         "findup-sync": "^5.0.0",
         "yaml": "^1.10.2",
