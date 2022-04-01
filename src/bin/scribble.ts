@@ -22,7 +22,6 @@ import {
     FunctionVisibility,
     getABIEncoderVersion,
     getCompilerPrefixForOs,
-    isSane,
     parsePathRemapping,
     PossibleCompilerKinds,
     Remapping,
@@ -133,10 +132,12 @@ function prettyError(type: string, message: string, location: NodeLocation | Loc
     const descriptionLines = [`${ppLoc(primaryLoc)} ${type}: ${message}`];
 
     if (location instanceof Array) {
-        descriptionLines.push("In macro:");
-        descriptionLines.push(...ppSrcLine(location[0]));
-        descriptionLines.push("Instantiated from:");
-        descriptionLines.push(...ppSrcLine(location[1]));
+        descriptionLines.push(
+            "In macro:",
+            ...ppSrcLine(location[0]),
+            "Instantiated from:",
+            ...ppSrcLine(location[1])
+        );
     } else {
         descriptionLines.push(...ppSrcLine(location));
     }
@@ -152,11 +153,14 @@ function ppWarning(warn: Warning): string[] {
 
 function assertIsFile(fileName: string): void {
     assert(fileName !== "", "Path is empty");
-    assert(fse.existsSync(fileName), "Path not found: " + fileName);
 
-    const stats = fse.statSync(fileName);
+    try {
+        const stats = fse.statSync(fileName);
 
-    assert(stats.isFile(), "Target is not a file: " + fileName);
+        assert(stats.isFile(), "Target is not a file: " + fileName);
+    } catch (e: any) {
+        error(e.code === "ENOENT" ? "Path not found: " + fileName : e.message);
+    }
 }
 
 async function compile(
@@ -889,8 +893,6 @@ function loadInstrMetaData(fileName: string): InstrumentationMetaData {
 
         // Check that merging produced sane ASTs
         for (const unit of units) {
-            assert(isSane(unit, astCtx), `Merged unit ${unit.absolutePath} is insane`);
-
             if (!contentsMap.has(unit.absolutePath) && files.has(unit.sourceEntryKey)) {
                 contentsMap.set(
                     unit.absolutePath,
