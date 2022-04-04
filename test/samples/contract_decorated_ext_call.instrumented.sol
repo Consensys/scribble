@@ -42,13 +42,13 @@ contract Foo is __scribble_ReentrancyUtils {
 
     function fail_int() internal {
         x = 0;
-        _callsite_23(this, 0);
+        _callsite_26(this, 0);
         x = 0;
-        _callsite_34(this, 10000);
+        _callsite_39(this, 10000);
         x = 0;
-        _callsite_45(this, 0, 10000);
+        _callsite_55(this, 0, 10000);
         x = 0;
-        _callsite_59(this, 0, 10000);
+        _callsite_67(this, 0, 10000);
     }
 
     function fail() public {
@@ -74,7 +74,7 @@ contract Foo is __scribble_ReentrancyUtils {
     }
 
     function _original_Foo_withdraw(uint _amount) private {
-        (bool success, bytes memory retval) = _callsite_83(msg.sender, _amount, "");
+        (bool success, bytes memory retval) = _callsite_93(msg.sender, _amount, "");
         require(success);
     }
 
@@ -97,35 +97,35 @@ contract Foo is __scribble_ReentrancyUtils {
         __scribble_out_of_contract = true;
     }
 
-    function _callsite_23(Foo receiver, uint256 _value) private {
+    function _callsite_26(Foo receiver, uint256 _value) private {
         __scribble_check_state_invariants();
         __scribble_out_of_contract = true;
         receiver.inc{value: _value}();
         __scribble_out_of_contract = false;
     }
 
-    function _callsite_34(Foo receiver, uint256 _gas) private {
+    function _callsite_39(Foo receiver, uint256 _gas) private {
         __scribble_check_state_invariants();
         __scribble_out_of_contract = true;
         receiver.inc{gas: _gas}();
         __scribble_out_of_contract = false;
     }
 
-    function _callsite_45(Foo receiver, uint256 _value, uint256 _gas) private {
+    function _callsite_55(Foo receiver, uint256 _value, uint256 _gas) private {
         __scribble_check_state_invariants();
         __scribble_out_of_contract = true;
         receiver.inc{gas: _gas, value: _value}();
         __scribble_out_of_contract = false;
     }
 
-    function _callsite_59(Foo receiver, uint256 _value, uint256 _gas) private {
+    function _callsite_67(Foo receiver, uint256 _value, uint256 _gas) private {
         __scribble_check_state_invariants();
         __scribble_out_of_contract = true;
         receiver.inc{gas: _gas, value: _value}();
         __scribble_out_of_contract = false;
     }
 
-    function _callsite_83(address payable receiver, uint256 _value, bytes memory arg0) private returns (bool ret0, bytes memory ret1) {
+    function _callsite_93(address payable receiver, uint256 _value, bytes memory arg0) private returns (bool ret0, bytes memory ret1) {
         __scribble_check_state_invariants();
         __scribble_out_of_contract = true;
         (ret0, ret1) = receiver.call{value: _value}(arg0);

@@ -3,6 +3,9 @@ import { scribble } from "../../utils";
 
 describe(`Command "scribble <filename>" is failing as expected`, () => {
     const cases: Array<[string[], RegExp | string]> = [
+        [[""], /^Path is empty/g],
+        [["missing.sol"], /^Path not found: missing\.sol/g],
+        [["test/"], /^Target is not a file: test\//g],
         [
             ["test/samples/invalid/missing_terminator_semicolon.invalid.sol"],
             /^test\/samples\/invalid\/missing_terminator_semicolon.invalid.sol:12:8 SyntaxError: Expected .* but .* found/m
