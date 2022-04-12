@@ -31,17 +31,23 @@ Scribble is able to capture 95% of the properties that users _want_ to express.
 
 Install Scribble with npm:
 
-```console
+```bash
 npm install -g eth-scribble
 ```
 
 Use CLI tool with the Solidity source file:
 
-```console
+```bash
 scribble sample.sol
 ```
 
 Use `--help` to see all available features.
+
+## Extension for VS Code
+
+There is a [**Scribble extension for VSCode**](https://marketplace.visualstudio.com/items?itemName=diligence.vscode-scribble) that enhances user experience: prividing syntax highlight, hints-on-hover and other features.
+
+Note that it is maintained in [**separate repostory**](https://github.com/ConsenSys/vscode-scribble). Report extension-related suggestions and issues there.
 
 ## Documentation
 
