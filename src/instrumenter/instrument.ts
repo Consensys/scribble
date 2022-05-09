@@ -861,9 +861,13 @@ function replaceExternalCallSites(
         const callsiteWrapper = interposeCall(ctx, contract, callSite);
         const wrapperBody = callsiteWrapper.vBody as Block;
 
-        wrapperBody.vStatements.splice(
-            0,
-            0,
+        const callToOriginal = single(
+            wrapperBody.vStatements,
+            `Expected single statement in callsite wrapper {0}`,
+            wrapperBody
+        );
+
+        wrapperBody.insertAtBeginning(
             factory.makeExpressionStatement(
                 factory.makeFunctionCall(
                     "<missing>",
@@ -885,9 +889,7 @@ function replaceExternalCallSites(
          * variable.
          */
         if (isChangingState(callsiteWrapper)) {
-            wrapperBody.vStatements.splice(
-                1,
-                0,
+            wrapperBody.insertBefore(
                 factory.makeExpressionStatement(
                     factory.makeAssignment(
                         "<missing>",
@@ -895,7 +897,8 @@ function replaceExternalCallSites(
                         factory.makeIdentifier("bool", ctx.outOfContractFlagName, -1),
                         factory.makeLiteral("bool", LiteralKind.Bool, "", "true")
                     )
-                )
+                ),
+                callToOriginal
             );
 
             wrapperBody.appendChild(
