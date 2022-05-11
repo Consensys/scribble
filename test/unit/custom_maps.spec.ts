@@ -110,7 +110,7 @@ describe("Maps with keys library generation", () => {
             const src = writer.write(lib);
             const newContent = content + "\n" + src;
 
-            const compRes = await compileSourceString("foo.sol", newContent, version, []);
+            const compRes = await compileSourceString("foo.sol", newContent, version);
 
             expect(compRes.data.contracts["foo.sol"]).toBeDefined();
             expect(compRes.data.contracts["foo.sol"][lib.name]).toBeDefined();
@@ -569,7 +569,7 @@ describe("Interposing on a map", () => {
             instrCode = writer.write(unit);
             newContent = [unit, instrCtx.utilsUnit].map((unit) => writer.write(unit)).join("\n");
 
-            const compRes = await compileSourceString("foo.sol", newContent, version, []);
+            const compRes = await compileSourceString("foo.sol", newContent, version);
 
             expect(compRes.data.contracts["foo.sol"]).toBeDefined();
             expect(forAll(compRes.data.errors, (error: any) => error.severity === "warning"));

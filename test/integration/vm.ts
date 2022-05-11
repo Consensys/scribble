@@ -88,8 +88,16 @@ async function compileSource(
     const compilerKind = getCompilerKind();
 
     const { data } = await (contents
-        ? compileSourceString(fileName, contents, version, [], undefined, undefined, compilerKind)
-        : compileSol(fileName, "auto", [], undefined, undefined, compilerKind));
+        ? compileSourceString(
+              fileName,
+              contents,
+              version,
+              undefined,
+              undefined,
+              undefined,
+              compilerKind
+          )
+        : compileSol(fileName, "auto", undefined, undefined, undefined, compilerKind));
 
     const result = new Map<string, Buffer>();
     const contracts: { [name: string]: any } = data.contracts[fileName];

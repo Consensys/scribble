@@ -12,6 +12,7 @@ import {
     compileSourceString,
     ContractDefinition,
     FunctionDefinition,
+    PathOptions,
     PossibleCompilerKinds,
     SourceUnit,
     Statement,
@@ -78,18 +79,11 @@ export function makeArtefact(result: CompileResult): string {
 export async function toAst(fileName: string, content?: string): Promise<ExtendedCompileResult> {
     const remapping: string[] = [];
     const compilerKind = getCompilerKind();
+    const opts: PathOptions = { remapping: remapping };
 
     const result = await (content === undefined
-        ? compileSol(fileName, "auto", remapping, undefined, undefined, compilerKind)
-        : compileSourceString(
-              fileName,
-              content,
-              "auto",
-              remapping,
-              undefined,
-              undefined,
-              compilerKind
-          ));
+        ? compileSol(fileName, "auto", opts, undefined, undefined, compilerKind)
+        : compileSourceString(fileName, content, "auto", opts, undefined, undefined, compilerKind));
 
     const compilerVersion = result.compilerVersion;
 

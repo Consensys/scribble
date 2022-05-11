@@ -24,6 +24,7 @@ import {
     getABIEncoderVersion,
     getCompilerPrefixForOs,
     parsePathRemapping,
+    PathOptions,
     PossibleCompilerKinds,
     Remapping,
     SourceUnit,
@@ -169,6 +170,8 @@ async function compile(
     type: "source" | "json",
     compilerVersion: string,
     remapping: string[],
+    basePath: string | undefined,
+    includePaths: string[],
     compilerSettings: any,
     compilerKind: CompilerKind
 ): Promise<CompileResult> {
@@ -180,6 +183,12 @@ async function compile(
     ];
 
     assert(fileNames.length > 0, "There must be at least one file to compile");
+
+    const pathOptions: PathOptions = {
+        remapping: remapping,
+        basePath: basePath,
+        includePath: includePaths
+    };
 
     if (fileNames.length === 1) {
         let fileName = fileNames[0];
@@ -202,7 +211,7 @@ async function compile(
                       fileName,
                       content,
                       compilerVersion,
-                      remapping,
+                      pathOptions,
                       astOnlyOutput,
                       compilerSettings,
                       compilerKind
@@ -229,7 +238,7 @@ async function compile(
     return compileSol(
         fileNames,
         compilerVersion,
-        remapping,
+        pathOptions,
         astOnlyOutput,
         compilerSettings,
         compilerKind
@@ -696,6 +705,10 @@ function loadInstrMetaData(fileName: string): InstrumentationMetaData {
             ? options["path-remapping"].split(";")
             : [];
 
+        const basePath: string = options["base-path"] ? options["base-path"] : ".";
+        const includePaths: string[] =
+            options["include-paths"] == undefined ? [] : options["include-paths"];
+
         const compilerVersion: string =
             options["compiler-version"] !== undefined ? options["compiler-version"] : "auto";
 
@@ -814,6 +827,8 @@ function loadInstrMetaData(fileName: string): InstrumentationMetaData {
                     inputMode,
                     compilerVersion,
                     rawPathRemappings,
+                    basePath,
+                    includePaths,
                     compilerSettings,
                     compilerKind
                 );
@@ -1082,7 +1097,7 @@ function loadInstrMetaData(fileName: string): InstrumentationMetaData {
                         "flattened.sol",
                         flatContents,
                         compilerVersionUsed,
-                        rawPathRemappings,
+                        undefined,
                         [CompilationOutput.ALL],
                         compilerSettings
                     );
