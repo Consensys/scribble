@@ -5,6 +5,12 @@ export abstract class SourceFile {
 export class SolFile extends SourceFile {}
 export class MacroFile extends SourceFile {}
 
+export class UtilsSolFile extends SourceFile {
+    constructor(fileName: string) {
+        super(fileName, "");
+    }
+}
+
 export class DummySourceFile extends SourceFile {
     constructor() {
         super("", "");

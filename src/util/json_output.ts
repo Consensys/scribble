@@ -1,4 +1,3 @@
-import fse from "fs-extra";
 import {
     assert,
     ASTNode,
@@ -19,7 +18,6 @@ import { PropertyMetaData } from "../instrumenter/annotations";
 import { InstrumentationContext } from "../instrumenter/instrumentation_context";
 import { AnnotationType } from "../spec-lang/ast/declarations/annotation";
 import { NodeLocation } from "../spec-lang/ast/node";
-import { isAbsolute, join, normalize } from "path";
 
 type TargetType = "function" | "variable" | "contract" | "statement";
 /// An original JSON location is either a src tripple, or a pair of src trippls (corresponding to an instantiated macro)
@@ -379,46 +377,6 @@ function generatePropertyMap(
     return result;
 }
 
-export function pathFromUnit(
-    arg: SourceUnit | string,
-    basePath: string,
-    includePaths: string[]
-): string {
-    const unitPath = normalize(arg instanceof SourceUnit ? arg.absolutePath : arg);
-
-    if (isAbsolute(unitPath)) {
-        return unitPath;
-    }
-
-    const normalizedBasePath = normalize(basePath);
-    const prefixes = [basePath, ...includePaths];
-
-    if (unitPath.startsWith(normalizedBasePath)) {
-        prefixes.unshift("");
-    }
-
-    for (const prefix of prefixes) {
-        const path = join(prefix, unitPath);
-        let stats: any;
-        try {
-            stats = fse.statSync(path);
-        } catch (e) {
-            continue;
-        }
-
-        if (stats.isFile()) {
-            return path;
-        }
-    }
-
-    assert(
-        false,
-        `Path ${unitPath} not found with --basePath ${basePath} and --includePaths ${includePaths.join(
-            ", "
-        )}`
-    );
-}
-
 export function generateInstrumentationMetadata(
     ctx: InstrumentationContext,
     newSrcMap: SrcRangeMap,
@@ -426,8 +384,6 @@ export function generateInstrumentationMetadata(
     changedUnits: SourceUnit[],
     arm: boolean,
     scribbleVersion: string,
-    basePath: string,
-    includePaths: string[],
     outputFile?: string
 ): InstrumentationMetaData {
     let originalSourceList: string[] = originalUnits.map((unit) => unit.absolutePath);
@@ -462,11 +418,11 @@ export function generateInstrumentationMetadata(
     const propertyMap = generatePropertyMap(ctx, newSrcMap, originalSourceList, instrSourceList);
 
     originalSourceList = originalSourceList.map((file) =>
-        file.endsWith(".sol") ? pathFromUnit(file, basePath, includePaths) : file
+        file.endsWith(".sol") ? ctx.getResolvedPath(file) : file
     );
 
     instrSourceList = instrSourceList.map((file) =>
-        file.endsWith(".sol") ? pathFromUnit(file, basePath, includePaths) : file
+        file.endsWith(".sol") ? ctx.getResolvedPath(file) : file
     );
 
     if (arm) {
@@ -512,9 +468,7 @@ export function buildOutputJSON(
     newSrcMap: SrcRangeMap,
     scribbleVersion: string,
     outputFile: string,
-    arm: boolean,
-    basePath: string,
-    includePaths: string[]
+    arm: boolean
 ): any {
     const result: any = {};
 
@@ -531,8 +485,6 @@ export function buildOutputJSON(
         changedUnits,
         arm,
         scribbleVersion,
-        basePath,
-        includePaths,
         outputFile
     );
 

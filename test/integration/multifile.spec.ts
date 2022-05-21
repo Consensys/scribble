@@ -105,12 +105,12 @@ describe("Multiple-file project instrumentation", () => {
             false
         ],
         [
-            "test/multifile_samples/node_modules_erc20",
+            "test/multifile_samples/node_modules_erc20_2",
             ["contracts/Foo.sol"],
             "0.8.12",
             [
                 "--base-path",
-                "test/multifile_samples/node_modules_erc20/",
+                "test/multifile_samples/node_modules_erc20_2/",
                 "--path-remapping",
                 "@openzeppelin=node_modules/@openzeppelin"
             ],
@@ -212,7 +212,7 @@ describe("Multiple-file project instrumentation", () => {
                     );
 
                     // Uncomment next line to update instrumented sources
-                    fse.writeFileSync(fileName, aсtualInstr);
+                    // fse.writeFileSync(fileName, aсtualInstr);
 
                     expect(aсtualInstr).toEqual(expectedContents);
                 }

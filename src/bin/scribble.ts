@@ -80,7 +80,6 @@ import {
     isExternallyVisible,
     Location,
     MacroFile,
-    pathFromUnit,
     ppLoc,
     Range,
     searchRecursive,
@@ -825,6 +824,7 @@ function loadInstrMetaData(fileName: string): InstrumentationMetaData {
         let astCtx: ASTContext;
         let compilerVersionUsed: string;
         let files: Map<string, string>;
+        let resolvedFilesMap: Map<string, string>;
 
         /**
          * Try to compile each target.
@@ -880,6 +880,7 @@ function loadInstrMetaData(fileName: string): InstrumentationMetaData {
             );
 
             files = targetResult.files;
+            resolvedFilesMap = targetResult.resolvedFileNames;
 
             assert(
                 files.size > 0,
@@ -921,9 +922,15 @@ function loadInstrMetaData(fileName: string): InstrumentationMetaData {
         // Check that merging produced sane ASTs
         for (const unit of units) {
             if (!contentsMap.has(unit.absolutePath) && files.has(unit.sourceEntryKey)) {
+                const resolvedPath = resolvedFilesMap.get(unit.absolutePath);
+                assert(
+                    resolvedPath !== undefined,
+                    `Missing resolved path for ${unit.absolutePath}`
+                );
+
                 contentsMap.set(
                     unit.absolutePath,
-                    new SolFile(unit.absolutePath, files.get(unit.sourceEntryKey) as string)
+                    new SolFile(resolvedPath, files.get(unit.sourceEntryKey) as string)
                 );
             }
         }
@@ -1145,9 +1152,7 @@ function loadInstrMetaData(fileName: string): InstrumentationMetaData {
                         newSrcMap,
                         pkg.version,
                         options.output,
-                        false,
-                        basePath,
-                        includePaths
+                        false
                     ),
                     undefined,
                     2
@@ -1170,18 +1175,9 @@ function loadInstrMetaData(fileName: string): InstrumentationMetaData {
                 instrumentationMarker
             );
 
-            const unitToRealPathMap = new Map<string, string>();
-            for (const unit of instrCtx.changedUnits) {
-                unitToRealPathMap.set(
-                    unit.absolutePath,
-                    pathFromUnit(unit, basePath, includePaths)
-                );
-            }
-
             // 2. For all changed files write out a `.instrumented` version of the file.
             for (const unit of instrCtx.changedUnits) {
-                const instrumentedFileName =
-                    unitToRealPathMap.get(unit.absolutePath) + ".instrumented";
+                const instrumentedFileName = instrCtx.getResolvedPath(unit) + ".instrumented";
 
                 if (!options.quiet) {
                     console.error(`${unit.absolutePath} -> ${instrumentedFileName}`);
@@ -1196,7 +1192,7 @@ function loadInstrMetaData(fileName: string): InstrumentationMetaData {
             // 4. Finally if --arm is passed put the instrumented files in-place
             if (options["arm"]) {
                 for (const unit of instrCtx.changedUnits) {
-                    const unitFileName = unitToRealPathMap.get(unit.absolutePath) as string;
+                    const unitFileName = instrCtx.getResolvedPath(unit);
                     const instrumentedFileName = unitFileName + ".instrumented";
                     const originalFileName = unitFileName + ".original";
 
@@ -1214,8 +1210,6 @@ function loadInstrMetaData(fileName: string): InstrumentationMetaData {
                 modifiedFiles,
                 options["arm"] !== undefined,
                 pkg.version,
-                basePath,
-                includePaths,
                 options["output"]
             );
 
