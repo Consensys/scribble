@@ -116,6 +116,18 @@ describe("Multiple-file project instrumentation", () => {
             ],
             true
         ],
+        [
+            "test/multifile_samples/node_modules_erc20_3",
+            ["contracts/Foo.sol"],
+            "0.8.12",
+            [
+                "--base-path",
+                "test/multifile_samples/node_modules_erc20_3/",
+                "--include-paths",
+                "test/multifile_samples/node_modules_erc20_3/node_modules"
+            ],
+            true
+        ],
         ["test/multifile_samples/using_for_free_funcs", ["sample.sol"], "0.8.13", [], false]
     ];
 

@@ -154,11 +154,10 @@ function ppWarning(warn: Warning): string[] {
 }
 
 function assertIsFile(fileName: string, basePath: string | undefined): void {
+    assert(fileName !== "", "Path is empty");
     if (basePath !== undefined) {
         fileName = join(basePath, fileName);
     }
-
-    assert(fileName !== "", "Path is empty");
 
     try {
         const stats = fse.statSync(fileName);
@@ -500,7 +499,9 @@ export function applyRemappings(
  * 2. If there is some path remapping from say @openzeppelin to node_modules/@openzeppelin and there is a package.json
  *    somewhere inside in say node_modules/@openzeppelin/contracts then put the file in the same directory
  *    as the package.json. Also return an import path starting with the remap prefix (e.g. @openzeppelin)
- * 3. Otherwise put the utils file in the same directory as the first target contract.
+ * 3. Otherwise if we have some --include-path's specified, and we have an instrumented file that lives under some --include-path
+ *    put the utils there. Return the relative path from the include path to the target.
+ * 4. Otherwise put the utils file in the same directory as the first target contract.
  *
  * This complex procedure is needed to support truffle in-place compilation when instrumentation
  * impacts files under node_modules (see https://github.com/ConsenSys/scribble/issues/160) for more details.
@@ -508,15 +509,17 @@ export function applyRemappings(
 function pickUtilsLocAndImport(
     explicitUtilsPath: string | undefined,
     pathRemappings: Iterable<Remapping>,
+    includePaths: string[],
+    resolvedFilesMap: Map<string, string>,
     targets: string[],
     basePath: string
 ): [string, string | undefined] {
-    // If the the user specified a --utils-module-path then use that
+    // 1. If the the user specified a --utils-module-path then use that
     if (explicitUtilsPath !== undefined) {
         return [explicitUtilsPath, undefined];
     }
 
-    // Otherwise, if we have an import X/Y/Z.sol that is remapped to some
+    // 2. Otherwise, if we have an import X/Y/Z.sol that is remapped to some
     // node_modules directory node_modules/X/Y/Z.sol, find a sub-directory
     // of node_modules/X that contains a package.json and use that.
     // The requirement for there to be a package.json file comes from hardhat's resolver.
@@ -533,7 +536,24 @@ function pickUtilsLocAndImport(
         return [pkgPath, pkgPath.replace(normalizedBasePath, "").replace(normalizedPrefix, prefix)];
     }
 
-    // If no remapping to a node-module was found, then place the utils unit alongside the
+    // 3. Check if we can put the unit under some --include-path
+    if (includePaths.length > 0) {
+        for (const includePath of includePaths) {
+            for (const [, resolvedPath] of resolvedFilesMap) {
+                if (resolvedPath.startsWith(includePath)) {
+                    const resolvedDir = dirname(resolvedPath);
+                    let importPath = resolvedDir.replace(includePath, "");
+
+                    if (importPath.startsWith("/")) {
+                        importPath = importPath.slice(1);
+                    }
+                    return [resolvedDir, importPath];
+                }
+            }
+        }
+    }
+
+    // 4. If no remapping to a node-module was found, then place the utils unit alongside the
     // first target contract.
     const targetDir =
         targets[0] !== "--"
@@ -1061,6 +1081,8 @@ function loadInstrMetaData(fileName: string): InstrumentationMetaData {
         const [utilsOutputDir, utilsRemappedImportPath] = pickUtilsLocAndImport(
             options["utils-output-path"],
             allRemappings.values(),
+            includePaths,
+            resolvedFilesMap,
             rebasedTargets,
             basePath
         );
