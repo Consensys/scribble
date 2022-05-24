@@ -699,7 +699,7 @@ IntType =
 
 FixedSizeBytesType =
     BYTES width: Number {
-        return new FixedBytesType(width, makeRange(location(), options as ParseOptions));
+        return new FixedBytesType(Number(width.num), makeRange(location(), options as ParseOptions));
     }
     / BYTE {
         return new FixedBytesType(1, makeRange(location(), options as ParseOptions));
