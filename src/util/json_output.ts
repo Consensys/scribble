@@ -417,6 +417,14 @@ export function generateInstrumentationMetadata(
 
     const propertyMap = generatePropertyMap(ctx, newSrcMap, originalSourceList, instrSourceList);
 
+    originalSourceList = originalSourceList.map((file) =>
+        file.endsWith(".sol") ? ctx.getResolvedPath(file) : file
+    );
+
+    instrSourceList = instrSourceList.map((file) =>
+        file.endsWith(".sol") ? ctx.getResolvedPath(file) : file
+    );
+
     if (arm) {
         originalSourceList = originalSourceList.map((fileName) =>
             fileName.endsWith(".sol") && instrSourceList.includes(fileName)

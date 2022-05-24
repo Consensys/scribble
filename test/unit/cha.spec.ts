@@ -8,7 +8,7 @@ describe("Contract hierarchy test", () => {
 
     before("CHA is built", async () => {
         const reader = new ASTReader();
-        const { data } = await compileSol("test/samples/cha.sol", "auto", []);
+        const { data } = await compileSol("test/samples/cha.sol", "auto");
 
         const units = reader.read(data);
 

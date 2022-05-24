@@ -73,6 +73,17 @@
                 "description": "Path remapping input for Solc. A semicolon separate list of remappings 'prefix=target'"
             },
             {
+                "name": "base-path",
+                "type": "String",
+                "description": "Base path for the project. If omitted the directory from which scribble is invoked is used."
+            },
+            {
+                "name": "include-paths",
+                "type": "String",
+                "multiple": true,
+                "description": "Include paths in which to look for imported solidity files. Paths are separated by space."
+            },
+            {
                 "name": "compiler-version",
                 "type": "String",
                 "description": "If given, specifies the exact compiler version to use"

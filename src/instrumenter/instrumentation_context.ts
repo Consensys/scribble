@@ -24,7 +24,7 @@ import { SId, SUserFunctionDefinition } from "../spec-lang/ast";
 import { SemMap, TypeEnv } from "../spec-lang/tc";
 import { dedup, single } from "../util/misc";
 import { NameGenerator } from "../util/name_generator";
-import { SourceMap } from "../util/sources";
+import { SourceMap, UtilsSolFile } from "../util/sources";
 import { AnnotationFilterOptions, AnnotationMetaData } from "./annotations";
 import { CallGraph } from "./callgraph";
 import { CHA } from "./cha";
@@ -328,6 +328,9 @@ export class InstrumentationContext {
         this.assertionFailedDataEvent = single(
             contract.vEvents.filter((evt) => evt.name === "AssertionFailedData")
         );
+
+        const path = this.utilsUnit.absolutePath;
+        this.files.set(path, new UtilsSolFile(path));
     }
 
     public get utilsUnit(): SourceUnit {
@@ -427,6 +430,13 @@ export class InstrumentationContext {
 
         this._originalContents = this.printUnits(units, new Map());
         this._aliasedStateVars = findAliasedStateVars(units);
+    }
+
+    getResolvedPath(arg: SourceUnit | string): string {
+        const absPath = arg instanceof SourceUnit ? arg.absolutePath : arg;
+        const srcFile = this.files.get(absPath);
+        assert(srcFile !== undefined, `Missing SourceFile for unit ${absPath}`);
+        return srcFile.fileName;
     }
 
     getInternalInvariantCheckerName(contract: ContractDefinition): string {

@@ -24,6 +24,7 @@ import {
     getABIEncoderVersion,
     getCompilerPrefixForOs,
     parsePathRemapping,
+    PathOptions,
     PossibleCompilerKinds,
     Remapping,
     SourceUnit,
@@ -152,8 +153,11 @@ function ppWarning(warn: Warning): string[] {
     return [`${ppLoc(start)} Warning: ${warn.msg}`, getSrcLine(warn.location)];
 }
 
-function assertIsFile(fileName: string): void {
+function assertIsFile(fileName: string, basePath: string | undefined): void {
     assert(fileName !== "", "Path is empty");
+    if (basePath !== undefined) {
+        fileName = join(basePath, fileName);
+    }
 
     try {
         const stats = fse.statSync(fileName);
@@ -169,6 +173,8 @@ async function compile(
     type: "source" | "json",
     compilerVersion: string,
     remapping: string[],
+    basePath: string | undefined,
+    includePaths: string[],
     compilerSettings: any,
     compilerKind: CompilerKind
 ): Promise<CompileResult> {
@@ -180,6 +186,12 @@ async function compile(
     ];
 
     assert(fileNames.length > 0, "There must be at least one file to compile");
+
+    const pathOptions: PathOptions = {
+        remapping: remapping,
+        basePath: basePath,
+        includePath: includePaths
+    };
 
     if (fileNames.length === 1) {
         let fileName = fileNames[0];
@@ -202,7 +214,7 @@ async function compile(
                       fileName,
                       content,
                       compilerVersion,
-                      remapping,
+                      pathOptions,
                       astOnlyOutput,
                       compilerSettings,
                       compilerKind
@@ -210,7 +222,7 @@ async function compile(
         }
 
         if (type === "json") {
-            assertIsFile(fileName);
+            assertIsFile(fileName, basePath);
 
             return compileJson(
                 fileName,
@@ -224,12 +236,12 @@ async function compile(
 
     assert(type === "source", 'Multifile inputs are only allowed for "source" input mode');
 
-    fileNames.forEach(assertIsFile);
+    fileNames.forEach((name) => assertIsFile(name, basePath));
 
     return compileSol(
         fileNames,
         compilerVersion,
-        remapping,
+        pathOptions,
         astOnlyOutput,
         compilerSettings,
         compilerKind
@@ -487,7 +499,9 @@ export function applyRemappings(
  * 2. If there is some path remapping from say @openzeppelin to node_modules/@openzeppelin and there is a package.json
  *    somewhere inside in say node_modules/@openzeppelin/contracts then put the file in the same directory
  *    as the package.json. Also return an import path starting with the remap prefix (e.g. @openzeppelin)
- * 3. Otherwise put the utils file in the same directory as the first target contract.
+ * 3. Otherwise if we have some --include-path's specified, and we have an instrumented file that lives under some --include-path
+ *    put the utils there. Return the relative path from the include path to the target.
+ * 4. Otherwise put the utils file in the same directory as the first target contract.
  *
  * This complex procedure is needed to support truffle in-place compilation when instrumentation
  * impacts files under node_modules (see https://github.com/ConsenSys/scribble/issues/160) for more details.
@@ -495,19 +509,22 @@ export function applyRemappings(
 function pickUtilsLocAndImport(
     explicitUtilsPath: string | undefined,
     pathRemappings: Iterable<Remapping>,
-    targets: string[]
+    includePaths: string[],
+    resolvedFilesMap: Map<string, string>,
+    targets: string[],
+    basePath: string
 ): [string, string | undefined] {
-    // If the the user specified a --utils-module-path then use that
+    // 1. If the the user specified a --utils-module-path then use that
     if (explicitUtilsPath !== undefined) {
         return [explicitUtilsPath, undefined];
     }
 
-    // Otherwise, if we have an import X/Y/Z.sol that is remapped to some
+    // 2. Otherwise, if we have an import X/Y/Z.sol that is remapped to some
     // node_modules directory node_modules/X/Y/Z.sol, find a sub-directory
     // of node_modules/X that contains a package.json and use that.
     // The requirement for there to be a package.json file comes from hardhat's resolver.
     for (const [, prefix, remappedPrefix] of pathRemappings) {
-        const pkgPaths: string[] = glob.sync(join(remappedPrefix, "**", "package.json"));
+        const pkgPaths: string[] = glob.sync(join(basePath, remappedPrefix, "**", "package.json"));
 
         if (pkgPaths.length === 0) {
             continue;
@@ -515,10 +532,28 @@ function pickUtilsLocAndImport(
 
         const pkgPath = dirname(pkgPaths[0]);
         const normalizedPrefix = normalize(remappedPrefix);
-        return [pkgPath, pkgPath.replace(normalizedPrefix, prefix)];
+        const normalizedBasePath = normalize(basePath);
+        return [pkgPath, pkgPath.replace(normalizedBasePath, "").replace(normalizedPrefix, prefix)];
     }
 
-    // If no remapping to a node-module was found, then place the utils unit alongside the
+    // 3. Check if we can put the unit under some --include-path
+    if (includePaths.length > 0) {
+        for (const includePath of includePaths) {
+            for (const [, resolvedPath] of resolvedFilesMap) {
+                if (resolvedPath.startsWith(includePath)) {
+                    const resolvedDir = dirname(resolvedPath);
+                    let importPath = resolvedDir.replace(includePath, "");
+
+                    if (importPath.startsWith("/")) {
+                        importPath = importPath.slice(1);
+                    }
+                    return [resolvedDir, importPath];
+                }
+            }
+        }
+    }
+
+    // 4. If no remapping to a node-module was found, then place the utils unit alongside the
     // first target contract.
     const targetDir =
         targets[0] !== "--"
@@ -684,6 +719,10 @@ function loadInstrMetaData(fileName: string): InstrumentationMetaData {
         console.log(usage);
     } else {
         const targets: string[] = options.solFiles;
+        const rebasedTargets: string[] = options["base-path"]
+            ? targets.map((target) => join(options["base-path"], target))
+            : targets;
+
         const addAssert = "no-assert" in options ? false : true;
 
         const inputMode: "source" | "json" = oneOf(
@@ -695,6 +734,10 @@ function loadInstrMetaData(fileName: string): InstrumentationMetaData {
         const rawPathRemappings: string[] = options["path-remapping"]
             ? options["path-remapping"].split(";")
             : [];
+
+        const basePath: string = options["base-path"] ? options["base-path"] : "";
+        const includePaths: string[] =
+            options["include-paths"] == undefined ? [] : options["include-paths"];
 
         const compilerVersion: string =
             options["compiler-version"] !== undefined ? options["compiler-version"] : "auto";
@@ -739,7 +782,7 @@ function loadInstrMetaData(fileName: string): InstrumentationMetaData {
             "Error: --output-mode must be either 'flat', 'files' or 'json'"
         );
 
-        const metaDataFile = detectInstrMetdataFilePath(targets, options);
+        const metaDataFile = detectInstrMetdataFilePath(rebasedTargets, options);
         const isMetaDataFile = fse.existsSync(metaDataFile);
 
         const instrumentationMarker =
@@ -801,6 +844,7 @@ function loadInstrMetaData(fileName: string): InstrumentationMetaData {
         let astCtx: ASTContext;
         let compilerVersionUsed: string;
         let files: Map<string, string>;
+        let resolvedFilesMap: Map<string, string>;
 
         /**
          * Try to compile each target.
@@ -814,6 +858,8 @@ function loadInstrMetaData(fileName: string): InstrumentationMetaData {
                     inputMode,
                     compilerVersion,
                     rawPathRemappings,
+                    basePath,
+                    includePaths,
                     compilerSettings,
                     compilerKind
                 );
@@ -854,6 +900,7 @@ function loadInstrMetaData(fileName: string): InstrumentationMetaData {
             );
 
             files = targetResult.files;
+            resolvedFilesMap = targetResult.resolvedFileNames;
 
             assert(
                 files.size > 0,
@@ -895,9 +942,15 @@ function loadInstrMetaData(fileName: string): InstrumentationMetaData {
         // Check that merging produced sane ASTs
         for (const unit of units) {
             if (!contentsMap.has(unit.absolutePath) && files.has(unit.sourceEntryKey)) {
+                const resolvedPath = resolvedFilesMap.get(unit.absolutePath);
+                assert(
+                    resolvedPath !== undefined,
+                    `Missing resolved path for ${unit.absolutePath}`
+                );
+
                 contentsMap.set(
                     unit.absolutePath,
-                    new SolFile(unit.absolutePath, files.get(unit.sourceEntryKey) as string)
+                    new SolFile(resolvedPath, files.get(unit.sourceEntryKey) as string)
                 );
             }
         }
@@ -1028,7 +1081,10 @@ function loadInstrMetaData(fileName: string): InstrumentationMetaData {
         const [utilsOutputDir, utilsRemappedImportPath] = pickUtilsLocAndImport(
             options["utils-output-path"],
             allRemappings.values(),
-            targets
+            includePaths,
+            resolvedFilesMap,
+            rebasedTargets,
+            basePath
         );
 
         const utilsUnit = makeUtilsUnit(
@@ -1082,7 +1138,7 @@ function loadInstrMetaData(fileName: string): InstrumentationMetaData {
                         "flattened.sol",
                         flatContents,
                         compilerVersionUsed,
-                        rawPathRemappings,
+                        undefined,
                         [CompilationOutput.ALL],
                         compilerSettings
                     );
@@ -1143,7 +1199,7 @@ function loadInstrMetaData(fileName: string): InstrumentationMetaData {
 
             // 2. For all changed files write out a `.instrumented` version of the file.
             for (const unit of instrCtx.changedUnits) {
-                const instrumentedFileName = unit.absolutePath + ".instrumented";
+                const instrumentedFileName = instrCtx.getResolvedPath(unit) + ".instrumented";
 
                 if (!options.quiet) {
                     console.error(`${unit.absolutePath} -> ${instrumentedFileName}`);
@@ -1158,11 +1214,12 @@ function loadInstrMetaData(fileName: string): InstrumentationMetaData {
             // 4. Finally if --arm is passed put the instrumented files in-place
             if (options["arm"]) {
                 for (const unit of instrCtx.changedUnits) {
-                    const instrumentedFileName = unit.absolutePath + ".instrumented";
-                    const originalFileName = unit.absolutePath + ".original";
+                    const unitFileName = instrCtx.getResolvedPath(unit);
+                    const instrumentedFileName = unitFileName + ".instrumented";
+                    const originalFileName = unitFileName + ".original";
 
-                    copy(unit.absolutePath, originalFileName, options);
-                    copy(instrumentedFileName, unit.absolutePath, options);
+                    copy(unitFileName, originalFileName, options);
+                    copy(instrumentedFileName, unitFileName, options);
                 }
             }
         }

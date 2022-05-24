@@ -58,38 +58,42 @@ export function fragment(
 }
 
 describe("Multiple-file project instrumentation", () => {
-    const samples: Array<[string, string[], string, string[]]> = [
-        ["test/multifile_samples/proj1", ["child1.sol", "child2.sol"], "0.6.11", []],
+    const samples: Array<[string, string[], string, string[], boolean]> = [
+        ["test/multifile_samples/proj1", ["child1.sol", "child2.sol"], "0.6.11", [], false],
         [
             "test/multifile_samples/import_rewrites",
             ["main.sol", "imp1.sol", "imp2.sol", "imp3.sol"],
             "0.6.11",
-            []
+            [],
+            false
         ],
-        ["test/multifile_samples/inheritance1", ["C.sol", "D.sol"], "0.6.11", []],
+        ["test/multifile_samples/inheritance1", ["C.sol", "D.sol"], "0.6.11", [], false],
         [
             "test/multifile_samples/reexported_imports",
             ["main.sol", "imp1.sol", "imp2.sol", "imp3.sol"],
             "0.7.5",
-            []
+            [],
+            false
         ],
         [
             "test/multifile_samples/reexported_imports_05",
             ["main.sol", "imp1.sol", "imp2.sol", "imp3.sol"],
             "0.5.0",
-            []
+            [],
+            false
         ],
-        ["test/multifile_samples/forall_maps", ["child.sol", "base.sol"], "0.8.4", []],
-        ["test/multifile_samples/arr_sum", ["main.sol"], "0.8.4", []],
-        ["test/multifile_samples/asserts", ["C.sol", "B.sol", "A.sol"], "0.8.7", []],
-        ["test/multifile_samples/circular_imports", ["B.sol", "A.sol"], "0.8.7", []],
+        ["test/multifile_samples/forall_maps", ["child.sol", "base.sol"], "0.8.4", [], false],
+        ["test/multifile_samples/arr_sum", ["main.sol"], "0.8.4", [], false],
+        ["test/multifile_samples/asserts", ["C.sol", "B.sol", "A.sol"], "0.8.7", [], false],
+        ["test/multifile_samples/circular_imports", ["B.sol", "A.sol"], "0.8.7", [], false],
         [
             "test/multifile_samples/macros",
             ["base.sol", "child.sol"],
             "0.8.7",
-            ["--macro-path", "test/multifile_samples/macros"]
+            ["--macro-path", "test/multifile_samples/macros"],
+            false
         ],
-        ["test/multifile_samples/erc20_macro_inheritance", ["child.sol"], "0.6.12", []],
+        ["test/multifile_samples/erc20_macro_inheritance", ["child.sol"], "0.6.12", [], false],
         [
             "test/multifile_samples/node_modules_erc20",
             ["contracts/Foo.sol"],
@@ -97,14 +101,41 @@ describe("Multiple-file project instrumentation", () => {
             [
                 "--path-remapping",
                 "@openzeppelin=test/multifile_samples/node_modules_erc20/node_modules/@openzeppelin"
-            ]
+            ],
+            false
         ],
-        ["test/multifile_samples/using_for_free_funcs", ["sample.sol"], "0.8.13", []]
+        [
+            "test/multifile_samples/node_modules_erc20_2",
+            ["contracts/Foo.sol"],
+            "0.8.12",
+            [
+                "--base-path",
+                "test/multifile_samples/node_modules_erc20_2/",
+                "--path-remapping",
+                "@openzeppelin=node_modules/@openzeppelin"
+            ],
+            true
+        ],
+        [
+            "test/multifile_samples/node_modules_erc20_3",
+            ["contracts/Foo.sol"],
+            "0.8.12",
+            [
+                "--base-path",
+                "test/multifile_samples/node_modules_erc20_3/",
+                "--include-paths",
+                "test/multifile_samples/node_modules_erc20_3/node_modules"
+            ],
+            true
+        ],
+        ["test/multifile_samples/using_for_free_funcs", ["sample.sol"], "0.8.13", [], false]
     ];
 
-    for (const [dirName, solFiles, version, additionalArgs] of samples) {
+    for (const [dirName, solFiles, version, additionalArgs, skipPrepend] of samples) {
         describe(`Multi-file Sample ${dirName}`, () => {
-            const solPaths: string[] = solFiles.map((name) => join(dirName, name));
+            const solPaths: string[] = skipPrepend
+                ? solFiles
+                : solFiles.map((name) => join(dirName, name));
 
             const tmpInstrMeta = join(dirName, "tmp.json");
             const expectedFlatFileName = join(dirName, "flat.sol.expected");
@@ -193,7 +224,7 @@ describe("Multiple-file project instrumentation", () => {
                     );
 
                     // Uncomment next line to update instrumented sources
-                    fse.writeFileSync(fileName, aсtualInstr);
+                    // fse.writeFileSync(fileName, aсtualInstr);
 
                     expect(aсtualInstr).toEqual(expectedContents);
                 }
