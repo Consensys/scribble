@@ -1,7 +1,6 @@
 #!/usr/bin/env node
 import fse from "fs-extra";
-import { dirname, join, relative, resolve } from "path";
-import { normalize } from "path/posix";
+import { dirname, join, relative, resolve, normalize } from "path";
 import {
     assert,
     ASTContext,
