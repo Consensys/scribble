@@ -1560,15 +1560,10 @@ export function tcMemberAccess(expr: SMemberAccess, ctx: STypingCtx, typeEnv: Ty
                     if (expr.member === rawDecl.name) {
                         // rawDecl.vType is defined, as you can't put a `var x;` in a struct definition.
                         expr.defSite = rawDecl;
+
                         return astVarToTypeNode(rawDecl, baseLoc);
                     }
                 }
-
-                throw new SNoField(
-                    `Struct ${baseToT.name} doesn't have a field ${expr.member}`,
-                    expr,
-                    expr.member
-                );
             }
         }
     }
