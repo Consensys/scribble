@@ -419,7 +419,13 @@ function instrumentFiles(
 
     for (const [target, annotations] of worklist) {
         if (target instanceof ContractDefinition) {
-            instrumentContract(ctx, annotations, target, contractsNeedingInstr.has(target));
+            instrumentContract(
+                ctx,
+                annotMap,
+                annotations,
+                target,
+                contractsNeedingInstr.has(target)
+            );
         } else if (target instanceof FunctionDefinition) {
             const contract = target.vScope;
             assert(
