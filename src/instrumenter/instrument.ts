@@ -45,6 +45,7 @@ import {
     SourceMap
 } from "../util";
 import {
+    AnnotationMap,
     AnnotationMetaData,
     PropertyMetaData,
     UserFunctionDefinitionMetaData
@@ -566,6 +567,7 @@ export function insertAnnotations(annotations: PropertyMetaData[], ctx: Transpil
  */
 export function instrumentContract(
     ctx: InstrumentationContext,
+    annotMap: AnnotationMap,
     annotations: AnnotationMetaData[],
     contract: ContractDefinition,
     needsStateInvChecks: boolean
@@ -583,7 +585,28 @@ export function instrumentContract(
         const generalInvChecker = makeGeneralInvariantChecker(ctx, contract, internalInvChecker);
 
         ctx.addScribbleUtils(contract);
-        instrumentConstructor(ctx, contract, generalInvChecker);
+
+        let needInstrumentingCtr = true;
+
+        /**
+         * Skip instrumenting the constructor
+         * if there are any annotations that are attached to it.
+         *
+         * In that case it would be instrumented by a common logic
+         * and does not require special handling.
+         */
+        const ctr = contract.vConstructor;
+
+        if (ctr) {
+            const ctrAnnots = annotMap.get(ctr);
+
+            needInstrumentingCtr = ctrAnnots === undefined || ctrAnnots.length === 0;
+        }
+
+        if (needInstrumentingCtr) {
+            instrumentConstructor(ctx, contract, generalInvChecker);
+        }
+
         replaceExternalCallSites(ctx, contract, generalInvChecker);
 
         ctx.needsUtils(contract.vScope);
