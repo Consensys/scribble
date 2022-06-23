@@ -4,6 +4,7 @@ import {
     CompileResult,
     ContractDefinition,
     FunctionDefinition,
+    generalizeType,
     ParameterList,
     PragmaDirective,
     SourceUnit,
@@ -38,6 +39,8 @@ interface PropertyDesc {
     propertySource: OriginalJSONLoc;
     /// Source tripple (start:len:fileIndx) in the _original_ file where just the whole annotation is located
     annotationSource: OriginalJSONLoc;
+    /// Text of the original annotation
+    annotationText: string;
     /// Type of the target to which the annotation is applied (e.g contract, function, etc.)
     target: TargetType;
     /// Type of the annotation (e.g. if_succeeds, invariant, etc.)
@@ -48,7 +51,7 @@ interface PropertyDesc {
     /// AssertionFailedData bytecode array refers to. The N-th tuple `[locations, type]`
     /// describes what the N-th value of the debug data describes. `locations` is the list of
     /// source locations in the original file to which the data applies, and `type` is the type of the data.
-    debugEventEncoding: Array<[OriginalJSONLoc[], string]>;
+    debugEventEncoding: Array<[string, OriginalJSONLoc[], string]>;
     /// The user-readable message assoicated with the original annotation (if none then its "")
     message: string;
     /// List of source locations in the _instrumented_ file that are part of the instrumentation
@@ -284,14 +287,15 @@ function generatePropertyMap(
         let encoding = ctx.debugEventsDescMap.get(annotation);
         encoding = encoding === undefined ? [] : encoding;
 
-        const srcEncoding: Array<[string[], string]> = [];
+        const srcEncoding: Array<[string, string[], string]> = [];
         for (const [ids, type] of encoding) {
             const srcMapList: string[] = [];
             for (const id of ids) {
                 const idSrc = rangeToSrcTriple(id.requiredRange, originalSourceList);
                 srcMapList.push(ppSrcTripple(idSrc));
             }
-            srcEncoding.push([srcMapList, type.pp()]);
+
+            srcEncoding.push([ids[0].name, srcMapList, generalizeType(type)[0].pp()]);
         }
 
         const propertySource = nodeLocToJSONNodeLoc(
@@ -363,6 +367,7 @@ function generatePropertyMap(
             filename,
             propertySource,
             annotationSource,
+            annotationText: annotation.original,
             target: targetType,
             type: annotation.type,
             targetName,

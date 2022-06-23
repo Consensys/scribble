@@ -361,16 +361,18 @@
       "filename": "test/multifile_samples/arr_sum/main.sol",
       "propertySource": "114:46:0",
       "annotationSource": "102:59:0",
+      "annotationText": "if_succeeds unchecked_sum(a) > 10 && unchecked_sum(a) < 20;",
       "target": "function",
       "type": "if_succeeds",
       "targetName": "pushA",
       "debugEventEncoding": [
         [
+          "a",
           [
             "128:1:0",
             "153:1:0"
           ],
-          "uint256[] storage"
+          "uint256[]"
         ]
       ],
       "message": "",
@@ -394,16 +396,18 @@
       "filename": "test/multifile_samples/arr_sum/main.sol",
       "propertySource": "245:46:0",
       "annotationSource": "233:59:0",
+      "annotationText": "if_succeeds unchecked_sum(a) > 10 && unchecked_sum(a) < 20;",
       "target": "function",
       "type": "if_succeeds",
       "targetName": "setA",
       "debugEventEncoding": [
         [
+          "a",
           [
             "259:1:0",
             "284:1:0"
           ],
-          "uint256[] storage"
+          "uint256[]"
         ]
       ],
       "message": "",
@@ -427,16 +431,18 @@
       "filename": "test/multifile_samples/arr_sum/main.sol",
       "propertySource": "382:47:0",
       "annotationSource": "370:60:0",
+      "annotationText": "if_succeeds unchecked_sum(b) > -10 && unchecked_sum(b) < 10;",
       "target": "function",
       "type": "if_succeeds",
       "targetName": "pushB",
       "debugEventEncoding": [
         [
+          "b",
           [
             "396:1:0",
             "422:1:0"
           ],
-          "int8[] storage"
+          "int8[]"
         ]
       ],
       "message": "",
@@ -460,16 +466,18 @@
       "filename": "test/multifile_samples/arr_sum/main.sol",
       "propertySource": "514:47:0",
       "annotationSource": "502:60:0",
+      "annotationText": "if_succeeds unchecked_sum(b) > -10 && unchecked_sum(b) < 10;",
       "target": "function",
       "type": "if_succeeds",
       "targetName": "setB",
       "debugEventEncoding": [
         [
+          "b",
           [
             "528:1:0",
             "554:1:0"
           ],
-          "int8[] storage"
+          "int8[]"
         ]
       ],
       "message": "",
@@ -493,16 +501,18 @@
       "filename": "test/multifile_samples/arr_sum/main.sol",
       "propertySource": "657:47:0",
       "annotationSource": "645:60:0",
+      "annotationText": "if_succeeds unchecked_sum(c) > -10 && unchecked_sum(c) < 10;",
       "target": "function",
       "type": "if_succeeds",
       "targetName": "memArr",
       "debugEventEncoding": [
         [
+          "c",
           [
             "671:1:0",
             "697:1:0"
           ],
-          "int16[] memory"
+          "int16[]"
         ]
       ],
       "message": "",
@@ -526,16 +536,18 @@
       "filename": "test/multifile_samples/arr_sum/main.sol",
       "propertySource": "781:47:0",
       "annotationSource": "769:60:0",
+      "annotationText": "if_succeeds unchecked_sum(c) > -10 && unchecked_sum(c) < 10;",
       "target": "function",
       "type": "if_succeeds",
       "targetName": "calldataArr",
       "debugEventEncoding": [
         [
+          "c",
           [
             "795:1:0",
             "821:1:0"
           ],
-          "int16[] calldata"
+          "int16[]"
         ]
       ],
       "message": "",
@@ -559,15 +571,17 @@
       "filename": "test/multifile_samples/arr_sum/main.sol",
       "propertySource": "914:21:0",
       "annotationSource": "902:34:0",
+      "annotationText": "if_succeeds unchecked_sum(c) < 10;",
       "target": "function",
       "type": "if_succeeds",
       "targetName": "overflowCheck",
       "debugEventEncoding": [
         [
+          "c",
           [
             "928:1:0"
           ],
-          "uint256[] calldata"
+          "uint256[]"
         ]
       ],
       "message": "",
