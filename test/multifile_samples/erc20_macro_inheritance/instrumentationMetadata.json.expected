@@ -1733,7 +1733,7 @@
         "302:49:2",
         "35:48:0"
       ],
-      "annotationText": "ate);\n    }\n }",
+      "annotationText": "#invariant unchecked_sum(balances) == totalSupply",
       "target": "contract",
       "type": "invariant",
       "targetName": "Token",
@@ -1773,7 +1773,7 @@
         "426:101:2",
         "35:48:0"
       ],
-      "annotationText": "",
+      "annotationText": "#if_succeeds unchecked_sum(balances) == old(unchecked_sum(balances)) || msg.sig == bytes4(0x00000000)",
       "target": "contract",
       "type": "if_succeeds",
       "targetName": "Token",
@@ -1804,7 +1804,7 @@
         "962:50:2",
         "35:48:0"
       ],
-      "annotationText": "",
+      "annotationText": "#if_succeeds $result == allowances[owner][spender]",
       "target": "function",
       "type": "if_succeeds",
       "targetName": "allowance",
@@ -1851,7 +1851,7 @@
         "630:47:2",
         "35:48:0"
       ],
-      "annotationText": "",
+      "annotationText": "#if_succeeds $result == unchecked_sum(balances)",
       "target": "function",
       "type": "if_succeeds",
       "targetName": "totalSupply",
@@ -1881,7 +1881,7 @@
         "801:39:2",
         "35:48:0"
       ],
-      "annotationText": "",
+      "annotationText": "#if_succeeds $result == balances[owner]",
       "target": "function",
       "type": "if_succeeds",
       "targetName": "balanceOf",
@@ -1921,7 +1921,7 @@
         "1133:47:2",
         "35:48:0"
       ],
-      "annotationText": "",
+      "annotationText": "#if_succeeds old(balances[msg.sender] >= value)",
       "target": "function",
       "type": "if_succeeds",
       "targetName": "transfer",
@@ -1963,7 +1963,7 @@
         "1259:91:2",
         "35:48:0"
       ],
-      "annotationText": "",
+      "annotationText": "#if_succeeds msg.sender != to ==> old(balances[msg.sender]) - value == balances[msg.sender]",
       "target": "function",
       "type": "if_succeeds",
       "targetName": "transfer",
@@ -2011,7 +2011,7 @@
         "1424:75:2",
         "35:48:0"
       ],
-      "annotationText": "",
+      "annotationText": "#if_succeeds msg.sender != to ==> old(balances[to]) + value == balances[to]",
       "target": "function",
       "type": "if_succeeds",
       "targetName": "transfer",
@@ -2061,7 +2061,7 @@
         "1589:97:2",
         "35:48:0"
       ],
-      "annotationText": "",
+      "annotationText": "#if_succeeds old(balances[to]) + old(balances[msg.sender]) == balances[to] + balances[msg.sender]",
       "target": "function",
       "type": "if_succeeds",
       "targetName": "transfer",
@@ -2104,7 +2104,7 @@
         "1830:53:2",
         "35:48:0"
       ],
-      "annotationText": "",
+      "annotationText": "#if_succeeds allowances[msg.sender][spender] == value",
       "target": "function",
       "type": "if_succeeds",
       "targetName": "approve",
@@ -2151,7 +2151,7 @@
         "2014:41:2",
         "35:48:0"
       ],
-      "annotationText": "",
+      "annotationText": "#if_succeeds old(balances[from] >= value)",
       "target": "function",
       "type": "if_succeeds",
       "targetName": "transferFrom",
@@ -2201,7 +2201,7 @@
         "2134:73:2",
         "35:48:0"
       ],
-      "annotationText": "",
+      "annotationText": "#if_succeeds from != to ==> old(balances[from]) - value == balances[from]",
       "target": "function",
       "type": "if_succeeds",
       "targetName": "transferFrom",
@@ -2258,7 +2258,7 @@
         "2287:86:2",
         "35:48:0"
       ],
-      "annotationText": "",
+      "annotationText": "#if_succeeds old(allowances[from][msg.sender]) - value == allowances[from][msg.sender]",
       "target": "function",
       "type": "if_succeeds",
       "targetName": "transferFrom",
@@ -2307,7 +2307,7 @@
         "2449:55:2",
         "35:48:0"
       ],
-      "annotationText": "",
+      "annotationText": "#if_succeeds old(allowances[from][msg.sender]) >= value",
       "target": "function",
       "type": "if_succeeds",
       "targetName": "transferFrom",
@@ -2355,7 +2355,7 @@
         "2577:69:2",
         "35:48:0"
       ],
-      "annotationText": "",
+      "annotationText": "#if_succeeds from != to ==> old(balances[to]) + value == balances[to]",
       "target": "function",
       "type": "if_succeeds",
       "targetName": "transferFrom",
@@ -2412,7 +2412,7 @@
         "2736:85:2",
         "35:48:0"
       ],
-      "annotationText": "",
+      "annotationText": "#if_succeeds old(balances[to]) + old(balances[from]) == balances[to] + balances[from]",
       "target": "function",
       "type": "if_succeeds",
       "targetName": "transferFrom",

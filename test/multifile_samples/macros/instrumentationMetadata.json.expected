@@ -274,7 +274,7 @@
         "154:37:2",
         "72:21:0"
       ],
-      "annotationText": "OwnershipTransferred(address indexed ",
+      "annotationText": "#if_updated old(_owner) == msg.sender",
       "target": "variable",
       "type": "if_updated",
       "targetName": "owner",
@@ -316,7 +316,7 @@
         "108:22:3",
         "27:15:1"
       ],
-      "annotationText": "",
+      "annotationText": "#if_succeeds x + y > 0",
       "target": "function",
       "type": "if_succeeds",
       "targetName": "foo",

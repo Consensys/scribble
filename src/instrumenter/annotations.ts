@@ -86,7 +86,8 @@ export class AnnotationMetaData<T extends SAnnotation = SAnnotation> {
         raw: StructuredDocumentation,
         target: AnnotationTarget,
         parsedAnnot: T,
-        source: SourceFile
+        source: SourceFile,
+        definitionSource?: SourceFile
     ) {
         this.raw = raw;
         this.target = target;
@@ -96,7 +97,10 @@ export class AnnotationMetaData<T extends SAnnotation = SAnnotation> {
                 ? ""
                 : target.name;
 
-        this.original = parsedAnnot.getSourceFragment(source.contents);
+        this.original = parsedAnnot.getSourceFragment(
+            definitionSource ? definitionSource.contents : source.contents
+        );
+
         this.id = numAnnotations++;
         this.parsedAnnot = parsedAnnot;
         /// Location of the annotation relative to the start of the file
@@ -695,7 +699,8 @@ function processMacroAnnotations(
                         dummyDoc,
                         target,
                         annotation,
-                        meta.originalSourceFile
+                        meta.originalSourceFile,
+                        meta.definitionFile
                     );
 
                     validateAnnotation(target, metaToInject);
