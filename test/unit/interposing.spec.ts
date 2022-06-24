@@ -419,7 +419,7 @@ contract Foo is __scribble_ReentrancyUtils {
                 compilerVersion
             );
 
-            instrumentContract(ctx, [], contract, true);
+            instrumentContract(ctx, new Map(), [], contract, true);
 
             ctx.finalize();
 

@@ -153,11 +153,13 @@
       "filename": "test/multifile_samples/proj1/base.sol",
       "propertySource": "53:5:0",
       "annotationSource": "31:28:0",
+      "annotationText": "invariant {:msg \"P0\"} x > 0;",
       "target": "contract",
       "type": "invariant",
       "targetName": "Base",
       "debugEventEncoding": [
         [
+          "x",
           [
             "53:1:0"
           ],
@@ -185,11 +187,13 @@
       "filename": "test/multifile_samples/proj1/child1.sol",
       "propertySource": "118:15:1",
       "annotationSource": "94:40:1",
+      "annotationText": "if_succeeds {:msg \"P1\"} x == old(x) + y;",
       "target": "function",
       "type": "if_succeeds",
       "targetName": "add",
       "debugEventEncoding": [
         [
+          "x",
           [
             "118:1:1",
             "127:1:1"
@@ -197,6 +201,7 @@
           "uint256"
         ],
         [
+          "y",
           [
             "132:1:1"
           ],
@@ -225,11 +230,13 @@
       "filename": "test/multifile_samples/proj1/child2.sol",
       "propertySource": "118:14:2",
       "annotationSource": "94:39:2",
+      "annotationText": "if_succeeds {:msg \"P2\"} x == 2* old(x);",
       "target": "function",
       "type": "if_succeeds",
       "targetName": "double",
       "debugEventEncoding": [
         [
+          "x",
           [
             "118:1:2",
             "130:1:2"

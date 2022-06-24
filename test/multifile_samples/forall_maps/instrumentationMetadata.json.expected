@@ -1018,11 +1018,13 @@
       "filename": "test/multifile_samples/forall_maps/child.sol",
       "propertySource": "89:28:1",
       "annotationSource": "77:41:1",
+      "annotationText": "if_succeeds forall(uint k in a) a[k] > 1;",
       "target": "function",
       "type": "if_succeeds",
       "targetName": "setA",
       "debugEventEncoding": [
         [
+          "k",
           [
             "111:1:1"
           ],
@@ -1054,11 +1056,13 @@
       "filename": "test/multifile_samples/forall_maps/child.sol",
       "propertySource": "216:28:1",
       "annotationSource": "204:41:1",
+      "annotationText": "if_succeeds forall(uint k in a) a[k] > 1;",
       "target": "function",
       "type": "if_succeeds",
       "targetName": "decA",
       "debugEventEncoding": [
         [
+          "k",
           [
             "238:1:1"
           ],
@@ -1090,15 +1094,17 @@
       "filename": "test/multifile_samples/forall_maps/child.sol",
       "propertySource": "329:39:1",
       "annotationSource": "317:52:1",
+      "annotationText": "if_succeeds forall (string memory s in c) c[s] > -1;",
       "target": "function",
       "type": "if_succeeds",
       "targetName": "setC",
       "debugEventEncoding": [
         [
+          "s",
           [
             "361:1:1"
           ],
-          "string memory"
+          "string"
         ]
       ],
       "message": "",
@@ -1126,18 +1132,21 @@
       "filename": "test/multifile_samples/forall_maps/child.sol",
       "propertySource": "469:66:1",
       "annotationSource": "457:79:1",
+      "annotationText": "if_succeeds forall (string memory s in d) forall (uint8 k in d[s]) d[s][k] > 0;",
       "target": "function",
       "type": "if_succeeds",
       "targetName": "setD",
       "debugEventEncoding": [
         [
+          "s",
           [
             "520:1:1",
             "526:1:1"
           ],
-          "string memory"
+          "string"
         ],
         [
+          "k",
           [
             "529:1:1"
           ],
@@ -1173,11 +1182,13 @@
       "filename": "test/multifile_samples/forall_maps/child.sol",
       "propertySource": "647:36:1",
       "annotationSource": "635:49:1",
+      "annotationText": "if_succeeds forall (uint k in e) e[k].length > 0;",
       "target": "function",
       "type": "if_succeeds",
       "targetName": "setE",
       "debugEventEncoding": [
         [
+          "k",
           [
             "670:1:1"
           ],
@@ -1209,11 +1220,13 @@
       "filename": "test/multifile_samples/forall_maps/child.sol",
       "propertySource": "837:32:1",
       "annotationSource": "825:45:1",
+      "annotationText": "if_succeeds forall (uint i in f) f[i][0] > 0;",
       "target": "function",
       "type": "if_succeeds",
       "targetName": "setF",
       "debugEventEncoding": [
         [
+          "i",
           [
             "860:1:1"
           ],
@@ -1245,11 +1258,13 @@
       "filename": "test/multifile_samples/forall_maps/child.sol",
       "propertySource": "1026:35:1",
       "annotationSource": "1014:48:1",
+      "annotationText": "if_succeeds forall (uint k in g[i]) g[i][k] > 0;",
       "target": "function",
       "type": "if_succeeds",
       "targetName": "setG",
       "debugEventEncoding": [
         [
+          "i",
           [
             "1046:1:1",
             "1052:1:1"
@@ -1257,6 +1272,7 @@
           "uint256"
         ],
         [
+          "k",
           [
             "1055:1:1"
           ],
@@ -1288,15 +1304,17 @@
       "filename": "test/multifile_samples/forall_maps/child.sol",
       "propertySource": "1163:41:1",
       "annotationSource": "1151:54:1",
+      "annotationText": "if_succeeds forall (string memory s in h) h[s][0] > 0;",
       "target": "function",
       "type": "if_succeeds",
       "targetName": "setH",
       "debugEventEncoding": [
         [
+          "s",
           [
             "1195:1:1"
           ],
-          "string memory"
+          "string"
         ]
       ],
       "message": "",
@@ -1324,18 +1342,21 @@
       "filename": "test/multifile_samples/forall_maps/child.sol",
       "propertySource": "1316:36:1",
       "annotationSource": "1304:49:1",
+      "annotationText": "if_succeeds forall (uint8 x in i[s]) i[s][x] > 0;",
       "target": "function",
       "type": "if_succeeds",
       "targetName": "setI",
       "debugEventEncoding": [
         [
+          "s",
           [
             "1337:1:1",
             "1343:1:1"
           ],
-          "string memory"
+          "string"
         ],
         [
+          "x",
           [
             "1346:1:1"
           ],
@@ -1367,11 +1388,13 @@
       "filename": "test/multifile_samples/forall_maps/child.sol",
       "propertySource": "1523:60:1",
       "annotationSource": "1511:73:1",
+      "annotationText": "if_succeeds forall (string memory s in j.sas[saI].m) j.sas[saI].m[s] > 0;",
       "target": "function",
       "type": "if_succeeds",
       "targetName": "setJ",
       "debugEventEncoding": [
         [
+          "saI",
           [
             "1556:3:1",
             "1570:3:1"
@@ -1379,10 +1402,11 @@
           "uint256"
         ],
         [
+          "s",
           [
             "1577:1:1"
           ],
-          "string memory"
+          "string"
         ]
       ],
       "message": "",
@@ -1410,11 +1434,13 @@
       "filename": "test/multifile_samples/forall_maps/child.sol",
       "propertySource": "1704:80:1",
       "annotationSource": "1692:93:1",
+      "annotationText": "if_succeeds forall(uint i in j.sas) forall (string memory s in j.sas[i].m) j.sas[i].m[s] > 0;",
       "target": "function",
       "type": "if_succeeds",
       "targetName": "setJ2",
       "debugEventEncoding": [
         [
+          "i",
           [
             "1761:1:1",
             "1773:1:1"
@@ -1422,10 +1448,11 @@
           "uint256"
         ],
         [
+          "s",
           [
             "1778:1:1"
           ],
-          "string memory"
+          "string"
         ]
       ],
       "message": "",

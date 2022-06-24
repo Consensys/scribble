@@ -205,11 +205,13 @@
       "filename": "test/multifile_samples/inheritance1/A.sol",
       "propertySource": "35:12:0",
       "annotationSource": "23:25:0",
+      "annotationText": "if_succeeds $result >= x;",
       "target": "function",
       "type": "if_succeeds",
       "targetName": "foo",
       "debugEventEncoding": [
         [
+          "x",
           [
             "46:1:0"
           ],
@@ -244,6 +246,7 @@
       "filename": "test/multifile_samples/inheritance1/C.sol",
       "propertySource": "63:4:2",
       "annotationSource": "41:27:2",
+      "annotationText": "invariant {:msg \"P1\"} true;",
       "target": "contract",
       "type": "invariant",
       "targetName": "C",
@@ -267,11 +270,13 @@
       "filename": "test/multifile_samples/inheritance1/C.sol",
       "propertySource": "112:14:2",
       "annotationSource": "100:27:2",
+      "annotationText": "if_succeeds $result >= x+2;",
       "target": "function",
       "type": "if_succeeds",
       "targetName": "foo",
       "debugEventEncoding": [
         [
+          "x",
           [
             "123:1:2"
           ],

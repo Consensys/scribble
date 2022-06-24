@@ -469,6 +469,7 @@
       "filename": "test/multifile_samples/using_for_free_funcs/sample.sol",
       "propertySource": "252:4:0",
       "annotationSource": "240:17:0",
+      "annotationText": "if_succeeds true;",
       "target": "function",
       "type": "if_succeeds",
       "targetName": "main",
