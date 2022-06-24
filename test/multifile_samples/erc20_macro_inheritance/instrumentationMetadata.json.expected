@@ -1733,11 +1733,13 @@
         "302:49:2",
         "35:48:0"
       ],
+      "annotationText": "#invariant unchecked_sum(balances) == totalSupply",
       "target": "contract",
       "type": "invariant",
       "targetName": "Token",
       "debugEventEncoding": [
         [
+          "_totalSupply",
           [
             "339:11:2"
           ],
@@ -1771,6 +1773,7 @@
         "426:101:2",
         "35:48:0"
       ],
+      "annotationText": "#if_succeeds unchecked_sum(balances) == old(unchecked_sum(balances)) || msg.sig == bytes4(0x00000000)",
       "target": "contract",
       "type": "if_succeeds",
       "targetName": "Token",
@@ -1801,17 +1804,20 @@
         "962:50:2",
         "35:48:0"
       ],
+      "annotationText": "#if_succeeds $result == allowances[owner][spender]",
       "target": "function",
       "type": "if_succeeds",
       "targetName": "allowance",
       "debugEventEncoding": [
         [
+          "owner",
           [
             "996:5:2"
           ],
           "address"
         ],
         [
+          "delegate",
           [
             "1003:7:2"
           ],
@@ -1845,6 +1851,7 @@
         "630:47:2",
         "35:48:0"
       ],
+      "annotationText": "#if_succeeds $result == unchecked_sum(balances)",
       "target": "function",
       "type": "if_succeeds",
       "targetName": "totalSupply",
@@ -1874,11 +1881,13 @@
         "801:39:2",
         "35:48:0"
       ],
+      "annotationText": "#if_succeeds $result == balances[owner]",
       "target": "function",
       "type": "if_succeeds",
       "targetName": "balanceOf",
       "debugEventEncoding": [
         [
+          "account",
           [
             "833:5:2"
           ],
@@ -1912,11 +1921,13 @@
         "1133:47:2",
         "35:48:0"
       ],
+      "annotationText": "#if_succeeds old(balances[msg.sender] >= value)",
       "target": "function",
       "type": "if_succeeds",
       "targetName": "transfer",
       "debugEventEncoding": [
         [
+          "amount",
           [
             "1173:5:2"
           ],
@@ -1952,17 +1963,20 @@
         "1259:91:2",
         "35:48:0"
       ],
+      "annotationText": "#if_succeeds msg.sender != to ==> old(balances[msg.sender]) - value == balances[msg.sender]",
       "target": "function",
       "type": "if_succeeds",
       "targetName": "transfer",
       "debugEventEncoding": [
         [
+          "receiver",
           [
             "1285:2:2"
           ],
           "address"
         ],
         [
+          "amount",
           [
             "1320:5:2"
           ],
@@ -1997,11 +2011,13 @@
         "1424:75:2",
         "35:48:0"
       ],
+      "annotationText": "#if_succeeds msg.sender != to ==> old(balances[to]) + value == balances[to]",
       "target": "function",
       "type": "if_succeeds",
       "targetName": "transfer",
       "debugEventEncoding": [
         [
+          "receiver",
           [
             "1450:2:2",
             "1470:2:2",
@@ -2010,6 +2026,7 @@
           "address"
         ],
         [
+          "amount",
           [
             "1477:5:2"
           ],
@@ -2044,11 +2061,13 @@
         "1589:97:2",
         "35:48:0"
       ],
+      "annotationText": "#if_succeeds old(balances[to]) + old(balances[msg.sender]) == balances[to] + balances[msg.sender]",
       "target": "function",
       "type": "if_succeeds",
       "targetName": "transfer",
       "debugEventEncoding": [
         [
+          "receiver",
           [
             "1614:2:2",
             "1659:2:2"
@@ -2085,17 +2104,20 @@
         "1830:53:2",
         "35:48:0"
       ],
+      "annotationText": "#if_succeeds allowances[msg.sender][spender] == value",
       "target": "function",
       "type": "if_succeeds",
       "targetName": "approve",
       "debugEventEncoding": [
         [
+          "delegate",
           [
             "1865:7:2"
           ],
           "address"
         ],
         [
+          "amount",
           [
             "1877:5:2"
           ],
@@ -2129,17 +2151,20 @@
         "2014:41:2",
         "35:48:0"
       ],
+      "annotationText": "#if_succeeds old(balances[from] >= value)",
       "target": "function",
       "type": "if_succeeds",
       "targetName": "transferFrom",
       "debugEventEncoding": [
         [
+          "owner",
           [
             "2039:4:2"
           ],
           "address"
         ],
         [
+          "amount",
           [
             "2048:5:2"
           ],
@@ -2176,11 +2201,13 @@
         "2134:73:2",
         "35:48:0"
       ],
+      "annotationText": "#if_succeeds from != to ==> old(balances[from]) - value == balances[from]",
       "target": "function",
       "type": "if_succeeds",
       "targetName": "transferFrom",
       "debugEventEncoding": [
         [
+          "owner",
           [
             "2146:4:2",
             "2174:4:2",
@@ -2189,12 +2216,14 @@
           "address"
         ],
         [
+          "buyer",
           [
             "2154:2:2"
           ],
           "address"
         ],
         [
+          "amount",
           [
             "2183:5:2"
           ],
@@ -2229,11 +2258,13 @@
         "2287:86:2",
         "35:48:0"
       ],
+      "annotationText": "#if_succeeds old(allowances[from][msg.sender]) - value == allowances[from][msg.sender]",
       "target": "function",
       "type": "if_succeeds",
       "targetName": "transferFrom",
       "debugEventEncoding": [
         [
+          "owner",
           [
             "2314:4:2",
             "2355:4:2"
@@ -2241,6 +2272,7 @@
           "address"
         ],
         [
+          "amount",
           [
             "2335:5:2"
           ],
@@ -2275,17 +2307,20 @@
         "2449:55:2",
         "35:48:0"
       ],
+      "annotationText": "#if_succeeds old(allowances[from][msg.sender]) >= value",
       "target": "function",
       "type": "if_succeeds",
       "targetName": "transferFrom",
       "debugEventEncoding": [
         [
+          "owner",
           [
             "2476:4:2"
           ],
           "address"
         ],
         [
+          "amount",
           [
             "2498:5:2"
           ],
@@ -2320,17 +2355,20 @@
         "2577:69:2",
         "35:48:0"
       ],
+      "annotationText": "#if_succeeds from != to ==> old(balances[to]) + value == balances[to]",
       "target": "function",
       "type": "if_succeeds",
       "targetName": "transferFrom",
       "debugEventEncoding": [
         [
+          "owner",
           [
             "2589:4:2"
           ],
           "address"
         ],
         [
+          "buyer",
           [
             "2597:2:2",
             "2617:2:2",
@@ -2339,6 +2377,7 @@
           "address"
         ],
         [
+          "amount",
           [
             "2624:5:2"
           ],
@@ -2373,11 +2412,13 @@
         "2736:85:2",
         "35:48:0"
       ],
+      "annotationText": "#if_succeeds old(balances[to]) + old(balances[from]) == balances[to] + balances[from]",
       "target": "function",
       "type": "if_succeeds",
       "targetName": "transferFrom",
       "debugEventEncoding": [
         [
+          "buyer",
           [
             "2761:2:2",
             "2800:2:2"
@@ -2385,6 +2426,7 @@
           "address"
         ],
         [
+          "owner",
           [
             "2781:4:2",
             "2815:4:2"

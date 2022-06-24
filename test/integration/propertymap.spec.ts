@@ -186,7 +186,7 @@ describe("Property map test", () => {
                         loc2Src(propMD.propertySource)
                     );
 
-                    for (const [srcLocs] of propMD.debugEventEncoding) {
+                    for (const [, srcLocs] of propMD.debugEventEncoding) {
                         // Check all srcLocs lie inside the annotation
                         for (const srcLoc of srcLocs) {
                             const [srcStart, srcLen, srcFileInd] = getSrcTripple(loc2Src(srcLoc));

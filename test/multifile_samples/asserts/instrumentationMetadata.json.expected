@@ -379,11 +379,13 @@
       "filename": "test/multifile_samples/asserts/B.sol",
       "propertySource": "57:9:1",
       "annotationSource": "47:20:1",
+      "annotationText": "invariant sum < 200;",
       "target": "contract",
       "type": "invariant",
       "targetName": "Base",
       "debugEventEncoding": [
         [
+          "sum",
           [
             "57:3:1"
           ],
@@ -411,11 +413,13 @@
       "filename": "test/multifile_samples/asserts/B.sol",
       "propertySource": "101:20:1",
       "annotationSource": "90:32:1",
+      "annotationText": "if_updated sum - old(sum) > X+1;",
       "target": "variable",
       "type": "if_updated",
       "targetName": "sum",
       "debugEventEncoding": [
         [
+          "sum",
           [
             "101:3:1",
             "111:3:1"
@@ -423,6 +427,7 @@
           "uint256"
         ],
         [
+          "X",
           [
             "118:1:1"
           ],
@@ -451,15 +456,17 @@
       "filename": "test/multifile_samples/asserts/B.sol",
       "propertySource": "153:13:1",
       "annotationSource": "141:26:1",
+      "annotationText": "if_succeeds n.length < 10;",
       "target": "function",
       "type": "if_succeeds",
       "targetName": "main",
       "debugEventEncoding": [
         [
+          "n",
           [
             "153:1:1"
           ],
-          "uint256[] memory"
+          "uint256[]"
         ]
       ],
       "message": "",
@@ -483,18 +490,21 @@
       "filename": "test/multifile_samples/asserts/B.sol",
       "propertySource": "223:31:1",
       "annotationSource": "216:39:1",
+      "annotationText": "assert forall (uint i in n) n[i] <= 50;",
       "target": "statement",
       "type": "assert",
       "targetName": "",
       "debugEventEncoding": [
         [
+          "n",
           [
             "241:1:1",
             "244:1:1"
           ],
-          "uint256[] memory"
+          "uint256[]"
         ],
         [
+          "i",
           [
             "246:1:1"
           ],
@@ -526,23 +536,27 @@
       "filename": "test/multifile_samples/asserts/B.sol",
       "propertySource": "312:8:1",
       "annotationSource": "305:16:1",
+      "annotationText": "assert n[i] > X;",
       "target": "statement",
       "type": "assert",
       "targetName": "",
       "debugEventEncoding": [
         [
+          "n",
           [
             "312:1:1"
           ],
-          "uint256[] memory"
+          "uint256[]"
         ],
         [
+          "i",
           [
             "314:1:1"
           ],
           "uint256"
         ],
         [
+          "X",
           [
             "319:1:1"
           ],
@@ -570,11 +584,13 @@
       "filename": "test/multifile_samples/asserts/C.sol",
       "propertySource": "219:54:2",
       "annotationSource": "212:62:2",
+      "annotationText": "assert XA == 2 && XB == 2 && A.X == 2 && B.X == 2 && t == B.X;",
       "target": "statement",
       "type": "assert",
       "targetName": "",
       "debugEventEncoding": [
         [
+          "XA",
           [
             "219:2:2",
             "230:2:2"
@@ -582,6 +598,7 @@
           "uint256"
         ],
         [
+          "t",
           [
             "265:1:2"
           ],
@@ -609,6 +626,7 @@
       "filename": "test/multifile_samples/asserts/C.sol",
       "propertySource": "369:13:2",
       "annotationSource": "362:21:2",
+      "annotationText": "assert B.foo(p) == 3;",
       "target": "statement",
       "type": "assert",
       "targetName": "",
