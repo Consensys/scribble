@@ -9,6 +9,7 @@ export enum AnnotationType {
     IfAssigned = "if_assigned",
     Invariant = "invariant",
     Define = "define",
+    Const = "const",
     Assert = "assert",
     Try = "try",
     Require = "require",

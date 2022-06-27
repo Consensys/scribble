@@ -46,6 +46,7 @@ import {
     PropertyMetaData,
     SyntaxError,
     UnsupportedByTargetError,
+    UserConstantDefinitionMetaData,
     UserFunctionDefinitionMetaData
 } from "../instrumenter/annotations";
 import { getCallGraph } from "../instrumenter/callgraph";
@@ -339,12 +340,16 @@ function instrumentFiles(
                 (annot) => annot instanceof UserFunctionDefinitionMetaData
             );
 
+            const userConsts = contractAnnot.filter(
+                (annot) => annot instanceof UserConstantDefinitionMetaData
+            );
+
             // Nothing to instrument on interfaces
             if (contract.kind === ContractKind.Interface) {
                 continue;
             }
 
-            if (needsStateInvariantInstr || userFuns.length > 0) {
+            if (needsStateInvariantInstr || userFuns.length > 0 || userConsts.length > 0) {
                 worklist.push([contract, contractAnnot]);
                 assert(
                     ![ContractKind.Library, ContractKind.Interface].includes(contract.kind),
@@ -992,9 +997,16 @@ function loadInstrMetaData(fileName: string): InstrumentationMetaData {
         let interposingQueue: Array<[VariableDeclaration, AbsDatastructurePath]>;
 
         try {
-            // Type check
+            /**
+             * Type check
+             */
             tcUnits(units, annotMap, typeEnv);
-            // Semantic check
+
+            /**
+             * Semantic check
+             *
+             * @todo #const should have more restrictions, not allowing certain expressions to be used.
+             */
             interposingQueue = scUnits(units, annotMap, typeEnv, semMap);
         } catch (err: any) {
             if (err instanceof STypeError || err instanceof SemError) {

@@ -29,8 +29,10 @@ import {
     Statement,
     StatementWithChildren,
     StateVariableVisibility,
+    TypeName,
     TypeNode,
-    UncheckedBlock
+    UncheckedBlock,
+    VariableDeclaration
 } from "solc-typed-ast";
 import { AnnotationType, SLetAnnotation, SNode } from "../spec-lang/ast";
 import {
@@ -48,12 +50,13 @@ import {
     AnnotationMap,
     AnnotationMetaData,
     PropertyMetaData,
+    UserConstantDefinitionMetaData,
     UserFunctionDefinitionMetaData
 } from "./annotations";
 import { InstrumentationContext } from "./instrumentation_context";
 import { interpose, interposeCall } from "./interpose";
 import { ensureStmtInBlock } from "./state_var_instrumenter";
-import { transpileAnnotation } from "./transpile";
+import { transpileAnnotation, transpileType } from "./transpile";
 import { InstrumentationSiteType, TranspilingContext } from "./transpiling_context";
 import { getTypeDesc, getTypeLocation } from "./utils";
 
@@ -576,15 +579,23 @@ export function instrumentContract(
 
     makeUserFunctions(ctx, userFunctionsAnnotations, contract);
 
+    const userConstantAnnotations = filterByType(annotations, UserConstantDefinitionMetaData);
+
     const propertyAnnotations = filterByType(annotations, PropertyMetaData).filter(
         (annot) => annot.type !== AnnotationType.IfSucceeds
     );
 
+    if (needsStateInvChecks || userConstantAnnotations.length > 0) {
+        ctx.addScribbleUtils(contract);
+
+        makeUserConstants(ctx, userConstantAnnotations);
+
+        ctx.needsUtils(contract.vScope);
+    }
+
     if (needsStateInvChecks) {
         const internalInvChecker = makeInternalInvariantChecker(ctx, propertyAnnotations, contract);
         const generalInvChecker = makeGeneralInvariantChecker(ctx, contract, internalInvChecker);
-
-        ctx.addScribbleUtils(contract);
 
         let needInstrumentingCtr = true;
 
@@ -608,8 +619,6 @@ export function instrumentContract(
         }
 
         replaceExternalCallSites(ctx, contract, generalInvChecker);
-
-        ctx.needsUtils(contract.vScope);
     }
 }
 
@@ -668,6 +677,67 @@ function makeUserFunctions(
     }
 
     return userFuns;
+}
+
+function makeUserConstants(
+    ctx: InstrumentationContext,
+    annotations: UserConstantDefinitionMetaData[]
+): VariableDeclaration[] {
+    const userConsts: VariableDeclaration[] = [];
+
+    if (annotations.length === 0) {
+        return userConsts;
+    }
+
+    const factory = ctx.factory;
+    const nameGen = ctx.nameGenerator;
+
+    /**
+     * @todo This is a hack as we need function scope to transpile annotations.
+     * Consider other ways in the future to do this;
+     */
+    const stubFunc = factory.addEmptyFun(
+        ctx,
+        "const_func",
+        FunctionVisibility.Public,
+        ctx.utilsContract
+    );
+
+    for (const constDefMd of annotations) {
+        const constDef = constDefMd.parsedAnnot;
+        const constUnit = constDefMd.target.root as SourceUnit;
+        const constType = constDef.formalType;
+
+        const userConst = factory.makeVariableDeclaration(
+            true,
+            false,
+            nameGen.getFresh(`${constDef.name.name}_${constUnit.id}_`),
+            ctx.utilsContract.id,
+            true,
+            getTypeLocation(constType),
+            StateVariableVisibility.Public,
+            Mutability.Constant,
+            "<missing>",
+            `Implementation of user constant ${constDef.pp()}`,
+            constType instanceof TypeName ? constType : transpileType(constType, factory)
+        );
+
+        ctx.userConstants.set(constDef, userConst);
+
+        const transCtx = ctx.transCtxMap.get(stubFunc, InstrumentationSiteType.Custom);
+
+        const result = transpileAnnotation(constDefMd, transCtx);
+
+        userConst.vValue = result;
+
+        ctx.utilsContract.appendChild(userConst);
+
+        userConsts.push(userConst);
+    }
+
+    ctx.utilsContract.removeChild(stubFunc);
+
+    return userConsts;
 }
 
 /**

@@ -9,6 +9,7 @@ Annotation =
         / If_Succeeds
         / If_Updated
         / If_Assigned
+        / UserConstantDefinition
         / UserFunctionDefinition
         / Assert
         / Try
@@ -193,6 +194,17 @@ TypedArgs =
         );
     }
 
+UserConstantDefinition =
+    type: CONST __ md: AnnotationMD? __ const_type: Type __ name: Identifier __ ":=" __ value: Expression {
+        return new SUserConstantDefinition(
+            name,
+            const_type,
+            value,
+            md === null ? undefined : md,
+            makeRange(location(), options as ParseOptions)
+        );
+    }
+
 UserFunctionDefinition =
     type: DEFINE __ md: AnnotationMD? __ name: Identifier __ "(" __ args: TypedArgs? __ ")" __ returnType: Type __ "=" __ body: Expression {
         return new SUserFunctionDefinition(
@@ -293,6 +305,7 @@ IF_SUCCEEDS = "if_succeeds"
 ASSERT = "assert"
 IF_UPDATED = "if_updated"
 IF_ASSIGNED = "if_assigned"
+CONST = "const"
 DEFINE = "define"
 FORALL = "forall"
 TRY = "try"

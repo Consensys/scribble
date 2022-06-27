@@ -14,30 +14,31 @@ import {
 import { AbsDatastructurePath, AnnotationMap, AnnotationMetaData, AnnotationTarget } from "../..";
 import { single } from "../../util";
 import {
+    AnnotationType,
+    NodeLocation,
+    SAddressLiteral,
+    SAnnotation,
     SBinaryOperation,
     SBooleanLiteral,
     SConditional,
+    ScribbleBuiltinFunctions,
     SForAll,
     SFunctionCall,
     SHexLiteral,
     SId,
     SIndexAccess,
     SLet,
+    SLetAnnotation,
     SMemberAccess,
     SNode,
     SNumber,
+    SolidityBuiltinFunctions,
+    SProperty,
+    SResult,
     SStringLiteral,
     SUnaryOperation,
-    SAddressLiteral,
-    SResult,
-    SAnnotation,
-    SProperty,
-    SUserFunctionDefinition,
-    AnnotationType,
-    ScribbleBuiltinFunctions,
-    NodeLocation,
-    SolidityBuiltinFunctions,
-    SLetAnnotation
+    SUserConstantDefinition,
+    SUserFunctionDefinition
 } from "../ast";
 import { FunctionSetType } from "./internal_types";
 import { TypeEnv } from "./typeenv";
@@ -123,6 +124,8 @@ export function scAnnotation(
             ctx.isOld = true;
         }
         sc(node.expression, ctx, typings, semMap);
+    } else if (node instanceof SUserConstantDefinition) {
+        sc(node.value, ctx, typings, semMap);
     } else if (node instanceof SUserFunctionDefinition) {
         sc(node.body, ctx, typings, semMap);
     } else if (node instanceof SLetAnnotation) {

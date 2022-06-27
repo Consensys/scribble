@@ -1,8 +1,74 @@
-import { assert, ContractDefinition, TypeNameType, TypeNode } from "solc-typed-ast";
+import { assert, ContractDefinition, SourceUnit, TypeNameType, TypeNode } from "solc-typed-ast";
 import { ABIEncoderVersion } from "solc-typed-ast/dist/types/abi";
-import { SNode, SUserFunctionDefinition } from "../ast";
+import { SNode, SUserConstantDefinition, SUserFunctionDefinition } from "../ast";
 
 export type TypeMap = Map<SNode, TypeNode>;
+
+export class UserConstantsScope {
+    readonly mapping: Map<SourceUnit, Map<string, SUserConstantDefinition>> = new Map();
+
+    get(scope: SourceUnit, name: string): SUserConstantDefinition | undefined {
+        const defs = this.mapping.get(scope);
+
+        if (defs) {
+            const def = defs.get(name);
+
+            if (def) {
+                return def;
+            }
+        }
+
+        return undefined;
+    }
+
+    define(scope: SourceUnit, def: SUserConstantDefinition): void {
+        let defs = this.mapping.get(scope);
+
+        if (defs === undefined) {
+            defs = new Map();
+        }
+
+        defs.set(def.name.name, def);
+
+        this.mapping.set(scope, defs);
+    }
+
+    pp(): string {
+        return "<user_constants_scope>";
+    }
+}
+
+export class UserFunctionsScope {
+    readonly mapping: Map<ContractDefinition, Map<string, SUserFunctionDefinition>> = new Map();
+
+    get(scope: ContractDefinition, name: string): SUserFunctionDefinition | undefined {
+        for (const base of scope.vLinearizedBaseContracts) {
+            const defs = this.mapping.get(base);
+
+            if (defs) {
+                const res = defs.get(name);
+
+                if (res) {
+                    return res;
+                }
+            }
+        }
+
+        return undefined;
+    }
+
+    define(scope: ContractDefinition, def: SUserFunctionDefinition): void {
+        let defs = this.mapping.get(scope);
+
+        if (!defs) {
+            defs = new Map();
+        }
+
+        defs.set(def.name.name, def);
+
+        this.mapping.set(scope, defs);
+    }
+}
 
 /**
  * `TypeEnv` holds any typing environment information computed during the
@@ -11,14 +77,25 @@ export type TypeMap = Map<SNode, TypeNode>;
  */
 export class TypeEnv {
     private typeMap: TypeMap;
-    private userFunctions: Map<ContractDefinition, Map<string, SUserFunctionDefinition>>;
 
-    public readonly compilerVersion: string;
-    public readonly abiEncoderVersion: ABIEncoderVersion;
+    /**
+     * User-defined functions
+     */
+    readonly userFunctions: UserFunctionsScope;
+
+    /**
+     * User-defined constants
+     */
+    readonly userConstants: UserConstantsScope;
+
+    readonly compilerVersion: string;
+    readonly abiEncoderVersion: ABIEncoderVersion;
 
     constructor(compilerVersion: string, abiEncoderVersion: ABIEncoderVersion) {
         this.typeMap = new Map();
-        this.userFunctions = new Map();
+
+        this.userFunctions = new UserFunctionsScope();
+        this.userConstants = new UserConstantsScope();
 
         this.compilerVersion = compilerVersion;
         this.abiEncoderVersion = abiEncoderVersion;
@@ -42,35 +119,5 @@ export class TypeEnv {
 
     define(node: SNode, typ: TypeNode): void {
         this.typeMap.set(node, typ);
-    }
-
-    getUserFunction(scope: ContractDefinition, name: string): SUserFunctionDefinition | undefined {
-        for (const base of scope.vLinearizedBaseContracts) {
-            const funM = this.userFunctions.get(base);
-
-            if (!funM) {
-                continue;
-            }
-
-            const res = funM.get(name);
-
-            if (res) {
-                return res;
-            }
-        }
-
-        return undefined;
-    }
-
-    defineUserFunction(scope: ContractDefinition, fun: SUserFunctionDefinition): void {
-        let funM = this.userFunctions.get(scope);
-
-        if (!funM) {
-            funM = new Map();
-        }
-
-        funM.set(fun.name.name, fun);
-
-        this.userFunctions.set(scope, funM);
     }
 }
