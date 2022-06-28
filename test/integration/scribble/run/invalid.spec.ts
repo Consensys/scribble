@@ -173,6 +173,10 @@ describe(`Command "scribble <filename>" is failing as expected`, () => {
         [
             ["test/samples/invalid/forall_iterator_type_incompatible.invalid.sol"],
             /.*TypeError: The type bytes32 of the iterator variable x is not compatible with iterator type uint of hashes.*/g
+        ],
+        [
+            ["test/samples/invalid/consts_unordered.invalid.sol"],
+            /.*TypeError: Unknown identifier Y*/g
         ]
     ];
 

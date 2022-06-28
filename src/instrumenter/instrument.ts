@@ -732,6 +732,8 @@ function makeUserConstants(
 
         ctx.utilsContract.appendChild(userConst);
 
+        ctx.addGeneralInstrumentation(userConst);
+
         userConsts.push(userConst);
     }
 
