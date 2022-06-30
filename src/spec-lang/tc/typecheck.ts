@@ -612,7 +612,7 @@ export function tcAnnotation(
         if (!isImplicitlyCastable(actualType, annot.formalType)) {
             throw new SWrongType(
                 `User constant ${
-                    annot.name
+                    annot.name.name
                 } declares type ${annot.formalType.pp()} but value type is ${actualType.pp()}`,
                 annot.value,
                 actualType
@@ -1010,6 +1010,10 @@ function tcIdVariable(expr: SId, ctx: STypingCtx, typeEnv: TypeEnv): TypeNode | 
 
     if (def instanceof SForAll) {
         return def.iteratorType;
+    }
+
+    if (def instanceof SUserConstantDefinition) {
+        return def.formalType;
     }
 
     // For now statement let bindings are handled in tcLetAnnotationId.

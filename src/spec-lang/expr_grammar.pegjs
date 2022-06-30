@@ -195,7 +195,7 @@ TypedArgs =
     }
 
 UserConstantDefinition =
-    type: CONST __ md: AnnotationMD? __ const_type: Type __ name: Identifier __ ":=" __ value: Expression {
+    type: CONST __ md: AnnotationMD? __ const_type: Type __ name: Identifier __ ":=" __ value: Expression __ ";" {
         return new SUserConstantDefinition(
             name,
             const_type,
@@ -206,7 +206,7 @@ UserConstantDefinition =
     }
 
 UserFunctionDefinition =
-    type: DEFINE __ md: AnnotationMD? __ name: Identifier __ "(" __ args: TypedArgs? __ ")" __ returnType: Type __ "=" __ body: Expression {
+    type: DEFINE __ md: AnnotationMD? __ name: Identifier __ "(" __ args: TypedArgs? __ ")" __ returnType: Type __ "=" __ body: Expression __ ";" {
         return new SUserFunctionDefinition(
             name,
             args === null ? [] : args,
@@ -231,7 +231,7 @@ IdentiferList =
     }
 
 Macro = 
-    type: MACRO __ md: AnnotationMD? name: Identifier __ "(" __ args: IdentiferList? __ ")" ";" {
+    type: MACRO __ md: AnnotationMD? name: Identifier __ "(" __ args: IdentiferList? __ ")" __ ";" {
         return new SMacro(
             name,
             args === null ? [] : args,

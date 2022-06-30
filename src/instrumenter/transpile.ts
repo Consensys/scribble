@@ -338,11 +338,11 @@ function transpileId(expr: SId, ctx: TranspilingContext): Expression {
             expr.defSite
         );
 
-        /**
-         * @todo Do we need to call addTacingInfo() here?
-         */
+        const res = ctx.factory.makeIdentifierFor(transpiledDecl);
 
-        return ctx.factory.makeIdentifierFor(transpiledDecl);
+        addTracingInfo(expr, res, ctx);
+
+        return res;
     }
 
     // Let-statement annotation
@@ -379,7 +379,7 @@ function transpileId(expr: SId, ctx: TranspilingContext): Expression {
 
         assert(
             transpiledUserFun !== undefined,
-            "Missing transpiled version of user function {1}",
+            "Missing transpiled version of user function {0}",
             expr.defSite[0]
         );
 

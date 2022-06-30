@@ -692,16 +692,8 @@ function makeUserConstants(
     const factory = ctx.factory;
     const nameGen = ctx.nameGenerator;
 
-    /**
-     * @todo This is a hack as we need function scope to transpile annotations.
-     * Consider other ways in the future to do this;
-     */
-    const stubFunc = factory.addEmptyFun(
-        ctx,
-        "const_func",
-        FunctionVisibility.Public,
-        ctx.utilsContract
-    );
+    const ctor = factory.getOrAddConstructor(ctx.utilsContract);
+    const ctorBody = ctor.vBody as Block;
 
     for (const constDefMd of annotations) {
         const constDef = constDefMd.parsedAnnot;
@@ -715,29 +707,37 @@ function makeUserConstants(
             ctx.utilsContract.id,
             true,
             getTypeLocation(constType),
-            StateVariableVisibility.Public,
-            Mutability.Constant,
+            StateVariableVisibility.Internal,
+            Mutability.Mutable,
             "<missing>",
-            `Implementation of user constant ${constDef.pp()}`,
+            `Definition of user constant ${constDef.pp()}`,
             constType instanceof TypeName ? constType : transpileType(constType, factory)
         );
 
         ctx.userConstants.set(constDef, userConst);
 
-        const transCtx = ctx.transCtxMap.get(stubFunc, InstrumentationSiteType.Custom);
+        const transCtx = ctx.transCtxMap.get(ctor, InstrumentationSiteType.Custom);
 
-        const result = transpileAnnotation(constDefMd, transCtx);
-
-        userConst.vValue = result;
+        const constValue = transpileAnnotation(constDefMd, transCtx);
 
         ctx.utilsContract.appendChild(userConst);
 
-        ctx.addGeneralInstrumentation(userConst);
+        const stmtAssignValue = factory.makeExpressionStatement(
+            factory.makeAssignment(
+                "<missing>",
+                "=",
+                factory.makeIdentifierFor(userConst),
+                constValue
+            ),
+            `Value assignment for ${constDef.pp()}`
+        );
+
+        ctorBody.appendChild(stmtAssignValue);
+
+        ctx.addGeneralInstrumentation(userConst, stmtAssignValue);
 
         userConsts.push(userConst);
     }
-
-    ctx.utilsContract.removeChild(stubFunc);
 
     return userConsts;
 }

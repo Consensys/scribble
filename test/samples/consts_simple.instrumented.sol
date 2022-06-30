@@ -9,12 +9,21 @@ contract __scribble_ReentrancyUtils {
     event AssertionFailedData(int eventId, bytes encodingData);
 
     bool __scribble_out_of_contract = true;
-    /// Implementation of user constant const uint256 H := (60 * 60)
-    uint256 public constant H_15_0 = 60 * 60;
-    /// Implementation of user constant const uint256 D := (H * 24)
-    uint256 public constant D_15_0 = H_15_0 * 24;
-    /// Implementation of user constant const uint256 W := (D * 7)
-    uint256 public constant W_15_0 = D_15_0 * 7;
+    /// Definition of user constant const uint256 H := (60 * 60)
+    uint256 internal H_15_0;
+    /// Definition of user constant const uint256 D := (H * 24)
+    uint256 internal D_15_0;
+    /// Definition of user constant const uint256 W := (D * 7)
+    uint256 internal W_15_0;
+
+    constructor() {
+        /// Value assignment for const uint256 H := (60 * 60)
+        H_15_0 = 60 * 60;
+        /// Value assignment for const uint256 D := (H * 24)
+        D_15_0 = H_15_0 * 24;
+        /// Value assignment for const uint256 W := (D * 7)
+        W_15_0 = D_15_0 * 7;
+    }
 }
 
 /// #const uint256 H := 60 * 60;

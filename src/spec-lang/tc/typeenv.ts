@@ -4,9 +4,37 @@ import { SNode, SUserConstantDefinition, SUserFunctionDefinition } from "../ast"
 
 export type TypeMap = Map<SNode, TypeNode>;
 
-export class UserConstantsScope {
-    readonly mapping: Map<SourceUnit, Map<string, SUserConstantDefinition>> = new Map();
+/**
+ * Abstract class to map user definitions in Scribble annotations to their scoping areas.
+ */
+export abstract class UserDefinitionScoping<
+    ScopeT extends ContractDefinition | SourceUnit,
+    DefT extends SUserConstantDefinition | SUserFunctionDefinition
+> {
+    readonly mapping: Map<ScopeT, Map<string, DefT>> = new Map();
 
+    abstract get(scope: ScopeT, name: string): DefT | undefined;
+
+    define(scope: ScopeT, def: DefT): void {
+        let defs = this.mapping.get(scope);
+
+        if (defs === undefined) {
+            defs = new Map();
+        }
+
+        defs.set(def.name.name, def);
+
+        this.mapping.set(scope, defs);
+    }
+}
+
+/**
+ * Class to map user-defined constants to their scoping areas
+ */
+export class UserConstantScoping extends UserDefinitionScoping<
+    SourceUnit,
+    SUserConstantDefinition
+> {
     get(scope: SourceUnit, name: string): SUserConstantDefinition | undefined {
         const defs = this.mapping.get(scope);
 
@@ -21,26 +49,18 @@ export class UserConstantsScope {
         return undefined;
     }
 
-    define(scope: SourceUnit, def: SUserConstantDefinition): void {
-        let defs = this.mapping.get(scope);
-
-        if (defs === undefined) {
-            defs = new Map();
-        }
-
-        defs.set(def.name.name, def);
-
-        this.mapping.set(scope, defs);
-    }
-
     pp(): string {
-        return "<user_constants_scope>";
+        return "<user_constant_defs>";
     }
 }
 
-export class UserFunctionsScope {
-    readonly mapping: Map<ContractDefinition, Map<string, SUserFunctionDefinition>> = new Map();
-
+/**
+ * Class to map user-defined functions to their scoping areas
+ */
+export class UserFunctionScoping extends UserDefinitionScoping<
+    ContractDefinition,
+    SUserFunctionDefinition
+> {
     get(scope: ContractDefinition, name: string): SUserFunctionDefinition | undefined {
         for (const base of scope.vLinearizedBaseContracts) {
             const defs = this.mapping.get(base);
@@ -56,18 +76,6 @@ export class UserFunctionsScope {
 
         return undefined;
     }
-
-    define(scope: ContractDefinition, def: SUserFunctionDefinition): void {
-        let defs = this.mapping.get(scope);
-
-        if (!defs) {
-            defs = new Map();
-        }
-
-        defs.set(def.name.name, def);
-
-        this.mapping.set(scope, defs);
-    }
 }
 
 /**
@@ -78,15 +86,8 @@ export class UserFunctionsScope {
 export class TypeEnv {
     private typeMap: TypeMap;
 
-    /**
-     * User-defined functions
-     */
-    readonly userFunctions: UserFunctionsScope;
-
-    /**
-     * User-defined constants
-     */
-    readonly userConstants: UserConstantsScope;
+    readonly userFunctions: UserFunctionScoping;
+    readonly userConstants: UserConstantScoping;
 
     readonly compilerVersion: string;
     readonly abiEncoderVersion: ABIEncoderVersion;
@@ -94,8 +95,8 @@ export class TypeEnv {
     constructor(compilerVersion: string, abiEncoderVersion: ABIEncoderVersion) {
         this.typeMap = new Map();
 
-        this.userFunctions = new UserFunctionsScope();
-        this.userConstants = new UserConstantsScope();
+        this.userFunctions = new UserFunctionScoping();
+        this.userConstants = new UserConstantScoping();
 
         this.compilerVersion = compilerVersion;
         this.abiEncoderVersion = abiEncoderVersion;

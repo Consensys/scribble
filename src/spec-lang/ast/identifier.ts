@@ -10,7 +10,8 @@ export type VarDefSite =
     | [SUserFunctionDefinition, number]
     | [StateVarScope, number]
     | SForAll
-    | SLetAnnotation;
+    | SLetAnnotation
+    | SUserConstantDefinition;
 
 export type IdDefSite =
     | VarDefSite
@@ -18,7 +19,6 @@ export type IdDefSite =
     | "type_name"
     | "this"
     | SUserFunctionDefinition
-    | SUserConstantDefinition
     | "builtin_fun"
     | ImportDirective;
 
