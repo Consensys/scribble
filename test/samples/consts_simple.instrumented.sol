@@ -10,49 +10,63 @@ contract __scribble_ReentrancyUtils {
 
     bool __scribble_out_of_contract = true;
     /// Definition of user constant const uint256 H := (60 * 60)
-    uint256 internal H_15_0;
+    uint256 internal H_23_0;
     /// Definition of user constant const uint256 D := (H * 24)
-    uint256 internal D_15_0;
+    uint256 internal D_23_0;
     /// Definition of user constant const uint256 W := (D * 7)
-    uint256 internal W_15_0;
+    uint256 internal W_23_0;
 
     constructor() {
         /// Value assignment for const uint256 H := (60 * 60)
-        H_15_0 = 60 * 60;
+        H_23_0 = 60 * 60;
         /// Value assignment for const uint256 D := (H * 24)
-        D_15_0 = H_15_0 * 24;
+        D_23_0 = H_23_0 * 24;
         /// Value assignment for const uint256 W := (D * 7)
-        W_15_0 = D_15_0 * 7;
+        W_23_0 = D_23_0 * 7;
     }
 }
 
 /// #const uint256 H := 60 * 60;
 ///  #const uint256 D := H * 24;
-contract Some is __scribble_ReentrancyUtils {
+contract A is __scribble_ReentrancyUtils {
     function testHD() public {
-        _original_Some_testHD();
+        _original_A_testHD();
         unchecked {
-            if (!(D_15_0 == (H_15_0 * 24))) {
+            if (!(D_23_0 == (H_23_0 * 24))) {
                 emit AssertionFailed("2: ");
                 assert(false);
             }
         }
     }
 
-    function _original_Some_testHD() private {}
+    function _original_A_testHD() private {}
 }
 
 /// #const uint256 W := D * 7;
-contract Other is __scribble_ReentrancyUtils {
+contract B is __scribble_ReentrancyUtils {
     function testWHD() public {
-        _original_Other_testWHD();
+        _original_B_testWHD();
         unchecked {
-            if (!(((W_15_0 == (D_15_0 * 7)) && (D_15_0 == (H_15_0 * 24))) && (H_15_0 == (60 * 60)))) {
+            if (!(((W_23_0 == (D_23_0 * 7)) && (D_23_0 == (H_23_0 * 24))) && (H_23_0 == (60 * 60)))) {
                 emit AssertionFailed("4: ");
                 assert(false);
             }
         }
     }
 
-    function _original_Other_testWHD() private {}
+    function _original_B_testWHD() private {}
+}
+
+contract C is __scribble_ReentrancyUtils, B {
+    constructor() {
+        _original_C_constructor();
+        unchecked {
+            if (!(W_23_0 == (D_23_0 * 7))) {
+                emit AssertionFailed("5: ");
+                assert(false);
+            }
+        }
+    }
+
+    function _original_C_constructor() private {}
 }

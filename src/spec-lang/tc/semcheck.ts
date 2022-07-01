@@ -270,6 +270,8 @@ export function scId(expr: SId, ctx: SemCtx, typings: TypeEnv, semMap: SemMap): 
                 expr
             );
         }
+    } else if (def instanceof SUserConstantDefinition) {
+        isConst = true;
     } else if (def === "function_name" || def === "type_name") {
         isConst = true;
     } else if (def === "this") {

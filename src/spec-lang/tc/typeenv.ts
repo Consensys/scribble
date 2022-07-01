@@ -48,10 +48,6 @@ export class UserConstantScoping extends UserDefinitionScoping<
 
         return undefined;
     }
-
-    pp(): string {
-        return "<user_constant_defs>";
-    }
 }
 
 /**
