@@ -1012,10 +1012,6 @@ function tcIdVariable(expr: SId, ctx: STypingCtx, typeEnv: TypeEnv): TypeNode | 
         return def.iteratorType;
     }
 
-    if (def instanceof SUserConstantDefinition) {
-        return def.formalType;
-    }
-
     // For now statement let bindings are handled in tcLetAnnotationId.
     if (def instanceof SLetAnnotation) {
         return undefined;
