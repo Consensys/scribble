@@ -56,8 +56,8 @@ contract Foo is __scribble_ReentrancyUtils {
     /// Check only the current contract's state invariants
     function __scribble_Foo_check_state_invariants_internal() internal {
         if (!(x > 0)) {
-            emit AssertionFailed("0: ");
             emit AssertionFailedData(0, abi.encode(x));
+            emit AssertionFailed("0: ");
         }
     }
 
