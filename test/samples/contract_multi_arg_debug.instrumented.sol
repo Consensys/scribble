@@ -25,8 +25,8 @@ contract Foo is __scribble_ReentrancyUtils {
     function __scribble_Foo_check_state_invariants_internal() internal {
         unchecked {
             if (!(b == ((a + c) - 1))) {
-                emit AssertionFailed("0: ");
                 emit AssertionFailedData(0, abi.encode(b, a, c));
+                emit AssertionFailed("0: ");
             }
         }
     }
