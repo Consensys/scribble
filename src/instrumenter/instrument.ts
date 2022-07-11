@@ -417,7 +417,7 @@ function emitAssert(
 
     if (emitStmt) {
         instrCtx.addAnnotationInstrumentation(annotation, emitStmt);
-        ifBody.push(emitStmt);
+        ifBody.unshift(emitStmt);
     }
 
     if (instrCtx.addAssert) {

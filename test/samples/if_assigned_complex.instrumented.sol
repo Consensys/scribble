@@ -76,8 +76,8 @@ contract Base is __scribble_ReentrancyUtils {
         RET0 = x;
         unchecked {
             if (!(x >= _v.old_0)) {
-                emit AssertionFailed("0: ");
                 emit AssertionFailedData(0, abi.encode(x));
+                emit AssertionFailed("0: ");
             }
         }
     }
@@ -87,12 +87,12 @@ contract Base is __scribble_ReentrancyUtils {
         RET1 = arr[ARG1];
         unchecked {
             if (!(arr.length > 0)) {
-                emit AssertionFailed("1: ");
                 emit AssertionFailedData(1, abi.encode(arr));
+                emit AssertionFailed("1: ");
             }
             if (!((0 <= ARG1) && (ARG1 <= arr.length))) {
-                emit AssertionFailed("2: ");
                 emit AssertionFailedData(2, abi.encode(ARG1, arr));
+                emit AssertionFailed("2: ");
             }
         }
     }
@@ -102,12 +102,12 @@ contract Base is __scribble_ReentrancyUtils {
         RET2 = arr2[ARG3][ARG4];
         unchecked {
             if (!(arr2.length > 0)) {
-                emit AssertionFailed("3: ");
                 emit AssertionFailedData(3, abi.encode(arr2));
+                emit AssertionFailed("3: ");
             }
             if (!((0 <= ARG4) && (ARG4 <= arr2[ARG3].length))) {
-                emit AssertionFailed("5: ");
                 emit AssertionFailedData(5, abi.encode(ARG4, arr2, ARG3));
+                emit AssertionFailed("5: ");
             }
         }
     }
@@ -117,12 +117,12 @@ contract Base is __scribble_ReentrancyUtils {
         RET3 = arr2[ARG6];
         unchecked {
             if (!(arr2.length > 0)) {
-                emit AssertionFailed("3: ");
                 emit AssertionFailedData(3, abi.encode(arr2));
+                emit AssertionFailed("3: ");
             }
             if (!((0 <= ARG6) && (ARG6 <= arr2.length))) {
-                emit AssertionFailed("4: ");
                 emit AssertionFailedData(4, abi.encode(ARG6, arr2));
+                emit AssertionFailed("4: ");
             }
         }
     }
@@ -132,8 +132,8 @@ contract Base is __scribble_ReentrancyUtils {
         RET4 = s.arr[ARG8];
         unchecked {
             if (!((0 <= ARG8) && (ARG8 <= s.arr.length))) {
-                emit AssertionFailed("6: ");
                 emit AssertionFailedData(6, abi.encode(ARG8));
+                emit AssertionFailed("6: ");
             }
         }
     }
@@ -143,8 +143,8 @@ contract Base is __scribble_ReentrancyUtils {
         RET5 = s.arr2[ARG10][ARG11];
         unchecked {
             if (!((0 <= ARG11) && (ARG11 <= s.arr2[ARG10].length))) {
-                emit AssertionFailed("7: ");
                 emit AssertionFailedData(7, abi.encode(ARG11, ARG10));
+                emit AssertionFailed("7: ");
             }
         }
     }
@@ -153,8 +153,8 @@ contract Base is __scribble_ReentrancyUtils {
         arr.push(ARG13);
         unchecked {
             if (!(arr.length > 0)) {
-                emit AssertionFailed("1: ");
                 emit AssertionFailedData(1, abi.encode(arr));
+                emit AssertionFailed("1: ");
             }
         }
     }
@@ -163,8 +163,8 @@ contract Base is __scribble_ReentrancyUtils {
         arr2.push(ARG14);
         unchecked {
             if (!(arr2.length > 0)) {
-                emit AssertionFailed("3: ");
                 emit AssertionFailedData(3, abi.encode(arr2));
+                emit AssertionFailed("3: ");
             }
         }
     }

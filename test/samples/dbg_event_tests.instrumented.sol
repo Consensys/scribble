@@ -51,8 +51,8 @@ contract Foo is __scribble_ReentrancyUtils {
         _original_Foo_changesArg1(x);
         unchecked {
             if (!(_v.old_0 == 0)) {
-                emit AssertionFailed("4: ");
                 emit AssertionFailedData(4, abi.encode(_v.dbg_0));
+                emit AssertionFailed("4: ");
             }
         }
     }
@@ -65,8 +65,8 @@ contract Foo is __scribble_ReentrancyUtils {
         _original_Foo_changesArg2(x);
         unchecked {
             if (!(x == 0)) {
-                emit AssertionFailed("5: ");
                 emit AssertionFailedData(5, abi.encode(x));
+                emit AssertionFailed("5: ");
             }
         }
     }
@@ -84,8 +84,8 @@ contract Foo is __scribble_ReentrancyUtils {
         _original_Foo_changesArr1();
         unchecked {
             if (!(_v.old_1 == 0)) {
-                emit AssertionFailed("6: ");
                 emit AssertionFailedData(6, abi.encode(_v.dbg_1));
+                emit AssertionFailed("6: ");
             }
         }
     }
@@ -98,8 +98,8 @@ contract Foo is __scribble_ReentrancyUtils {
         _original_Foo_changesArr2();
         unchecked {
             if (!(x[0] == 0)) {
-                emit AssertionFailed("7: ");
                 emit AssertionFailedData(7, abi.encode(x));
+                emit AssertionFailed("7: ");
             }
         }
     }
@@ -112,8 +112,8 @@ contract Foo is __scribble_ReentrancyUtils {
         RET = _original_Foo_newRet();
         unchecked {
             if (!(RET == 1)) {
-                emit AssertionFailed("8: ");
                 emit AssertionFailedData(8, abi.encode(RET));
+                emit AssertionFailed("8: ");
             }
         }
     }
@@ -133,8 +133,8 @@ contract Foo is __scribble_ReentrancyUtils {
             _v.let_1 = _v.let_0;
             _v.let_2 = _v.let_1;
             if (!(_v.let_2)) {
-                emit AssertionFailed("9: ");
                 emit AssertionFailedData(9, abi.encode(x, _v.x1, _v.x2, _v.x3));
+                emit AssertionFailed("9: ");
             }
         }
     }
@@ -166,8 +166,8 @@ contract Foo is __scribble_ReentrancyUtils {
     function Foo_arr_inline_initializer() internal {
         unchecked {
             if (!(arr[t] == 3)) {
-                emit AssertionFailed("0: ");
                 emit AssertionFailedData(0, abi.encode(arr, t));
+                emit AssertionFailed("0: ");
             }
         }
     }
@@ -177,8 +177,8 @@ contract Foo is __scribble_ReentrancyUtils {
         RET0 = arr[ARG0];
         unchecked {
             if (!(arr[t] == 3)) {
-                emit AssertionFailed("0: ");
                 emit AssertionFailedData(0, abi.encode(arr, t));
+                emit AssertionFailed("0: ");
             }
         }
     }
@@ -193,8 +193,8 @@ contract Foo is __scribble_ReentrancyUtils {
         RET1 = arr1[ARG2];
         unchecked {
             if (!(_v.old_2 == 3)) {
-                emit AssertionFailed("1: ");
                 emit AssertionFailedData(1, abi.encode(_v.dbg_2));
+                emit AssertionFailed("1: ");
             }
         }
     }
@@ -204,8 +204,8 @@ contract Foo is __scribble_ReentrancyUtils {
         RET2 = m[ARG4];
         unchecked {
             if (!(m[ARG4].length > 1)) {
-                emit AssertionFailed("2: ");
                 emit AssertionFailedData(2, abi.encode(ARG4));
+                emit AssertionFailed("2: ");
             }
         }
     }
@@ -215,8 +215,8 @@ contract Foo is __scribble_ReentrancyUtils {
         RET3 = m[ARG6];
         unchecked {
             if (!(m[ARG6].length > 1)) {
-                emit AssertionFailed("2: ");
                 emit AssertionFailedData(2, abi.encode(ARG6));
+                emit AssertionFailed("2: ");
             }
         }
     }
@@ -226,8 +226,8 @@ contract Foo is __scribble_ReentrancyUtils {
         RET4 = m[ARG8][ARG9];
         unchecked {
             if (!(m[ARG8][ARG9] > 0)) {
-                emit AssertionFailed("3: ");
                 emit AssertionFailedData(3, abi.encode(ARG8, ARG9));
+                emit AssertionFailed("3: ");
             }
         }
     }
