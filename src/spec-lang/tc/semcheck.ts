@@ -130,7 +130,7 @@ export function scAnnotation(
         if (!info.isConst) {
             throw new SemError(
                 `Cannot use non-constant expression ${node.value.pp()} in constant definition for ${
-                    node.name
+                    node.name.name
                 }`,
                 node
             );

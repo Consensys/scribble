@@ -10,27 +10,27 @@ contract __scribble_ReentrancyUtils {
 
     bool __scribble_out_of_contract = true;
     /// Definition of user constant const uint256 H := (60 * 60)
-    uint256 internal H_23_0;
+    uint256 internal H_7_0;
     /// Definition of user constant const uint256 D := (H * 24)
-    uint256 internal D_23_0;
+    uint256 internal D_7_0;
     /// Definition of user constant const uint256 H := (60 * 60)
-    uint256 internal H_23_1;
+    uint256 internal H_14_0;
     /// Definition of user constant const uint256 D := (H * 24)
-    uint256 internal D_23_1;
+    uint256 internal D_14_0;
     /// Definition of user constant const uint256 W := (D * 7)
-    uint256 internal W_23_0;
+    uint256 internal W_14_0;
 
     constructor() {
         /// Value assignment for const uint256 H := (60 * 60)
-        H_23_0 = 60 * 60;
+        H_7_0 = 60 * 60;
         /// Value assignment for const uint256 D := (H * 24)
-        D_23_0 = H_23_0 * 24;
+        D_7_0 = H_7_0 * 24;
         /// Value assignment for const uint256 H := (60 * 60)
-        H_23_1 = 60 * 60;
+        H_14_0 = 60 * 60;
         /// Value assignment for const uint256 D := (H * 24)
-        D_23_1 = H_23_1 * 24;
+        D_14_0 = H_14_0 * 24;
         /// Value assignment for const uint256 W := (D * 7)
-        W_23_0 = D_23_1 * 7;
+        W_14_0 = D_14_0 * 7;
     }
 }
 
@@ -40,7 +40,7 @@ contract A is __scribble_ReentrancyUtils {
     function testHD() public {
         _original_A_testHD();
         unchecked {
-            if (!(D_23_0 == (H_23_0 * 24))) {
+            if (!(D_7_0 == (H_7_0 * 24))) {
                 emit AssertionFailed("2: ");
                 assert(false);
             }
@@ -57,7 +57,7 @@ contract B is __scribble_ReentrancyUtils {
     function testWHD() public {
         _original_B_testWHD();
         unchecked {
-            if (!(((W_23_0 == (D_23_1 * 7)) && (D_23_1 == (H_23_1 * 24))) && (H_23_1 == (60 * 60)))) {
+            if (!(((W_14_0 == (D_14_0 * 7)) && (D_14_0 == (H_14_0 * 24))) && (H_14_0 == (60 * 60)))) {
                 emit AssertionFailed("6: ");
                 assert(false);
             }
@@ -71,7 +71,7 @@ contract C is __scribble_ReentrancyUtils, B {
     constructor() {
         _original_C_constructor();
         unchecked {
-            if (!(W_23_0 == (D_23_1 * 7))) {
+            if (!(W_14_0 == (D_14_0 * 7))) {
                 emit AssertionFailed("7: ");
                 assert(false);
             }

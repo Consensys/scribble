@@ -697,13 +697,12 @@ function makeUserConstants(
 
     for (const constDefMd of annotations) {
         const constDef = constDefMd.parsedAnnot;
-        const constUnit = constDefMd.target.root as SourceUnit;
         const constType = constDef.formalType;
 
         const userConst = factory.makeVariableDeclaration(
             true,
             false,
-            nameGen.getFresh(`${constDef.name.name}_${constUnit.id}_`),
+            nameGen.getFresh(`${constDef.name.name}_${constDefMd.target.id}_`),
             ctx.utilsContract.id,
             true,
             getTypeLocation(constType),
