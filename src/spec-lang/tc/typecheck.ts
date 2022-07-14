@@ -595,8 +595,7 @@ export function tcAnnotation(
             );
         }
     } else if (annot instanceof SUserConstantDefinition) {
-        const constScope = target.root as SourceUnit;
-
+        const constScope = target as ContractDefinition;
         const existing = typeEnv.userConstants.get(constScope, annot.name.name);
 
         if (existing) {
@@ -606,6 +605,7 @@ export function tcAnnotation(
                 annot
             );
         }
+        ``;
 
         const actualType = tc(annot.value, ctx, typeEnv);
 
@@ -1104,12 +1104,17 @@ export function tcId(expr: SId, ctx: STypingCtx, typeEnv: TypeEnv): TypeNode {
         return retT;
     }
 
-    const constDef = typeEnv.userConstants.get(ctx.target.root as SourceUnit, expr.name);
+    // See if this is a user function
+    const contractScope = getScopeOfType(ContractDefinition, ctx);
 
-    if (constDef) {
-        expr.defSite = constDef;
+    if (contractScope !== undefined) {
+        const constDef = typeEnv.userConstants.get(contractScope, expr.name);
 
-        return constDef.formalType;
+        if (constDef) {
+            expr.defSite = constDef;
+
+            return constDef.formalType;
+        }
     }
 
     // Next lets try to TC as a function name (note - can't be a public getter
@@ -1137,9 +1142,6 @@ export function tcId(expr: SId, ctx: STypingCtx, typeEnv: TypeEnv): TypeNode {
     if (retT !== undefined) {
         return retT;
     }
-
-    // See if this is a user function
-    const contractScope = getScopeOfType(ContractDefinition, ctx);
 
     if (contractScope !== undefined) {
         const userFun = typeEnv.userFunctions.get(contractScope, expr.name);

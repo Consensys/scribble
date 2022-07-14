@@ -1,4 +1,4 @@
-import { assert, ContractDefinition, SourceUnit, TypeNameType, TypeNode } from "solc-typed-ast";
+import { assert, ContractDefinition, TypeNameType, TypeNode } from "solc-typed-ast";
 import { ABIEncoderVersion } from "solc-typed-ast/dist/types/abi";
 import { SNode, SUserConstantDefinition, SUserFunctionDefinition } from "../ast";
 
@@ -7,15 +7,26 @@ export type TypeMap = Map<SNode, TypeNode>;
 /**
  * Abstract class to map user definitions in Scribble annotations to their scoping areas.
  */
-export abstract class UserDefinitionScoping<
-    ScopeT extends ContractDefinition | SourceUnit,
-    DefT extends SUserConstantDefinition | SUserFunctionDefinition
-> {
-    readonly mapping: Map<ScopeT, Map<string, DefT>> = new Map();
+export class UserDefinitionScoping<DefT extends SUserConstantDefinition | SUserFunctionDefinition> {
+    readonly mapping: Map<ContractDefinition, Map<string, DefT>> = new Map();
 
-    abstract get(scope: ScopeT, name: string): DefT | undefined;
+    get(scope: ContractDefinition, name: string): DefT | undefined {
+        for (const base of scope.vLinearizedBaseContracts) {
+            const defs = this.mapping.get(base);
 
-    define(scope: ScopeT, def: DefT): void {
+            if (defs) {
+                const res = defs.get(name);
+
+                if (res) {
+                    return res;
+                }
+            }
+        }
+
+        return undefined;
+    }
+
+    define(scope: ContractDefinition, def: DefT): void {
         let defs = this.mapping.get(scope);
 
         if (defs === undefined) {
@@ -31,48 +42,12 @@ export abstract class UserDefinitionScoping<
 /**
  * Class to map user-defined constants to their scoping areas
  */
-export class UserConstantScoping extends UserDefinitionScoping<
-    SourceUnit,
-    SUserConstantDefinition
-> {
-    get(scope: SourceUnit, name: string): SUserConstantDefinition | undefined {
-        const defs = this.mapping.get(scope);
-
-        if (defs) {
-            const def = defs.get(name);
-
-            if (def) {
-                return def;
-            }
-        }
-
-        return undefined;
-    }
-}
+export type UserConstantScoping = UserDefinitionScoping<SUserConstantDefinition>;
 
 /**
  * Class to map user-defined functions to their scoping areas
  */
-export class UserFunctionScoping extends UserDefinitionScoping<
-    ContractDefinition,
-    SUserFunctionDefinition
-> {
-    get(scope: ContractDefinition, name: string): SUserFunctionDefinition | undefined {
-        for (const base of scope.vLinearizedBaseContracts) {
-            const defs = this.mapping.get(base);
-
-            if (defs) {
-                const res = defs.get(name);
-
-                if (res) {
-                    return res;
-                }
-            }
-        }
-
-        return undefined;
-    }
-}
+export type UserFunctionScoping = UserDefinitionScoping<SUserFunctionDefinition>;
 
 /**
  * `TypeEnv` holds any typing environment information computed during the
@@ -91,8 +66,8 @@ export class TypeEnv {
     constructor(compilerVersion: string, abiEncoderVersion: ABIEncoderVersion) {
         this.typeMap = new Map();
 
-        this.userFunctions = new UserFunctionScoping();
-        this.userConstants = new UserConstantScoping();
+        this.userFunctions = new UserDefinitionScoping<SUserFunctionDefinition>();
+        this.userConstants = new UserDefinitionScoping<SUserConstantDefinition>();
 
         this.compilerVersion = compilerVersion;
         this.abiEncoderVersion = abiEncoderVersion;

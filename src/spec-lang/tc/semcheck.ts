@@ -125,7 +125,16 @@ export function scAnnotation(
         }
         sc(node.expression, ctx, typings, semMap);
     } else if (node instanceof SUserConstantDefinition) {
-        sc(node.value, ctx, typings, semMap);
+        const info = sc(node.value, ctx, typings, semMap);
+
+        if (!info.isConst) {
+            throw new SemError(
+                `Cannot use non-constant expression ${node.value.pp()} in constant definition for ${
+                    node.name
+                }`,
+                node
+            );
+        }
     } else if (node instanceof SUserFunctionDefinition) {
         sc(node.body, ctx, typings, semMap);
     } else if (node instanceof SLetAnnotation) {
