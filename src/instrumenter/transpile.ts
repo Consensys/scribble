@@ -38,27 +38,28 @@ import {
 import { LetAnnotationMetaData } from ".";
 import {
     AnnotationType,
-    ScribbleBuiltinFunctions,
     SAddressLiteral,
     SBinaryOperation,
     SBooleanLiteral,
     SConditional,
+    ScribbleBuiltinFunctions,
     SForAll,
     SFunctionCall,
     SHexLiteral,
     SId,
     SIndexAccess,
     SLet,
+    SLetAnnotation,
     SMemberAccess,
     SNode,
     SNumber,
+    SolidityBuiltinFunctions,
     SResult,
     SStringLiteral,
     SUnaryOperation,
+    SUserConstantDefinition,
     SUserFunctionDefinition,
-    VarDefSite,
-    SolidityBuiltinFunctions,
-    SLetAnnotation
+    VarDefSite
 } from "../spec-lang/ast";
 import {
     BuiltinSymbols,
@@ -72,6 +73,7 @@ import { single } from "../util/misc";
 import {
     AnnotationMetaData,
     PropertyMetaData,
+    UserConstantDefinitionMetaData,
     UserFunctionDefinitionMetaData
 } from "./annotations";
 import { TranspilingContext } from "./transpiling_context";
@@ -326,9 +328,27 @@ function transpileId(expr: SId, ctx: TranspilingContext): Expression {
         return res;
     }
 
+    // User-defined constant
+    if (expr.defSite instanceof SUserConstantDefinition) {
+        const transpiledDecl = ctx.instrCtx.userConstants.get(expr.defSite);
+
+        assert(
+            transpiledDecl !== undefined,
+            "Missing transpiled version of user constant {0}",
+            expr.defSite
+        );
+
+        const res = ctx.factory.makeIdentifierFor(transpiledDecl);
+
+        addTracingInfo(expr, res, ctx);
+
+        return res;
+    }
+
     // Let-statement annotation
     if (expr.defSite instanceof SLetAnnotation) {
         const res = ctx.refBinding(ctx.getLetAnnotationBinding(expr.defSite));
+
         addTracingInfo(expr, res, ctx);
 
         return res;
@@ -359,7 +379,7 @@ function transpileId(expr: SId, ctx: TranspilingContext): Expression {
 
         assert(
             transpiledUserFun !== undefined,
-            "Missing transpiled version of user function {1}",
+            "Missing transpiled version of user function {0}",
             expr.defSite[0]
         );
 
@@ -968,6 +988,10 @@ export function transpileAnnotation(
 
     if (annotMD instanceof UserFunctionDefinitionMetaData) {
         return transpile(annotMD.parsedAnnot.body, ctx);
+    }
+
+    if (annotMD instanceof UserConstantDefinitionMetaData) {
+        return transpile(annotMD.parsedAnnot.value, ctx);
     }
 
     if (annotMD instanceof LetAnnotationMetaData) {

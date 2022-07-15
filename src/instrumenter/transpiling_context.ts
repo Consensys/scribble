@@ -25,6 +25,7 @@ import {
     SLet,
     SLetAnnotation,
     SUnaryOperation,
+    SUserConstantDefinition,
     SUserFunctionDefinition,
     VarDefSite
 } from "../spec-lang/ast";
@@ -79,6 +80,10 @@ export function defSiteToKey(defSite: VarDefSite): string {
 
     if (defSite instanceof SLetAnnotation) {
         return `let_annotation_${defSite.id}`;
+    }
+
+    if (defSite instanceof SUserConstantDefinition) {
+        return `user_const_${defSite.id}`;
     }
 
     assert(false, "NYI debug info for def site {0}", defSite as PPIsh);
