@@ -14,30 +14,31 @@ import {
 import { AbsDatastructurePath, AnnotationMap, AnnotationMetaData, AnnotationTarget } from "../..";
 import { single } from "../../util";
 import {
+    AnnotationType,
+    NodeLocation,
+    SAddressLiteral,
+    SAnnotation,
     SBinaryOperation,
     SBooleanLiteral,
     SConditional,
+    ScribbleBuiltinFunctions,
     SForAll,
     SFunctionCall,
     SHexLiteral,
     SId,
     SIndexAccess,
     SLet,
+    SLetAnnotation,
     SMemberAccess,
     SNode,
     SNumber,
+    SolidityBuiltinFunctions,
+    SProperty,
+    SResult,
     SStringLiteral,
     SUnaryOperation,
-    SAddressLiteral,
-    SResult,
-    SAnnotation,
-    SProperty,
-    SUserFunctionDefinition,
-    AnnotationType,
-    ScribbleBuiltinFunctions,
-    NodeLocation,
-    SolidityBuiltinFunctions,
-    SLetAnnotation
+    SUserConstantDefinition,
+    SUserFunctionDefinition
 } from "../ast";
 import { FunctionSetType } from "./internal_types";
 import { TypeEnv } from "./typeenv";
@@ -123,6 +124,17 @@ export function scAnnotation(
             ctx.isOld = true;
         }
         sc(node.expression, ctx, typings, semMap);
+    } else if (node instanceof SUserConstantDefinition) {
+        const info = sc(node.value, ctx, typings, semMap);
+
+        if (!info.isConst) {
+            throw new SemError(
+                `Cannot use non-constant expression ${node.value.pp()} in constant definition for ${
+                    node.name.name
+                }`,
+                node
+            );
+        }
     } else if (node instanceof SUserFunctionDefinition) {
         sc(node.body, ctx, typings, semMap);
     } else if (node instanceof SLetAnnotation) {
@@ -267,6 +279,8 @@ export function scId(expr: SId, ctx: SemCtx, typings: TypeEnv, semMap: SemMap): 
                 expr
             );
         }
+    } else if (def instanceof SUserConstantDefinition) {
+        isConst = true;
     } else if (def === "function_name" || def === "type_name") {
         isConst = true;
     } else if (def === "this") {

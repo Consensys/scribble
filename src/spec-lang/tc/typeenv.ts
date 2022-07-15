@@ -1,8 +1,53 @@
 import { assert, ContractDefinition, TypeNameType, TypeNode } from "solc-typed-ast";
 import { ABIEncoderVersion } from "solc-typed-ast/dist/types/abi";
-import { SNode, SUserFunctionDefinition } from "../ast";
+import { SNode, SUserConstantDefinition, SUserFunctionDefinition } from "../ast";
 
 export type TypeMap = Map<SNode, TypeNode>;
+
+/**
+ * Abstract class to map user definitions in Scribble annotations to their scoping areas.
+ */
+export class UserDefinitionScoping<DefT extends SUserConstantDefinition | SUserFunctionDefinition> {
+    readonly mapping: Map<ContractDefinition, Map<string, DefT>> = new Map();
+
+    get(scope: ContractDefinition, name: string): DefT | undefined {
+        for (const base of scope.vLinearizedBaseContracts) {
+            const defs = this.mapping.get(base);
+
+            if (defs) {
+                const res = defs.get(name);
+
+                if (res) {
+                    return res;
+                }
+            }
+        }
+
+        return undefined;
+    }
+
+    define(scope: ContractDefinition, def: DefT): void {
+        let defs = this.mapping.get(scope);
+
+        if (defs === undefined) {
+            defs = new Map();
+        }
+
+        defs.set(def.name.name, def);
+
+        this.mapping.set(scope, defs);
+    }
+}
+
+/**
+ * Class to map user-defined constants to their scoping areas
+ */
+export type UserConstantScoping = UserDefinitionScoping<SUserConstantDefinition>;
+
+/**
+ * Class to map user-defined functions to their scoping areas
+ */
+export type UserFunctionScoping = UserDefinitionScoping<SUserFunctionDefinition>;
 
 /**
  * `TypeEnv` holds any typing environment information computed during the
@@ -11,14 +56,18 @@ export type TypeMap = Map<SNode, TypeNode>;
  */
 export class TypeEnv {
     private typeMap: TypeMap;
-    private userFunctions: Map<ContractDefinition, Map<string, SUserFunctionDefinition>>;
 
-    public readonly compilerVersion: string;
-    public readonly abiEncoderVersion: ABIEncoderVersion;
+    readonly userFunctions: UserFunctionScoping;
+    readonly userConstants: UserConstantScoping;
+
+    readonly compilerVersion: string;
+    readonly abiEncoderVersion: ABIEncoderVersion;
 
     constructor(compilerVersion: string, abiEncoderVersion: ABIEncoderVersion) {
         this.typeMap = new Map();
-        this.userFunctions = new Map();
+
+        this.userFunctions = new UserDefinitionScoping<SUserFunctionDefinition>();
+        this.userConstants = new UserDefinitionScoping<SUserConstantDefinition>();
 
         this.compilerVersion = compilerVersion;
         this.abiEncoderVersion = abiEncoderVersion;
@@ -42,35 +91,5 @@ export class TypeEnv {
 
     define(node: SNode, typ: TypeNode): void {
         this.typeMap.set(node, typ);
-    }
-
-    getUserFunction(scope: ContractDefinition, name: string): SUserFunctionDefinition | undefined {
-        for (const base of scope.vLinearizedBaseContracts) {
-            const funM = this.userFunctions.get(base);
-
-            if (!funM) {
-                continue;
-            }
-
-            const res = funM.get(name);
-
-            if (res) {
-                return res;
-            }
-        }
-
-        return undefined;
-    }
-
-    defineUserFunction(scope: ContractDefinition, fun: SUserFunctionDefinition): void {
-        let funM = this.userFunctions.get(scope);
-
-        if (!funM) {
-            funM = new Map();
-        }
-
-        funM.set(fun.name.name, fun);
-
-        this.userFunctions.set(scope, funM);
     }
 }

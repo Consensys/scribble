@@ -20,7 +20,7 @@ import {
     VariableDeclaration
 } from "solc-typed-ast";
 import { print } from "../ast_to_source_printer";
-import { SId, SUserFunctionDefinition } from "../spec-lang/ast";
+import { SId, SUserConstantDefinition, SUserFunctionDefinition } from "../spec-lang/ast";
 import { SemMap, TypeEnv } from "../spec-lang/tc";
 import { dedup, single } from "../util/misc";
 import { NameGenerator } from "../util/name_generator";
@@ -272,6 +272,7 @@ export class InstrumentationContext {
     public readonly utilsContractName: string;
     private internalInvariantCheckers: Map<ContractDefinition, string> = new Map();
     public readonly userFunctions: Map<SUserFunctionDefinition, FunctionDefinition> = new Map();
+    public readonly userConstants: Map<SUserConstantDefinition, VariableDeclaration> = new Map();
 
     /**
      * Map from Annotations to the list of statements involved in their evaluation.

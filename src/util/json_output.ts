@@ -247,7 +247,7 @@ function generatePropertyMap(
     const result: PropertyMap = [];
 
     for (const annotation of ctx.annotations) {
-        // Skip user functions from the property map.
+        // Skip user functions and user constants from the property map.
         if (!(annotation instanceof PropertyMetaData)) {
             continue;
         }

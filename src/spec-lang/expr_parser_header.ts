@@ -27,6 +27,7 @@ import {
     SResult,
     SProperty,
     AnnotationType,
+    SUserConstantDefinition,
     SUserFunctionDefinition,
     SAnnotation,
     SIfUpdated,
@@ -161,6 +162,7 @@ SAddressLiteral;
 SResult;
 SProperty;
 AnnotationType;
+SUserConstantDefinition;
 SUserFunctionDefinition;
 SAnnotation;
 SIfUpdated;

@@ -57,7 +57,7 @@ import { AnnotationMap, AnnotationMetaData, AnnotationTarget } from "../../instr
 import { Logger } from "../../logger";
 import { last, single, topoSort } from "../../util";
 import {
-    ScribbleBuiltinFunctions,
+    AnnotationType,
     DatastructurePath,
     NodeLocation,
     SAddressLiteral,
@@ -65,12 +65,14 @@ import {
     SBinaryOperation,
     SBooleanLiteral,
     SConditional,
+    ScribbleBuiltinFunctions,
     SForAll,
     SFunctionCall,
     SHexLiteral,
     SId,
     SIndexAccess,
     SLet,
+    SLetAnnotation,
     SMemberAccess,
     SNode,
     SNumber,
@@ -79,10 +81,9 @@ import {
     SStateVarProp,
     SStringLiteral,
     SUnaryOperation,
+    SUserConstantDefinition,
     SUserFunctionDefinition,
-    VarDefSite,
-    AnnotationType,
-    SLetAnnotation
+    VarDefSite
 } from "../ast";
 import { AddressMembers, BuiltinSymbols } from "./builtins";
 import { BuiltinStructType, FunctionSetType, ImportRefType, VariableTypes } from "./internal_types";
@@ -330,6 +331,7 @@ function lookupVarDef(name: string, ctx: STypingCtx, version: string): VarDefSit
     // Walk the scope stack down looking for the definition of v
     for (let i = ctx.scopes.length - 1; i >= 0; i--) {
         const scope = ctx.scopes[i];
+
         if (scope instanceof ASTNode) {
             // We want to exclude the current node is if:
             //  a) Its VariableDeclarationStatement and the annotation is not an IfSucceeds
@@ -340,6 +342,7 @@ function lookupVarDef(name: string, ctx: STypingCtx, version: string): VarDefSit
                 (ctx.type !== AnnotationType.IfSucceeds || ctx.isOld);
 
             const res = resolveAnyOfType(name, scope, version, VariableDeclaration, !exclude);
+
             return res.length > 0 ? single(res) : undefined;
         } else if (scope instanceof SUserFunctionDefinition) {
             for (let paramIdx = 0; paramIdx < scope.parameters.length; paramIdx++) {
@@ -373,12 +376,13 @@ function lookupVarDef(name: string, ctx: STypingCtx, version: string): VarDefSit
             }
         }
     }
+
     return undefined;
 }
 
 /**
- * Lookup any function definition(s) of name `name` in `STypeingCtx` `ctx`. Requires `version` to be
- * able to pass on to `resolveAny`.
+ * Lookup any function definition(s) of name `name` in `STypeingCtx` `ctx`.
+ * Requires `version` to be able to pass on to `resolveAny`.
  */
 function lookupFun(name: string, ctx: STypingCtx, version: string): FunctionDefinition[] {
     const scope = ctx.scopes[0];
@@ -590,8 +594,35 @@ export function tcAnnotation(
                 exprType
             );
         }
+    } else if (annot instanceof SUserConstantDefinition) {
+        const constScope = target as ContractDefinition;
+        const existing = typeEnv.userConstants.get(constScope, annot.name.name);
+
+        if (existing) {
+            throw new SDuplicateError(
+                `User constant ${annot.name.name} already defined`,
+                existing,
+                annot
+            );
+        }
+        ``;
+
+        const actualType = tc(annot.value, ctx, typeEnv);
+
+        if (!isImplicitlyCastable(actualType, annot.formalType)) {
+            throw new SWrongType(
+                `User constant ${
+                    annot.name.name
+                } declares type ${annot.formalType.pp()} but value type is ${actualType.pp()}`,
+                annot.value,
+                actualType
+            );
+        }
+
+        typeEnv.userConstants.define(constScope, annot);
     } else if (annot instanceof SUserFunctionDefinition) {
         const funScope = last(ctx.scopes);
+
         if (!(funScope instanceof ContractDefinition)) {
             throw new SGenericTypeError(
                 `User functions can only be defined on contract annotations at the moment.`,
@@ -599,7 +630,8 @@ export function tcAnnotation(
             );
         }
 
-        const existing = typeEnv.getUserFunction(funScope, annot.name.name);
+        const existing = typeEnv.userFunctions.get(funScope, annot.name.name);
+
         if (existing) {
             throw new SDuplicateError(
                 `User function ${annot.name.name} already defined`,
@@ -620,7 +652,7 @@ export function tcAnnotation(
             );
         }
 
-        typeEnv.defineUserFunction(funScope, annot);
+        typeEnv.userFunctions.define(funScope, annot);
     } else if (annot instanceof SLetAnnotation) {
         const shadowedDefs = resolveAny(annot.name.name, ctx.target, typeEnv.compilerVersion);
 
@@ -633,6 +665,7 @@ export function tcAnnotation(
         }
 
         const idType = tc(annot.expression, ctx, typeEnv);
+
         typeEnv.define(annot.name, idType);
     } else {
         throw new Error(`NYI type-checking of annotation ${annot.pp()}`);
@@ -1071,6 +1104,19 @@ export function tcId(expr: SId, ctx: STypingCtx, typeEnv: TypeEnv): TypeNode {
         return retT;
     }
 
+    // See if this is a user function
+    const contractScope = getScopeOfType(ContractDefinition, ctx);
+
+    if (contractScope !== undefined) {
+        const constDef = typeEnv.userConstants.get(contractScope, expr.name);
+
+        if (constDef) {
+            expr.defSite = constDef;
+
+            return constDef.formalType;
+        }
+    }
+
     // Next lets try to TC as a function name (note - can't be a public getter
     // as those only appear in MemberExpressions)
     const funDefs = lookupFun(expr.name, ctx, typeEnv.compilerVersion);
@@ -1082,12 +1128,12 @@ export function tcId(expr: SId, ctx: STypingCtx, typeEnv: TypeEnv): TypeNode {
     }
 
     // Next try to TC it as a type name
-    const userDef = lookupTypeDef(expr.name, ctx, typeEnv.compilerVersion);
+    const typeDef = lookupTypeDef(expr.name, ctx, typeEnv.compilerVersion);
 
-    if (userDef !== undefined) {
+    if (typeDef !== undefined) {
         expr.defSite = "type_name";
 
-        return new TypeNameType(mkUserDefinedType(userDef));
+        return new TypeNameType(mkUserDefinedType(typeDef));
     }
 
     // Next check if this is a builtin symbol
@@ -1097,13 +1143,12 @@ export function tcId(expr: SId, ctx: STypingCtx, typeEnv: TypeEnv): TypeNode {
         return retT;
     }
 
-    // See if this is a user function
-    const contractScope = getScopeOfType(ContractDefinition, ctx);
     if (contractScope !== undefined) {
-        const userFun = typeEnv.getUserFunction(contractScope, expr.name);
+        const userFun = typeEnv.userFunctions.get(contractScope, expr.name);
 
         if (userFun !== undefined) {
             expr.defSite = userFun;
+
             return new FunctionType(
                 undefined,
                 userFun.parameters.map(([, type]) => type),
@@ -1119,6 +1164,7 @@ export function tcId(expr: SId, ctx: STypingCtx, typeEnv: TypeEnv): TypeNode {
 
     if (retT !== undefined) {
         expr.defSite = (retT as ImportRefType).impStatement;
+
         return retT;
     }
 

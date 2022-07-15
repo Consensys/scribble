@@ -21,7 +21,8 @@ import {
     SMacro,
     SNode,
     SProperty,
-    SUserFunctionDefinition
+    SUserFunctionDefinition,
+    SUserConstantDefinition
 } from "../spec-lang/ast";
 import { parseAnnotation, SyntaxError as ExprPEGSSyntaxError } from "../spec-lang/expr_parser";
 import { PPAbleError } from "../util/errors";
@@ -117,6 +118,11 @@ export class AnnotationMetaData<T extends SAnnotation = SAnnotation> {
 }
 
 export type AnnotationMap = Map<AnnotationTarget, AnnotationMetaData[]>;
+
+/**
+ * Metadata specific to a user constant definition.
+ */
+export class UserConstantDefinitionMetaData extends AnnotationMetaData<SUserConstantDefinition> {}
 
 /**
  * Metadata specific to a user function definition.
@@ -233,6 +239,10 @@ function makeAnnotationFromMatch(
         return new PropertyMetaData(meta.node, meta.target, annotation, source);
     }
 
+    if (annotation instanceof SUserConstantDefinition) {
+        return new UserConstantDefinitionMetaData(meta.node, meta.target, annotation, source);
+    }
+
     if (annotation instanceof SUserFunctionDefinition) {
         return new UserFunctionDefinitionMetaData(meta.node, meta.target, annotation, source);
     }
@@ -264,6 +274,7 @@ function validateAnnotation(target: AnnotationTarget, annotation: AnnotationMeta
         const contractApplicableTypes = [
             AnnotationType.Invariant,
             AnnotationType.Define,
+            AnnotationType.Const,
             AnnotationType.IfSucceeds,
             AnnotationType.Try,
             AnnotationType.Require,
@@ -382,7 +393,7 @@ function findAnnotations(
     const result: AnnotationMetaData[] = [];
 
     const rx =
-        /\s*(\*|\/\/\/)\s*(@custom:scribble)?\s*#(if_succeeds|if_updated|if_assigned|invariant|assert|try|require|macro|define|let)/g;
+        /\s*(\*|\/\/\/)\s*(@custom:scribble)?\s*#(if_succeeds|if_updated|if_assigned|invariant|assert|try|require|macro|define|const|let)/g;
 
     let match = rx.exec(meta.text);
 
