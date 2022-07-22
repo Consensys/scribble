@@ -92,7 +92,7 @@ function makeUserDefinedType(
 ): UserDefinedType {
     const version = options.version;
     const ctx = options.ctx;
-    const defs = [...resolveAny(name, ctx, version)];
+    const defs = [...resolveAny(name, ctx, version, true)];
 
     if (defs.length === 0) {
         throw new Error(`Couldn't find ${name}`);
