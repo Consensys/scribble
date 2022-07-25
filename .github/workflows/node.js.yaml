@@ -45,7 +45,7 @@ jobs:
                   npm install
                   npm link
                   npm run lint
-                  npm run test:ci
+                  npm test
                   npm run coverage
 
             - name: Upload coverage to CodeCov
