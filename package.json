@@ -33,7 +33,7 @@
         "build": "npm run clean && npm run build-parsers && npm run transpile && cp -r stdlib/ dist/stdlib/ && chmod u+x dist/bin/scribble.js",
         "test": "NODE_OPTIONS='--max-old-space-size=2048' nyc mocha",
         "test:ci": "NODE_OPTIONS='--max-old-space-size=2048' nyc mocha --parallel --jobs 4",
-        "coverage:upload": "nyc report --reporter=text-lcov > coverage.lcov && codecov -t $CODECOV_TOKEN",
+        "coverage": "nyc report",
         "lint": "eslint src/ test/ --ext=ts",
         "lint:fix": "eslint src/ test/ --ext=ts --fix",
         "prepare": "npm run build"

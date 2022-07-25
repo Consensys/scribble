@@ -8,6 +8,6 @@
         "**/src/spec-lang/*_parser.ts",
         "**/src/rewriter/*_parser.ts"
     ],
-    "reporter": ["html", "text-summary"],
+    "reporter": ["lcov", "text-summary"],
     "all": false
 }

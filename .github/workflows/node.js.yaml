@@ -1,0 +1,57 @@
+name: NodeJS CI
+
+on:
+    push:
+        branches: ["master", "develop"]
+    pull_request:
+        branches: ["master", "develop"]
+
+jobs:
+    build:
+        runs-on: ubuntu-latest
+
+        strategy:
+            matrix:
+                # See https://nodejs.org/en/about/releases/
+                node-version: [16.x]
+
+        env:
+            SOL_AST_COMPILER_CACHE: ${{ github.workspace }}/.compiler_cache
+
+        steps:
+            - uses: actions/checkout@v3
+            - name: Use NodeJS ${{ matrix.node-version }}
+              uses: actions/setup-node@v3
+              with:
+                  node-version: ${{ matrix.node-version }}
+                  cache: "npm"
+
+            # See https://github.com/ethereum/solc-bin
+            # See https://binaries.soliditylang.org/
+            - name: Pre-download compilers from historical builds archive
+              run: |
+                  ./download.sh 'linux-amd64' $SOL_AST_COMPILER_CACHE
+                  ./download.sh 'wasm' $SOL_AST_COMPILER_CACHE
+
+            - name: Remove list and one rarely used compiler to still test downloading on-demand
+              run: |
+                  rm -v $SOL_AST_COMPILER_CACHE/linux-amd64/list.json
+                  rm -v $SOL_AST_COMPILER_CACHE/linux-amd64/solc-linux-amd64-v0.5.17+commit.d19bba13
+                  rm -v $SOL_AST_COMPILER_CACHE/wasm/list.json
+                  rm -v $SOL_AST_COMPILER_CACHE/wasm/soljson-v0.5.17+commit.d19bba13.js
+
+            - name: Install, lint, test and generate coverage report
+              run: |
+                  npm install
+                  npm link
+                  npm run lint
+                  npm run test:ci
+                  npm run coverage
+
+            - name: Upload coverage to CodeCov
+              uses: codecov/codecov-action@v3
+              with:
+                  name: codecov-umbrella
+                  directory: ./coverage/
+                  fail_ci_if_error: true
+                  verbose: true
