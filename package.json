@@ -32,6 +32,7 @@
         "transpile": "tsc",
         "build": "npm run clean && npm run build-parsers && npm run transpile && cp -r stdlib/ dist/stdlib/ && chmod u+x dist/bin/scribble.js",
         "test": "NODE_OPTIONS='--max-old-space-size=2048' nyc mocha",
+        "test:ci": "NODE_OPTIONS='--max-old-space-size=2048' nyc mocha --parallel --jobs 4",
         "coverage": "nyc report",
         "lint": "eslint src/ test/ --ext=ts",
         "lint:fix": "eslint src/ test/ --ext=ts --fix",
