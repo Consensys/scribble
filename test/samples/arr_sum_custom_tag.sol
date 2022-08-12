@@ -10,7 +10,7 @@ contract Foo {
         a.push(k);
     }
 
-    /// ignored @custom:scribble #if_succeeds unchecked_sum(a) > 10 && unchecked_sum(a) < 20;
+    /// not_ignored @custom:scribble #if_succeeds unchecked_sum(a) > 10 && unchecked_sum(a) < 20;
     function setA(uint k, uint v) public {
         a[k] = v;
     }
