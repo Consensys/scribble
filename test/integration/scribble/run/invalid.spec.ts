@@ -185,6 +185,10 @@ describe(`Command "scribble <filename>" is failing as expected`, () => {
         [
             ["test/samples/invalid/consts_non_const.invalid.sol"],
             /.*TypeError: Cannot use non-constant expression msg.value in constant definition*/g
+        ],
+        [
+            ["test/samples/invalid/userDefinedTypesInFunction.invalid.sol"],
+            /.*TypeError: Missing data location for argument policy of function isPolicyValid*/g
         ]
     ];
 

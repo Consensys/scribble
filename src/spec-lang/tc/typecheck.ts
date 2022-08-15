@@ -25,6 +25,7 @@ import {
     IntType,
     Mapping,
     MappingType,
+    PackedArrayType,
     ParameterList,
     PointerType,
     pp,
@@ -638,6 +639,21 @@ export function tcAnnotation(
                 existing,
                 annot
             );
+        }
+
+        for (const [argName, argType] of annot.parameters) {
+            // The argument is a reference type without a data location
+            if (
+                argType instanceof ArrayType ||
+                argType instanceof PackedArrayType ||
+                (argType instanceof UserDefinedType &&
+                    argType.definition instanceof StructDefinition)
+            ) {
+                throw new SGenericTypeError(
+                    `Missing data location for argument ${argName.name} of function ${annot.name.name}`,
+                    argName
+                );
+            }
         }
 
         const bodyType = tc(annot.body, addScope(ctx, annot), typeEnv);
