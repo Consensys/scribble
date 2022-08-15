@@ -61,8 +61,17 @@ contract Foo is __scribble_ReentrancyUtils {
         a.push(k);
     }
 
-    /// ignored @custom:scribble #if_succeeds unchecked_sum(a) > 10 && unchecked_sum(a) < 20;
     function setA(uint k, uint v) public {
+        _original_Foo_setA(k, v);
+        unchecked {
+            if (!((arr_sum_funs.sum_arr_uint256_arr_storage(a) > 10) && (arr_sum_funs.sum_arr_uint256_arr_storage(a) < 20))) {
+                emit AssertionFailed("1: ");
+                assert(false);
+            }
+        }
+    }
+
+    function _original_Foo_setA(uint k, uint v) private {
         a[k] = v;
     }
 
@@ -70,7 +79,7 @@ contract Foo is __scribble_ReentrancyUtils {
         _original_Foo_pushB(k);
         unchecked {
             if (!((arr_sum_funs.sum_arr_int8_arr_storage(b) > (-10)) && (arr_sum_funs.sum_arr_int8_arr_storage(b) < 10))) {
-                emit AssertionFailed("1: ");
+                emit AssertionFailed("2: ");
                 assert(false);
             }
         }
@@ -84,7 +93,7 @@ contract Foo is __scribble_ReentrancyUtils {
         _original_Foo_setB(k, v);
         unchecked {
             if (!((arr_sum_funs.sum_arr_int8_arr_storage(b) > (-10)) && (arr_sum_funs.sum_arr_int8_arr_storage(b) < 10))) {
-                emit AssertionFailed("2: ");
+                emit AssertionFailed("3: ");
                 assert(false);
             }
         }
@@ -98,7 +107,7 @@ contract Foo is __scribble_ReentrancyUtils {
         _original_Foo_memArr(c);
         unchecked {
             if (!((arr_sum_funs.sum_arr_int16_arr_memory(c) > (-10)) && (arr_sum_funs.sum_arr_int16_arr_memory(c) < 10))) {
-                emit AssertionFailed("3: ");
+                emit AssertionFailed("4: ");
                 assert(false);
             }
         }
@@ -110,7 +119,7 @@ contract Foo is __scribble_ReentrancyUtils {
         _original_Foo_calldataArr(c);
         unchecked {
             if (!((arr_sum_funs.sum_arr_int16_arr_calldata(c) > (-10)) && (arr_sum_funs.sum_arr_int16_arr_calldata(c) < 10))) {
-                emit AssertionFailed("4: ");
+                emit AssertionFailed("5: ");
                 assert(false);
             }
         }
@@ -122,7 +131,7 @@ contract Foo is __scribble_ReentrancyUtils {
         _original_Foo_overflowCheck(c);
         unchecked {
             if (!(arr_sum_funs.sum_arr_uint256_arr_calldata(c) < 10)) {
-                emit AssertionFailed("5: ");
+                emit AssertionFailed("6: ");
                 assert(false);
             }
         }

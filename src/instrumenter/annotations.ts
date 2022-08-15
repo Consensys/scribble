@@ -393,7 +393,7 @@ function findAnnotations(
     const result: AnnotationMetaData[] = [];
 
     const rx =
-        /\s*(\*|\/\/\/)\s*(@custom:scribble)?\s*#(if_succeeds|if_updated|if_assigned|invariant|assert|try|require|macro|define|const|let)/g;
+        /(@custom:scribble)?\s*#(if_succeeds|if_updated|if_assigned|invariant|assert|try|require|macro|define|const|let)/g;
 
     let match = rx.exec(meta.text);
 
