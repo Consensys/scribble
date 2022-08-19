@@ -22,7 +22,7 @@ import {
 import { print } from "../ast_to_source_printer";
 import { SId, SUserConstantDefinition, SUserFunctionDefinition } from "../spec-lang/ast";
 import { SemMap, TypeEnv } from "../spec-lang/tc";
-import { dedup, single } from "../util/misc";
+import { dedup, getOrInit, single } from "../util/misc";
 import { NameGenerator } from "../util/name_generator";
 import { SourceMap, UtilsSolFile } from "../util/sources";
 import { AnnotationFilterOptions, AnnotationMetaData } from "./annotations";
@@ -577,14 +577,68 @@ export class InstrumentationContext {
         this.needsUtils(containingContract.vScope);
     }
 
+    /**
+     * libraryEventMap keeps track of the `EventDefinition`s created for each library contract.
+     */
+    private libraryEventMap = new Map<number, Map<string, EventDefinition>>();
+
+    /**
+     * Given the contract `contract` and an `EventDefinition` `event` make sure that `event` is
+     * accessible inside `contract`. There are 2 cases:
+     *
+     * 1. `contract` is a normal contract. In this case ensure that `contract` inherits from the utils contract
+     * and just return the passed-in `event` (which lives in the utils contract).
+     *
+     * 2. `contract` is a library. In this case we need to add a copy of `event` under contract. To avoid definitions
+     * being emitted, first check in `libraryEventMap` if a copy has already been made in `contract`.
+     */
+    private getOrAddEvent(contract: ContractDefinition, event: EventDefinition): EventDefinition {
+        if (contract.kind === ContractKind.Contract) {
+            this.addScribbleUtils(contract);
+            return event;
+        }
+
+        if (contract.kind === ContractKind.Library) {
+            const evtM = getOrInit(
+                contract.id,
+                this.libraryEventMap,
+                new Map<string, EventDefinition>()
+            );
+
+            const evtDef = evtM.get(event.name);
+
+            if (evtDef) {
+                return evtDef;
+            }
+
+            const libEventDef = this.factory.copy(event) as EventDefinition;
+            contract.appendChild(libEventDef);
+            evtM.set(libEventDef.name, libEventDef);
+
+            return libEventDef;
+        }
+
+        throw new Error(
+            `Not supported adding ${event.name} event on ${contract.kind} ${contract.name}`
+        );
+    }
+
     getAssertionFailedEvent(ctx: ASTNode): EventDefinition {
-        this.addScribbleUtils(ctx);
-        return this.assertionFailedEvent;
+        const contract =
+            ctx instanceof ContractDefinition
+                ? ctx
+                : (ctx.getClosestParentByType(ContractDefinition) as ContractDefinition);
+
+        return this.getOrAddEvent(contract, this.assertionFailedEvent);
     }
 
     getAssertionFailedDataEvent(ctx: ASTNode): EventDefinition {
-        this.addScribbleUtils(ctx);
-        return this.assertionFailedDataEvent;
+        const contract =
+            ctx instanceof ContractDefinition
+                ? ctx
+                : (ctx.getClosestParentByType(ContractDefinition) as ContractDefinition);
+
+        return this.getOrAddEvent(contract, this.assertionFailedDataEvent);
     }
 
     /**
