@@ -199,14 +199,14 @@ describe("TypeChecker Expression Unit Tests", () => {
                 ["address payable", ["Foo"], new TypeNameType(new AddressType(true))],
                 ["true", ["Foo"], new BoolType()],
                 ["1", ["Foo"], new IntLiteralType()],
-                ["hex'0011ff'", ["Foo"], new StringLiteralType("0011ff", true)],
-                ['hex""', ["Foo"], new StringLiteralType("", true)],
+                ["hex'0011ff'", ["Foo"], new StringLiteralType("0011ff", "hexString")],
+                ['hex""', ["Foo"], new StringLiteralType("", "hexString")],
                 [
                     '"abc \\" \\u0000 \\x01 Def "',
                     ["Foo"],
-                    new StringLiteralType('abc " \u0000 \x01 Def ', false)
+                    new StringLiteralType('abc " \u0000 \x01 Def ', "string")
                 ],
-                ["''", ["Foo"], new StringLiteralType("", false)],
+                ["''", ["Foo"], new StringLiteralType("", "string")],
                 ["1e10", ["Foo"], new IntLiteralType()],
                 ["10e+5", ["Foo"], new IntLiteralType()],
                 ["1000e-2", ["Foo"], new IntLiteralType()],
