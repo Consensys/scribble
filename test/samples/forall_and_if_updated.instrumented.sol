@@ -51,17 +51,72 @@ library uint256_to_mapping_uint256_to_uint256 {
     }
 }
 
+library Foo_CustomValueType_3_to_uint256 {
+    struct S {
+        mapping(Foo.CustomValueType => uint256) innerM;
+        Foo.CustomValueType[] keys;
+        mapping(Foo.CustomValueType => uint256) keyIdxM;
+        uint256 sum;
+    }
+
+    function addKey(S storage m, Foo.CustomValueType key) private {
+        uint idx = m.keyIdxM[key];
+        if (idx == 0) {
+            if (m.keys.length == 0) {
+                m.keys.push();
+            }
+            m.keyIdxM[key] = m.keys.length;
+            m.keys.push(key);
+        }
+    }
+
+    function removeKey(S storage m, Foo.CustomValueType key) private {
+        uint256 idx = m.keyIdxM[key];
+        if (idx == 0) return;
+        if (idx != (m.keys.length - 1)) {
+            Foo.CustomValueType lastKey = m.keys[m.keys.length - 1];
+            m.keys[idx] = lastKey;
+            m.keyIdxM[lastKey] = idx;
+        }
+        m.keys.pop();
+        delete m.keyIdxM[key];
+    }
+
+    function set(S storage m, Foo.CustomValueType key, uint256 val) internal returns (uint256) {
+        unchecked {
+            m.sum -= m.innerM[key];
+            m.sum += val;
+        }
+        m.innerM[key] = val;
+        addKey(m, key);
+        return m.innerM[key];
+    }
+}
+
 contract Foo is __scribble_ReentrancyUtils {
+    type CustomValueType is uint32;
+
     struct vars0 {
         uint256 i0;
         uint256 k0;
         bool forall_0;
     }
 
+    struct vars1 {
+        uint256 i1;
+        CustomValueType t0;
+        bool forall_1;
+    }
+
     uint256_to_mapping_uint256_to_uint256.S internal m;
+    Foo_CustomValueType_3_to_uint256.S internal _map;
 
     function main() public {
         Foo_m_idx_uint256_idx_uint256_uint256_assign(0, 1, 1);
+    }
+
+    function some(CustomValueType t, uint v) external {
+        Foo__map_ud_Foo_CustomValueType_uint256_set(t, v);
     }
 
     function Foo_m_idx_uint256_idx_uint256_uint256_assign(uint256 ARG0, uint256 ARG1, uint256 ARG2) internal returns (uint256 RET0) {
@@ -77,6 +132,23 @@ contract Foo is __scribble_ReentrancyUtils {
             }
             if (!(_v.forall_0)) {
                 emit AssertionFailed("0: ");
+                assert(false);
+            }
+        }
+    }
+
+    function Foo__map_ud_Foo_CustomValueType_uint256_set(Foo.CustomValueType ARG3, uint256 ARG4) internal {
+        vars1 memory _v;
+        Foo_CustomValueType_3_to_uint256.set(_map, ARG3, ARG4);
+        unchecked {
+            _v.forall_1 = true;
+            for (_v.i1 = 1; _v.i1 < _map.keys.length; _v.i1++) {
+                _v.t0 = _map.keys[_v.i1];
+                _v.forall_1 = true;
+                if (!_v.forall_1) break;
+            }
+            if (!(_v.forall_1)) {
+                emit AssertionFailed("1: ");
                 assert(false);
             }
         }

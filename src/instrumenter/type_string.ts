@@ -8,11 +8,12 @@ import {
     Mapping,
     StructDefinition,
     TypeName,
-    UserDefinedTypeName
+    UserDefinedTypeName,
+    UserDefinedValueTypeDefinition
 } from "solc-typed-ast";
 import { print } from "../util/misc";
 
-function fqName(e: EnumDefinition | StructDefinition): string {
+function fqName(e: EnumDefinition | StructDefinition | UserDefinedValueTypeDefinition): string {
     return `${e.vScope instanceof ContractDefinition ? e.vScope.name + "." : ""}${e.name}`;
 }
 
@@ -63,6 +64,10 @@ export function makeTypeString(typeName: TypeName, loc: DataLocation): string {
         if (def instanceof StructDefinition) {
             assert(loc !== DataLocation.Default, `{0} requires storage location`, typeName);
             return `struct ${fqName(def)} ${loc} ref`;
+        }
+
+        if (def instanceof UserDefinedValueTypeDefinition) {
+            return fqName(def);
         }
     }
 

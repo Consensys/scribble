@@ -1285,6 +1285,15 @@ export function isImplicitlyCastable(type: TypeNode, to: TypeNode): boolean {
         return true;
     }
 
+    // User-defined value types
+    if (
+        type instanceof UserDefinedType &&
+        to instanceof UserDefinedType &&
+        type.definition === to.definition
+    ) {
+        return true;
+    }
+
     return false;
 }
 
