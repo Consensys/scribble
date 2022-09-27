@@ -1,6 +1,6 @@
 #!/usr/bin/env node
 import fse from "fs-extra";
-import { dirname, join, relative, resolve, normalize } from "path";
+import { dirname, join, normalize, relative, resolve } from "path";
 import {
     assert,
     ASTContext,
@@ -22,6 +22,7 @@ import {
     FunctionVisibility,
     getABIEncoderVersion,
     getCompilerPrefixForOs,
+    InferType,
     parsePathRemapping,
     PathOptions,
     PossibleCompilerKinds,
@@ -991,7 +992,8 @@ function loadInstrMetaData(fileName: string): InstrumentationMetaData {
             throw e;
         }
 
-        const typeEnv = new TypeEnv(compilerVersionUsed, abiEncoderVersion);
+        const typeInfer = new InferType(compilerVersionUsed);
+        const typeEnv = new TypeEnv(typeInfer, abiEncoderVersion);
         const semMap: SemMap = new Map();
 
         let interposingQueue: Array<[VariableDeclaration, AbsDatastructurePath]>;

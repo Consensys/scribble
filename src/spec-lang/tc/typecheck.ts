@@ -50,8 +50,7 @@ import {
     UserDefinedValueTypeDefinition,
     UsingForDirective,
     VariableDeclaration,
-    VariableDeclarationStatement,
-    variableDeclarationToTypeNode
+    VariableDeclarationStatement
 } from "solc-typed-ast";
 import { ContractTypeMembers, InterfaceTypeMembers, NumberLikeTypeMembers } from ".";
 import { AnnotationMap, AnnotationMetaData, AnnotationTarget } from "../../instrumenter";
@@ -1740,7 +1739,7 @@ export function tcMemberAccess(expr: SMemberAccess, ctx: STypingCtx, typeEnv: Ty
         );
 
         if (def !== undefined && def instanceof VariableDeclaration && def.constant) {
-            return variableDeclarationToTypeNode(def);
+            return typeEnv.inference.variableDeclarationToTypeNode(def);
         }
     }
 
