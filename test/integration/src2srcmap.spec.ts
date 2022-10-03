@@ -11,6 +11,7 @@ import {
     FunctionCall,
     FunctionDefinition,
     Identifier,
+    IdentifierPath,
     ImportDirective,
     IndexAccess,
     InlineAssembly,
@@ -323,7 +324,7 @@ describe("Src2src map test", () => {
                             // 5) Empty ParamterLists (especiall in return params) may be removed
                             // 6) OverrideSpecifiers are moved on interposition
                             // 7) .push() and .pop() callees that are interposed
-                            // 8) Mapping type names inside of state variables and some struct definitions that get re-written during map interposition
+                            // 8) Mapping type names and identifier paths inside of state variables and some struct definitions that get re-written during map interposition
                             if (
                                 !(
                                     (
@@ -339,7 +340,8 @@ describe("Src2src map test", () => {
                                             ["push", "pop"].includes(node.memberName)) ||
                                         (node.parent instanceof MemberAccess &&
                                             ["push", "pop"].includes(node.parent.memberName)) ||
-                                        node instanceof TypeName
+                                        node instanceof TypeName ||
+                                        node instanceof IdentifierPath
                                     ) /* Override specifiers are moved on interposition */
                                 )
                             ) {

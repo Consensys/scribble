@@ -59,7 +59,8 @@ import {
     FunctionStateMutability,
     assert,
     // @ts-ignore
-    DataLocation
+    DataLocation,
+    UserDefinedValueTypeDefinition
 } from "solc-typed-ast"
 import { makeRange, Range } from "../util/location"
 import { SourceFile } from "../util/sources";
@@ -107,7 +108,8 @@ function makeUserDefinedType(
     assert(
         def instanceof ContractDefinition ||
         def instanceof StructDefinition ||
-        def instanceof EnumDefinition,
+        def instanceof EnumDefinition ||
+        def instanceof UserDefinedValueTypeDefinition,
         `Expected ${name} to be a type name, not ${def.type}`
     );
 
@@ -151,7 +153,6 @@ SBooleanLiteral;
 SHexLiteral;
 SStringLiteral;
 SUnaryOperation;
-SBinaryOperation;
 SIndexAccess;
 SFunctionCall;
 SForAll;
@@ -180,13 +181,7 @@ MappingType;
 PointerType;
 FunctionType;
 resolveAny;
-ASTNode;
-ContractDefinition;
-StructDefinition;
-EnumDefinition;
-FunctionVisibility;
 FunctionStateMutability;
-assert;
 makeRange;
 buildBinaryExpression;
 makeUserDefinedType;
