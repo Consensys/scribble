@@ -29,6 +29,7 @@ import {
     Statement,
     StatementWithChildren,
     StateVariableVisibility,
+    TryStatement,
     TypeName,
     TypeNode,
     UncheckedBlock,
@@ -918,6 +919,73 @@ function instrumentConstructor(
 }
 
 /**
+ * Given a `TryStatement` `tryStmt` insert the neccessary code around the
+ * try statement to check that the contract invariant is re-established before the external
+ * call in the try statement, and to keep track of whether we are in or out of the contract.
+ */
+function instrumentTryCallsite(
+    ctx: InstrumentationContext,
+    tryStmt: TryStatement,
+    generalInvChecker: FunctionDefinition
+): void {
+    const factory = ctx.factory;
+    ensureStmtInBlock(tryStmt, factory);
+
+    const block = tryStmt.parent as Block;
+
+    const callInvCheckerStmt = factory.makeExpressionStatement(
+        factory.makeFunctionCall(
+            "<missing>",
+            FunctionCallKind.FunctionCall,
+            factory.makeIdentifierFor(generalInvChecker),
+            []
+        )
+    );
+
+    block.insertBefore(callInvCheckerStmt, tryStmt);
+
+    const callee = tryStmt.vExternalCall.vReferencedDeclaration;
+    const calleeMutable = !(callee instanceof FunctionDefinition) || isChangingState(callee);
+
+    /**
+     * Subtlety: We DONT set the `OUT_OF_CONTRACT` when the external
+     * function call we are wrapping around is pure/view, but we STILL
+     * check the invariants as this is an externally observable point.
+     *
+     * Note that a pure/view external call can only re-enter the
+     * contract at a pure or view function, at which we don't check
+     * state invariants, and don't mutate the OUT_OF_CONTRACT
+     * variable.
+     */
+    if (calleeMutable) {
+        block.insertBefore(
+            factory.makeExpressionStatement(
+                factory.makeAssignment(
+                    "<missing>",
+                    "=",
+                    factory.makeIdentifier("bool", ctx.outOfContractFlagName, -1),
+                    factory.makeLiteral("bool", LiteralKind.Bool, "", "true")
+                )
+            ),
+            tryStmt
+        );
+
+        for (const clause of tryStmt.vClauses) {
+            clause.vBlock.insertAtBeginning(
+                factory.makeExpressionStatement(
+                    factory.makeAssignment(
+                        "<missing>",
+                        "=",
+                        factory.makeIdentifier("bool", ctx.outOfContractFlagName, -1),
+                        factory.makeLiteral("bool", LiteralKind.Bool, "", "false")
+                    )
+                )
+            );
+        }
+    }
+}
+
+/**
  * Wrap all external call sites in `contract` with wrappers that also invoke the
  * `generalInvChecker` function, to check contract invariants before leaving the contract.
  */
@@ -949,6 +1017,13 @@ function replaceExternalCallSites(
         );
 
         if (calleeType.mutability === FunctionStateMutability.Pure) {
+            continue;
+        }
+
+        // We need to special case the instrumentation for try-catch statements since we can't
+        // replace the external try call with an internal wrapper call
+        if (callSite.parent instanceof TryStatement && callSite.parent.vExternalCall === callSite) {
+            instrumentTryCallsite(ctx, callSite.parent, generalInvChecker);
             continue;
         }
 
