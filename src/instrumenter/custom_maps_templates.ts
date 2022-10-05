@@ -1,4 +1,4 @@
-import { gte } from "semver";
+import { gte, lt } from "semver";
 import {
     ArrayType,
     assert,
@@ -300,10 +300,29 @@ function makeRemoveKeyFun(
     factory.addStmt(fn, factory.makeIfStatement(cond, factory.makeBlock(ifBody)));
 
     // m.keys.pop();
-    factory.addStmt(
-        fn,
-        factory.makeFunctionCall("<missing>", FunctionCallKind.FunctionCall, mkKeysPop(), [])
-    );
+    if (lt(ctx.compilerVersion, "0.5.0")) {
+        factory.addStmt(
+            fn,
+            mkDelete(
+                factory.makeIndexAccess(
+                    "<mising>",
+                    mkKeys(),
+                    factory.makeBinaryOperation(
+                        "uint256",
+                        "-",
+                        mkKeysLen(),
+                        factory.makeLiteral("<missing>", LiteralKind.Number, "", "1")
+                    )
+                )
+            )
+        );
+        factory.addStmt(fn, factory.makeUnaryOperation("uint256", false, "--", mkKeysLen()));
+    } else {
+        factory.addStmt(
+            fn,
+            factory.makeFunctionCall("<missing>", FunctionCallKind.FunctionCall, mkKeysPop(), [])
+        );
+    }
 
     // delete m.keyIdxM[key];
     factory.addStmt(
@@ -377,11 +396,12 @@ function makeAddKeyFun(
         )
     ) as IfStatement;
 
-    //         m.keys.push();
-    factory.addStmt(
-        ifFirstKeyStmt.vTrueBody as Block,
-        factory.makeFunctionCall("<missing>", FunctionCallKind.FunctionCall, mkKeysPush(), [])
-    );
+    //         m.keys.push(); <or> m.keys.length++
+    const pushStmt = lt(ctx.compilerVersion, "0.6.0")
+        ? factory.makeUnaryOperation("uint256", false, "++", mkKeysLen())
+        : factory.makeFunctionCall("<missing>", FunctionCallKind.FunctionCall, mkKeysPush(), []);
+
+    factory.addStmt(ifFirstKeyStmt.vTrueBody as Block, pushStmt);
 
     //     }
     //     m.keyIdxM[key] = m.keys.length;
