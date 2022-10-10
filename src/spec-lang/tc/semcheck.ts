@@ -256,29 +256,7 @@ export function scId(expr: SId, ctx: SemCtx, typings: TypeEnv, semMap: SemMap): 
         }
     } else if (def instanceof SForAll) {
         isConst = false;
-        if (def.container !== undefined) {
-            isOld = (semMap.get(def.container) as SemInfo).isOld;
-        } else {
-            assert(def.start !== undefined && def.end !== undefined, `Missing start/end`);
-            isOld =
-                (semMap.get(def.start) as SemInfo).isOld || (semMap.get(def.end) as SemInfo).isOld;
-        }
-
-        // Its a semantic error for a forall variable defined over post-condition state to be used in pre-condition state
-        if (ctx.isOld && !isOld) {
-            throw new SemError(
-                `Forall variable ${expr.name} doesn't have old() in its range definition, but used in an old() expression`,
-                expr
-            );
-        }
-
-        // Its a semantic error for a forall variable defined over pre-condition state to be used in post-condition state
-        if (!ctx.isOld && isOld) {
-            throw new SemError(
-                `Forall variable ${expr.name} has old() in its range definition but used outside of an old()`,
-                expr
-            );
-        }
+        isOld = ctx.isOld;
     } else if (def instanceof SUserConstantDefinition) {
         isConst = true;
     } else if (def === "function_name" || def === "type_name") {
@@ -613,21 +591,21 @@ export function scForAll(expr: SForAll, ctx: SemCtx, typeEnv: TypeEnv, semMap: S
     const exprSemInfo = sc(expr.expression, ctx, typeEnv, semMap);
 
     let canFail = exprSemInfo.canFail;
-    let rangeIsOld = false;
+    let rangeIsOld = true;
 
     if (startSemInfo) {
         canFail ||= startSemInfo.canFail;
-        rangeIsOld ||= startSemInfo.isOld;
+        rangeIsOld &&= startSemInfo.isOld;
     }
 
     if (endSemInfo) {
         canFail ||= endSemInfo.canFail;
-        rangeIsOld ||= endSemInfo.isOld;
+        rangeIsOld &&= endSemInfo.isOld;
     }
 
     if (containerSemInfo) {
         canFail ||= containerSemInfo.canFail;
-        rangeIsOld ||= containerSemInfo.isOld;
+        rangeIsOld &&= containerSemInfo.isOld;
     }
 
     if (
@@ -666,7 +644,7 @@ export function scForAll(expr: SForAll, ctx: SemCtx, typeEnv: TypeEnv, semMap: S
         expr.expression.walk((node) => {
             if (node instanceof SId && semMap.get(node)?.isOld && node.defSite === expr) {
                 throw new SemError(
-                    `Cannot evaluate ${expr.pp()} due to the usage of ${expr.iteratorVariable.pp()} in old()`,
+                    `Cannot use forall variable ${node.pp()} inside of an old() context since the whole forall is not in the old context.`,
                     expr
                 );
             }
