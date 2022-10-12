@@ -1,4 +1,4 @@
-import { assert, ContractDefinition, TypeNameType, TypeNode } from "solc-typed-ast";
+import { assert, ContractDefinition, InferType, TypeNameType, TypeNode } from "solc-typed-ast";
 import { ABIEncoderVersion } from "solc-typed-ast/dist/types/abi";
 import { SNode, SUserConstantDefinition, SUserFunctionDefinition } from "../ast";
 
@@ -55,26 +55,30 @@ export type UserFunctionScoping = UserDefinitionScoping<SUserFunctionDefinition>
  * the type environment between function, accumulating type information as it runs.
  */
 export class TypeEnv {
-    private typeMap: TypeMap;
+    private mapping: TypeMap;
 
     readonly userFunctions: UserFunctionScoping;
     readonly userConstants: UserConstantScoping;
 
-    readonly compilerVersion: string;
+    readonly inference: InferType;
     readonly abiEncoderVersion: ABIEncoderVersion;
 
-    constructor(compilerVersion: string, abiEncoderVersion: ABIEncoderVersion) {
-        this.typeMap = new Map();
+    constructor(inference: InferType, abiEncoderVersion: ABIEncoderVersion) {
+        this.mapping = new Map();
 
         this.userFunctions = new UserDefinitionScoping<SUserFunctionDefinition>();
         this.userConstants = new UserDefinitionScoping<SUserConstantDefinition>();
 
-        this.compilerVersion = compilerVersion;
+        this.inference = inference;
         this.abiEncoderVersion = abiEncoderVersion;
     }
 
+    get compilerVersion(): string {
+        return this.inference.version;
+    }
+
     hasType(node: SNode): boolean {
-        return this.typeMap.has(node);
+        return this.mapping.has(node);
     }
 
     typeOf(node: SNode | TypeNode): TypeNode {
@@ -82,7 +86,7 @@ export class TypeEnv {
             return new TypeNameType(node);
         }
 
-        const res = this.typeMap.get(node);
+        const res = this.mapping.get(node);
 
         assert(res !== undefined, "Missing type for {0}", node);
 
@@ -90,6 +94,6 @@ export class TypeEnv {
     }
 
     define(node: SNode, typ: TypeNode): void {
-        this.typeMap.set(node, typ);
+        this.mapping.set(node, typ);
     }
 }

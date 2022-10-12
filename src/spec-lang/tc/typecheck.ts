@@ -50,8 +50,7 @@ import {
     UserDefinedValueTypeDefinition,
     UsingForDirective,
     VariableDeclaration,
-    VariableDeclarationStatement,
-    variableDeclarationToTypeNode
+    VariableDeclarationStatement
 } from "solc-typed-ast";
 import { ContractTypeMembers, InterfaceTypeMembers, NumberLikeTypeMembers } from ".";
 import { AnnotationMap, AnnotationMetaData, AnnotationTarget } from "../../instrumenter";
@@ -710,11 +709,11 @@ export function tc(expr: SNode | TypeNode, ctx: STypingCtx, typeEnv: TypeEnv): T
     }
 
     if (expr instanceof SStringLiteral) {
-        return cache(expr, new StringLiteralType(expr.val, false));
+        return cache(expr, new StringLiteralType("string"));
     }
 
     if (expr instanceof SHexLiteral) {
-        return cache(expr, new StringLiteralType(expr.val, true));
+        return cache(expr, new StringLiteralType("hexString"));
     }
 
     if (expr instanceof SAddressLiteral) {
@@ -1740,7 +1739,7 @@ export function tcMemberAccess(expr: SMemberAccess, ctx: STypingCtx, typeEnv: Ty
         );
 
         if (def !== undefined && def instanceof VariableDeclaration && def.constant) {
-            return variableDeclarationToTypeNode(def);
+            return typeEnv.inference.variableDeclarationToTypeNode(def);
         }
     }
 

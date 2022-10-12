@@ -18,7 +18,7 @@
         "fs-extra": "^10.1.0",
         "logplease": "^1.2.15",
         "semver": "^7.3.7",
-        "solc-typed-ast": "^10.1.6",
+        "solc-typed-ast": "10.3.0",
         "src-location": "^1.1.0",
         "findup-sync": "^5.0.0",
         "yaml": "^1.10.2",
