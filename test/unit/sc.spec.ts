@@ -114,25 +114,25 @@ describe("SemanticChecker Expression Unit Tests", () => {
                 [
                     "hex'0011ff'",
                     ["Foo"],
-                    new StringLiteralType("0011ff", "hexString"),
+                    new StringLiteralType("hexString"),
                     { isOld: false, isConst: true, canFail: false }
                 ],
                 [
                     'hex""',
                     ["Foo"],
-                    new StringLiteralType("", "hexString"),
+                    new StringLiteralType("hexString"),
                     { isOld: false, isConst: true, canFail: false }
                 ],
                 [
                     '"abc \\" \\u0000 \\x01 Def "',
                     ["Foo"],
-                    new StringLiteralType('abc " \u0000 \x01 Def ', "string"),
+                    new StringLiteralType("string"),
                     { isOld: false, isConst: true, canFail: false }
                 ],
                 [
                     "''",
                     ["Foo"],
-                    new StringLiteralType("", "string"),
+                    new StringLiteralType("string"),
                     { isOld: false, isConst: true, canFail: false }
                 ],
                 [

@@ -709,11 +709,11 @@ export function tc(expr: SNode | TypeNode, ctx: STypingCtx, typeEnv: TypeEnv): T
     }
 
     if (expr instanceof SStringLiteral) {
-        return cache(expr, new StringLiteralType(expr.val, "string"));
+        return cache(expr, new StringLiteralType("string"));
     }
 
     if (expr instanceof SHexLiteral) {
-        return cache(expr, new StringLiteralType(expr.val, "hexString"));
+        return cache(expr, new StringLiteralType("hexString"));
     }
 
     if (expr instanceof SAddressLiteral) {
