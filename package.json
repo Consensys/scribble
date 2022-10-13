@@ -1,6 +1,6 @@
 {
     "name": "eth-scribble",
-    "version": "0.6.14",
+    "version": "0.6.15",
     "description": "A Solidity runtime verification tool for property based testing",
     "keywords": [],
     "files": [
