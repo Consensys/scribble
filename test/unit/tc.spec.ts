@@ -14,6 +14,7 @@ import {
     FunctionType,
     FunctionVisibility,
     getABIEncoderVersion,
+    InferType,
     IntLiteralType,
     IntType,
     PointerType,
@@ -199,14 +200,10 @@ describe("TypeChecker Expression Unit Tests", () => {
                 ["address payable", ["Foo"], new TypeNameType(new AddressType(true))],
                 ["true", ["Foo"], new BoolType()],
                 ["1", ["Foo"], new IntLiteralType()],
-                ["hex'0011ff'", ["Foo"], new StringLiteralType("0011ff", true)],
-                ['hex""', ["Foo"], new StringLiteralType("", true)],
-                [
-                    '"abc \\" \\u0000 \\x01 Def "',
-                    ["Foo"],
-                    new StringLiteralType('abc " \u0000 \x01 Def ', false)
-                ],
-                ["''", ["Foo"], new StringLiteralType("", false)],
+                ["hex'0011ff'", ["Foo"], new StringLiteralType("hexString")],
+                ['hex""', ["Foo"], new StringLiteralType("hexString")],
+                ['"abc \\" \\u0000 \\x01 Def "', ["Foo"], new StringLiteralType("string")],
+                ["''", ["Foo"], new StringLiteralType("string")],
                 ["1e10", ["Foo"], new IntLiteralType()],
                 ["10e+5", ["Foo"], new IntLiteralType()],
                 ["1000e-2", ["Foo"], new IntLiteralType()],
@@ -1015,6 +1012,7 @@ contract UserDefinedValueTypes {
             let units: SourceUnit[];
             let compilerVersion: string;
             let encVer: ABIEncoderVersion;
+            let typeInfer: InferType;
             let sourceFile: SourceFile;
 
             before(async () => {
@@ -1024,6 +1022,7 @@ contract UserDefinedValueTypes {
                 compilerVersion = result.compilerVersion;
                 encVer = getABIEncoderVersion(units, compilerVersion);
 
+                typeInfer = new InferType(compilerVersion);
                 sourceFile = new SolFile(fileName, content);
             });
 
@@ -1032,7 +1031,7 @@ contract UserDefinedValueTypes {
                     const expectedType = expected instanceof TypeNode ? expected : expected(units);
                     const [typeCtx, target] = getTypeCtxAndTarget(loc, units);
                     const parsed = parse(specString, target, compilerVersion, sourceFile, 0);
-                    const typeEnv = new TypeEnv(compilerVersion, encVer);
+                    const typeEnv = new TypeEnv(typeInfer, encVer);
                     const type = tc(parsed, typeCtx, typeEnv);
 
                     Logger.debug(
@@ -1060,7 +1059,9 @@ contract UserDefinedValueTypes {
                 compilerVersion = result.compilerVersion;
                 encVer = getABIEncoderVersion(units, compilerVersion);
 
-                typeEnv = new TypeEnv(compilerVersion, encVer);
+                const typeInfer = new InferType(compilerVersion);
+
+                typeEnv = new TypeEnv(typeInfer, encVer);
                 sourceFile = new SolFile(fileName, content);
             });
 
@@ -1726,6 +1727,7 @@ contract Statements08 {
         describe(`Positive tests for #${fileName}`, () => {
             let units: SourceUnit[];
             let compilerVersion: string;
+            let typeInfer: InferType;
             let typeEnv: TypeEnv;
             let encVer: ABIEncoderVersion;
             let sourceFile: SourceFile;
@@ -1737,7 +1739,8 @@ contract Statements08 {
                 compilerVersion = result.compilerVersion;
                 encVer = getABIEncoderVersion(units, compilerVersion);
 
-                typeEnv = new TypeEnv(compilerVersion, encVer);
+                typeInfer = new InferType(compilerVersion);
+                typeEnv = new TypeEnv(typeInfer, encVer);
                 sourceFile = new SolFile(fileName, content);
             });
 
@@ -1755,7 +1758,7 @@ contract Statements08 {
                     const [ctx] = getTypeCtxAndTarget(loc, units, parsed);
 
                     if (clearFunsBefore) {
-                        typeEnv = new TypeEnv(compilerVersion, encVer);
+                        typeEnv = new TypeEnv(typeInfer, encVer);
                     }
 
                     tcAnnotation(parsed, ctx, target, typeEnv);
@@ -1793,7 +1796,9 @@ contract Statements08 {
                 compilerVersion = result.compilerVersion;
                 encVer = getABIEncoderVersion(units, compilerVersion);
 
-                typeEnv = new TypeEnv(compilerVersion, encVer);
+                const typeInfer = new InferType(compilerVersion);
+
+                typeEnv = new TypeEnv(typeInfer, encVer);
                 sourceFile = new SolFile(fileName, content);
 
                 // Setup any definitions

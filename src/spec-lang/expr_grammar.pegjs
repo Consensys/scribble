@@ -819,6 +819,6 @@ FunctionType =
 
         const [visibility, mutability] = getFunctionAttributes(decoratorsList);
 
-        return new FunctionType(undefined, argTs, retTs, visibility, mutability, makeRange(location(), options as ParseOptions));
+        return new FunctionType(undefined, argTs, retTs, visibility, mutability, false, makeRange(location(), options as ParseOptions));
     }
     / PointerType
