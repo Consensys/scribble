@@ -1,4 +1,5 @@
 import expect from "expect";
+import { InferType } from "solc-typed-ast";
 import { findExternalCalls } from "../../src/instrumenter/instrument";
 import { nodeToSource } from "../../src/util";
 import { findContract, LocationDesc, toAst } from "../integration/utils";
@@ -63,10 +64,11 @@ contract Main {
     for (const [fileName, content, loc, expectedExtCalls] of goodSamples) {
         it(`Find external calls in ${loc} in #${fileName}`, async () => {
             const compilerVersion = "0.6.0";
+            const inference = new InferType(compilerVersion);
             const { units } = await toAst(fileName, content);
 
             const contract = findContract(units, loc[0]);
-            const extCalls: string[] = findExternalCalls(contract, compilerVersion).map((call) =>
+            const extCalls: string[] = findExternalCalls(contract, inference).map((call) =>
                 nodeToSource(call.vExpression)
             );
 

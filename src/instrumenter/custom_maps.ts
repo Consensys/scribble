@@ -15,7 +15,6 @@ import {
     FunctionDefinition,
     FunctionStateMutability,
     FunctionVisibility,
-    getNodeType,
     Identifier,
     IndexAccess,
     IntType,
@@ -29,8 +28,6 @@ import {
     StructDefinition,
     TupleExpression,
     TypeName,
-    typeNameToTypeNode,
-    TypeNode,
     UnaryOperation,
     UncheckedBlock,
     UserDefinedType,
@@ -79,6 +76,7 @@ function lookupPathInType(typ: TypeName, path: AbsDatastructurePath, idx = 0): T
             const valueT = single(
                 typ.vReferencedDeclaration.vMembers.filter((field) => field.name === "innerM")
             ).vType;
+
             assert(
                 valueT instanceof Mapping,
                 `Expected struct ${typ.path ? typ.path.name : typ.name} to contain field innerM`
@@ -145,7 +143,7 @@ function replaceAssignmentHelper(
     const factory = instrCtx.factory;
     let newVal = assignment.vRightHandSide;
     const [base, index] = splitExpr(assignment.vLeftHandSide);
-    const newValT: TypeNode = getNodeType(newVal, instrCtx.compilerVersion);
+    const newValT = instrCtx.typeEnv.inference.typeOf(newVal);
 
     if (assignment.operator !== "=") {
         const getter = instrCtx.libToMapGetterMap.get(lib, false);
@@ -329,12 +327,13 @@ export function interposeMap(
 
         instrCtx.needsUtils((stateVar.vScope as ContractDefinition).vScope);
 
-        const keyT = typeNameToTypeNode(mapT.vKeyType);
-        const valueT = typeNameToTypeNode(mapT.vValueType);
+        const keyT = instrCtx.typeEnv.inference.typeNameToTypeNode(mapT.vKeyType);
+        const valueT = instrCtx.typeEnv.inference.typeNameToTypeNode(mapT.vValueType);
 
         // 0. Generate custom library implementation
         const lib = instrCtx.typesToLibraryMap.get(keyT, valueT);
         const struct = single(lib.vStructs);
+
         instrCtx.sVarToLibraryMap.set(lib, stateVar, path);
 
         // 1. Replace the type of `T` in the `stateVar` declaration with `L.S`
@@ -343,6 +342,7 @@ export function interposeMap(
             `${lib.name}.${struct.name}`,
             struct.id
         );
+
         replaceNode(mapT, newMapT);
 
         if (stateVar.vValue !== undefined) {
@@ -529,6 +529,7 @@ function interposeGetter(
     assert(typ !== undefined, `State var ${v.name} is missing a type`);
 
     const fn = factory.addEmptyFun(ctx, v.name, FunctionVisibility.Public, contract);
+
     fn.stateMutability = FunctionStateMutability.View;
 
     let expr: Expression = factory.makeIdentifierFor(v);
@@ -538,7 +539,7 @@ function interposeGetter(
             let idxT =
                 typ instanceof ArrayTypeName
                     ? new IntType(256, false)
-                    : typeNameToTypeNode(typ.vKeyType);
+                    : ctx.typeEnv.inference.typeNameToTypeNode(typ.vKeyType);
 
             if (needsLocation(idxT)) {
                 idxT = new PointerType(idxT, DataLocation.Memory);
@@ -588,7 +589,7 @@ function interposeGetter(
         break;
     }
 
-    const exprT = typeNameToTypeNode(typ);
+    const exprT = ctx.typeEnv.inference.typeNameToTypeNode(typ);
 
     if (exprT instanceof UserDefinedType && exprT.definition instanceof StructDefinition) {
         throw new Error(`We don't support interposing on public state variables returning structs`);

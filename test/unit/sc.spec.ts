@@ -363,7 +363,7 @@ describe("SemanticChecker Expression Unit Tests", () => {
         describe(`Positive tests for #${fileName}`, () => {
             const compilerVersion = "0.6.0";
 
-            let typeInfer: InferType;
+            let inference: InferType;
             let sourceFile: SourceFile;
             let units: SourceUnit[];
             let encVer: ABIEncoderVersion;
@@ -371,7 +371,7 @@ describe("SemanticChecker Expression Unit Tests", () => {
             before(async () => {
                 const result = await toAst(fileName, content);
 
-                typeInfer = new InferType(compilerVersion);
+                inference = new InferType(compilerVersion);
                 sourceFile = new SolFile(fileName, content);
                 units = result.units;
                 encVer = getABIEncoderVersion(units, compilerVersion);
@@ -380,7 +380,7 @@ describe("SemanticChecker Expression Unit Tests", () => {
             for (const [specString, loc, expectedType, expectedInfo] of testCases) {
                 it(`SemCheck for ${specString} returns ${JSON.stringify(expectedInfo)}`, () => {
                     const [ctx, target] = getTypeCtxAndTarget(loc, units);
-                    const parsed = parse(specString, target, compilerVersion, sourceFile, 0);
+                    const parsed = parse(specString, target, inference, sourceFile, 0);
                     const annotationType =
                         target instanceof ContractDefinition
                             ? AnnotationType.Invariant
@@ -389,7 +389,7 @@ describe("SemanticChecker Expression Unit Tests", () => {
                             : AnnotationType.IfUpdated;
 
                     const annotation = new SProperty(annotationType, parsed);
-                    const typeEnv = new TypeEnv(typeInfer, encVer);
+                    const typeEnv = new TypeEnv(inference, encVer);
                     const type = tc(parsed, ctx, typeEnv);
                     expect(eq(type, expectedType)).toEqual(true);
                     const semInfo = sc(
@@ -413,7 +413,7 @@ describe("SemanticChecker Expression Unit Tests", () => {
         describe(`Negative tests for #${fileName}`, () => {
             const compilerVersion = "0.6.0";
 
-            let typeInfer: InferType;
+            let inference: InferType;
             let sourceFile: SourceFile;
             let units: SourceUnit[];
             let encVer: ABIEncoderVersion;
@@ -421,7 +421,7 @@ describe("SemanticChecker Expression Unit Tests", () => {
             before(async () => {
                 const result = await toAst(fileName, content);
 
-                typeInfer = new InferType(compilerVersion);
+                inference = new InferType(compilerVersion);
                 sourceFile = new SolFile(fileName, content);
                 units = result.units;
                 encVer = getABIEncoderVersion(units, compilerVersion);
@@ -430,7 +430,7 @@ describe("SemanticChecker Expression Unit Tests", () => {
             for (const [specString, loc] of testCases) {
                 it(`SemCheck for ${specString} throws SemError`, () => {
                     const [ctx, target] = getTypeCtxAndTarget(loc, units);
-                    const parsed = parse(specString, target, compilerVersion, sourceFile, 0);
+                    const parsed = parse(specString, target, inference, sourceFile, 0);
                     const annotationType =
                         target instanceof ContractDefinition
                             ? AnnotationType.Invariant
@@ -439,7 +439,7 @@ describe("SemanticChecker Expression Unit Tests", () => {
                             : AnnotationType.IfUpdated;
                     const annotation = new SProperty(annotationType, parsed);
                     // Type-checking should succeed
-                    const typeEnv = new TypeEnv(typeInfer, encVer);
+                    const typeEnv = new TypeEnv(inference, encVer);
                     tc(parsed, ctx, typeEnv);
                     expect(
                         sc.bind(
@@ -528,7 +528,7 @@ describe("SemanticChecker Annotation Unit Tests", () => {
         describe(`Positive tests for #${fileName}`, () => {
             const compilerVersion = "0.6.0";
 
-            let typeInfer: InferType;
+            let inference: InferType;
             let sourceFile: SourceFile;
             let units: SourceUnit[];
             let encVer: ABIEncoderVersion;
@@ -536,7 +536,7 @@ describe("SemanticChecker Annotation Unit Tests", () => {
             before(async () => {
                 const result = await toAst(fileName, content);
 
-                typeInfer = new InferType(compilerVersion);
+                inference = new InferType(compilerVersion);
                 sourceFile = new SolFile(fileName, content);
                 units = result.units;
                 encVer = getABIEncoderVersion(units, compilerVersion);
@@ -548,13 +548,13 @@ describe("SemanticChecker Annotation Unit Tests", () => {
                     const annotation = parseAnnotation(
                         specString,
                         target,
-                        compilerVersion,
+                        inference,
                         sourceFile,
                         0
                     );
 
                     const [ctx] = getTypeCtxAndTarget(loc, units, annotation);
-                    const typeEnv = new TypeEnv(typeInfer, encVer);
+                    const typeEnv = new TypeEnv(inference, encVer);
 
                     tcAnnotation(annotation, ctx, target, typeEnv);
                     scAnnotation(annotation, typeEnv, new Map(), {
@@ -572,7 +572,7 @@ describe("SemanticChecker Annotation Unit Tests", () => {
         describe(`Negative tests for #${fileName}`, () => {
             const compilerVersion = "0.6.0";
 
-            let typeInfer: InferType;
+            let inference: InferType;
             let sourceFile: SourceFile;
             let units: SourceUnit[];
             let encVer: ABIEncoderVersion;
@@ -580,7 +580,7 @@ describe("SemanticChecker Annotation Unit Tests", () => {
             before(async () => {
                 const result = await toAst(fileName, content);
 
-                typeInfer = new InferType(compilerVersion);
+                inference = new InferType(compilerVersion);
                 sourceFile = new SolFile(fileName, content);
                 units = result.units;
                 encVer = getABIEncoderVersion(units, compilerVersion);
@@ -592,13 +592,13 @@ describe("SemanticChecker Annotation Unit Tests", () => {
                     const annotation = parseAnnotation(
                         specString,
                         target,
-                        compilerVersion,
+                        inference,
                         sourceFile,
                         0
                     );
 
                     const [ctx] = getTypeCtxAndTarget(loc, units, annotation);
-                    const typeEnv = new TypeEnv(typeInfer, encVer);
+                    const typeEnv = new TypeEnv(inference, encVer);
 
                     tcAnnotation(annotation, ctx, target, typeEnv);
 

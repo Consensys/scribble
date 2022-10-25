@@ -1,4 +1,4 @@
-import { parse as typeStringParse, TypeNode } from "solc-typed-ast";
+import { InferType, TypeNode } from "solc-typed-ast";
 import YAML from "yaml";
 import { Scalar, YAMLMap, YAMLSeq } from "yaml/types";
 import { SourceFile } from "../util/sources";
@@ -38,7 +38,11 @@ const yamlMacroSchema = {
     }
 };
 
-export function readMacroDefinitions(source: SourceFile, defs: Map<string, MacroDefinition>): void {
+export function readMacroDefinitions(
+    source: SourceFile,
+    defs: Map<string, MacroDefinition>,
+    inference: InferType
+): void {
     const document = YAML.parseDocument(source.contents);
 
     if (document.contents === null) {
@@ -62,7 +66,7 @@ export function readMacroDefinitions(source: SourceFile, defs: Map<string, Macro
         for (const variableItem of varItems) {
             const name = variableItem.key.value as string;
             const originalType = (variableItem.value as Scalar).value as string;
-            const type: TypeNode = typeStringParse(originalType, {});
+            const type = inference.elementaryTypeNameStringToTypeNode(originalType);
 
             variables.set(name, { name, originalType, type });
         }

@@ -4,6 +4,7 @@ import {
     FunctionDefinition,
     FunctionVisibility,
     getABIEncoderVersion,
+    InferType,
     SourceUnit,
     StateVariableVisibility,
     VariableDeclaration
@@ -22,20 +23,6 @@ function extractExportSymbols(units: SourceUnit[]): Map<string, ContractDefiniti
     }
 
     return result;
-}
-
-function compareVars(
-    a: VariableDeclaration,
-    b: VariableDeclaration | FunctionDefinition,
-    encVer: ABIEncoderVersion
-): boolean {
-    // In some cases we may re-write a public state var into an internal state var with a getter function
-    const bSig =
-        b instanceof VariableDeclaration
-            ? b.getterCanonicalSignature(encVer)
-            : b.canonicalSignature(encVer);
-
-    return a.getterCanonicalSignature(encVer) === bSig;
 }
 
 function extractAccessibleMembers(
@@ -71,6 +58,7 @@ function findCorrespondigVar(
 }
 
 function findCorrespondigFn(
+    inference: InferType,
     fn: FunctionDefinition,
     members: Array<FunctionDefinition | VariableDeclaration>,
     encVer: ABIEncoderVersion
@@ -80,7 +68,7 @@ function findCorrespondigFn(
             member instanceof FunctionDefinition &&
             fn.name === member.name &&
             fn.kind === member.kind &&
-            fn.canonicalSignature(encVer) === member.canonicalSignature(encVer)
+            inference.signature(fn, encVer) === inference.signature(member, encVer)
         ) {
             return member;
         }
@@ -90,6 +78,7 @@ function findCorrespondigFn(
 }
 
 function checkCompatibility(
+    inference: InferType,
     a: ContractDefinition,
     b: ContractDefinition,
     encVer: ABIEncoderVersion
@@ -118,7 +107,7 @@ function checkCompatibility(
                 );
             }
 
-            if (!compareVars(memberA, memberB, encVer)) {
+            if (inference.signature(memberA, encVer) !== inference.signature(memberB, encVer)) {
                 throw new Error(
                     `State variable "${a.name}.${
                         memberA.name
@@ -126,7 +115,7 @@ function checkCompatibility(
                 );
             }
         } else if (memberA instanceof FunctionDefinition) {
-            const memberB = findCorrespondigFn(memberA, membersB, encVer);
+            const memberB = findCorrespondigFn(inference, memberA, membersB, encVer);
 
             if (memberB === undefined) {
                 throw new Error(
@@ -154,11 +143,13 @@ describe("Interface compatibility test", () => {
             let compilerVersion: string;
             let inAst: SourceUnit[];
             let encVer: ABIEncoderVersion;
+            let inference: InferType;
 
             before(async () => {
                 const result = await toAstUsingCache(sample);
 
                 compilerVersion = result.compilerVersion;
+                inference = new InferType(compilerVersion);
                 inAst = result.units;
                 encVer = getABIEncoderVersion(inAst, compilerVersion);
             });
@@ -177,7 +168,7 @@ describe("Interface compatibility test", () => {
                         throw new Error(`Unable to find contract "${name}" in instrumented AST`);
                     }
 
-                    checkCompatibility(inContract, outContract, encVer);
+                    checkCompatibility(inference, inContract, outContract, encVer);
                 }
             };
 

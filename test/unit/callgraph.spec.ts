@@ -1,4 +1,11 @@
-import { ASTReader, compileSol, ContractDefinition, getABIEncoderVersion } from "solc-typed-ast";
+import {
+    assert,
+    ASTReader,
+    compileSol,
+    ContractDefinition,
+    getABIEncoderVersion,
+    InferType
+} from "solc-typed-ast";
 import expect from "expect";
 import { CallGraph, getCallGraph } from "../../src/instrumenter/callgraph";
 
@@ -10,12 +17,15 @@ describe("Call graph test", () => {
         const reader = new ASTReader();
         const { data, compilerVersion } = await compileSol("test/samples/cha.sol", "auto");
 
+        assert(compilerVersion !== undefined, "Unable to detect compiler version");
+
         const units = reader.read(data);
-        const encVer = getABIEncoderVersion(units, compilerVersion as string);
+        const inference = new InferType(compilerVersion);
+        const encVer = getABIEncoderVersion(units, compilerVersion);
 
         contracts = units.map((u) => u.vContracts).reduce((flat, next) => flat.concat(next), []);
 
-        callGraph = getCallGraph(units, encVer);
+        callGraph = getCallGraph(inference, units, encVer);
     });
 
     it("Call graph is valid", () => {

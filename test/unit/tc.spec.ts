@@ -1012,7 +1012,7 @@ contract UserDefinedValueTypes {
             let units: SourceUnit[];
             let compilerVersion: string;
             let encVer: ABIEncoderVersion;
-            let typeInfer: InferType;
+            let inference: InferType;
             let sourceFile: SourceFile;
 
             before(async () => {
@@ -1022,7 +1022,7 @@ contract UserDefinedValueTypes {
                 compilerVersion = result.compilerVersion;
                 encVer = getABIEncoderVersion(units, compilerVersion);
 
-                typeInfer = new InferType(compilerVersion);
+                inference = new InferType(compilerVersion);
                 sourceFile = new SolFile(fileName, content);
             });
 
@@ -1030,8 +1030,8 @@ contract UserDefinedValueTypes {
                 it(`Typecheck for ${specString}`, () => {
                     const expectedType = expected instanceof TypeNode ? expected : expected(units);
                     const [typeCtx, target] = getTypeCtxAndTarget(loc, units);
-                    const parsed = parse(specString, target, compilerVersion, sourceFile, 0);
-                    const typeEnv = new TypeEnv(typeInfer, encVer);
+                    const parsed = parse(specString, target, inference, sourceFile, 0);
+                    const typeEnv = new TypeEnv(inference, encVer);
                     const type = tc(parsed, typeCtx, typeEnv);
 
                     Logger.debug(
@@ -1059,16 +1059,16 @@ contract UserDefinedValueTypes {
                 compilerVersion = result.compilerVersion;
                 encVer = getABIEncoderVersion(units, compilerVersion);
 
-                const typeInfer = new InferType(compilerVersion);
+                const inference = new InferType(compilerVersion);
 
-                typeEnv = new TypeEnv(typeInfer, encVer);
+                typeEnv = new TypeEnv(inference, encVer);
                 sourceFile = new SolFile(fileName, content);
             });
 
             for (const [specString, loc] of testCases) {
                 it(`Typecheck for ${specString} throws`, () => {
                     const [typeCtx, target] = getTypeCtxAndTarget(loc, units);
-                    const parsed = parse(specString, target, compilerVersion, sourceFile, 0);
+                    const parsed = parse(specString, target, typeEnv.inference, sourceFile, 0);
 
                     expect(() => tc(parsed, typeCtx, typeEnv)).toThrow();
                 });
@@ -1727,7 +1727,7 @@ contract Statements08 {
         describe(`Positive tests for #${fileName}`, () => {
             let units: SourceUnit[];
             let compilerVersion: string;
-            let typeInfer: InferType;
+            let inference: InferType;
             let typeEnv: TypeEnv;
             let encVer: ABIEncoderVersion;
             let sourceFile: SourceFile;
@@ -1739,26 +1739,20 @@ contract Statements08 {
                 compilerVersion = result.compilerVersion;
                 encVer = getABIEncoderVersion(units, compilerVersion);
 
-                typeInfer = new InferType(compilerVersion);
-                typeEnv = new TypeEnv(typeInfer, encVer);
+                inference = new InferType(compilerVersion);
+                typeEnv = new TypeEnv(inference, encVer);
                 sourceFile = new SolFile(fileName, content);
             });
 
             for (const [specString, loc, expectedType, clearFunsBefore] of testCases) {
                 it(`Typecheck for ${specString} succeeds.`, () => {
                     const target = getTarget(loc, units);
-                    const parsed = parseAnnotation(
-                        specString,
-                        target,
-                        compilerVersion,
-                        sourceFile,
-                        0
-                    );
+                    const parsed = parseAnnotation(specString, target, inference, sourceFile, 0);
 
                     const [ctx] = getTypeCtxAndTarget(loc, units, parsed);
 
                     if (clearFunsBefore) {
-                        typeEnv = new TypeEnv(typeInfer, encVer);
+                        typeEnv = new TypeEnv(inference, encVer);
                     }
 
                     tcAnnotation(parsed, ctx, target, typeEnv);
@@ -1796,23 +1790,18 @@ contract Statements08 {
                 compilerVersion = result.compilerVersion;
                 encVer = getABIEncoderVersion(units, compilerVersion);
 
-                const typeInfer = new InferType(compilerVersion);
+                const inference = new InferType(compilerVersion);
 
-                typeEnv = new TypeEnv(typeInfer, encVer);
+                typeEnv = new TypeEnv(inference, encVer);
                 sourceFile = new SolFile(fileName, content);
 
                 // Setup any definitions
                 for (const [specString, loc] of setupSteps) {
                     const target = getTarget(loc, units);
-                    const parsed = parseAnnotation(
-                        specString,
-                        target,
-                        compilerVersion,
-                        sourceFile,
-                        0
-                    );
+                    const parsed = parseAnnotation(specString, target, inference, sourceFile, 0);
 
                     const [ctx] = getTypeCtxAndTarget(loc, units, parsed);
+
                     tcAnnotation(parsed, ctx, target, typeEnv);
                 }
             });
@@ -1823,7 +1812,7 @@ contract Statements08 {
                     const parsed = parseAnnotation(
                         specString,
                         target,
-                        compilerVersion,
+                        typeEnv.inference,
                         sourceFile,
                         0
                     );

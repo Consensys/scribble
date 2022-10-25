@@ -58,32 +58,40 @@ import {
     FunctionVisibility,
     FunctionStateMutability,
     assert,
-    // @ts-ignore
     DataLocation,
-    UserDefinedValueTypeDefinition
+    UserDefinedValueTypeDefinition,
+    InferType
 } from "solc-typed-ast"
 import { makeRange, Range } from "../util/location"
 import { SourceFile } from "../util/sources";
 
 const srcloc = require("src-location")
 
-export type ParseOptions = {startRule: string, ctx: ASTNode, version: string, file: SourceFile, baseOff: number, baseLine: number, baseCol: number}
+export type ParseOptions = {
+    startRule: string,
+    ctx: ASTNode,
+    inference: InferType,
+    file: SourceFile,
+    baseOff: number,
+    baseLine: number,
+    baseCol: number
+}
 
 function buildBinaryExpression(head: SNode, tail: Array<[string | undefined, BinaryOperator, string | undefined, SNode]>, src?: Range): SNode {
     return tail.reduce((acc, [whiteSp, curOp, whiteSP, curVal]) =>
         new SBinaryOperation(acc, curOp, curVal, src), head);
 }
 
-export function parseAnnotation(str: string, ctx: ASTNode, version: string, file: SourceFile, baseOff: number): SAnnotation {
+export function parseAnnotation(str: string, ctx: ASTNode, inference: InferType, file: SourceFile, baseOff: number): SAnnotation {
     const { line, column } = srcloc.indexToLocation(file.contents, baseOff);
     // @ts-ignore
-    return parse(str, { startRule: "Annotation", ctx, version, file, baseOff, baseLine: line - 1, baseCol: column});
+    return parse(str, { startRule: "Annotation", ctx, inference, file, baseOff, baseLine: line - 1, baseCol: column});
 }
 
-export function parseExpression(str: string, ctx: ASTNode, version: string, file: SourceFile, baseOff: number): SNode {
+export function parseExpression(str: string, ctx: ASTNode, inference: InferType, file: SourceFile, baseOff: number): SNode {
     const { line, column } = srcloc.indexToLocation(file.contents, baseOff);
     // @ts-ignore
-    return parse(str, { startRule: "Expression", ctx, version, file, baseOff, baseLine: line - 1, baseCol: column});
+    return parse(str, { startRule: "Expression", ctx, inference, file, baseOff, baseLine: line - 1, baseCol: column});
 }
 
 function makeUserDefinedType(
@@ -91,9 +99,7 @@ function makeUserDefinedType(
     options: ParseOptions,
     location: any
 ): UserDefinedType {
-    const version = options.version;
-    const ctx = options.ctx;
-    const defs = [...resolveAny(name, ctx, version, true)];
+    const defs = [...resolveAny(name, options.ctx, options.inference, true)];
 
     if (defs.length === 0) {
         throw new Error(`Couldn't find ${name}`);
@@ -186,3 +192,4 @@ makeRange;
 buildBinaryExpression;
 makeUserDefinedType;
 SLetAnnotation;
+DataLocation;

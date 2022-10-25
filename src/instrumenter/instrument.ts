@@ -19,7 +19,7 @@ import {
     FunctionStateMutability,
     FunctionType,
     FunctionVisibility,
-    getNodeType,
+    InferType,
     IntType,
     Literal,
     LiteralKind,
@@ -108,7 +108,7 @@ export function changesMutability(ctx: InstrumentationContext): boolean {
  */
 export function findExternalCalls(
     node: ContractDefinition | FunctionDefinition,
-    version: string
+    inference: InferType
 ): FunctionCall[] {
     const res: FunctionCall[] = [];
 
@@ -130,7 +130,7 @@ export function findExternalCalls(
             }
         } else {
             // For normal contract calls check if the type of the callee is an external function
-            const calleeType = getNodeType(call.vExpression, version);
+            const calleeType = inference.typeOf(call.vExpression);
 
             assert(
                 calleeType instanceof FunctionType,
@@ -996,7 +996,7 @@ function replaceExternalCallSites(
 ): void {
     const factory = ctx.factory;
 
-    for (const callSite of findExternalCalls(contract, ctx.compilerVersion)) {
+    for (const callSite of findExternalCalls(contract, ctx.typeEnv.inference)) {
         const containingFun = callSite.getClosestParentByType(FunctionDefinition);
 
         if (
@@ -1007,7 +1007,7 @@ function replaceExternalCallSites(
             continue;
         }
 
-        const calleeType = getNodeType(callSite.vExpression, ctx.compilerVersion);
+        const calleeType = ctx.typeEnv.inference.typeOf(callSite.vExpression);
 
         assert(
             calleeType instanceof FunctionType,

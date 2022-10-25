@@ -1,5 +1,5 @@
 import expect from "expect";
-import { ASTNode, BoolType, eq, IntType } from "solc-typed-ast";
+import { ASTNode, BoolType, eq, InferType, IntType } from "solc-typed-ast";
 import { Logger } from "../../src/logger";
 import {
     AnnotationType,
@@ -660,7 +660,7 @@ describe("Expression Parser Unit Tests", () => {
                 const parsed = parseExpr(
                     sample,
                     undefined as unknown as ASTNode,
-                    "0.6.0",
+                    new InferType("0.6.0"),
                     new DummySourceFile(),
                     0
                 );
@@ -676,7 +676,7 @@ describe("Expression Parser Unit Tests", () => {
                     parseExpr(
                         sample,
                         undefined as unknown as ASTNode,
-                        "0.6.0",
+                        new InferType("0.6.0"),
                         new DummySourceFile(),
                         0
                     );
@@ -1006,7 +1006,7 @@ describe("Annotation Parser Unit Tests", () => {
                 const parsed = parseAnnotation(
                     sample,
                     undefined as unknown as ASTNode,
-                    "0.6.0",
+                    new InferType("0.6.0"),
                     new DummySourceFile(),
                     0
                 );
@@ -1023,7 +1023,7 @@ describe("Annotation Parser Unit Tests", () => {
                     parseAnnotation(
                         sample,
                         undefined as unknown as ASTNode,
-                        "0.6.0",
+                        new InferType("0.6.0"),
                         new DummySourceFile(),
                         0
                     );

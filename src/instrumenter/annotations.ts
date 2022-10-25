@@ -3,6 +3,7 @@ import {
     ContractDefinition,
     ContractKind,
     FunctionDefinition,
+    InferType,
     resolve,
     resolveAny,
     SourceUnit,
@@ -21,8 +22,8 @@ import {
     SMacro,
     SNode,
     SProperty,
-    SUserFunctionDefinition,
-    SUserConstantDefinition
+    SUserConstantDefinition,
+    SUserFunctionDefinition
 } from "../spec-lang/ast";
 import { parseAnnotation, SyntaxError as ExprPEGSSyntaxError } from "../spec-lang/expr_parser";
 import { PPAbleError } from "../util/errors";
@@ -39,7 +40,7 @@ export type AnnotationFilterOptions = {
 
 export type AnnotationExtractionContext = {
     filterOptions: AnnotationFilterOptions;
-    compilerVersion: string;
+    inference: InferType;
     macros: Map<string, MacroDefinition>;
 };
 
@@ -216,7 +217,7 @@ function makeAnnotationFromMatch(
         annotation = parseAnnotation(
             slice,
             meta.target,
-            ctx.compilerVersion,
+            ctx.inference,
             source,
             meta.docFileOffset + matchIdx
         );
@@ -449,6 +450,7 @@ export function extractAnnotations(
  * that `fun` overrides.
  */
 export function gatherFunctionAnnotations(
+    inference: InferType,
     fun: FunctionDefinition,
     annotationMap: AnnotationMap
 ): AnnotationMetaData[] {
@@ -463,7 +465,7 @@ export function gatherFunctionAnnotations(
     // We may have functions missing in annotationMap as map interposing adds new functions
     const result: AnnotationMetaData[] = getOr(annotationMap, fun, []);
 
-    while ((overridee = resolve(scope, overridee, true)) !== undefined) {
+    while ((overridee = resolve(scope, overridee, inference, true)) !== undefined) {
         result.unshift(...(annotationMap.get(overridee) as AnnotationMetaData[]));
 
         scope = overridee.vScope as ContractDefinition;
@@ -509,7 +511,7 @@ function getMacroPropertyTarget(
         return scope;
     }
 
-    let targets = [...resolveAny(name, scope, ctx.compilerVersion, true)];
+    let targets = [...resolveAny(name, scope, ctx.inference, true)];
 
     if (targets.length > 1) {
         targets = targets.filter((target) => {
@@ -631,7 +633,7 @@ function processMacroAnnotations(
                         annotation = parseAnnotation(
                             expression,
                             target,
-                            ctx.compilerVersion,
+                            ctx.inference,
                             meta.definitionFile,
                             offset
                         );

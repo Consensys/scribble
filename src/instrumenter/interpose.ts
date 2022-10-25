@@ -16,7 +16,6 @@ import {
     FunctionStateMutability,
     FunctionType,
     FunctionVisibility,
-    getNodeType,
     MemberAccess,
     ModifierDefinition,
     Mutability,
@@ -340,7 +339,7 @@ export function interposeCall(
     const factory = ctx.factory;
     const callsite = decodeCallsite(call);
     const callee = callsite.callee;
-    const calleeT = getNodeType(callee, ctx.compilerVersion);
+    const calleeT = ctx.typeEnv.inference.typeOf(callee);
 
     assert(
         call.kind === FunctionCallKind.FunctionCall,
@@ -400,7 +399,7 @@ export function interposeCall(
     let receiver: Expression;
     let callOriginalExp: Expression;
 
-    const baseT = getNodeType(callee.vExpression, ctx.compilerVersion);
+    const baseT = ctx.typeEnv.inference.typeOf(callee.vExpression);
 
     if (call.vFunctionCallType === ExternalReferenceType.UserDefined) {
         assert(
