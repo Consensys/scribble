@@ -3,6 +3,7 @@ import {
     assert,
     ASTNode,
     ASTNodeFactory,
+    BuiltinFunctionType,
     ContractDefinition,
     DataLocation,
     Expression,
@@ -350,7 +351,7 @@ export function interposeCall(
     );
 
     assert(
-        calleeT instanceof FunctionType,
+        calleeT instanceof FunctionType || calleeT instanceof BuiltinFunctionType,
         "Expected external function type, not {0} for callee in {1}",
         calleeT,
         call
@@ -370,10 +371,14 @@ export function interposeCall(
     if (changesMutability(ctx)) {
         wrapperMut = FunctionStateMutability.NonPayable;
     } else {
-        wrapperMut =
-            calleeT.mutability === FunctionStateMutability.Payable
-                ? FunctionStateMutability.NonPayable
-                : calleeT.mutability;
+        if (calleeT instanceof BuiltinFunctionType) {
+            wrapperMut = FunctionStateMutability.NonPayable;
+        } else {
+            wrapperMut =
+                calleeT.mutability === FunctionStateMutability.Payable
+                    ? FunctionStateMutability.NonPayable
+                    : calleeT.mutability;
+        }
     }
 
     const wrapper = factory.makeFunctionDefinition(

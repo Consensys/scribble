@@ -5,11 +5,13 @@ import {
     ASTNode,
     ASTNodeFactory,
     Block,
+    BuiltinFunctionType,
     ContractDefinition,
     ContractKind,
     DataLocation,
     EmitStatement,
     EventDefinition,
+    EventType,
     Expression,
     ExternalReferenceType,
     FunctionCall,
@@ -103,7 +105,7 @@ export function changesMutability(ctx: InstrumentationContext): boolean {
 }
 
 /**
- * Find all external calls in the `ContractDfinition`/`FunctionDefinition` `node`.
+ * Find all external calls in the `ContractDefinition`/`FunctionDefinition` `node`.
  * Ignore any calls that were inserted by instrumentation (we tell those appart by their `<missing>` typeString).
  */
 export function findExternalCalls(
@@ -122,6 +124,9 @@ export function findExternalCalls(
             continue;
         }
 
+        /**
+         * @todo We can rework this, based on InferType.typeOf() with whitelisting of callee type.
+         */
         if (call.vFunctionCallType === ExternalReferenceType.Builtin) {
             // For builtin calls check if its one of:
             // (address).{call, delegatecall, staticcall}
@@ -131,6 +136,10 @@ export function findExternalCalls(
         } else {
             // For normal contract calls check if the type of the callee is an external function
             const calleeType = inference.typeOf(call.vExpression);
+
+            if (calleeType instanceof EventType) {
+                continue;
+            }
 
             assert(
                 calleeType instanceof FunctionType,
@@ -1010,13 +1019,16 @@ function replaceExternalCallSites(
         const calleeType = ctx.typeEnv.inference.typeOf(callSite.vExpression);
 
         assert(
-            calleeType instanceof FunctionType,
+            calleeType instanceof FunctionType || calleeType instanceof BuiltinFunctionType,
             "Expected function type not {0} for callee in {1}",
             calleeType,
             callSite
         );
 
-        if (calleeType.mutability === FunctionStateMutability.Pure) {
+        if (
+            calleeType instanceof FunctionType &&
+            calleeType.mutability === FunctionStateMutability.Pure
+        ) {
             continue;
         }
 

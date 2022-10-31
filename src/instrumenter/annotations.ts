@@ -253,9 +253,9 @@ function makeAnnotationFromMatch(
 
         if (macroDef) {
             return new MacroMetaData(meta.node, meta.target, annotation, source, macroDef);
-        } else {
-            throw new Error(`Unknown macro ${annotation.name.pp()}`);
         }
+
+        throw new Error(`Unknown macro ${annotation.name.pp()}`);
     }
 
     if (annotation instanceof SLetAnnotation) {

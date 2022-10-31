@@ -4,7 +4,6 @@ import {
     ASTContext,
     ASTNodeFactory,
     ContractDefinition,
-    FunctionCall,
     FunctionDefinition,
     InferType,
     SourceUnit,
@@ -623,7 +622,7 @@ contract Foo {
             const factory = new ScribbleFactory(compilerVersion, reader.context);
             const inference = new InferType("0.6.0");
 
-            const callSite: FunctionCall = single(
+            const callSite = single(
                 findExternalCalls(fun, inference),
                 `Expect single external callsite per tested function`
             );

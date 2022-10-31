@@ -300,7 +300,6 @@ function computeContractsNeedingInstr(
 function detectMacroDefinitions(
     path: string,
     defs: Map<string, MacroDefinition>,
-    inference: InferType,
     sources: SourceMap
 ): void {
     const fileNames = searchRecursive(path, (fileName) => fileName.endsWith(".scribble.yaml"));
@@ -311,7 +310,7 @@ function detectMacroDefinitions(
 
         sources.set(fileName, macroFile);
 
-        readMacroDefinitions(macroFile, defs, inference);
+        readMacroDefinitions(macroFile, defs);
     }
 }
 
@@ -943,7 +942,7 @@ function loadInstrMetaData(fileName: string): InstrumentationMetaData {
 
         for (const macroPath of macroPaths) {
             try {
-                detectMacroDefinitions(macroPath, macros, inference, contentsMap);
+                detectMacroDefinitions(macroPath, macros, contentsMap);
             } catch (e) {
                 if (e instanceof YamlSchemaError) {
                     prettyError(e.constructor.name, e.message, e.range);
