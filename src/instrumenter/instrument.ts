@@ -11,7 +11,6 @@ import {
     DataLocation,
     EmitStatement,
     EventDefinition,
-    EventType,
     Expression,
     ExternalReferenceType,
     FunctionCall,
@@ -21,8 +20,8 @@ import {
     FunctionStateMutability,
     FunctionType,
     FunctionVisibility,
-    InferType,
     IntType,
+    isFunctionCallExternal,
     Literal,
     LiteralKind,
     Mutability,
@@ -108,55 +107,17 @@ export function changesMutability(ctx: InstrumentationContext): boolean {
  * Find all external calls in the `ContractDefinition`/`FunctionDefinition` `node`.
  * Ignore any calls that were inserted by instrumentation (we tell those appart by their `<missing>` typeString).
  */
-export function findExternalCalls(
-    node: ContractDefinition | FunctionDefinition,
-    inference: InferType
-): FunctionCall[] {
-    const res: FunctionCall[] = [];
+export function findExternalCalls(node: ContractDefinition | FunctionDefinition): FunctionCall[] {
+    const interestingExternalCallBuiltins = ["call", "delegatecall", "staticcall"];
 
-    for (const call of node.getChildrenByType(FunctionCall)) {
-        if (call.kind !== FunctionCallKind.FunctionCall) {
-            continue;
-        }
-
-        // Skip any calls we've added as part of instrumentation
-        if (call.vExpression.typeString.includes("<missing>")) {
-            continue;
-        }
-
-        /**
-         * @todo We can rework this, based on InferType.typeOf() with whitelisting of callee type.
-         */
-        if (call.vFunctionCallType === ExternalReferenceType.Builtin) {
-            // For builtin calls check if its one of:
-            // (address).{call, delegatecall, staticcall}
-            if (!["call", "delegatecall", "staticcall"].includes(call.vFunctionName)) {
-                continue;
-            }
-        } else {
-            // For normal contract calls check if the type of the callee is an external function
-            const calleeType = inference.typeOf(call.vExpression);
-
-            if (calleeType instanceof EventType) {
-                continue;
-            }
-
-            assert(
-                calleeType instanceof FunctionType,
-                `Expected function type not {0} for callee in {1}`,
-                calleeType,
-                call
-            );
-
-            if (calleeType.visibility !== FunctionVisibility.External) {
-                continue;
-            }
-        }
-
-        res.push(call);
-    }
-
-    return res;
+    return node.getChildrenBySelector(
+        (node) =>
+            node instanceof FunctionCall &&
+            node.vExpression.typeString !== "<missing>" &&
+            isFunctionCallExternal(node) &&
+            (node.vFunctionCallType === ExternalReferenceType.UserDefined ||
+                interestingExternalCallBuiltins.includes(node.vFunctionName))
+    );
 }
 
 /**
@@ -1005,7 +966,7 @@ function replaceExternalCallSites(
 ): void {
     const factory = ctx.factory;
 
-    for (const callSite of findExternalCalls(contract, ctx.typeEnv.inference)) {
+    for (const callSite of findExternalCalls(contract)) {
         const containingFun = callSite.getClosestParentByType(FunctionDefinition);
 
         if (

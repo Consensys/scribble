@@ -1597,7 +1597,13 @@ export function tcMemberAccess(expr: SMemberAccess, ctx: STypingCtx, typeEnv: Ty
                         // rawDecl.vType is defined, as you can't put a `var x;` in a struct definition.
                         expr.defSite = rawDecl;
 
-                        return typeEnv.inference.variableDeclarationToTypeNode(rawDecl);
+                        const varT = typeEnv.inference.variableDeclarationToTypeNode(rawDecl);
+
+                        if (baseT.location === DataLocation.Default) {
+                            return varT;
+                        }
+
+                        return specializeType(generalizeType(varT)[0], baseT.location);
                     }
                 }
             }

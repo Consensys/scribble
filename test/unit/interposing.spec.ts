@@ -5,7 +5,6 @@ import {
     ASTNodeFactory,
     ContractDefinition,
     FunctionDefinition,
-    InferType,
     SourceUnit,
     TupleExpression,
     VariableDeclaration,
@@ -620,10 +619,9 @@ contract Foo {
             const { units, reader, files, compilerVersion } = await toAst(fileName, content);
             const [contract, fun] = findContractAndFun(units, contractName, funName);
             const factory = new ScribbleFactory(compilerVersion, reader.context);
-            const inference = new InferType("0.6.0");
 
             const callSite = single(
-                findExternalCalls(fun, inference),
+                findExternalCalls(fun),
                 `Expect single external callsite per tested function`
             );
 
