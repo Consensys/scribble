@@ -28,6 +28,7 @@ import {
     StructDefinition,
     TupleExpression,
     TypeName,
+    TypeNode,
     UnaryOperation,
     UncheckedBlock,
     UserDefinedType,
@@ -138,12 +139,12 @@ function splitExpr(e: Expression): [Expression, Expression] {
 function replaceAssignmentHelper(
     instrCtx: InstrumentationContext,
     assignment: Assignment,
-    lib: ContractDefinition
+    lib: ContractDefinition,
+    newValT: TypeNode
 ): void {
     const factory = instrCtx.factory;
     let newVal = assignment.vRightHandSide;
     const [base, index] = splitExpr(assignment.vLeftHandSide);
-    const newValT = instrCtx.typeEnv.inference.typeOf(newVal);
 
     if (assignment.operator !== "=") {
         const getter = instrCtx.libToMapGetterMap.get(lib, false);
@@ -356,7 +357,7 @@ export function interposeMap(
         // 2. Replace all var index updates with L.set(<base>, <key>, <newVal>) or L.deleteKey(<base>, <key>)
         const curVarUpdates = allUpdates.filter(([, v]) => v === stateVar);
 
-        for (const [updateNode, , updPath] of curVarUpdates) {
+        for (const [updateNode, , updPath, , newValT] of curVarUpdates) {
             // Only interested in updates to the correct part of the state var
             if (!pathMatch(path, updPath)) {
                 continue;
@@ -370,7 +371,12 @@ export function interposeMap(
 
                 // Simple non-tuple case
                 if (lhsPath.length === 0) {
-                    replaceAssignmentHelper(instrCtx, assignment, lib);
+                    assert(
+                        newValT !== undefined,
+                        `Unexpected missing new value in {0}`,
+                        assignment
+                    );
+                    replaceAssignmentHelper(instrCtx, assignment, lib, newValT);
                     allRefsMap.delete(assignment.vLeftHandSide);
                 } else {
                     // Tuple assignment case.
@@ -386,7 +392,13 @@ export function interposeMap(
                         assignment
                     )) {
                         if (eq(tuplePath, lhsPath)) {
-                            replaceAssignmentHelper(instrCtx, tempAssignment, lib);
+                            assert(
+                                newValT !== undefined,
+                                `Unexpected missing new value in {0}`,
+                                assignment
+                            );
+
+                            replaceAssignmentHelper(instrCtx, tempAssignment, lib, newValT);
                             allRefsMap.delete(tempAssignment.vLeftHandSide);
                         }
                     }
@@ -459,6 +471,8 @@ export function interposeMap(
                 );
             }
         }
+
+        replaceNode(mapT, newMapT);
     }
 
     // 3. Replace all index accesses `<base>[<key>]` on `T` with `L.get(<base>, <key>)`

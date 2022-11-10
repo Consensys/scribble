@@ -66,7 +66,8 @@ import {
     isStateVarRef,
     isTypeAliasable,
     StateVarUpdateDesc,
-    StateVarUpdateNode
+    StateVarUpdateNode,
+    stateVarUpdateValToType
 } from "./state_vars";
 import { transpileType } from "./transpile";
 import { InstrumentationSiteType, TranspilingContext } from "./transpiling_context";
@@ -1192,6 +1193,7 @@ export function instrumentStateVars(
     allAnnotations: AnnotationMap,
     stateVarUpdates: StateVarUpdateDesc[]
 ): void {
+    const infer = ctx.typeEnv.inference;
     // First select only the state var annotations.
     const stateVarAnnots = new Map<VariableDeclaration, AnnotationMetaData[]>(
         [...allAnnotations.entries()].filter(
@@ -1264,7 +1266,7 @@ export function instrumentStateVars(
 
         const locList = getOrInit(node, locInstrumentMap, []);
 
-        locList.push([loc, varDecl, path, newVal]);
+        locList.push([loc, varDecl, path, newVal, stateVarUpdateValToType(infer, newVal)]);
 
         annotMap.set(stateVarUpdateNode2Str(loc), matchingVarAnnots);
     }

@@ -665,6 +665,8 @@ export function generateMapLibrary(
         []
     );
 
+    lib.linearizedBaseContracts.push(lib.id);
+
     container.appendChild(lib);
 
     const struct = makeStruct(factory, keyT, valueT, lib);

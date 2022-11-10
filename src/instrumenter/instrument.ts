@@ -148,6 +148,8 @@ export function generateUtilsContract(
         `Utility contract holding a stack counter`
     );
 
+    contract.linearizedBaseContracts.push(contract.id);
+
     sourceUnit.appendChild(contract);
 
     /// Add reentrancy boolean flag
