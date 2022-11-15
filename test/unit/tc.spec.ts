@@ -1656,15 +1656,7 @@ contract Statements04 {
 }
             `,
             [],
-            [
-                ["#assert 1;", ["Statements04", "main", "//Block/*[1]"]],
-                [
-                    "#assert iter <= arg1;",
-                    ["Statements04", "main", "//Block/*[5]/VariableDeclarationStatement"]
-                ],
-                ["#assert iter <= arg1;", ["Statements04", "main", "//Block/*[6]"]],
-                ["#assert loc + loc2 > 0;", ["Statements04", "main", "//Block/*[8]"]]
-            ]
+            [["#assert 1;", ["Statements04", "main", "//Block/*[1]"]]]
         ],
         [
             "statements08.sol",
