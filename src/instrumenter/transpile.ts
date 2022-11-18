@@ -17,8 +17,10 @@ import {
     FunctionDefinition,
     FunctionType,
     FunctionVisibility,
+    globalBuiltins,
     Identifier,
     ImportDirective,
+    ImportRefType,
     IntLiteralType,
     IntType,
     LiteralKind,
@@ -61,14 +63,8 @@ import {
     SUserFunctionDefinition,
     VarDefSite
 } from "../spec-lang/ast";
-import {
-    BuiltinSymbols,
-    decomposeStateVarRef,
-    SemInfo,
-    StateVarScope,
-    unwrapOld
-} from "../spec-lang/tc";
-import { FunctionSetType, ImportRefType } from "../spec-lang/tc/internal_types";
+import { decomposeStateVarRef, SemInfo, StateVarScope, unwrapOld } from "../spec-lang/tc";
+import { FunctionSetType } from "../spec-lang/tc/internal_types";
 import { single } from "../util/misc";
 import {
     AnnotationMetaData,
@@ -282,7 +278,7 @@ function transpileId(expr: SId, ctx: TranspilingContext): Expression {
     const typeEnv = ctx.typeEnv;
     const factory = ctx.factory;
 
-    if (BuiltinSymbols.has(expr.name)) {
+    if (globalBuiltins.members.has(expr.name)) {
         return factory.makeIdentifier("<missing>", expr.name, -1);
     }
 
@@ -454,7 +450,7 @@ function transpileId(expr: SId, ctx: TranspilingContext): Expression {
 
         referrencedDef = exprT.definition;
     } else if (exprT instanceof ImportRefType) {
-        referrencedDef = exprT.impStatement;
+        referrencedDef = exprT.importStmt;
     } else if (exprT instanceof TypeNameType && exprT.type instanceof UserDefinedType) {
         referrencedDef = exprT.type.definition;
     } else {

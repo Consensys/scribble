@@ -1,6 +1,7 @@
 import {
     ArrayType,
     assert,
+    BuiltinFunctionType,
     BytesType,
     FunctionStateMutability,
     FunctionType,
@@ -532,7 +533,17 @@ export function scFunctionCall(
 
     if (calleeT instanceof FunctionType) {
         const isConst = calleeT.mutability === FunctionStateMutability.Pure && allArgsConst;
+
         return { isOld: ctx.isOld, isConst: isConst, canFail: true };
+    }
+
+    /**
+     * @todo This is not precise as it was with typeString parser
+     * due to not all builtins have state mutability indicator.
+     * Figure out what to do with it.
+     */
+    if (calleeT instanceof BuiltinFunctionType) {
+        return { isOld: ctx.isOld, isConst: false, canFail: true };
     }
 
     throw new Error(`Internal error: NYI semcheck for ${expr.pp()}`);

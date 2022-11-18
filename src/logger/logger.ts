@@ -33,38 +33,6 @@ class LoggerManager {
         }
     }
 
-    log(message: string, name?: string) {
-        name = name || this.defaultName;
-
-        if (this.isAllowed(name)) {
-            this.getInstance(name).log(message);
-        }
-    }
-
-    info(message: string, name?: string) {
-        name = name || this.defaultName;
-
-        if (this.isAllowed(name)) {
-            this.getInstance(name).info(message);
-        }
-    }
-
-    warn(message: string, name?: string) {
-        name = name || this.defaultName;
-
-        if (this.isAllowed(name)) {
-            this.getInstance(name).warn(message);
-        }
-    }
-
-    error(message: string, name?: string) {
-        name = name || this.defaultName;
-
-        if (this.isAllowed(name)) {
-            this.getInstance(name).error(message);
-        }
-    }
-
     private getInstance(name: string): any {
         if (!(name in this.instances)) {
             this.instances[name] = LogPlease.create(name);
