@@ -108,7 +108,7 @@ describe("SemanticChecker Expression Unit Tests", () => {
                 [
                     "1",
                     ["Foo"],
-                    new IntLiteralType(),
+                    new IntLiteralType(BigInt(1)),
                     { isOld: false, isConst: true, canFail: false }
                 ],
                 [
@@ -138,25 +138,25 @@ describe("SemanticChecker Expression Unit Tests", () => {
                 [
                     "1e10",
                     ["Foo"],
-                    new IntLiteralType(),
+                    new IntLiteralType(BigInt(10 ** 10)),
                     { isOld: false, isConst: true, canFail: false }
                 ],
                 [
                     "10e+5",
                     ["Foo"],
-                    new IntLiteralType(),
+                    new IntLiteralType(BigInt(10 ** 6)),
                     { isOld: false, isConst: true, canFail: false }
                 ],
                 [
                     "1000e-2",
                     ["Foo"],
-                    new IntLiteralType(),
+                    new IntLiteralType(BigInt(10)),
                     { isOld: false, isConst: true, canFail: false }
                 ],
                 [
                     "old(1)",
                     ["Foo", "add"],
-                    new IntLiteralType(),
+                    new IntLiteralType(BigInt(1)),
                     { isOld: false, isConst: true, canFail: false }
                 ],
                 [

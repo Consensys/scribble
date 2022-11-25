@@ -1,4 +1,5 @@
 import { satisfies } from "semver";
+import { evalBinaryImpl } from "solc-typed-ast";
 import {
     AddressType,
     AnyResolvable,
@@ -9,6 +10,7 @@ import {
     ASTNodeConstructor,
     BoolType,
     BytesType,
+    castable,
     ContractDefinition,
     ContractKind,
     DataLocation,
@@ -562,7 +564,7 @@ export function tcAnnotation(
 
         const actualType = tc(annot.value, ctx, typeEnv);
 
-        if (!isImplicitlyCastable(actualType, annot.formalType)) {
+        if (!castable(actualType, annot.formalType, typeEnv.compilerVersion)) {
             throw new SWrongType(
                 `User constant ${
                     annot.name.name
@@ -610,7 +612,7 @@ export function tcAnnotation(
 
         const bodyType = tc(annot.body, addScope(ctx, annot), typeEnv);
 
-        if (!isImplicitlyCastable(bodyType, annot.returnType)) {
+        if (!castable(bodyType, annot.returnType, typeEnv.compilerVersion)) {
             throw new SWrongType(
                 `User function ${
                     annot.name
@@ -654,7 +656,7 @@ export function tc(expr: SNode | TypeNode, ctx: STypingCtx, typeEnv: TypeEnv): T
     }
 
     if (expr instanceof SNumber) {
-        return cache(expr, new IntLiteralType());
+        return cache(expr, new IntLiteralType(expr.num));
     }
 
     if (expr instanceof SBooleanLiteral) {
@@ -1190,74 +1192,28 @@ export function tcUnary(expr: SUnaryOperation, ctx: STypingCtx, typeEnv: TypeEnv
 
     if (expr.op === "-") {
         const innerT = tc(expr.subexp, ctx, typeEnv);
-        if (!(innerT instanceof IntLiteralType || innerT instanceof IntType)) {
-            throw new SWrongType(
-                `Operation '-' expectes int or int literal, not ${innerT.pp()} in ${expr.pp()}`,
-                expr.subexp,
-                innerT
-            );
+
+        if (
+            innerT instanceof IntType ||
+            (innerT instanceof IntLiteralType && innerT.literal === undefined)
+        ) {
+            return innerT;
         }
 
-        return innerT;
+        if (innerT instanceof IntLiteralType && innerT.literal !== undefined) {
+            return new IntLiteralType(-innerT.literal);
+        }
+
+        throw new SWrongType(
+            `Operation '-' expectes int or int literal, not ${innerT.pp()} in ${expr.pp()}`,
+            expr.subexp,
+            innerT
+        );
     }
 
     assert(expr.op === "old", `Internal error: NYI unary op ${expr.op}`);
 
     return tc(expr.subexp, oldCtx(ctx), typeEnv);
-}
-
-/**
- * @todo Can it be replaced with `castable()` from solc-typed-ast?
- *
- * Return true IFF the expression `expr` of type `type` can be implicitly casted to the type `to`.
- */
-export function isImplicitlyCastable(type: TypeNode, to: TypeNode): boolean {
-    // The two types are equal - no cast neccessary
-    if (eq(type, to)) {
-        return true;
-    }
-
-    // int literal types can be casted to int types.
-    // @todo once we get a constant expression evaluator add an optional `expr`
-    // argument and check if it fits in `to`
-    if (type instanceof IntLiteralType && to instanceof IntType) {
-        return true;
-    }
-
-    // string literals can be implicitly cast to bytes/strings
-    if (
-        type instanceof StringLiteralType &&
-        to instanceof PointerType &&
-        (to.to instanceof BytesType || to.to instanceof StringType)
-    ) {
-        return true;
-    }
-
-    // ints can be implicitly cast to wider ints with the same sign
-    if (type instanceof IntType && to instanceof IntType) {
-        return type.signed === to.signed && type.nBits <= to.nBits;
-    }
-
-    // address (including payable) can be cast to non-payable address
-    if (type instanceof AddressType && to instanceof AddressType) {
-        return !to.payable;
-    }
-
-    // Allow implicit casts of the same type between calldata, storage and memory
-    if (type instanceof PointerType && to instanceof PointerType && eq(type.to, to.to)) {
-        return true;
-    }
-
-    // User-defined value types
-    if (
-        type instanceof UserDefinedType &&
-        to instanceof UserDefinedType &&
-        type.definition === to.definition
-    ) {
-        return true;
-    }
-
-    return false;
 }
 
 /**
@@ -1274,14 +1230,21 @@ function unifyTypes(
     typeA: TypeNode,
     exprB: SNode,
     typeB: TypeNode,
-    commonParent: SNode
+    commonParent: SNode,
+    compilerVersion: string
 ): TypeNode {
-    if (isImplicitlyCastable(typeA, typeB)) {
+    if (castable(typeA, typeB, compilerVersion)) {
         return typeB;
     }
 
-    if (isImplicitlyCastable(typeB, typeA)) {
+    if (castable(typeB, typeA, compilerVersion)) {
         return typeA;
+    }
+
+    // Bit of a hack, but if we are trying to unify 2 concrete int literal types,
+    // just return the generic int literal type with no concrete literal.
+    if (typeA instanceof IntLiteralType && typeB instanceof IntLiteralType) {
+        return new IntLiteralType();
     }
 
     throw new IncompatibleTypes(
@@ -1308,6 +1271,17 @@ export function tcBinary(expr: SBinaryOperation, ctx: STypingCtx, typeEnv: TypeE
     // Arithmetic binary expressions require the two types to be integer and implicitly castable to each other.
     if (expr.op === "**") {
         if (
+            lhsT instanceof IntLiteralType &&
+            lhsT.literal !== undefined &&
+            rhsT instanceof IntLiteralType &&
+            rhsT.literal !== undefined
+        ) {
+            const res = evalBinaryImpl(expr.op, lhsT.literal, rhsT.literal);
+
+            return new IntLiteralType(res as bigint);
+        }
+
+        if (
             !(rhsT instanceof IntType || rhsT instanceof IntLiteralType) ||
             (rhsT instanceof IntType && rhsT.signed) ||
             (expr.right instanceof SNumber && expr.right.num < 0)
@@ -1331,6 +1305,17 @@ export function tcBinary(expr: SBinaryOperation, ctx: STypingCtx, typeEnv: TypeE
     }
 
     if (["*", "%", "/", "+", "-"].includes(expr.op)) {
+        if (
+            lhsT instanceof IntLiteralType &&
+            lhsT.literal !== undefined &&
+            rhsT instanceof IntLiteralType &&
+            rhsT.literal !== undefined
+        ) {
+            const res = evalBinaryImpl(expr.op, lhsT.literal, rhsT.literal);
+
+            return new IntLiteralType(res as bigint);
+        }
+
         if (!(lhsT instanceof IntType || lhsT instanceof IntLiteralType)) {
             throw new SWrongType(
                 `Type of ${expr.left.pp()} (${lhsT.pp()}) incompatible with ${expr.op} operator.`,
@@ -1347,11 +1332,22 @@ export function tcBinary(expr: SBinaryOperation, ctx: STypingCtx, typeEnv: TypeE
             );
         }
 
-        return unifyTypes(expr.left, lhsT, expr.right, rhsT, expr);
+        return unifyTypes(expr.left, lhsT, expr.right, rhsT, expr, typeEnv.compilerVersion);
     }
 
     // Bit shifts require that the lhs is integer, int constant or fixed bytes and that the rhs is an int or int literal
     if (["<<", ">>"].includes(expr.op)) {
+        if (
+            lhsT instanceof IntLiteralType &&
+            lhsT.literal !== undefined &&
+            rhsT instanceof IntLiteralType &&
+            rhsT.literal !== undefined
+        ) {
+            const res = evalBinaryImpl(expr.op, lhsT.literal, rhsT.literal);
+
+            return new IntLiteralType(res as bigint);
+        }
+
         if (
             !(
                 lhsT instanceof IntType ||
@@ -1409,14 +1405,22 @@ export function tcBinary(expr: SBinaryOperation, ctx: STypingCtx, typeEnv: TypeE
             );
         }
 
-        // Make sure the two types unify
-        unifyTypes(expr.left, lhsT, expr.right, rhsT, expr);
+        // Make sure the two types unify. Ignore this if they are both int literals
+        unifyTypes(expr.left, lhsT, expr.right, rhsT, expr, typeEnv.compilerVersion);
+
         return new BoolType();
     }
 
     if (["==", "!="].includes(expr.op)) {
         // Equality operators allow for the same or implicitly castable types.
-        const commonType = unifyTypes(expr.left, lhsT, expr.right, rhsT, expr);
+        const commonType = unifyTypes(
+            expr.left,
+            lhsT,
+            expr.right,
+            rhsT,
+            expr,
+            typeEnv.compilerVersion
+        );
 
         if (commonType instanceof PointerType) {
             throw new SWrongType(
@@ -1440,7 +1444,7 @@ export function tcBinary(expr: SBinaryOperation, ctx: STypingCtx, typeEnv: TypeE
                 rhsT instanceof IntLiteralType ||
                 rhsT instanceof FixedBytesType)
         ) {
-            return unifyTypes(expr.left, lhsT, expr.right, rhsT, expr);
+            return unifyTypes(expr.left, lhsT, expr.right, rhsT, expr, typeEnv.compilerVersion);
         }
 
         throw new IncompatibleTypes(
@@ -1495,7 +1499,7 @@ export function tcConditional(expr: SConditional, ctx: STypingCtx, typeEnv: Type
         );
     }
 
-    return unifyTypes(expr.trueExp, trueT, expr.falseExp, falseT, expr);
+    return unifyTypes(expr.trueExp, trueT, expr.falseExp, falseT, expr, typeEnv.compilerVersion);
 }
 
 export function tcIndexAccess(expr: SIndexAccess, ctx: STypingCtx, typeEnv: TypeEnv): TypeNode {
@@ -1539,7 +1543,7 @@ export function tcIndexAccess(expr: SIndexAccess, ctx: STypingCtx, typeEnv: Type
         }
 
         if (toT instanceof MappingType) {
-            if (!isImplicitlyCastable(indexT, toT.keyType)) {
+            if (!castable(indexT, toT.keyType, typeEnv.compilerVersion)) {
                 throw new SWrongType(
                     `Cannot index into ${expr.base.pp()} with ${expr.index.pp()} of type ${indexT.pp()}`,
                     expr.index,
@@ -1915,7 +1919,7 @@ function matchArguments(
             return true;
         }
 
-        if (!isImplicitlyCastable(argTs[i], formalT)) {
+        if (!castable(argTs[i], formalT, inference.version)) {
             return false;
         }
     }
@@ -1942,7 +1946,7 @@ export function tcForAll(expr: SForAll, ctx: STypingCtx, typeEnv: TypeEnv): Type
             (containerT instanceof PointerType && containerT.to instanceof ArrayType) ||
             containerT instanceof FixedBytesType
         ) {
-            if (!isImplicitlyCastable(expr.iteratorType, uintT)) {
+            if (!castable(expr.iteratorType, uintT, typeEnv.compilerVersion)) {
                 throw new SWrongType(
                     `The type ${expr.iteratorType.pp()} of the iterator variable ${expr.iteratorVariable.pp()} is not compatible with iterator type uint of ${expr.container.pp()}.`,
                     expr.iteratorVariable,
@@ -1951,7 +1955,7 @@ export function tcForAll(expr: SForAll, ctx: STypingCtx, typeEnv: TypeEnv): Type
             }
         } else if (containerT instanceof PointerType && containerT.to instanceof MappingType) {
             const keyT = containerT.to.keyType;
-            if (!isImplicitlyCastable(keyT, varT)) {
+            if (!castable(keyT, varT, typeEnv.compilerVersion)) {
                 throw new SWrongType(
                     `The type for the iterator variable ${
                         expr.iteratorVariable.name
@@ -1988,7 +1992,7 @@ export function tcForAll(expr: SForAll, ctx: STypingCtx, typeEnv: TypeEnv): Type
             );
         }
 
-        if (!isImplicitlyCastable(startT, expr.iteratorType)) {
+        if (!castable(startT, expr.iteratorType, typeEnv.compilerVersion)) {
             throw new SWrongType(
                 `The type for ${expr.iteratorVariable.pp()} is not compatible with the start range type ${startT.pp()}.`,
                 expr.iteratorVariable,
@@ -1996,7 +2000,7 @@ export function tcForAll(expr: SForAll, ctx: STypingCtx, typeEnv: TypeEnv): Type
             );
         }
 
-        if (!isImplicitlyCastable(endT, expr.iteratorType)) {
+        if (!castable(endT, expr.iteratorType, typeEnv.compilerVersion)) {
             throw new SWrongType(
                 `The type for ${expr.iteratorVariable.pp()} is not compatible with the end range type ${endT.pp()}.`,
                 expr.iteratorVariable,

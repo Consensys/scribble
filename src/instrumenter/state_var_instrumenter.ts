@@ -5,7 +5,6 @@ import {
     ArrayTypeName,
     assert,
     Assignment,
-    ASTNode,
     ASTNodeFactory,
     Block,
     BoolType,
@@ -82,16 +81,11 @@ import { getTypeLocation } from "./utils";
 function getMaterialExprType(
     inference: InferType,
     e: Expression,
-    ctx: ASTNode,
-    expectedType?: TypeNode
+    expectedType: TypeNode
 ): TypeNode {
     /**
      * Sanitize the parsed `actualType` by replacing any int_const types with the
      * concrete integer type expected at that location, and any string literal types with
-     * `string memory`. Note this code makes the assumption that int literals and string literal
-     * types CANNOT show up inside array/mapping types (which I think is true?).
-     *
-     * @todo Reconsider due to recent changes in solc-typed-ast.
      */
     const sanitizeType = (actualType: TypeNode, expectedType: TypeNode): TypeNode => {
         if (actualType instanceof IntLiteralType) {
@@ -128,7 +122,7 @@ function getMaterialExprType(
 
     const parsedType = inference.typeOf(e);
 
-    return expectedType !== undefined ? sanitizeType(parsedType, expectedType) : parsedType;
+    return sanitizeType(parsedType, expectedType);
 }
 
 export type ConcreteDatastructurePathWTypes = Array<[TypeName, Expression] | string>;
@@ -313,7 +307,6 @@ function getWrapperName(
             const exprT = getMaterialExprType(
                 inference,
                 expr,
-                updateNode,
                 inference.typeNameToTypeNode(expectedTyp)
             );
 
@@ -324,7 +317,7 @@ function getWrapperName(
     const additionalArgsString = additionalArgs
         .map(([expr, typ]) =>
             getTypeDescriptor(
-                getMaterialExprType(inference, expr, updateNode, inference.typeNameToTypeNode(typ))
+                getMaterialExprType(inference, expr, inference.typeNameToTypeNode(typ))
             )
         )
         .join("_");
@@ -505,7 +498,6 @@ function makeWrapper(
         const exprT = getMaterialExprType(
             ctx.typeEnv.inference,
             keyExp,
-            updateNode,
             ctx.typeEnv.inference.typeNameToTypeNode(keyT)
         );
 
@@ -518,7 +510,6 @@ function makeWrapper(
         const exprT = getMaterialExprType(
             ctx.typeEnv.inference,
             actual,
-            updateNode,
             ctx.typeEnv.inference.typeNameToTypeNode(formalT)
         );
 
@@ -585,18 +576,14 @@ function makeWrapper(
     // Add any return parameters if needed
     if (rewrittenNode instanceof UnaryOperation) {
         if (["++", "--"].includes(rewrittenNode.operator)) {
-            const retT = getMaterialExprType(ctx.typeEnv.inference, rewrittenNode, updateNode);
+            const retT = ctx.typeEnv.inference.typeOf(updateNode);
 
             assert(retT instanceof IntType, "Expected {0} to be an IntType", retT);
 
             retParamTs.push(retT);
         }
     } else if (rewrittenNode instanceof Assignment) {
-        const retT = getMaterialExprType(
-            ctx.typeEnv.inference,
-            rewrittenNode.vLeftHandSide,
-            updateNode
-        );
+        const retT = ctx.typeEnv.inference.typeOf(updateNode);
 
         assert(
             !(retT instanceof TupleType),
@@ -890,7 +877,7 @@ export function explodeTupleAssignment(
                 replaceLHS(lhsComp, tuplePath.concat(i));
             }
         } else {
-            const rawLhsT = getMaterialExprType(ctx.typeEnv.inference, lhs, updateNode);
+            const rawLhsT = ctx.typeEnv.inference.typeOf(lhs);
             // Note that if the LHS is a storage pointer, we don't want to create temporary pointers to storage,
             // since the RHS may come from memory. So the resulting code wouldn't compile. So we always convert the
             // LHS types to memory (if they are aliasable)
