@@ -1,5 +1,4 @@
-import { satisfies } from "semver";
-import { evalBinaryImpl } from "solc-typed-ast";
+import { evalBinaryImpl, getTypeForCompilerVersion, ImportRefType } from "solc-typed-ast";
 import {
     AddressType,
     AnyResolvable,
@@ -87,7 +86,7 @@ import {
     VarDefSite
 } from "../ast";
 import { AddressMembers, BuiltinSymbols } from "./builtins";
-import { BuiltinStructType, FunctionSetType, ImportRefType, VariableTypes } from "./internal_types";
+import { BuiltinStructType, FunctionSetType, VariableTypes } from "./internal_types";
 import { TypeEnv } from "./typeenv";
 
 export class StateVarScope implements PPAble {
@@ -788,22 +787,6 @@ function tcIdBuiltinType(expr: SId): TypeNameType | undefined {
     return undefined;
 }
 
-/**
- * @todo Do we have something similar in solc-typed-ast?
- */
-function getTypeForCompilerVersion(
-    typing: TypeNode | [TypeNode, string],
-    compilerVersion: string
-): TypeNode | undefined {
-    if (typing instanceof TypeNode) {
-        return typing;
-    }
-
-    const [type, version] = typing;
-
-    return satisfies(compilerVersion, version) ? type : undefined;
-}
-
 function tcIdBuiltinSymbol(
     expr: SNode,
     name: string,
@@ -1146,7 +1129,7 @@ export function tcId(expr: SId, ctx: STypingCtx, typeEnv: TypeEnv): TypeNode {
     retT = tcIdImportUnitRef(expr, ctx, typeEnv);
 
     if (retT !== undefined) {
-        expr.defSite = (retT as ImportRefType).impStatement;
+        expr.defSite = (retT as ImportRefType).importStmt;
 
         return retT;
     }
@@ -1749,7 +1732,7 @@ export function tcMemberAccess(expr: SMemberAccess, ctx: STypingCtx, typeEnv: Ty
     }
 
     if (baseT instanceof ImportRefType) {
-        const sourceUnit = baseT.impStatement.vSourceUnit;
+        const sourceUnit = baseT.importStmt.vSourceUnit;
         try {
             const tmpId = new SId(expr.member, expr.src);
             const res = tc(tmpId, fromCtx(ctx, { scopes: [sourceUnit], isOld: false }), typeEnv);

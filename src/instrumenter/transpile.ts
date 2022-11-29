@@ -19,6 +19,7 @@ import {
     FunctionVisibility,
     Identifier,
     ImportDirective,
+    ImportRefType,
     IntLiteralType,
     IntType,
     LiteralKind,
@@ -68,7 +69,7 @@ import {
     StateVarScope,
     unwrapOld
 } from "../spec-lang/tc";
-import { FunctionSetType, ImportRefType } from "../spec-lang/tc/internal_types";
+import { FunctionSetType } from "../spec-lang/tc/internal_types";
 import { single } from "../util/misc";
 import {
     AnnotationMetaData,
@@ -454,7 +455,7 @@ function transpileId(expr: SId, ctx: TranspilingContext): Expression {
 
         referrencedDef = exprT.definition;
     } else if (exprT instanceof ImportRefType) {
-        referrencedDef = exprT.impStatement;
+        referrencedDef = exprT.importStmt;
     } else if (exprT instanceof TypeNameType && exprT.type instanceof UserDefinedType) {
         referrencedDef = exprT.type.definition;
     } else {
