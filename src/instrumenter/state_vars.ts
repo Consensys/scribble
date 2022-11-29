@@ -19,6 +19,7 @@ import {
     FunctionTypeName,
     Identifier,
     IndexAccess,
+    InferType,
     InheritanceSpecifier,
     Mapping,
     MemberAccess,
@@ -29,7 +30,9 @@ import {
     SourceUnit,
     StructDefinition,
     TupleExpression,
+    TupleType,
     TypeName,
+    TypeNode,
     UnaryOperation,
     UserDefinedTypeName,
     VariableDeclaration,
@@ -520,14 +523,31 @@ export type StateVarUpdateNode =
  *    - undefined - in the cases where we do `.push(..)`, `.pop()`, `delete ...`,
  *    `x++`, `x--` we don't quite have a new value being assigned, so we leave
  *    this undefined.
- *
+ *  5) The type of the new value (of any). Otherwise undefined
  */
 export type StateVarUpdateDesc = [
     StateVarUpdateNode,
     VariableDeclaration,
     ConcreteDatastructurePath,
-    Expression | [Expression, number] | undefined
+    Expression | [Expression, number] | undefined,
+    TypeNode | undefined
 ];
+
+export function stateVarUpdateValToType(
+    infer: InferType,
+    newVal: Expression | [Expression, number] | undefined
+): TypeNode | undefined {
+    if (newVal instanceof Expression) {
+        return infer.typeOf(newVal);
+    } else if (newVal instanceof Array) {
+        const tupleT = infer.typeOf(newVal[0]);
+        assert(tupleT instanceof TupleType, `Expectd tuple type not {0} in {1}`, tupleT, newVal[0]);
+
+        return tupleT.elements[newVal[1]];
+    } else {
+        return undefined;
+    }
+}
 
 /**
  * Given a LHS expression that may be wrapped in `MemberAccess` and
@@ -682,6 +702,7 @@ export function findStateVarUpdates(
     ctx: InstrumentationContext
 ): StateVarUpdateDesc[] {
     const res: StateVarUpdateDesc[] = [];
+    const infer = ctx.typeEnv.inference;
 
     /**
      * Given some `lhs` expression, return the containing `Assignment`, and build the tuple path
@@ -729,7 +750,7 @@ export function findStateVarUpdates(
 
         const stateVarDecl = baseExp.vReferencedDeclaration as VariableDeclaration;
 
-        res.push([node, stateVarDecl, path, rhs]);
+        res.push([node, stateVarDecl, path, rhs, stateVarUpdateValToType(infer, rhs)]);
     };
 
     for (const unit of units) {
@@ -768,7 +789,10 @@ export function findStateVarUpdates(
 
                 const stateVarDecl = baseExp.vReferencedDeclaration as VariableDeclaration;
 
-                res.push([funCall, stateVarDecl, path, funCall.vArguments[2]]);
+                const newVal = funCall.vArguments[2];
+                const typ = infer.typeOf(newVal);
+
+                res.push([funCall, stateVarDecl, path, newVal, typ]);
 
                 continue;
             }
@@ -785,7 +809,7 @@ export function findStateVarUpdates(
                 );
 
                 // State variable inline initializer
-                res.push([lhs, lhs, [], rhs]);
+                res.push([lhs, lhs, [], rhs, infer.typeOf(rhs)]);
 
                 continue;
             }

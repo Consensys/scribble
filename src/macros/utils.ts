@@ -1,4 +1,3 @@
-import { parse as typeStringParse, TypeNode } from "solc-typed-ast";
 import YAML from "yaml";
 import { Scalar, YAMLMap, YAMLSeq } from "yaml/types";
 import { SourceFile } from "../util/sources";
@@ -7,7 +6,6 @@ import { checkYamlSchema, makeYamlRange, YamlSchemaError } from "../util/yaml";
 export interface MacroVariable {
     name: string;
     originalType: string;
-    type: TypeNode;
 }
 
 export interface MacroProperty {
@@ -62,9 +60,8 @@ export function readMacroDefinitions(source: SourceFile, defs: Map<string, Macro
         for (const variableItem of varItems) {
             const name = variableItem.key.value as string;
             const originalType = (variableItem.value as Scalar).value as string;
-            const type: TypeNode = typeStringParse(originalType, {});
 
-            variables.set(name, { name, originalType, type });
+            variables.set(name, { name, originalType });
         }
 
         const properties = new Map<string, MacroProperty[]>();

@@ -4,7 +4,6 @@ import {
     ASTContext,
     ASTNodeFactory,
     ContractDefinition,
-    FunctionCall,
     FunctionDefinition,
     SourceUnit,
     TupleExpression,
@@ -621,8 +620,8 @@ contract Foo {
             const [contract, fun] = findContractAndFun(units, contractName, funName);
             const factory = new ScribbleFactory(compilerVersion, reader.context);
 
-            const callSite: FunctionCall = single(
-                findExternalCalls(fun, "0.6.0"),
+            const callSite = single(
+                findExternalCalls(fun),
                 `Expect single external callsite per tested function`
             );
 

@@ -5,7 +5,6 @@ import {
     ArrayTypeName,
     assert,
     Assignment,
-    ASTNode,
     ASTNodeFactory,
     Block,
     BoolType,
@@ -26,9 +25,9 @@ import {
     FunctionStateMutability,
     FunctionVisibility,
     generalizeType,
-    getNodeTypeInCtx,
     Identifier,
     IfStatement,
+    InferType,
     IntLiteralType,
     IntType,
     Mapping,
@@ -47,7 +46,6 @@ import {
     TupleExpression,
     TupleType,
     TypeName,
-    typeNameToTypeNode,
     TypeNode,
     UnaryOperation,
     UncheckedBlock,
@@ -67,7 +65,8 @@ import {
     isStateVarRef,
     isTypeAliasable,
     StateVarUpdateDesc,
-    StateVarUpdateNode
+    StateVarUpdateNode,
+    stateVarUpdateValToType
 } from "./state_vars";
 import { transpileType } from "./transpile";
 import { InstrumentationSiteType, TranspilingContext } from "./transpiling_context";
@@ -80,16 +79,13 @@ import { getTypeLocation } from "./utils";
  * casts.
  */
 function getMaterialExprType(
+    inference: InferType,
     e: Expression,
-    version: string,
-    ctx: ASTNode,
-    expectedType?: TypeNode
+    expectedType: TypeNode
 ): TypeNode {
     /**
      * Sanitize the parsed `actualType` by replacing any int_const types with the
      * concrete integer type expected at that location, and any string literal types with
-     * `string memory`. Note this code makes the assumption that int literals and string literal
-     * types CANNOT show up inside array/mapping types (which I think is true?).
      */
     const sanitizeType = (actualType: TypeNode, expectedType: TypeNode): TypeNode => {
         if (actualType instanceof IntLiteralType) {
@@ -124,9 +120,9 @@ function getMaterialExprType(
         return actualType;
     };
 
-    const parsedType: TypeNode = getNodeTypeInCtx(e, version, ctx);
+    const parsedType = inference.typeOf(e);
 
-    return expectedType !== undefined ? sanitizeType(parsedType, expectedType) : parsedType;
+    return sanitizeType(parsedType, expectedType);
 }
 
 export type ConcreteDatastructurePathWTypes = Array<[TypeName, Expression] | string>;
@@ -297,7 +293,7 @@ function getWrapperName(
     varDecl: VariableDeclaration,
     path: Array<string | [TypeName, Expression]>,
     additionalArgs: Array<[Expression, TypeName]>,
-    version: string
+    inference: InferType
 ): string {
     const defContract = varDecl.vScope as ContractDefinition;
     const pathString = path
@@ -305,14 +301,15 @@ function getWrapperName(
             if (typeof el === "string") {
                 return el;
             }
+
             const [expectedTyp, expr] = el;
 
             const exprT = getMaterialExprType(
+                inference,
                 expr,
-                version,
-                updateNode,
-                typeNameToTypeNode(expectedTyp)
+                inference.typeNameToTypeNode(expectedTyp)
             );
+
             return `idx_${getTypeDescriptor(exprT)}`;
         })
         .join("_");
@@ -320,7 +317,7 @@ function getWrapperName(
     const additionalArgsString = additionalArgs
         .map(([expr, typ]) =>
             getTypeDescriptor(
-                getMaterialExprType(expr, version, updateNode, typeNameToTypeNode(typ))
+                getMaterialExprType(inference, expr, inference.typeNameToTypeNode(typ))
             )
         )
         .join("_");
@@ -468,7 +465,13 @@ function makeWrapper(
 
     const varDecl = baseExp.vReferencedDeclaration as VariableDeclaration;
     const definingContract = varDecl.vScope as ContractDefinition;
-    const funName = getWrapperName(updateNode, varDecl, path, additionalArgs, ctx.compilerVersion);
+    const funName = getWrapperName(
+        updateNode,
+        varDecl,
+        path,
+        additionalArgs,
+        ctx.typeEnv.inference
+    );
 
     // Check if we have already built a wrapper for this variable/path/update type. Otherwise build one now.
     const cached = ctx.wrapperCache.get(definingContract, funName);
@@ -493,10 +496,9 @@ function makeWrapper(
         replMap.set(keyExp.id, formalParamTs.length);
 
         const exprT = getMaterialExprType(
+            ctx.typeEnv.inference,
             keyExp,
-            ctx.compilerVersion,
-            updateNode,
-            typeNameToTypeNode(keyT)
+            ctx.typeEnv.inference.typeNameToTypeNode(keyT)
         );
 
         formalParamTs.push(exprT);
@@ -506,10 +508,9 @@ function makeWrapper(
         replMap.set(actual.id, formalParamTs.length);
 
         const exprT = getMaterialExprType(
+            ctx.typeEnv.inference,
             actual,
-            ctx.compilerVersion,
-            updateNode,
-            typeNameToTypeNode(formalT)
+            ctx.typeEnv.inference.typeNameToTypeNode(formalT)
         );
 
         formalParamTs.push(exprT);
@@ -575,18 +576,14 @@ function makeWrapper(
     // Add any return parameters if needed
     if (rewrittenNode instanceof UnaryOperation) {
         if (["++", "--"].includes(rewrittenNode.operator)) {
-            const retT = getMaterialExprType(rewrittenNode, ctx.compilerVersion, updateNode);
+            const retT = ctx.typeEnv.inference.typeOf(updateNode);
 
             assert(retT instanceof IntType, "Expected {0} to be an IntType", retT);
 
             retParamTs.push(retT);
         }
     } else if (rewrittenNode instanceof Assignment) {
-        const retT = getMaterialExprType(
-            rewrittenNode.vLeftHandSide,
-            ctx.compilerVersion,
-            updateNode
-        );
+        const retT = ctx.typeEnv.inference.typeOf(updateNode);
 
         assert(
             !(retT instanceof TupleType),
@@ -880,7 +877,7 @@ export function explodeTupleAssignment(
                 replaceLHS(lhsComp, tuplePath.concat(i));
             }
         } else {
-            const rawLhsT = getMaterialExprType(lhs, ctx.compilerVersion, updateNode);
+            const rawLhsT = ctx.typeEnv.inference.typeOf(lhs);
             // Note that if the LHS is a storage pointer, we don't want to create temporary pointers to storage,
             // since the RHS may come from memory. So the resulting code wouldn't compile. So we always convert the
             // LHS types to memory (if they are aliasable)
@@ -995,7 +992,7 @@ export function interposeInlineInitializer(
         containingContract
     );
 
-    const wrapperName = getWrapperName(updateNode, updateNode, [], [], ctx.compilerVersion);
+    const wrapperName = getWrapperName(updateNode, updateNode, [], [], ctx.typeEnv.inference);
 
     assert(
         !ctx.wrapperCache.has(containingContract, wrapperName),
@@ -1183,6 +1180,7 @@ export function instrumentStateVars(
     allAnnotations: AnnotationMap,
     stateVarUpdates: StateVarUpdateDesc[]
 ): void {
+    const infer = ctx.typeEnv.inference;
     // First select only the state var annotations.
     const stateVarAnnots = new Map<VariableDeclaration, AnnotationMetaData[]>(
         [...allAnnotations.entries()].filter(
@@ -1255,7 +1253,7 @@ export function instrumentStateVars(
 
         const locList = getOrInit(node, locInstrumentMap, []);
 
-        locList.push([loc, varDecl, path, newVal]);
+        locList.push([loc, varDecl, path, newVal, stateVarUpdateValToType(infer, newVal)]);
 
         annotMap.set(stateVarUpdateNode2Str(loc), matchingVarAnnots);
     }

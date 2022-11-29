@@ -3,6 +3,7 @@ import {
     assert,
     ASTNode,
     ASTNodeFactory,
+    BuiltinFunctionType,
     ContractDefinition,
     DataLocation,
     Expression,
@@ -16,7 +17,6 @@ import {
     FunctionStateMutability,
     FunctionType,
     FunctionVisibility,
-    getNodeType,
     MemberAccess,
     ModifierDefinition,
     Mutability,
@@ -340,7 +340,7 @@ export function interposeCall(
     const factory = ctx.factory;
     const callsite = decodeCallsite(call);
     const callee = callsite.callee;
-    const calleeT = getNodeType(callee, ctx.compilerVersion);
+    const calleeT = ctx.typeEnv.inference.typeOf(callee);
 
     assert(
         call.kind === FunctionCallKind.FunctionCall,
@@ -351,7 +351,7 @@ export function interposeCall(
     );
 
     assert(
-        calleeT instanceof FunctionType,
+        calleeT instanceof FunctionType || calleeT instanceof BuiltinFunctionType,
         "Expected external function type, not {0} for callee in {1}",
         calleeT,
         call
@@ -371,10 +371,14 @@ export function interposeCall(
     if (changesMutability(ctx)) {
         wrapperMut = FunctionStateMutability.NonPayable;
     } else {
-        wrapperMut =
-            calleeT.mutability === FunctionStateMutability.Payable
-                ? FunctionStateMutability.NonPayable
-                : calleeT.mutability;
+        if (calleeT instanceof BuiltinFunctionType) {
+            wrapperMut = FunctionStateMutability.NonPayable;
+        } else {
+            wrapperMut =
+                calleeT.mutability === FunctionStateMutability.Payable
+                    ? FunctionStateMutability.NonPayable
+                    : calleeT.mutability;
+        }
     }
 
     const wrapper = factory.makeFunctionDefinition(
@@ -400,7 +404,7 @@ export function interposeCall(
     let receiver: Expression;
     let callOriginalExp: Expression;
 
-    const baseT = getNodeType(callee.vExpression, ctx.compilerVersion);
+    const baseT = ctx.typeEnv.inference.typeOf(callee.vExpression);
 
     if (call.vFunctionCallType === ExternalReferenceType.UserDefined) {
         assert(

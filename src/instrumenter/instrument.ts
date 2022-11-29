@@ -5,6 +5,7 @@ import {
     ASTNode,
     ASTNodeFactory,
     Block,
+    BuiltinFunctionType,
     ContractDefinition,
     ContractKind,
     DataLocation,
@@ -19,8 +20,8 @@ import {
     FunctionStateMutability,
     FunctionType,
     FunctionVisibility,
-    getNodeType,
     IntType,
+    isFunctionCallExternal,
     Literal,
     LiteralKind,
     Mutability,
@@ -103,51 +104,20 @@ export function changesMutability(ctx: InstrumentationContext): boolean {
 }
 
 /**
- * Find all external calls in the `ContractDfinition`/`FunctionDefinition` `node`.
+ * Find all external calls in the `ContractDefinition`/`FunctionDefinition` `node`.
  * Ignore any calls that were inserted by instrumentation (we tell those appart by their `<missing>` typeString).
  */
-export function findExternalCalls(
-    node: ContractDefinition | FunctionDefinition,
-    version: string
-): FunctionCall[] {
-    const res: FunctionCall[] = [];
+export function findExternalCalls(node: ContractDefinition | FunctionDefinition): FunctionCall[] {
+    const interestingExternalCallBuiltins = ["call", "delegatecall", "staticcall"];
 
-    for (const call of node.getChildrenByType(FunctionCall)) {
-        if (call.kind !== FunctionCallKind.FunctionCall) {
-            continue;
-        }
-
-        // Skip any calls we've added as part of instrumentation
-        if (call.vExpression.typeString.includes("<missing>")) {
-            continue;
-        }
-
-        if (call.vFunctionCallType === ExternalReferenceType.Builtin) {
-            // For builtin calls check if its one of:
-            // (address).{call, delegatecall, staticcall}
-            if (!["call", "delegatecall", "staticcall"].includes(call.vFunctionName)) {
-                continue;
-            }
-        } else {
-            // For normal contract calls check if the type of the callee is an external function
-            const calleeType = getNodeType(call.vExpression, version);
-
-            assert(
-                calleeType instanceof FunctionType,
-                `Expected function type not {0} for callee in {1}`,
-                calleeType,
-                call
-            );
-
-            if (calleeType.visibility !== FunctionVisibility.External) {
-                continue;
-            }
-        }
-
-        res.push(call);
-    }
-
-    return res;
+    return node.getChildrenBySelector(
+        (node) =>
+            node instanceof FunctionCall &&
+            node.vExpression.typeString !== "<missing>" &&
+            isFunctionCallExternal(node) &&
+            (node.vFunctionCallType === ExternalReferenceType.UserDefined ||
+                interestingExternalCallBuiltins.includes(node.vFunctionName))
+    );
 }
 
 /**
@@ -177,6 +147,8 @@ export function generateUtilsContract(
         [],
         `Utility contract holding a stack counter`
     );
+
+    contract.linearizedBaseContracts.push(contract.id);
 
     sourceUnit.appendChild(contract);
 
@@ -996,7 +968,7 @@ function replaceExternalCallSites(
 ): void {
     const factory = ctx.factory;
 
-    for (const callSite of findExternalCalls(contract, ctx.compilerVersion)) {
+    for (const callSite of findExternalCalls(contract)) {
         const containingFun = callSite.getClosestParentByType(FunctionDefinition);
 
         if (
@@ -1007,16 +979,19 @@ function replaceExternalCallSites(
             continue;
         }
 
-        const calleeType = getNodeType(callSite.vExpression, ctx.compilerVersion);
+        const calleeType = ctx.typeEnv.inference.typeOf(callSite.vExpression);
 
         assert(
-            calleeType instanceof FunctionType,
+            calleeType instanceof FunctionType || calleeType instanceof BuiltinFunctionType,
             "Expected function type not {0} for callee in {1}",
             calleeType,
             callSite
         );
 
-        if (calleeType.mutability === FunctionStateMutability.Pure) {
+        if (
+            calleeType instanceof FunctionType &&
+            calleeType.mutability === FunctionStateMutability.Pure
+        ) {
             continue;
         }
 

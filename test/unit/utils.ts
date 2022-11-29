@@ -14,6 +14,7 @@ export function makeInstrumentationCtx(
     compilerVersion: string
 ): InstrumentationContext {
     const encVer = getABIEncoderVersion(sources, compilerVersion);
+    const inference = new InferType(compilerVersion);
     const srcFileMap: SourceMap = new Map(
         [...files.entries()].map(([name, contents]) => [name, new SolFile(name, contents)])
     );
@@ -24,7 +25,7 @@ export function makeInstrumentationCtx(
         assertionMode,
         assertionMode === "mstore",
         true,
-        getCallGraph(sources, encVer),
+        getCallGraph(inference, sources, encVer),
         getCHA(sources),
         {},
         [],
@@ -33,7 +34,7 @@ export function makeInstrumentationCtx(
         compilerVersion,
         false,
         "flat",
-        new TypeEnv(new InferType(compilerVersion), encVer),
+        new TypeEnv(inference, encVer),
         new Map(),
         []
     );

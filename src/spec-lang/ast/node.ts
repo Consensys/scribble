@@ -46,15 +46,6 @@ export abstract class SNode implements StructEqualityComparable, PPAble {
     }
 
     /**
-     * Return the `NodeLocation` of this Node. Throw an error if no location exists
-     */
-    get requiredSrc(): NodeLocation {
-        assert(this.src !== undefined, "Missing source information for node {0}", this);
-
-        return this.src;
-    }
-
-    /**
      * Return the `Range` of this Node. Throw an error if no location exists.
      * This works the same as `requiredSrc`, except in the case when this is an annotation
      * instantiated from a macro. In this case instead of the location (which is a pair of ranges)

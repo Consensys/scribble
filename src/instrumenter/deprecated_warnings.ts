@@ -3,6 +3,7 @@ import {
     ASTNode,
     ContractDefinition,
     FunctionDefinition,
+    InferType,
     SourceUnit,
     Statement,
     StatementWithChildren,
@@ -28,7 +29,7 @@ function findAnnotationsInStr(
     doc: StructuredDocumentation,
     ctx: ASTNode,
     rx: RegExp,
-    version: string,
+    inference: InferType,
     file: SourceFile,
     fixer: (match: RegExpExecArray, text: string) => string
 ): Array<Range | Location> {
@@ -39,11 +40,12 @@ function findAnnotationsInStr(
 
     while (match !== null) {
         let annotation: SAnnotation;
+
         try {
             annotation = parseAnnotation(
                 fixer(match, text),
                 ctx,
-                version,
+                inference,
                 file,
                 nodeOff + match.index
             );
@@ -54,7 +56,9 @@ function findAnnotationsInStr(
         }
 
         const rng = annotation.requiredRange;
+
         rx.lastIndex = match.index + rng.end.offset - rng.start.offset;
+
         res.push(indexToLocation(file, nodeOff + match.index));
 
         match = rx.exec(text);
@@ -66,7 +70,7 @@ function findAnnotationsInStr(
 export function findDeprecatedAnnotations(
     units: SourceUnit[],
     sources: SourceMap,
-    version: string
+    inference: InferType
 ): Warning[] {
     const res: Warning[] = [];
     const rxs: Array<[RegExp, string, (match: RegExpExecArray, txt: string) => string]> = [
@@ -119,8 +123,9 @@ export function findDeprecatedAnnotations(
                 child.documentation instanceof StructuredDocumentation
         ) as AnnotationTarget[]) {
             const doc = nd.documentation as StructuredDocumentation;
+
             for (const [rx, msg, fixer] of rxs) {
-                for (const location of findAnnotationsInStr(doc, nd, rx, version, file, fixer)) {
+                for (const location of findAnnotationsInStr(doc, nd, rx, inference, file, fixer)) {
                     res.push({ location, msg });
                 }
             }

@@ -381,7 +381,7 @@ function instrumentFiles(
                     continue;
                 }
 
-                let annotations = gatherFunctionAnnotations(fun, annotMap);
+                let annotations = gatherFunctionAnnotations(ctx.typeEnv.inference, fun, annotMap);
 
                 if (
                     (fun.visibility == FunctionVisibility.External ||
@@ -938,6 +938,8 @@ function loadInstrMetaData(fileName: string): InstrumentationMetaData {
             macroPaths.push(options["macro-path"]);
         }
 
+        const inference = new InferType(compilerVersionUsed);
+
         for (const macroPath of macroPaths) {
             try {
                 detectMacroDefinitions(macroPath, macros, contentsMap);
@@ -954,6 +956,7 @@ function loadInstrMetaData(fileName: string): InstrumentationMetaData {
         for (const unit of units) {
             if (!contentsMap.has(unit.absolutePath) && files.has(unit.sourceEntryKey)) {
                 const resolvedPath = resolvedFilesMap.get(unit.absolutePath);
+
                 assert(
                     resolvedPath !== undefined,
                     `Missing resolved path for ${unit.absolutePath}`
@@ -968,11 +971,11 @@ function loadInstrMetaData(fileName: string): InstrumentationMetaData {
 
         const cha = getCHA(units);
         const abiEncoderVersion = getABIEncoderVersion(units, compilerVersionUsed);
-        const callgraph = getCallGraph(units, abiEncoderVersion);
+        const callgraph = getCallGraph(inference, units, abiEncoderVersion);
 
         const annotExtractionCtx: AnnotationExtractionContext = {
             filterOptions,
-            compilerVersion: compilerVersionUsed,
+            inference,
             macros
         };
 
@@ -992,8 +995,7 @@ function loadInstrMetaData(fileName: string): InstrumentationMetaData {
             throw e;
         }
 
-        const typeInfer = new InferType(compilerVersionUsed);
-        const typeEnv = new TypeEnv(typeInfer, abiEncoderVersion);
+        const typeEnv = new TypeEnv(inference, abiEncoderVersion);
         const semMap: SemMap = new Map();
 
         let interposingQueue: Array<[VariableDeclaration, AbsDatastructurePath]>;
@@ -1040,11 +1042,7 @@ function loadInstrMetaData(fileName: string): InstrumentationMetaData {
                 );
             }
 
-            for (const warning of findDeprecatedAnnotations(
-                units,
-                contentsMap,
-                compilerVersionUsed
-            )) {
+            for (const warning of findDeprecatedAnnotations(units, contentsMap, inference)) {
                 console.error(ppWarning(warning).join("\n"));
             }
         }
