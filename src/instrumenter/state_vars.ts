@@ -539,14 +539,17 @@ export function stateVarUpdateValToType(
 ): TypeNode | undefined {
     if (newVal instanceof Expression) {
         return infer.typeOf(newVal);
-    } else if (newVal instanceof Array) {
+    }
+
+    if (newVal instanceof Array) {
         const tupleT = infer.typeOf(newVal[0]);
+
         assert(tupleT instanceof TupleType, `Expectd tuple type not {0} in {1}`, tupleT, newVal[0]);
 
         return tupleT.elements[newVal[1]];
-    } else {
-        return undefined;
     }
+
+    return undefined;
 }
 
 /**

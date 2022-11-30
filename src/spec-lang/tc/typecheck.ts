@@ -1,13 +1,16 @@
-import { evalBinaryImpl, getTypeForCompilerVersion, ImportRefType } from "solc-typed-ast";
 import {
+    addressBuiltins,
     AddressType,
     AnyResolvable,
+    applySubstitution,
     ArrayType,
     ArrayTypeName,
     assert,
     ASTNode,
     ASTNodeConstructor,
     BoolType,
+    BuiltinFunctionType,
+    BuiltinStructType,
     BytesType,
     castable,
     ContractDefinition,
@@ -15,13 +18,16 @@ import {
     DataLocation,
     EnumDefinition,
     eq,
+    evalBinaryImpl,
     FixedBytesType,
     FunctionDefinition,
     FunctionStateMutability,
     FunctionType,
     FunctionVisibility,
     generalizeType,
+    globalBuiltins,
     ImportDirective,
+    ImportRefType,
     InferType,
     IntLiteralType,
     IntType,
@@ -39,9 +45,12 @@ import {
     StatementWithChildren,
     StateVariableVisibility,
     StringLiteralType,
-    StringType,
     StructDefinition,
+    TRest,
     TupleType,
+    typeContract,
+    typeInt,
+    typeInterface,
     TypeName,
     TypeNameType,
     TypeNode,
@@ -52,7 +61,6 @@ import {
     VariableDeclaration,
     VariableDeclarationStatement
 } from "solc-typed-ast";
-import { ContractTypeMembers, InterfaceTypeMembers, NumberLikeTypeMembers } from ".";
 import { AnnotationMap, AnnotationMetaData, AnnotationTarget } from "../../instrumenter";
 import { Logger } from "../../logger";
 import { last, single, topoSort } from "../../util";
@@ -85,8 +93,7 @@ import {
     SUserFunctionDefinition,
     VarDefSite
 } from "../ast";
-import { AddressMembers, BuiltinSymbols } from "./builtins";
-import { BuiltinStructType, FunctionSetType, VariableTypes } from "./internal_types";
+import { FunctionSetType } from "./internal_types";
 import { TypeEnv } from "./typeenv";
 
 export class StateVarScope implements PPAble {
@@ -737,54 +744,22 @@ export class BuiltinTypeDetector {
     }
 }
 
-export const BuiltinTypeDetectors: BuiltinTypeDetector[] = [
-    new BuiltinTypeDetector(/^bool$/, () => new BoolType()),
-    new BuiltinTypeDetector(/^string$/, () => new StringType()),
-    new BuiltinTypeDetector(
-        /^address( )*(payable)?$/,
-        (matches) => new AddressType(matches[2] !== "")
-    ),
-    new BuiltinTypeDetector(/^bytes([0-9]?[0-9]?)$/, (matches) => {
-        if (matches[1] === "") {
-            return new BytesType();
-        }
+function tcIdBuiltinType(expr: SId, typeEnv: TypeEnv): TypeNameType | undefined {
+    const type = typeEnv.inference.elementaryTypeNameStringToTypeNode(expr.name);
 
-        const width = parseInt(matches[1]);
-
-        if (width < 1 || width > 32) {
-            return undefined;
-        }
-
-        return new FixedBytesType(width);
-    }),
-    new BuiltinTypeDetector(/^byte$/, () => new FixedBytesType(1)),
-    new BuiltinTypeDetector(/^(u)?int([0-9]?[0-9]?[0-9]?)$/, (matches) => {
-        const isSigned = matches[1] !== "u";
-
-        if (matches[2] === "") {
-            return new IntType(256, isSigned);
-        }
-
-        const width = parseInt(matches[2]);
-
-        if (width % 8 !== 0 || width < 8 || width > 256) {
-            return undefined;
-        }
-
-        return new IntType(width, isSigned);
-    })
-];
-
-function tcIdBuiltinType(expr: SId): TypeNameType | undefined {
-    for (const detector of BuiltinTypeDetectors) {
-        const type = detector.detect(expr.name);
-
-        if (type) {
-            return new TypeNameType(type);
-        }
+    if (type === undefined) {
+        return undefined;
     }
 
-    return undefined;
+    if (type instanceof FixedBytesType && (type.size < 1 || type.size > 32)) {
+        return undefined;
+    }
+
+    if (type instanceof IntType && (type.nBits % 8 !== 0 || type.nBits < 8 || type.nBits > 256)) {
+        return undefined;
+    }
+
+    return new TypeNameType(type);
 }
 
 function tcIdBuiltinSymbol(
@@ -793,30 +768,9 @@ function tcIdBuiltinSymbol(
     typeEnv: TypeEnv,
     isAddressMember = false
 ): TypeNode | undefined {
-    const mapping = isAddressMember ? AddressMembers : BuiltinSymbols;
-    const typing = mapping.get(name);
+    const mapping = isAddressMember ? addressBuiltins : globalBuiltins;
 
-    /**
-     * There is no typing for the builtin name.
-     *
-     * Leave handling to callers by returning `undefined`.
-     */
-    if (typing === undefined) {
-        return undefined;
-    }
-
-    const type = getTypeForCompilerVersion(typing, typeEnv.compilerVersion);
-
-    /**
-     * There is a typing, but it is not covered by the target compiler version.
-     *
-     * Throw an error to inform user.
-     */
-    if (type === undefined) {
-        throw new SInaccessibleForVersion(expr, name, typeEnv.compilerVersion);
-    }
-
-    return type;
+    return mapping.getFieldForVersion(name, typeEnv.compilerVersion);
 }
 
 /**
@@ -1050,7 +1004,7 @@ export function tcId(expr: SId, ctx: STypingCtx, typeEnv: TypeEnv): TypeNode {
     }
 
     // First try to TC the id as a builtin type
-    let retT: TypeNode | undefined = tcIdBuiltinType(expr);
+    let retT: TypeNode | undefined = tcIdBuiltinType(expr, typeEnv);
 
     if (retT !== undefined) {
         return retT;
@@ -1539,30 +1493,25 @@ export function tcIndexAccess(expr: SIndexAccess, ctx: STypingCtx, typeEnv: Type
     throw new SWrongType(`Cannot index into the type ${baseT.pp()}`, expr, baseT);
 }
 
-/**
- * @todo Seems to need rework due to recent changes in solc-typed-ast.
- */
+function getFieldOfBuiltinStruct(
+    struct: BuiltinStructType,
+    expr: SMemberAccess,
+    typeEnv: TypeEnv
+): TypeNode {
+    const type = struct.getFieldForVersion(expr.member, typeEnv.compilerVersion);
+
+    if (type === undefined) {
+        throw new SInaccessibleForVersion(expr, expr.member, typeEnv.compilerVersion);
+    }
+
+    return type;
+}
+
 export function tcMemberAccess(expr: SMemberAccess, ctx: STypingCtx, typeEnv: TypeEnv): TypeNode {
     const baseT = tc(expr.base, ctx, typeEnv);
 
     if (baseT instanceof BuiltinStructType) {
-        const typing = baseT.members.get(expr.member);
-
-        if (typing === undefined) {
-            throw new SNoField(
-                `Builtin struct "${expr.base.pp()}" does not have a member "${expr.member}"`,
-                expr,
-                expr.member
-            );
-        }
-
-        const type = getTypeForCompilerVersion(typing, typeEnv.compilerVersion);
-
-        if (type === undefined) {
-            throw new SInaccessibleForVersion(expr, expr.member, typeEnv.compilerVersion);
-        }
-
-        return type;
+        return getFieldOfBuiltinStruct(baseT, expr, typeEnv);
     }
 
     if (baseT instanceof PointerType) {
@@ -1862,11 +1811,10 @@ export function tcLet(expr: SLet, ctx: STypingCtx, typeEnv: TypeEnv): TypeNode {
  */
 function matchArguments(
     inference: InferType,
-    arg: SNode[],
     argTs: TypeNode[],
-    callable: FunctionDefinition | VariableDeclaration | FunctionType
+    callable: FunctionDefinition | VariableDeclaration | FunctionType | BuiltinFunctionType
 ) {
-    let funT: FunctionType;
+    let funT: FunctionType | BuiltinFunctionType;
 
     if (callable instanceof FunctionDefinition) {
         funT = inference.funDefToType(callable);
@@ -1876,7 +1824,7 @@ function matchArguments(
         funT = callable;
     }
 
-    const isVariadic = funT.parameters.length > 0 && last(funT.parameters) instanceof VariableTypes;
+    const isVariadic = funT.parameters.length > 0 && last(funT.parameters) instanceof TRest;
 
     // For non-variadic functions the number of arguments must match the number of formal parameters
     if (!isVariadic && argTs.length !== funT.parameters.length) {
@@ -1893,12 +1841,13 @@ function matchArguments(
     for (let i = 0; i < funT.parameters.length; i++) {
         const formalT = funT.parameters[i];
 
-        if (formalT instanceof VariableTypes) {
+        if (formalT instanceof TRest) {
             assert(
                 i === funT.parameters.length - 1,
                 `Unexpected variable type not in last position of fun {0}`,
                 funT
             );
+
             return true;
         }
 
@@ -2063,22 +2012,34 @@ export function tcFunctionCall(expr: SFunctionCall, ctx: STypingCtx, typeEnv: Ty
         }
 
         const underlyingType = argT.type;
+        let typeFunT: BuiltinFunctionType | undefined;
 
         if (
             underlyingType instanceof IntType ||
             (underlyingType instanceof UserDefinedType &&
                 underlyingType.definition instanceof EnumDefinition)
         ) {
-            return NumberLikeTypeMembers(underlyingType);
+            typeFunT = applySubstitution(
+                typeInt,
+                new Map([["T", underlyingType]])
+            ) as BuiltinFunctionType;
         }
 
         if (
             underlyingType instanceof UserDefinedType &&
             underlyingType.definition instanceof ContractDefinition
         ) {
-            return underlyingType.definition.kind === ContractKind.Interface
-                ? InterfaceTypeMembers
-                : ContractTypeMembers;
+            typeFunT = applySubstitution(
+                underlyingType.definition.kind === ContractKind.Interface ||
+                    underlyingType.definition.abstract
+                    ? typeInterface
+                    : typeContract,
+                new Map([["T", underlyingType]])
+            ) as BuiltinFunctionType;
+        }
+
+        if (typeFunT !== undefined) {
+            return typeFunT?.returns[0];
         }
 
         throw new SWrongType(
@@ -2163,7 +2124,7 @@ export function tcFunctionCall(expr: SFunctionCall, ctx: STypingCtx, typeEnv: Ty
                                 : typeEnv.inference.getterFunType(def)
                         ] as [FunctionDefinition | VariableDeclaration, FunctionType]
                 )
-                .filter(([, funT]) => matchArguments(typeEnv.inference, args, argTs, funT));
+                .filter(([, funT]) => matchArguments(typeEnv.inference, argTs, funT));
 
         if (matchingDefs.length === 0) {
             throw new SUnresolvedFun(
@@ -2202,9 +2163,10 @@ export function tcFunctionCall(expr: SFunctionCall, ctx: STypingCtx, typeEnv: Ty
     }
 
     // Builtin function
-    if (calleeT instanceof FunctionType) {
+    if (calleeT instanceof FunctionType || calleeT instanceof BuiltinFunctionType) {
         const argTs = expr.args.map((arg) => tc(arg, ctx, typeEnv));
-        if (!matchArguments(typeEnv.inference, expr.args, argTs, calleeT)) {
+
+        if (!matchArguments(typeEnv.inference, argTs, calleeT)) {
             throw new SArgumentMismatch(
                 `Invalid types of arguments in function call ${expr.pp()}`,
                 expr

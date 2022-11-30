@@ -4,6 +4,7 @@ import {
     ArrayType,
     assert,
     BoolType,
+    BuiltinFunctionType,
     BytesType,
     ContractDefinition,
     DataLocation,
@@ -399,12 +400,10 @@ describe("TypeChecker Expression Unit Tests", () => {
                 [
                     "sA.staticcall",
                     ["Foo"],
-                    new FunctionType(
-                        undefined,
+                    new BuiltinFunctionType(
+                        "staticcall",
                         [new PointerType(new BytesType(), DataLocation.Memory)],
-                        [new BoolType(), new PointerType(new BytesType(), DataLocation.Memory)],
-                        FunctionVisibility.Default,
-                        FunctionStateMutability.View
+                        [new BoolType(), new PointerType(new BytesType(), DataLocation.Memory)]
                     )
                 ],
                 ["block.coinbase", ["Foo"], new AddressType(true)],
@@ -421,105 +420,75 @@ describe("TypeChecker Expression Unit Tests", () => {
                 [
                     "blockhash",
                     ["Foo"],
-                    new FunctionType(
-                        undefined,
+                    new BuiltinFunctionType(
+                        "blockhash",
                         [new IntType(256, false)],
-                        [new FixedBytesType(32)],
-                        FunctionVisibility.Default,
-                        FunctionStateMutability.View
+                        [new FixedBytesType(32)]
                     )
                 ],
                 [
                     "gasleft",
                     ["Foo"],
-                    new FunctionType(
-                        undefined,
-                        [],
-                        [new IntType(256, false)],
-                        FunctionVisibility.Default,
-                        FunctionStateMutability.View
-                    )
+                    new BuiltinFunctionType("gasleft", [], [new IntType(256, false)])
                 ],
-                [
-                    "now",
-                    ["Foo"],
-                    new FunctionType(
-                        undefined,
-                        [],
-                        [new IntType(256, false)],
-                        FunctionVisibility.Default,
-                        FunctionStateMutability.View
-                    )
-                ],
+                ["now", ["Foo"], new IntType(256, false)],
                 [
                     "addmod",
                     ["Foo"],
-                    new FunctionType(
-                        undefined,
+                    new BuiltinFunctionType(
+                        "addmod",
                         [new IntType(256, false), new IntType(256, false), new IntType(256, false)],
-                        [new IntType(256, false)],
-                        FunctionVisibility.Default,
-                        FunctionStateMutability.Pure
+                        [new IntType(256, false)]
                     )
                 ],
                 [
                     "mulmod",
                     ["Foo"],
-                    new FunctionType(
-                        undefined,
+                    new BuiltinFunctionType(
+                        "mulmod",
                         [new IntType(256, false), new IntType(256, false), new IntType(256, false)],
-                        [new IntType(256, false)],
-                        FunctionVisibility.Default,
-                        FunctionStateMutability.Pure
+                        [new IntType(256, false)]
                     )
                 ],
                 [
                     "keccak256",
                     ["Foo"],
-                    new FunctionType(
-                        undefined,
+                    new BuiltinFunctionType(
+                        "keccak256",
                         [new PointerType(new BytesType(), DataLocation.Memory)],
-                        [new FixedBytesType(32)],
-                        FunctionVisibility.Default,
-                        FunctionStateMutability.Pure
+                        [new FixedBytesType(32)]
                     )
                 ],
                 [
                     "sha256",
                     ["Foo"],
-                    new FunctionType(
-                        undefined,
+                    new BuiltinFunctionType(
+                        "sha256",
                         [new PointerType(new BytesType(), DataLocation.Memory)],
-                        [new FixedBytesType(32)],
-                        FunctionVisibility.Default,
-                        FunctionStateMutability.Pure
+                        [new FixedBytesType(32)]
                     )
                 ],
                 [
                     "ripemd160",
                     ["Foo"],
-                    new FunctionType(
-                        undefined,
+                    new BuiltinFunctionType(
+                        "ripemd160",
                         [new PointerType(new BytesType(), DataLocation.Memory)],
-                        [new FixedBytesType(20)],
-                        FunctionVisibility.Default,
-                        FunctionStateMutability.Pure
+                        [new FixedBytesType(20)]
                     )
                 ],
                 [
                     "ecrecover",
                     ["Foo"],
-                    new FunctionType(
-                        undefined,
+                    new BuiltinFunctionType(
+                        "ecrecover",
                         [
                             new FixedBytesType(32),
                             new IntType(8, false),
                             new FixedBytesType(32),
                             new FixedBytesType(32)
                         ],
-                        [new AddressType(false)],
-                        FunctionVisibility.Default,
-                        FunctionStateMutability.Pure
+                        [new AddressType(false)]
                     )
                 ],
                 ["$result", ["Foo", "add"], new IntType(64, false)],
@@ -955,8 +924,7 @@ contract UserDefinedValueTypes {
                 ["type(Foo).min", ["Foo"]],
                 ["type(GlobalEnum).name", ["Foo"]],
                 ["type(true).name", ["Foo"]],
-                ["type(Foo).interfaceId", ["Foo"]],
-                ["type(IFace).runtimeCode", ["Foo"]]
+                ["type(Foo).interfaceId", ["Foo"]]
             ]
         ],
         [

@@ -1,6 +1,7 @@
 import {
     ArrayType,
     assert,
+    BuiltinFunctionType,
     BytesType,
     FunctionStateMutability,
     FunctionType,
@@ -532,7 +533,12 @@ export function scFunctionCall(
 
     if (calleeT instanceof FunctionType) {
         const isConst = calleeT.mutability === FunctionStateMutability.Pure && allArgsConst;
+
         return { isOld: ctx.isOld, isConst: isConst, canFail: true };
+    }
+
+    if (calleeT instanceof BuiltinFunctionType) {
+        return { isOld: ctx.isOld, isConst: false, canFail: true };
     }
 
     throw new Error(`Internal error: NYI semcheck for ${expr.pp()}`);

@@ -136,7 +136,7 @@ describe(`Command "scribble <filename>" is failing as expected`, () => {
         ],
         [
             ["test/samples/invalid/ownable_macro.bad_var_type.invalid.sol"],
-            /^.*\/ownable.scribble.yaml:7:32 TypeError: Types of old\(owner\) \(uint256\) and msg.sender \(address payable\) are incompatible.*/
+            /^.*\/ownable.scribble.yaml:7:32 TypeError: Types of old\(owner\) \(uint256\) and msg.sender \(address\) are incompatible.*/
         ],
         [
             [

@@ -17,6 +17,7 @@ import {
     FunctionDefinition,
     FunctionType,
     FunctionVisibility,
+    globalBuiltins,
     Identifier,
     ImportDirective,
     ImportRefType,
@@ -62,13 +63,7 @@ import {
     SUserFunctionDefinition,
     VarDefSite
 } from "../spec-lang/ast";
-import {
-    BuiltinSymbols,
-    decomposeStateVarRef,
-    SemInfo,
-    StateVarScope,
-    unwrapOld
-} from "../spec-lang/tc";
+import { decomposeStateVarRef, SemInfo, StateVarScope, unwrapOld } from "../spec-lang/tc";
 import { FunctionSetType } from "../spec-lang/tc/internal_types";
 import { single } from "../util/misc";
 import {
@@ -283,7 +278,7 @@ function transpileId(expr: SId, ctx: TranspilingContext): Expression {
     const typeEnv = ctx.typeEnv;
     const factory = ctx.factory;
 
-    if (BuiltinSymbols.has(expr.name)) {
+    if (globalBuiltins.members.has(expr.name)) {
         return factory.makeIdentifier("<missing>", expr.name, -1);
     }
 
