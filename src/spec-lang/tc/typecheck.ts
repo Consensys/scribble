@@ -1514,10 +1514,6 @@ export function tcMemberAccess(expr: SMemberAccess, ctx: STypingCtx, typeEnv: Ty
         return getFieldOfBuiltinStruct(baseT, expr, typeEnv);
     }
 
-    if (baseT instanceof BuiltinFunctionType && baseT.returns[0] instanceof BuiltinStructType) {
-        return getFieldOfBuiltinStruct(baseT.returns[0], expr, typeEnv);
-    }
-
     if (baseT instanceof PointerType) {
         const baseToT = baseT.to;
 
@@ -2016,26 +2012,34 @@ export function tcFunctionCall(expr: SFunctionCall, ctx: STypingCtx, typeEnv: Ty
         }
 
         const underlyingType = argT.type;
+        let typeFunT: BuiltinFunctionType | undefined;
 
         if (
             underlyingType instanceof IntType ||
             (underlyingType instanceof UserDefinedType &&
                 underlyingType.definition instanceof EnumDefinition)
         ) {
-            return applySubstitution(typeInt, new Map([["T", underlyingType]]));
+            typeFunT = applySubstitution(
+                typeInt,
+                new Map([["T", underlyingType]])
+            ) as BuiltinFunctionType;
         }
 
         if (
             underlyingType instanceof UserDefinedType &&
             underlyingType.definition instanceof ContractDefinition
         ) {
-            return applySubstitution(
+            typeFunT = applySubstitution(
                 underlyingType.definition.kind === ContractKind.Interface ||
                     underlyingType.definition.abstract
                     ? typeInterface
                     : typeContract,
                 new Map([["T", underlyingType]])
-            );
+            ) as BuiltinFunctionType;
+        }
+
+        if (typeFunT !== undefined) {
+            return typeFunT?.returns[0];
         }
 
         throw new SWrongType(
