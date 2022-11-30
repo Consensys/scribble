@@ -537,11 +537,6 @@ export function scFunctionCall(
         return { isOld: ctx.isOld, isConst: isConst, canFail: true };
     }
 
-    /**
-     * @todo This is not precise as it was with typeString parser
-     * due to not all builtins have state mutability indicator.
-     * Figure out what to do with it.
-     */
     if (calleeT instanceof BuiltinFunctionType) {
         return { isOld: ctx.isOld, isConst: false, canFail: true };
     }
