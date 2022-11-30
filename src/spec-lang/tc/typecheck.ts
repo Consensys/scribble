@@ -1,4 +1,3 @@
-import { evalBinaryImpl } from "solc-typed-ast";
 import {
     addressBuiltins,
     AddressType,
@@ -19,6 +18,7 @@ import {
     DataLocation,
     EnumDefinition,
     eq,
+    evalBinaryImpl,
     FixedBytesType,
     FunctionDefinition,
     FunctionStateMutability,
@@ -2030,7 +2030,8 @@ export function tcFunctionCall(expr: SFunctionCall, ctx: STypingCtx, typeEnv: Ty
             underlyingType.definition instanceof ContractDefinition
         ) {
             return applySubstitution(
-                underlyingType.definition.kind === ContractKind.Interface
+                underlyingType.definition.kind === ContractKind.Interface ||
+                    underlyingType.definition.abstract
                     ? typeInterface
                     : typeContract,
                 new Map([["T", underlyingType]])
