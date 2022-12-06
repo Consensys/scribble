@@ -1,5 +1,4 @@
 import { assert, ContractDefinition, InferType, TypeNameType, TypeNode } from "solc-typed-ast";
-import { ABIEncoderVersion } from "solc-typed-ast/dist/types/abi";
 import { SNode, SUserConstantDefinition, SUserFunctionDefinition } from "../ast";
 
 export type TypeMap = Map<SNode, TypeNode>;
@@ -61,16 +60,14 @@ export class TypeEnv {
     readonly userConstants: UserConstantScoping;
 
     readonly inference: InferType;
-    readonly abiEncoderVersion: ABIEncoderVersion;
 
-    constructor(inference: InferType, abiEncoderVersion: ABIEncoderVersion) {
+    constructor(inference: InferType) {
         this.mapping = new Map();
 
         this.userFunctions = new UserDefinitionScoping<SUserFunctionDefinition>();
         this.userConstants = new UserDefinitionScoping<SUserConstantDefinition>();
 
         this.inference = inference;
-        this.abiEncoderVersion = abiEncoderVersion;
     }
 
     get compilerVersion(): string {

@@ -1,4 +1,6 @@
+import { lt } from "semver";
 import {
+    ABIEncoderVersion,
     assert,
     ASTNode,
     ASTWriter,
@@ -8,6 +10,7 @@ import {
     FunctionDefinition,
     FunctionStateMutability,
     FunctionVisibility,
+    getABIEncoderVersion,
     ImportDirective,
     LatestCompilerVersion,
     PPIsh,
@@ -349,4 +352,26 @@ export function getFQName(def: ExportedSymbol, atUseSite: ASTNode): string {
     }
 
     return scope.name + "." + def.name;
+}
+
+export function getABIEncoderVersionForUnits(
+    units: SourceUnit[],
+    compilerVersion: string
+): ABIEncoderVersion {
+    const explicitEncoderVersions = new Set<ABIEncoderVersion>();
+
+    for (const unit of units) {
+        explicitEncoderVersions.add(getABIEncoderVersion(unit, compilerVersion));
+    }
+
+    assert(
+        explicitEncoderVersions.size < 2,
+        `Multiple encoder versions found: ${[...explicitEncoderVersions].join(", ")}`
+    );
+
+    if (explicitEncoderVersions.size === 1) {
+        return [...explicitEncoderVersions][0];
+    }
+
+    return lt(compilerVersion, "0.8.0") ? ABIEncoderVersion.V1 : ABIEncoderVersion.V2;
 }

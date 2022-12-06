@@ -7,7 +7,9 @@
         "**/coverage/**",
         "**/.compiler_cache/**",
         "**/src/spec-lang/*_parser.ts",
-        "**/src/rewriter/*_parser.ts"
+        "**/src/spec-lang/*_parser_header.ts",
+        "**/src/rewriter/*_parser.ts",
+        "**/src/rewriter/*_header.ts"
     ],
     "reporter": ["lcov", "text-summary"],
     "all": true,

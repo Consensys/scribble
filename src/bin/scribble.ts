@@ -20,7 +20,6 @@ import {
     FunctionKind,
     FunctionStateMutability,
     FunctionVisibility,
-    getABIEncoderVersion,
     getCompilerPrefixForOs,
     InferType,
     parsePathRemapping,
@@ -75,6 +74,7 @@ import {
     detectProjectRoot,
     flatten,
     generateInstrumentationMetadata,
+    getABIEncoderVersionForUnits,
     getOr,
     InstrumentationMetaData,
     isChangingState,
@@ -938,7 +938,8 @@ function loadInstrMetaData(fileName: string): InstrumentationMetaData {
             macroPaths.push(options["macro-path"]);
         }
 
-        const inference = new InferType(compilerVersionUsed);
+        const abiEncoderVersion = getABIEncoderVersionForUnits(units, compilerVersionUsed);
+        const inference = new InferType(compilerVersionUsed, abiEncoderVersion);
 
         for (const macroPath of macroPaths) {
             try {
@@ -970,8 +971,7 @@ function loadInstrMetaData(fileName: string): InstrumentationMetaData {
         }
 
         const cha = getCHA(units);
-        const abiEncoderVersion = getABIEncoderVersion(units, compilerVersionUsed);
-        const callgraph = getCallGraph(inference, units, abiEncoderVersion);
+        const callgraph = getCallGraph(inference, units);
 
         const annotExtractionCtx: AnnotationExtractionContext = {
             filterOptions,
@@ -995,7 +995,7 @@ function loadInstrMetaData(fileName: string): InstrumentationMetaData {
             throw e;
         }
 
-        const typeEnv = new TypeEnv(inference, abiEncoderVersion);
+        const typeEnv = new TypeEnv(inference);
         const semMap: SemMap = new Map();
 
         let interposingQueue: Array<[VariableDeclaration, AbsDatastructurePath]>;

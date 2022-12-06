@@ -2129,9 +2129,7 @@ export function tcFunctionCall(expr: SFunctionCall, ctx: STypingCtx, typeEnv: Ty
         if (matchingDefs.length === 0) {
             throw new SUnresolvedFun(
                 `Provided arguments ${expr.pp()} don't match any of candidate functions:\n\n` +
-                    calleeT.definitions
-                        .map((def) => typeEnv.inference.signature(def, typeEnv.abiEncoderVersion))
-                        .join("\n"),
+                    calleeT.definitions.map((def) => typeEnv.inference.signature(def)).join("\n"),
                 expr
             );
         } else if (matchingDefs.length > 1) {
