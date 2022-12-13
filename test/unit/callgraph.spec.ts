@@ -1,6 +1,5 @@
 import expect from "expect";
 import { assert, ASTReader, compileSol, ContractDefinition, InferType } from "solc-typed-ast";
-import { getABIEncoderVersionForUnits } from "../../src";
 import { CallGraph, getCallGraph } from "../../src/instrumenter/callgraph";
 
 describe("Call graph test", () => {
@@ -14,8 +13,7 @@ describe("Call graph test", () => {
         assert(compilerVersion !== undefined, "Unable to detect compiler version");
 
         const units = reader.read(data);
-        const encVer = getABIEncoderVersionForUnits(units, compilerVersion);
-        const inference = new InferType(compilerVersion, encVer);
+        const inference = new InferType(compilerVersion);
 
         contracts = units.map((u) => u.vContracts).reduce((flat, next) => flat.concat(next), []);
 

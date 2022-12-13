@@ -19,9 +19,9 @@ import {
     FunctionDefinition,
     FunctionKind,
     FunctionStateMutability,
-    FunctionVisibility,
     getCompilerPrefixForOs,
     InferType,
+    isVisiblityExternallyCallable,
     parsePathRemapping,
     PathOptions,
     PossibleCompilerKinds,
@@ -74,7 +74,6 @@ import {
     detectProjectRoot,
     flatten,
     generateInstrumentationMetadata,
-    getABIEncoderVersionForUnits,
     getOr,
     InstrumentationMetaData,
     isChangingState,
@@ -384,8 +383,7 @@ function instrumentFiles(
                 let annotations = gatherFunctionAnnotations(ctx.typeEnv.inference, fun, annotMap);
 
                 if (
-                    (fun.visibility == FunctionVisibility.External ||
-                        fun.visibility == FunctionVisibility.Public) &&
+                    isVisiblityExternallyCallable(fun.visibility) &&
                     fun.stateMutability !== FunctionStateMutability.Pure &&
                     fun.stateMutability !== FunctionStateMutability.View
                 ) {
@@ -938,9 +936,6 @@ function loadInstrMetaData(fileName: string): InstrumentationMetaData {
             macroPaths.push(options["macro-path"]);
         }
 
-        const abiEncoderVersion = getABIEncoderVersionForUnits(units, compilerVersionUsed);
-        const inference = new InferType(compilerVersionUsed, abiEncoderVersion);
-
         for (const macroPath of macroPaths) {
             try {
                 detectMacroDefinitions(macroPath, macros, contentsMap);
@@ -969,6 +964,8 @@ function loadInstrMetaData(fileName: string): InstrumentationMetaData {
                 );
             }
         }
+
+        const inference = new InferType(compilerVersionUsed);
 
         const cha = getCHA(units);
         const callgraph = getCallGraph(inference, units);

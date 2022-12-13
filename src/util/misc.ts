@@ -1,6 +1,4 @@
-import { lt } from "semver";
 import {
-    ABIEncoderVersion,
     assert,
     ASTNode,
     ASTWriter,
@@ -10,7 +8,6 @@ import {
     FunctionDefinition,
     FunctionStateMutability,
     FunctionVisibility,
-    getABIEncoderVersion,
     ImportDirective,
     LatestCompilerVersion,
     PPIsh,
@@ -141,6 +138,7 @@ export function dedup<T, U>(arr: T[], keyF?: (x: T) => U): T[] {
 
     for (const el of arr) {
         const key = keyF ? keyF(el) : el;
+
         if (seen.has(key)) {
             continue;
         }
@@ -308,6 +306,7 @@ export function filterByType<Base, Child extends Base>(
     constr: SubclassConstructor<Base, Child>
 ): Child[] {
     const result: Child[] = [];
+
     for (const annotation of original) {
         if (annotation instanceof constr) {
             result.push(annotation);
@@ -321,6 +320,7 @@ function getTypeScope(n: ASTNode): SourceUnit | ContractDefinition {
     const typeScope = n.getClosestParentBySelector(
         (p: ASTNode) => p instanceof SourceUnit || p instanceof ContractDefinition
     ) as SourceUnit | ContractDefinition;
+
     return typeScope;
 }
 
@@ -352,26 +352,4 @@ export function getFQName(def: ExportedSymbol, atUseSite: ASTNode): string {
     }
 
     return scope.name + "." + def.name;
-}
-
-export function getABIEncoderVersionForUnits(
-    units: SourceUnit[],
-    compilerVersion: string
-): ABIEncoderVersion {
-    const explicitEncoderVersions = new Set<ABIEncoderVersion>();
-
-    for (const unit of units) {
-        explicitEncoderVersions.add(getABIEncoderVersion(unit, compilerVersion));
-    }
-
-    assert(
-        explicitEncoderVersions.size < 2,
-        `Multiple encoder versions found: ${[...explicitEncoderVersions].join(", ")}`
-    );
-
-    if (explicitEncoderVersions.size === 1) {
-        return [...explicitEncoderVersions][0];
-    }
-
-    return lt(compilerVersion, "0.8.0") ? ABIEncoderVersion.V1 : ABIEncoderVersion.V2;
 }

@@ -11,8 +11,6 @@ import {
     StringLiteralType,
     TypeNode
 } from "solc-typed-ast";
-import { ABIEncoderVersion } from "solc-typed-ast/dist/types/abi";
-import { getABIEncoderVersionForUnits } from "../../src";
 import { Logger } from "../../src/logger";
 import { AnnotationType, SProperty } from "../../src/spec-lang/ast";
 import { parseAnnotation, parseExpression as parse } from "../../src/spec-lang/expr_parser";
@@ -366,14 +364,12 @@ describe("SemanticChecker Expression Unit Tests", () => {
             let inference: InferType;
             let sourceFile: SourceFile;
             let units: SourceUnit[];
-            let encVer: ABIEncoderVersion;
 
             before(async () => {
                 const result = await toAst(fileName, content);
 
                 units = result.units;
-                encVer = getABIEncoderVersionForUnits(units, compilerVersion);
-                inference = new InferType(compilerVersion, encVer);
+                inference = new InferType(compilerVersion);
                 sourceFile = new SolFile(fileName, content);
             });
 
@@ -416,14 +412,12 @@ describe("SemanticChecker Expression Unit Tests", () => {
             let inference: InferType;
             let sourceFile: SourceFile;
             let units: SourceUnit[];
-            let encVer: ABIEncoderVersion;
 
             before(async () => {
                 const result = await toAst(fileName, content);
 
                 units = result.units;
-                encVer = getABIEncoderVersionForUnits(units, compilerVersion);
-                inference = new InferType(compilerVersion, encVer);
+                inference = new InferType(compilerVersion);
                 sourceFile = new SolFile(fileName, content);
             });
 
@@ -531,14 +525,12 @@ describe("SemanticChecker Annotation Unit Tests", () => {
             let inference: InferType;
             let sourceFile: SourceFile;
             let units: SourceUnit[];
-            let encVer: ABIEncoderVersion;
 
             before(async () => {
                 const result = await toAst(fileName, content);
 
                 units = result.units;
-                encVer = getABIEncoderVersionForUnits(units, compilerVersion);
-                inference = new InferType(compilerVersion, encVer);
+                inference = new InferType(compilerVersion);
                 sourceFile = new SolFile(fileName, content);
             });
 
@@ -575,14 +567,12 @@ describe("SemanticChecker Annotation Unit Tests", () => {
             let inference: InferType;
             let sourceFile: SourceFile;
             let units: SourceUnit[];
-            let encVer: ABIEncoderVersion;
 
             before(async () => {
                 const result = await toAst(fileName, content);
 
                 units = result.units;
-                encVer = getABIEncoderVersionForUnits(units, compilerVersion);
-                inference = new InferType(compilerVersion, encVer);
+                inference = new InferType(compilerVersion);
                 sourceFile = new SolFile(fileName, content);
             });
 

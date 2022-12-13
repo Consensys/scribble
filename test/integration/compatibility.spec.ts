@@ -2,14 +2,13 @@ import expect from "expect";
 import {
     ContractDefinition,
     FunctionDefinition,
-    FunctionVisibility,
     InferType,
+    isVisiblityExternallyCallable,
     SourceUnit,
     StateVariableVisibility,
     VariableDeclaration
 } from "solc-typed-ast";
-import { ABIEncoderVersion } from "solc-typed-ast/dist/types/abi";
-import { getABIEncoderVersionForUnits, searchRecursive } from "../../src";
+import { searchRecursive } from "../../src";
 import { removeProcWd, scrSample, toAst, toAstUsingCache } from "./utils";
 
 function extractExportSymbols(units: SourceUnit[]): Map<string, ContractDefinition> {
@@ -27,11 +26,7 @@ function extractExportSymbols(units: SourceUnit[]): Map<string, ContractDefiniti
 function extractAccessibleMembers(
     contract: ContractDefinition
 ): Array<FunctionDefinition | VariableDeclaration> {
-    const fns = contract.vFunctions.filter(
-        (fn) =>
-            fn.visibility === FunctionVisibility.External ||
-            fn.visibility === FunctionVisibility.Public
-    );
+    const fns = contract.vFunctions.filter((fn) => isVisiblityExternallyCallable(fn.visibility));
 
     const vars = contract.vStateVariables.filter(
         (v) => v.visibility === StateVariableVisibility.Public
@@ -135,7 +130,6 @@ describe("Interface compatibility test", () => {
         describe(sample, () => {
             let compilerVersion: string;
             let inAst: SourceUnit[];
-            let encVer: ABIEncoderVersion;
             let inference: InferType;
 
             before(async () => {
@@ -143,8 +137,7 @@ describe("Interface compatibility test", () => {
 
                 inAst = result.units;
                 compilerVersion = result.compilerVersion;
-                encVer = getABIEncoderVersionForUnits(inAst, compilerVersion);
-                inference = new InferType(compilerVersion, encVer);
+                inference = new InferType(compilerVersion);
             });
 
             const compareSourceUnits = (inAst: SourceUnit[], outAst: SourceUnit[]) => {
