@@ -71,7 +71,7 @@ Invariant =
             type as AnnotationType,
             expr,
             md === null ? undefined : md,
-            makeRange(location(), options as ParseOptions)
+            makeRange(location(), options as ExprParseOptions)
         );
     }
 
@@ -85,10 +85,10 @@ For_All =
         if (Array.isArray(range)) {
             const [start, end] = range;
 
-            return new SForAll(itr_type, iterator, expr, start, end, undefined, makeRange(location(), options as ParseOptions));
+            return new SForAll(itr_type, iterator, expr, start, end, undefined, makeRange(location(), options as ExprParseOptions));
         }
 
-        return new SForAll(itr_type, iterator, expr, undefined, undefined, range, makeRange(location(), options as ParseOptions));
+        return new SForAll(itr_type, iterator, expr, undefined, undefined, range, makeRange(location(), options as ExprParseOptions));
     }
 
 If_Succeeds =
@@ -97,7 +97,7 @@ If_Succeeds =
             type as AnnotationType,
             expr,
             md === null ? undefined : md,
-            makeRange(location(), options as ParseOptions)
+            makeRange(location(), options as ExprParseOptions)
         );
     }
 
@@ -107,7 +107,7 @@ Assert =
             type as AnnotationType,
             expr,
             md === null ? undefined : md,
-            makeRange(location(), options as ParseOptions)
+            makeRange(location(), options as ExprParseOptions)
         );
     }
 
@@ -118,7 +118,7 @@ LetAnnotation =
             name,
             expr,
             md === null ? undefined : md,
-            makeRange(location(), options as ParseOptions)
+            makeRange(location(), options as ExprParseOptions)
         );
     }
 
@@ -128,7 +128,7 @@ Try =
             type as AnnotationType,
             expr,
             md === null ? undefined : md,
-            makeRange(location(), options as ParseOptions)
+            makeRange(location(), options as ExprParseOptions)
         );
     }
 
@@ -138,7 +138,7 @@ Require =
             type as AnnotationType,
             expr,
             md === null ? undefined : md,
-            makeRange(location(), options as ParseOptions)
+            makeRange(location(), options as ExprParseOptions)
         );
     }
 
@@ -159,7 +159,7 @@ If_Updated =
             expr,
             [],
             md === null ? undefined : md,
-            makeRange(location(), options as ParseOptions)
+            makeRange(location(), options as ExprParseOptions)
         );
     }
 
@@ -169,7 +169,7 @@ If_Assigned =
             expr,
             path,
             md === null ? undefined : md,
-            makeRange(location(), options as ParseOptions)
+            makeRange(location(), options as ExprParseOptions)
         );
     }
 
@@ -201,7 +201,7 @@ UserConstantDefinition =
             const_type,
             value,
             md === null ? undefined : md,
-            makeRange(location(), options as ParseOptions)
+            makeRange(location(), options as ExprParseOptions)
         );
     }
 
@@ -213,7 +213,7 @@ UserFunctionDefinition =
             returnType,
             body,
             md === null ? undefined : md,
-            makeRange(location(), options as ParseOptions)
+            makeRange(location(), options as ExprParseOptions)
         );
     }
 
@@ -236,7 +236,7 @@ Macro =
             name,
             args === null ? [] : args,
             md === null ? undefined : md,
-            makeRange(location(), options as ParseOptions)
+            makeRange(location(), options as ExprParseOptions)
         );
     }
 
@@ -353,7 +353,7 @@ NumberUnit =
 
 Identifier =
     !(Keyword ![a-zA-Z0-9_]) id:([a-zA-Z_][a-zA-Z0-9_]*) {
-        return new SId(text(), makeRange(location(), options as ParseOptions));
+        return new SId(text(), makeRange(location(), options as ExprParseOptions));
     }
 
 HexDigit =
@@ -365,10 +365,10 @@ HexNumber =
 
         // 20-byte hex literals are implicitly treated as address constants.
         if (digits.length === 40) {
-            return new SAddressLiteral('0x' + num, makeRange(location(), options as ParseOptions));
+            return new SAddressLiteral('0x' + num, makeRange(location(), options as ExprParseOptions));
         }
 
-        return new SNumber(BigInt('0x' + num), 16, makeRange(location(), options as ParseOptions));
+        return new SNumber(BigInt('0x' + num), 16, makeRange(location(), options as ExprParseOptions));
     }
 
 DecDigit =
@@ -389,7 +389,7 @@ DecNumber =
          * Note that bigInt(...).toString() is used here to support scientific notation (1e10).
          * Native bigint is unable to parse such values yet.
          */
-        return new SNumber(BigInt(bigInt(text()).toString()), 10, makeRange(location(), options as ParseOptions));
+        return new SNumber(BigInt(bigInt(text()).toString()), 10, makeRange(location(), options as ExprParseOptions));
     }
 
 Number =
@@ -402,28 +402,28 @@ Number =
             throw new Error(`Cannot use units with hex literals`);
         }
 
-        return new SNumber(BigInt(value.num), value.radix, makeRange(location(), options as ParseOptions), unit[1]);
+        return new SNumber(BigInt(value.num), value.radix, makeRange(location(), options as ExprParseOptions), unit[1]);
     }
 
 BooleanLiteral =
     val: (TRUE / FALSE) {
-        return new SBooleanLiteral(text() === "true", makeRange(location(), options as ParseOptions));
+        return new SBooleanLiteral(text() === "true", makeRange(location(), options as ExprParseOptions));
     }
 
 HexLiteral =
     HEX '"' val: HexDigit* '"' {
-        return new SHexLiteral(val.join(""), makeRange(location(), options as ParseOptions));
+        return new SHexLiteral(val.join(""), makeRange(location(), options as ExprParseOptions));
     }
     / HEX "'" val: HexDigit* "'" {
-        return new SHexLiteral(val.join(""), makeRange(location(), options as ParseOptions));
+        return new SHexLiteral(val.join(""), makeRange(location(), options as ExprParseOptions));
     }
 
 StringLiteral =
     "'" chars: SingleStringChar* "'" {
-        return new SStringLiteral(chars.join(""), makeRange(location(), options as ParseOptions));
+        return new SStringLiteral(chars.join(""), makeRange(location(), options as ExprParseOptions));
     }
     / '"' chars: DoubleStringChar* '"' {
-        return new SStringLiteral(chars.join(""), makeRange(location(), options as ParseOptions));
+        return new SStringLiteral(chars.join(""), makeRange(location(), options as ExprParseOptions));
     }
 
 AnyChar =
@@ -491,12 +491,12 @@ PrimaryExpression =
     / (
         "(" __ expr: Expression __ ")" { return expr; }
     )
-    / (RESULT { return new SResult(makeRange(location(), options as ParseOptions)); })
+    / (RESULT { return new SResult(makeRange(location(), options as ExprParseOptions)); })
     / For_All
 
 OldExpression =
     OLD __ "(" __ expr: Expression __ ")" {
-        return new SUnaryOperation("old", expr, makeRange(location(), options as ParseOptions));
+        return new SUnaryOperation("old", expr, makeRange(location(), options as ExprParseOptions));
     }
     / PrimaryExpression
 
@@ -510,16 +510,16 @@ MemberAccessExpression =
         return tail.reduce(
             (acc: any, el: any) => {
                 if (el.hasOwnProperty("index")) {
-                    return new SIndexAccess(acc, el.index, makeRange(location(), options as ParseOptions));
+                    return new SIndexAccess(acc, el.index, makeRange(location(), options as ExprParseOptions));
                 }
 
                 if (el.hasOwnProperty("property")) {
-                    return new SMemberAccess(acc, el.property.name, makeRange(location(), options as ParseOptions));
+                    return new SMemberAccess(acc, el.property.name, makeRange(location(), options as ExprParseOptions));
                 }
 
                 const args = el.args === null ? [] : el.args;
 
-                return new SFunctionCall(acc, args, makeRange(location(), options as ParseOptions));
+                return new SFunctionCall(acc, args, makeRange(location(), options as ExprParseOptions));
             },
             head
         );
@@ -541,7 +541,7 @@ ArgumentList =
 UnaryExpression =
     (
         operator: UnaryOperator __ subexp: UnaryExpression {
-            return new SUnaryOperation(operator as UnaryOperator, subexp, makeRange(location(), options as ParseOptions));
+            return new SUnaryOperation(operator as UnaryOperator, subexp, makeRange(location(), options as ExprParseOptions));
         }
     )
     / MemberAccessExpression
@@ -553,7 +553,7 @@ UnaryOperator =
 PowerExpression =
     head: UnaryExpression
     tail: (__ op: "**" __ UnaryExpression)* {
-        return buildBinaryExpression(head, tail, makeRange(location(), options as ParseOptions));
+        return buildBinaryExpression(head, tail, makeRange(location(), options as ExprParseOptions));
     }
 
 MultiplicativeOperator =
@@ -564,7 +564,7 @@ MultiplicativeOperator =
 MultiplicativeExpression =
     head: PowerExpression
     tail: (__ op: MultiplicativeOperator __ PowerExpression)* {
-        return buildBinaryExpression(head, tail, makeRange(location(), options as ParseOptions));
+        return buildBinaryExpression(head, tail, makeRange(location(), options as ExprParseOptions));
     }
 
 AdditiveOperator =
@@ -574,13 +574,13 @@ AdditiveOperator =
 AdditiveExpression =
     head: MultiplicativeExpression
     tail: (__ AdditiveOperator __ MultiplicativeExpression)* {
-        return buildBinaryExpression(head, tail, makeRange(location(), options as ParseOptions));
+        return buildBinaryExpression(head, tail, makeRange(location(), options as ExprParseOptions));
     }
 
 ShiftExpression =
     head: AdditiveExpression
     tail: (__ ShiftOperator __ AdditiveExpression)* {
-        return buildBinaryExpression(head, tail, makeRange(location(), options as ParseOptions));
+        return buildBinaryExpression(head, tail, makeRange(location(), options as ExprParseOptions));
     }
 
 ShiftOperator =
@@ -590,25 +590,25 @@ ShiftOperator =
 BitwiseANDExpression =
     head: ShiftExpression
     tail: (__ "&" __ ShiftExpression)* {
-        return buildBinaryExpression(head, tail, makeRange(location(), options as ParseOptions));
+        return buildBinaryExpression(head, tail, makeRange(location(), options as ExprParseOptions));
     }
 
 BitwiseXORExpression =
     head: BitwiseANDExpression
     tail: (__ "^" __ BitwiseANDExpression)* {
-        return buildBinaryExpression(head, tail, makeRange(location(), options as ParseOptions));
+        return buildBinaryExpression(head, tail, makeRange(location(), options as ExprParseOptions));
     }
 
 BitwiseORExpression =
     head: BitwiseXORExpression
     tail: (__ "|" __ BitwiseXORExpression)* {
-        return buildBinaryExpression(head, tail, makeRange(location(), options as ParseOptions));
+        return buildBinaryExpression(head, tail, makeRange(location(), options as ExprParseOptions));
     }
 
 RelationalExpression =
     (
         left: BitwiseORExpression __ op: RelationalOperator __ right: BitwiseORExpression {
-            return new SBinaryOperation(left, op as RelationalBinaryOperator, right, makeRange(location(), options as ParseOptions));
+            return new SBinaryOperation(left, op as RelationalBinaryOperator, right, makeRange(location(), options as ExprParseOptions));
         }
     )
     / BitwiseORExpression
@@ -622,7 +622,7 @@ RelationalOperator =
 EqualityExpression =
     head: RelationalExpression
     tail: (__ EqualityOperator __ RelationalExpression)* {
-        return buildBinaryExpression(head, tail, makeRange(location(), options as ParseOptions));
+        return buildBinaryExpression(head, tail, makeRange(location(), options as ExprParseOptions));
     }
 
 EqualityOperator =
@@ -632,19 +632,19 @@ EqualityOperator =
 LogicalANDExpression =
     head: EqualityExpression
     tail: (__ "&&" __ EqualityExpression)* {
-        return buildBinaryExpression(head, tail, makeRange(location(), options as ParseOptions));
+        return buildBinaryExpression(head, tail, makeRange(location(), options as ExprParseOptions));
     }
 
 LogicalORExpression =
     head: LogicalANDExpression
     tail: (__ "||" __ LogicalANDExpression)* {
-        return buildBinaryExpression(head, tail, makeRange(location(), options as ParseOptions));
+        return buildBinaryExpression(head, tail, makeRange(location(), options as ExprParseOptions));
     }
 
 ImplicationExpression =
     precedent: LogicalORExpression
     tail: (__ "==>" __  ImplicationExpression)* {
-        return buildBinaryExpression(precedent, tail, makeRange(location(), options as ParseOptions));
+        return buildBinaryExpression(precedent, tail, makeRange(location(), options as ExprParseOptions));
     }
 
 ConditionalExpression =
@@ -655,14 +655,14 @@ ConditionalExpression =
         }
     )* {
         return tail.reduce(
-            (acc: any, [trueExpr, falseExpr]: any) => new SConditional(acc, trueExpr, falseExpr, makeRange(location(), options as ParseOptions)),
+            (acc: any, [trueExpr, falseExpr]: any) => new SConditional(acc, trueExpr, falseExpr, makeRange(location(), options as ExprParseOptions)),
             head
         )
     }
 
 LetExpression =
     LET __ bindings: LhsBindings __ ":=" __ rhs: Expression __ IN __ inExpr: Expression {
-        return new SLet(bindings, rhs, inExpr, makeRange(location(), options as ParseOptions));
+        return new SLet(bindings, rhs, inExpr, makeRange(location(), options as ExprParseOptions));
     }
     / ConditionalExpression
 
@@ -694,12 +694,12 @@ SimpleType =
 
 BoolType =
     BOOL {
-        return new BoolType(makeRange(location(), options as ParseOptions))
+        return new BoolType(makeRange(location(), options as ExprParseOptions))
     }
 
 AddressType =
     ADDRESS __ payable:(PAYABLE?) {
-        return new AddressType(payable !== null, makeRange(location(), options as ParseOptions));
+        return new AddressType(payable !== null, makeRange(location(), options as ExprParseOptions));
     }
 
 IntType =
@@ -707,33 +707,33 @@ IntType =
         const isSigned = unsigned === null;
         const bitWidth = width === null ? 256 : Number(width.num);
 
-        return new IntType(bitWidth, isSigned, makeRange(location(), options as ParseOptions));
+        return new IntType(bitWidth, isSigned, makeRange(location(), options as ExprParseOptions));
     }
 
 FixedSizeBytesType =
     BYTES width: Number {
-        return new FixedBytesType(Number(width.num), makeRange(location(), options as ParseOptions));
+        return new FixedBytesType(Number(width.num), makeRange(location(), options as ExprParseOptions));
     }
     / BYTE {
-        return new FixedBytesType(1, makeRange(location(), options as ParseOptions));
+        return new FixedBytesType(1, makeRange(location(), options as ExprParseOptions));
     }
 
 BytesType =
     BYTES !Number {
-        return new BytesType(makeRange(location(), options as ParseOptions));
+        return new BytesType(makeRange(location(), options as ExprParseOptions));
     }
 
 StringType =
     STRING {
-        return new StringType(makeRange(location(), options as ParseOptions));
+        return new StringType(makeRange(location(), options as ExprParseOptions));
     }
 
 UserDefinedType =
     base: Identifier "." field: Identifier {
-        return makeUserDefinedType(base.name + '.' + field.name, options as ParseOptions, makeRange(location(), options as ParseOptions));
+        return makeUserDefinedType(base.name + '.' + field.name, options as ExprParseOptions, makeRange(location(), options as ExprParseOptions));
     }
     / name: Identifier {
-        return makeUserDefinedType(name.name, options as ParseOptions, makeRange(location(), options as ParseOptions));
+        return makeUserDefinedType(name.name, options as ExprParseOptions, makeRange(location(), options as ExprParseOptions));
     }
 
 ArrayType =
@@ -746,7 +746,7 @@ ArrayType =
                 return new ArrayType(
                     acc,
                     size === null ? undefined : BigInt(size.num),
-                    makeRange(location(), options as ParseOptions)
+                    makeRange(location(), options as ExprParseOptions)
                 );
             },
             head
@@ -755,7 +755,7 @@ ArrayType =
 
 MappingType =
     MAPPING __ "(" __ keyType: SimpleType __ "=>" __ valueType: MappingType __ ")" {
-        return new MappingType(keyType, valueType, makeRange(location(), options as ParseOptions));
+        return new MappingType(keyType, valueType, makeRange(location(), options as ExprParseOptions));
     }
     / ArrayType
 
@@ -768,7 +768,7 @@ PointerType =
     toType: MappingType __ dataLocation: (DataLocation?) {
         return dataLocation === null
             ? toType
-            : new PointerType(toType, dataLocation as DataLocation, undefined, makeRange(location(), options as ParseOptions));
+            : new PointerType(toType, dataLocation as DataLocation, undefined, makeRange(location(), options as ExprParseOptions));
     }
 
 TypeList =
@@ -819,6 +819,6 @@ FunctionType =
 
         const [visibility, mutability] = getFunctionAttributes(decoratorsList);
 
-        return new FunctionType(undefined, argTs, retTs, visibility, mutability, false, makeRange(location(), options as ParseOptions));
+        return new FunctionType(undefined, argTs, retTs, visibility, mutability, false, makeRange(location(), options as ExprParseOptions));
     }
     / PointerType

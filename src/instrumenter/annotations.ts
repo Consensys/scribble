@@ -25,7 +25,7 @@ import {
     SUserConstantDefinition,
     SUserFunctionDefinition
 } from "../spec-lang/ast";
-import { parseAnnotation, SyntaxError as ExprPEGSSyntaxError } from "../spec-lang/expr_parser";
+import { parseAnnotation, PeggySyntaxError as ExprPEGSSyntaxError } from "../spec-lang/expr_parser";
 import { PPAbleError } from "../util/errors";
 import { makeRange, Range, rangeToLocRange } from "../util/location";
 import { getOr, getScopeUnit, zip } from "../util/misc";
