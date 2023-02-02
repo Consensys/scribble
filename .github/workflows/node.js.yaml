@@ -19,32 +19,32 @@ jobs:
             SOL_AST_COMPILER_CACHE: ${{ github.workspace }}/.compiler_cache
 
         steps:
-            - uses: actions/checkout@v3
+            - name: Checkout
+              uses: actions/checkout@v3
+
             - name: Use NodeJS ${{ matrix.node-version }}
               uses: actions/setup-node@v3
               with:
                   node-version: ${{ matrix.node-version }}
                   cache: "npm"
 
-            # See https://github.com/ethereum/solc-bin
-            # See https://binaries.soliditylang.org/
-            - name: Pre-download compilers from historical builds archive
-              run: |
-                  ./download.sh 'linux-amd64' $SOL_AST_COMPILER_CACHE
-                  ./download.sh 'wasm' $SOL_AST_COMPILER_CACHE
-
-            - name: Remove list and one rarely used compiler to still test downloading on-demand
-              run: |
-                  rm -v $SOL_AST_COMPILER_CACHE/linux-amd64/list.json
-                  rm -v $SOL_AST_COMPILER_CACHE/linux-amd64/solc-linux-amd64-v0.5.17+commit.d19bba13
-                  rm -v $SOL_AST_COMPILER_CACHE/wasm/list.json
-                  rm -v $SOL_AST_COMPILER_CACHE/wasm/soljson-v0.5.17+commit.d19bba13.js
-
-            - name: Install, lint, test and generate coverage report
+            - name: Install and lint
               run: |
                   npm install
                   npm link
                   npm run lint
+
+            # See https://github.com/ethereum/solc-bin
+            # See https://binaries.soliditylang.org/
+            # Also, remove list files and one rarely used compiler to still test downloading on-demand.
+            - name: Pre-download compilers from historical builds archive
+              run: |
+                  scribble --download-compilers native wasm
+                  find $SOL_AST_COMPILER_CACHE -name 'list.json' -delete
+                  find $SOL_AST_COMPILER_CACHE -name '*v0.5.17*' -delete
+
+            - name: Test and generate coverage report
+              run: |
                   npm run test:ci
                   npm run coverage
 

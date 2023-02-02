@@ -19,6 +19,12 @@
                 "description": "Print package version"
             },
             {
+                "name": "download-compilers",
+                "type": "String",
+                "multiple": true,
+                "description": "Download specified kind of supported compilers to compiler cache. Supports multiple entries."
+            },
+            {
                 "name": "quiet",
                 "alias": "q",
                 "type": "Boolean",

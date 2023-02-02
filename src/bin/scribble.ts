@@ -16,6 +16,7 @@ import {
     compileSourceString,
     ContractDefinition,
     ContractKind,
+    downloadSupportedCompilers,
     FunctionDefinition,
     FunctionKind,
     FunctionStateMutability,
@@ -722,6 +723,26 @@ function loadInstrMetaData(fileName: string): InstrumentationMetaData {
 
     if ("version" in options) {
         console.log(pkg.version);
+    } else if ("download-compilers" in options) {
+        const compilerKinds = options["download-compilers"].map((kind: string): CompilerKind => {
+            if (PossibleCompilerKinds.has(kind)) {
+                return kind as CompilerKind;
+            }
+
+            error(
+                `Invalid compiler kind "${kind}". Possible values: ${[
+                    ...PossibleCompilerKinds.values()
+                ].join(", ")}.`
+            );
+        });
+
+        console.log(
+            `Downloading compilers (${compilerKinds.join(", ")}) to current compiler cache:`
+        );
+
+        for await (const compiler of downloadSupportedCompilers(compilerKinds)) {
+            console.log(`${compiler.path} (${compiler.constructor.name} v${compiler.version})`);
+        }
     } else if ("help" in options || !("solFiles" in options)) {
         const usage = commandLineUsage(params);
 
