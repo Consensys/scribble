@@ -138,6 +138,7 @@ export function dedup<T, U>(arr: T[], keyF?: (x: T) => U): T[] {
 
     for (const el of arr) {
         const key = keyF ? keyF(el) : el;
+
         if (seen.has(key)) {
             continue;
         }
@@ -305,6 +306,7 @@ export function filterByType<Base, Child extends Base>(
     constr: SubclassConstructor<Base, Child>
 ): Child[] {
     const result: Child[] = [];
+
     for (const annotation of original) {
         if (annotation instanceof constr) {
             result.push(annotation);
@@ -318,6 +320,7 @@ function getTypeScope(n: ASTNode): SourceUnit | ContractDefinition {
     const typeScope = n.getClosestParentBySelector(
         (p: ASTNode) => p instanceof SourceUnit || p instanceof ContractDefinition
     ) as SourceUnit | ContractDefinition;
+
     return typeScope;
 }
 

@@ -1,4 +1,4 @@
-import { getABIEncoderVersion, InferType, SourceUnit } from "solc-typed-ast";
+import { InferType, SourceUnit } from "solc-typed-ast";
 import { generateUtilsContract, ScribbleFactory, SourceMap } from "../../src";
 import { getCallGraph } from "../../src/instrumenter/callgraph";
 import { getCHA } from "../../src/instrumenter/cha";
@@ -13,7 +13,6 @@ export function makeInstrumentationCtx(
     assertionMode: "log" | "mstore",
     compilerVersion: string
 ): InstrumentationContext {
-    const encVer = getABIEncoderVersion(sources, compilerVersion);
     const inference = new InferType(compilerVersion);
     const srcFileMap: SourceMap = new Map(
         [...files.entries()].map(([name, contents]) => [name, new SolFile(name, contents)])
@@ -25,7 +24,7 @@ export function makeInstrumentationCtx(
         assertionMode,
         assertionMode === "mstore",
         true,
-        getCallGraph(inference, sources, encVer),
+        getCallGraph(inference, sources),
         getCHA(sources),
         {},
         [],
@@ -34,7 +33,7 @@ export function makeInstrumentationCtx(
         compilerVersion,
         false,
         "flat",
-        new TypeEnv(inference, encVer),
+        new TypeEnv(inference),
         new Map(),
         []
     );

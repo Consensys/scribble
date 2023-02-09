@@ -16,13 +16,13 @@ import {
     compileSourceString,
     ContractDefinition,
     ContractKind,
+    downloadSupportedCompilers,
     FunctionDefinition,
     FunctionKind,
     FunctionStateMutability,
-    FunctionVisibility,
-    getABIEncoderVersion,
     getCompilerPrefixForOs,
     InferType,
+    isVisiblityExternallyCallable,
     parsePathRemapping,
     PathOptions,
     PossibleCompilerKinds,
@@ -384,8 +384,7 @@ function instrumentFiles(
                 let annotations = gatherFunctionAnnotations(ctx.typeEnv.inference, fun, annotMap);
 
                 if (
-                    (fun.visibility == FunctionVisibility.External ||
-                        fun.visibility == FunctionVisibility.Public) &&
+                    isVisiblityExternallyCallable(fun.visibility) &&
                     fun.stateMutability !== FunctionStateMutability.Pure &&
                     fun.stateMutability !== FunctionStateMutability.View
                 ) {
@@ -724,6 +723,26 @@ function loadInstrMetaData(fileName: string): InstrumentationMetaData {
 
     if ("version" in options) {
         console.log(pkg.version);
+    } else if ("download-compilers" in options) {
+        const compilerKinds = options["download-compilers"].map((kind: string): CompilerKind => {
+            if (PossibleCompilerKinds.has(kind)) {
+                return kind as CompilerKind;
+            }
+
+            error(
+                `Invalid compiler kind "${kind}". Possible values: ${[
+                    ...PossibleCompilerKinds.values()
+                ].join(", ")}.`
+            );
+        });
+
+        console.log(
+            `Downloading compilers (${compilerKinds.join(", ")}) to current compiler cache:`
+        );
+
+        for await (const compiler of downloadSupportedCompilers(compilerKinds)) {
+            console.log(`${compiler.path} (${compiler.constructor.name} v${compiler.version})`);
+        }
     } else if ("help" in options || !("solFiles" in options)) {
         const usage = commandLineUsage(params);
 
@@ -938,8 +957,6 @@ function loadInstrMetaData(fileName: string): InstrumentationMetaData {
             macroPaths.push(options["macro-path"]);
         }
 
-        const inference = new InferType(compilerVersionUsed);
-
         for (const macroPath of macroPaths) {
             try {
                 detectMacroDefinitions(macroPath, macros, contentsMap);
@@ -969,9 +986,10 @@ function loadInstrMetaData(fileName: string): InstrumentationMetaData {
             }
         }
 
+        const inference = new InferType(compilerVersionUsed);
+
         const cha = getCHA(units);
-        const abiEncoderVersion = getABIEncoderVersion(units, compilerVersionUsed);
-        const callgraph = getCallGraph(inference, units, abiEncoderVersion);
+        const callgraph = getCallGraph(inference, units);
 
         const annotExtractionCtx: AnnotationExtractionContext = {
             filterOptions,
@@ -995,7 +1013,7 @@ function loadInstrMetaData(fileName: string): InstrumentationMetaData {
             throw e;
         }
 
-        const typeEnv = new TypeEnv(inference, abiEncoderVersion);
+        const typeEnv = new TypeEnv(inference);
         const semMap: SemMap = new Map();
 
         let interposingQueue: Array<[VariableDeclaration, AbsDatastructurePath]>;

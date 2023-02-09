@@ -67,7 +67,7 @@ import { SourceFile } from "../util/sources";
 
 const srcloc = require("src-location")
 
-export type ParseOptions = {
+export type ExprParseOptions = {
     startRule: string,
     ctx: ASTNode,
     inference: InferType,
@@ -96,7 +96,7 @@ export function parseExpression(str: string, ctx: ASTNode, inference: InferType,
 
 function makeUserDefinedType(
     name: string,
-    options: ParseOptions,
+    options: ExprParseOptions,
     location: any
 ): UserDefinedType {
     const defs = [...resolveAny(name, options.ctx, options.inference, true)];

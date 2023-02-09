@@ -14,7 +14,6 @@ import {
     FunctionStateMutability,
     FunctionType,
     FunctionVisibility,
-    getABIEncoderVersion,
     InferType,
     IntLiteralType,
     IntType,
@@ -32,7 +31,6 @@ import {
     UserDefinedValueTypeDefinition,
     UserDefinition
 } from "solc-typed-ast";
-import { ABIEncoderVersion } from "solc-typed-ast/dist/types/abi";
 import { Logger } from "../../src/logger";
 import { SId, SUserFunctionDefinition } from "../../src/spec-lang/ast";
 import { parseAnnotation, parseExpression as parse } from "../../src/spec-lang/expr_parser";
@@ -979,7 +977,6 @@ contract UserDefinedValueTypes {
         describe(`Positive tests for #${fileName}`, () => {
             let units: SourceUnit[];
             let compilerVersion: string;
-            let encVer: ABIEncoderVersion;
             let inference: InferType;
             let sourceFile: SourceFile;
 
@@ -988,7 +985,6 @@ contract UserDefinedValueTypes {
 
                 units = result.units;
                 compilerVersion = result.compilerVersion;
-                encVer = getABIEncoderVersion(units, compilerVersion);
 
                 inference = new InferType(compilerVersion);
                 sourceFile = new SolFile(fileName, content);
@@ -999,7 +995,7 @@ contract UserDefinedValueTypes {
                     const expectedType = expected instanceof TypeNode ? expected : expected(units);
                     const [typeCtx, target] = getTypeCtxAndTarget(loc, units);
                     const parsed = parse(specString, target, inference, sourceFile, 0);
-                    const typeEnv = new TypeEnv(inference, encVer);
+                    const typeEnv = new TypeEnv(inference);
                     const type = tc(parsed, typeCtx, typeEnv);
 
                     Logger.debug(
@@ -1016,7 +1012,6 @@ contract UserDefinedValueTypes {
         describe(`Negative tests for #${fileName}`, () => {
             let units: SourceUnit[];
             let compilerVersion: string;
-            let encVer: ABIEncoderVersion;
             let typeEnv: TypeEnv;
             let sourceFile: SourceFile;
 
@@ -1025,11 +1020,10 @@ contract UserDefinedValueTypes {
 
                 units = result.units;
                 compilerVersion = result.compilerVersion;
-                encVer = getABIEncoderVersion(units, compilerVersion);
 
                 const inference = new InferType(compilerVersion);
 
-                typeEnv = new TypeEnv(inference, encVer);
+                typeEnv = new TypeEnv(inference);
                 sourceFile = new SolFile(fileName, content);
             });
 
@@ -1689,7 +1683,6 @@ contract Statements08 {
             let compilerVersion: string;
             let inference: InferType;
             let typeEnv: TypeEnv;
-            let encVer: ABIEncoderVersion;
             let sourceFile: SourceFile;
 
             before(async () => {
@@ -1697,10 +1690,9 @@ contract Statements08 {
 
                 units = result.units;
                 compilerVersion = result.compilerVersion;
-                encVer = getABIEncoderVersion(units, compilerVersion);
 
                 inference = new InferType(compilerVersion);
-                typeEnv = new TypeEnv(inference, encVer);
+                typeEnv = new TypeEnv(inference);
                 sourceFile = new SolFile(fileName, content);
             });
 
@@ -1712,7 +1704,7 @@ contract Statements08 {
                     const [ctx] = getTypeCtxAndTarget(loc, units, parsed);
 
                     if (clearFunsBefore) {
-                        typeEnv = new TypeEnv(inference, encVer);
+                        typeEnv = new TypeEnv(inference);
                     }
 
                     tcAnnotation(parsed, ctx, target, typeEnv);
@@ -1740,7 +1732,6 @@ contract Statements08 {
             let units: SourceUnit[];
             let compilerVersion: string;
             let typeEnv: TypeEnv;
-            let encVer: ABIEncoderVersion;
             let sourceFile: SourceFile;
 
             before(async () => {
@@ -1748,11 +1739,10 @@ contract Statements08 {
 
                 units = result.units;
                 compilerVersion = result.compilerVersion;
-                encVer = getABIEncoderVersion(units, compilerVersion);
 
                 const inference = new InferType(compilerVersion);
 
-                typeEnv = new TypeEnv(inference, encVer);
+                typeEnv = new TypeEnv(inference);
                 sourceFile = new SolFile(fileName, content);
 
                 // Setup any definitions

@@ -70,9 +70,8 @@ npm install
 npm link
 ```
 
-Prior to running tests the compiler pre-downloading script `download.sh` may be used to setup local compiler cache:
+Prior to running the tests it would be better to setup local compiler cache:
 
 ```bash
-download.sh 'linux-amd64' '.compiler_cache'  # platform-dependent native compiler builds
-download.sh 'wasm' '.compiler_cache'         # cross-platform WASM compiler builds
+scribble --download-compilers native wasm
 ```

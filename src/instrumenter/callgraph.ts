@@ -6,7 +6,6 @@ import {
     resolveCallable,
     SourceUnit
 } from "solc-typed-ast";
-import { ABIEncoderVersion } from "solc-typed-ast/dist/types/abi";
 import { getOr, single } from "../util/misc";
 
 export type FunSet = Set<FunctionDefinition>;
@@ -34,11 +33,7 @@ export interface CallGraph {
     overridenBy: FunMap;
 }
 
-export function getCallGraph(
-    inference: InferType,
-    srcs: SourceUnit[],
-    abiEncoderVersion: ABIEncoderVersion
-): CallGraph {
+export function getCallGraph(inference: InferType, srcs: SourceUnit[]): CallGraph {
     const callers: FunMap = new Map();
     const callees: FunMap = new Map();
 
@@ -91,9 +86,7 @@ export function getCallGraph(
                         const contract = contractT.vReferencedDeclaration as ContractDefinition;
                         const overridenFun = single(
                             contract.vFunctions.filter(
-                                (fd) =>
-                                    inference.signature(fd, abiEncoderVersion) ===
-                                    inference.signature(fun, abiEncoderVersion)
+                                (fd) => inference.signature(fd) === inference.signature(fun)
                             )
                         );
                         overrideSet.add(overridenFun);

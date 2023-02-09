@@ -1,10 +1,10 @@
+import { Chain, Common, Hardfork } from "@ethereumjs/common";
 import { Transaction } from "@ethereumjs/tx";
-import VM from "@ethereumjs/vm";
-import { RunTxResult } from "@ethereumjs/vm/dist/runTx";
+import { Account, Address, privateToAddress } from "@ethereumjs/util";
+import { RunTxResult, VM } from "@ethereumjs/vm";
 import bigInt from "big-integer";
 import BN from "bn.js";
 import crypto from "crypto";
-import { Account, Address, privateToAddress } from "ethereumjs-util";
 import expect from "expect";
 import { compileSol, compileSourceString, LatestCompilerVersion } from "solc-typed-ast";
 import { getCompilerKind } from "./utils";
@@ -214,7 +214,7 @@ async function staticCall(
     contractAddress: Buffer,
     options: CallOptions
 ): Promise<any[]> {
-    const result = await vm.runCall({
+    const result = await vm.evm.runCall({
         to: new Address(contractAddress),
         caller: caller.address,
         origin: caller.address,
@@ -507,7 +507,9 @@ export async function executeTestSuite(fileName: string, config: Config): Promis
         const env = {} as Environment;
 
         before(async () => {
-            env.vm = new VM();
+            const common = new Common({ chain: Chain.Mainnet, hardfork: Hardfork.Berlin });
+
+            env.vm = await VM.create({ common });
             env.aliases = new Map<string, any>();
             env.contracts = await compileSource(sample, config.contents);
         });
@@ -533,7 +535,9 @@ export async function executeTestSuiteInternal(config: Config, version: string):
 
     const env = {} as Environment;
 
-    env.vm = new VM();
+    const common = new Common({ chain: Chain.Mainnet, hardfork: Hardfork.Berlin });
+
+    env.vm = await VM.create({ common });
     env.aliases = new Map<string, any>();
     env.contracts = await compileSource(sample, config.contents, version);
 
