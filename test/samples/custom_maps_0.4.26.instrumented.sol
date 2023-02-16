@@ -2,6 +2,47 @@
 /// Use --disarm prior to make any changes.
 pragma solidity 0.4.26;
 
+contract Foo {
+    struct vars0 {
+        uint256 i0;
+        address a0;
+        bool forall_0;
+    }
+
+    address_to_uint256.S private _valueMap;
+
+    function foo() public {
+        vars0 memory _v;
+        _original_Foo_foo();
+        _v.forall_0 = true;
+        for (_v.i0 = 1; _v.i0 < _valueMap.keys.length; _v.i0++) {
+            _v.a0 = _valueMap.keys[_v.i0];
+            _v.forall_0 = address_to_uint256.get(_valueMap, _v.a0) > 0;
+            if (!_v.forall_0) break;
+        }
+        if (!(_v.forall_0)) {
+            __ScribbleUtilsLib__11.assertionFailed("0: ");
+            assert(false);
+        }
+    }
+
+    function _original_Foo_foo() private {}
+}
+
+library __ScribbleUtilsLib__11 {
+    event AssertionFailed(string message);
+
+    event AssertionFailedData(int eventId, bytes encodingData);
+
+    function assertionFailed(string memory arg_0) internal {
+        emit AssertionFailed(arg_0);
+    }
+
+    function assertionFailedData(int arg_0, bytes memory arg_1) internal {
+        emit AssertionFailedData(arg_0, arg_1);
+    }
+}
+
 /// Utility contract holding a stack counter
 contract __scribble_ReentrancyUtils {
     event AssertionFailed(string message);
@@ -46,31 +87,4 @@ library address_to_uint256 {
     function get(S storage m, address key) internal view returns (uint256) {
         return m.innerM[key];
     }
-}
-
-contract Foo is __scribble_ReentrancyUtils {
-    struct vars0 {
-        uint256 i0;
-        address a0;
-        bool forall_0;
-    }
-
-    address_to_uint256.S private _valueMap;
-
-    function foo() public {
-        vars0 memory _v;
-        _original_Foo_foo();
-        _v.forall_0 = true;
-        for (_v.i0 = 1; _v.i0 < _valueMap.keys.length; _v.i0++) {
-            _v.a0 = _valueMap.keys[_v.i0];
-            _v.forall_0 = address_to_uint256.get(_valueMap, _v.a0) > 0;
-            if (!_v.forall_0) break;
-        }
-        if (!(_v.forall_0)) {
-            emit AssertionFailed("0: ");
-            assert(false);
-        }
-    }
-
-    function _original_Foo_foo() private {}
 }

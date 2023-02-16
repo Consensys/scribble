@@ -2,6 +2,20 @@
 /// Use --disarm prior to make any changes.
 pragma solidity 0.8.18;
 
+library __ScribbleUtilsLib__23 {
+    event AssertionFailed(string message);
+
+    event AssertionFailedData(int eventId, bytes encodingData);
+
+    function assertionFailed(string memory arg_0) internal {
+        emit AssertionFailed(arg_0);
+    }
+
+    function assertionFailedData(int arg_0, bytes memory arg_1) internal {
+        emit AssertionFailedData(arg_0, arg_1);
+    }
+}
+
 /// Utility contract holding a stack counter
 contract __scribble_ReentrancyUtils {
     event AssertionFailed(string message);
@@ -41,7 +55,7 @@ contract A is __scribble_ReentrancyUtils {
         _original_A_testHD();
         unchecked {
             if (!(D_7_0 == (H_7_0 * 24))) {
-                emit AssertionFailed("2: ");
+                __ScribbleUtilsLib__23.assertionFailed("2: ");
                 assert(false);
             }
         }
@@ -58,7 +72,7 @@ contract B is __scribble_ReentrancyUtils {
         _original_B_testWHD();
         unchecked {
             if (!(((W_14_0 == (D_14_0 * 7)) && (D_14_0 == (H_14_0 * 24))) && (H_14_0 == (60 * 60)))) {
-                emit AssertionFailed("6: ");
+                __ScribbleUtilsLib__23.assertionFailed("6: ");
                 assert(false);
             }
         }
@@ -67,12 +81,12 @@ contract B is __scribble_ReentrancyUtils {
     function _original_B_testWHD() private {}
 }
 
-contract C is __scribble_ReentrancyUtils, B {
+contract C is B {
     constructor() {
         _original_C_constructor();
         unchecked {
             if (!(W_14_0 == (D_14_0 * 7))) {
-                emit AssertionFailed("7: ");
+                __ScribbleUtilsLib__23.assertionFailed("7: ");
                 assert(false);
             }
         }

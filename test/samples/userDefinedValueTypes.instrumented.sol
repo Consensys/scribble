@@ -6,23 +6,14 @@ enum A { A, B, C }
 
 type Price is uint32;
 
-/// Utility contract holding a stack counter
-contract __scribble_ReentrancyUtils {
-    event AssertionFailed(string message);
-
-    event AssertionFailedData(int eventId, bytes encodingData);
-
-    bool __scribble_out_of_contract = true;
-}
-
-contract UserDefinedValueTypes is __scribble_ReentrancyUtils {
+contract UserDefinedValueTypes {
     type Quantity is uint32;
 
     function orderPrice(Price p, Quantity q) public returns (Price RET_0) {
         RET_0 = _original_UserDefinedValueTypes_orderPrice(p, q);
         unchecked {
             if (!((Price.unwrap(p) * Quantity.unwrap(q)) == Price.unwrap(RET_0))) {
-                emit AssertionFailed("0: ");
+                __ScribbleUtilsLib__38.assertionFailed("0: ");
                 assert(false);
             }
         }
@@ -31,4 +22,27 @@ contract UserDefinedValueTypes is __scribble_ReentrancyUtils {
     function _original_UserDefinedValueTypes_orderPrice(Price p, Quantity q) private returns (Price) {
         return Price.wrap(Price.unwrap(p) * Quantity.unwrap(q));
     }
+}
+
+library __ScribbleUtilsLib__38 {
+    event AssertionFailed(string message);
+
+    event AssertionFailedData(int eventId, bytes encodingData);
+
+    function assertionFailed(string memory arg_0) internal {
+        emit AssertionFailed(arg_0);
+    }
+
+    function assertionFailedData(int arg_0, bytes memory arg_1) internal {
+        emit AssertionFailedData(arg_0, arg_1);
+    }
+}
+
+/// Utility contract holding a stack counter
+contract __scribble_ReentrancyUtils {
+    event AssertionFailed(string message);
+
+    event AssertionFailedData(int eventId, bytes encodingData);
+
+    bool __scribble_out_of_contract = true;
 }

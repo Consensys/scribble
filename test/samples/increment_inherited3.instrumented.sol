@@ -2,20 +2,11 @@
 /// Use --disarm prior to make any changes.
 pragma solidity 0.5.17;
 
-/// Utility contract holding a stack counter
-contract __scribble_ReentrancyUtils {
-    event AssertionFailed(string message);
-
-    event AssertionFailedData(int eventId, bytes encodingData);
-
-    bool __scribble_out_of_contract = true;
-}
-
-contract Base is __scribble_ReentrancyUtils {
+contract Base {
     function foo(uint256 x) public returns (uint256 y) {
         y = _original_Base_foo(x);
         if (!(y > x)) {
-            emit AssertionFailed("0: P0");
+            __ScribbleUtilsLib__30.assertionFailed("0: P0");
             assert(false);
         }
     }
@@ -25,15 +16,38 @@ contract Base is __scribble_ReentrancyUtils {
     }
 }
 
-contract Foo is __scribble_ReentrancyUtils, Base {
+library __ScribbleUtilsLib__30 {
+    event AssertionFailed(string message);
+
+    event AssertionFailedData(int eventId, bytes encodingData);
+
+    function assertionFailed(string memory arg_0) internal {
+        emit AssertionFailed(arg_0);
+    }
+
+    function assertionFailedData(int arg_0, bytes memory arg_1) internal {
+        emit AssertionFailedData(arg_0, arg_1);
+    }
+}
+
+/// Utility contract holding a stack counter
+contract __scribble_ReentrancyUtils {
+    event AssertionFailed(string message);
+
+    event AssertionFailedData(int eventId, bytes encodingData);
+
+    bool __scribble_out_of_contract = true;
+}
+
+contract Foo is Base {
     function foo(uint256 x) public returns (uint256 y) {
         y = _original_Foo_foo(x);
         if (!(y > x)) {
-            emit AssertionFailed("0: P0");
+            __ScribbleUtilsLib__30.assertionFailed("0: P0");
             assert(false);
         }
         if (!(y == (x + 1))) {
-            emit AssertionFailed("1: P0");
+            __ScribbleUtilsLib__30.assertionFailed("1: P0");
             assert(false);
         }
     }

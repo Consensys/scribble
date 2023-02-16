@@ -2,16 +2,7 @@
 /// Use --disarm prior to make any changes.
 pragma solidity 0.5.17;
 
-/// Utility contract holding a stack counter
-contract __scribble_ReentrancyUtils {
-    event AssertionFailed(string message);
-
-    event AssertionFailedData(int eventId, bytes encodingData);
-
-    bool __scribble_out_of_contract = true;
-}
-
-contract TokenSale is __scribble_ReentrancyUtils {
+contract TokenSale {
     mapping(address => uint256) public balanceOf;
     uint256 internal constant PRICE_PER_TOKEN = 1 ether;
 
@@ -26,7 +17,7 @@ contract TokenSale is __scribble_ReentrancyUtils {
     function buy(uint256 numTokens) public payable {
         _original_TokenSale_buy(numTokens);
         if (!(address(this).balance >= 1)) {
-            emit AssertionFailed("0: P0");
+            __ScribbleUtilsLib__88.assertionFailed("0: P0");
             assert(false);
         }
     }
@@ -39,7 +30,7 @@ contract TokenSale is __scribble_ReentrancyUtils {
     function sell(uint256 numTokens) public {
         _original_TokenSale_sell(numTokens);
         if (!(address(this).balance >= 1)) {
-            emit AssertionFailed("1: P1");
+            __ScribbleUtilsLib__88.assertionFailed("1: P1");
             assert(false);
         }
     }
@@ -49,4 +40,27 @@ contract TokenSale is __scribble_ReentrancyUtils {
         balanceOf[msg.sender] -= numTokens;
         msg.sender.transfer(numTokens * PRICE_PER_TOKEN);
     }
+}
+
+library __ScribbleUtilsLib__88 {
+    event AssertionFailed(string message);
+
+    event AssertionFailedData(int eventId, bytes encodingData);
+
+    function assertionFailed(string memory arg_0) internal {
+        emit AssertionFailed(arg_0);
+    }
+
+    function assertionFailedData(int arg_0, bytes memory arg_1) internal {
+        emit AssertionFailedData(arg_0, arg_1);
+    }
+}
+
+/// Utility contract holding a stack counter
+contract __scribble_ReentrancyUtils {
+    event AssertionFailed(string message);
+
+    event AssertionFailedData(int eventId, bytes encodingData);
+
+    bool __scribble_out_of_contract = true;
 }

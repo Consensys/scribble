@@ -2,16 +2,7 @@
 /// Use --disarm prior to make any changes.
 pragma solidity 0.6.10;
 
-/// Utility contract holding a stack counter
-contract __scribble_ReentrancyUtils {
-    event AssertionFailed(string message);
-
-    event AssertionFailedData(int eventId, bytes encodingData);
-
-    bool __scribble_out_of_contract = true;
-}
-
-contract Foo is __scribble_ReentrancyUtils {
+contract Foo {
     struct vars0 {
         uint256 dummy_;
         uint256 x;
@@ -28,10 +19,33 @@ contract Foo is __scribble_ReentrancyUtils {
         (_v.dummy_, _v.x) = snd(v);
         _v.let_0 = _v.x == 2;
         if (!(_v.let_0)) {
-            emit AssertionFailed("0: P0");
+            __ScribbleUtilsLib__24.assertionFailed("0: P0");
             assert(false);
         }
     }
 
     function _original_Foo_foo(uint v) private {}
+}
+
+library __ScribbleUtilsLib__24 {
+    event AssertionFailed(string message);
+
+    event AssertionFailedData(int eventId, bytes encodingData);
+
+    function assertionFailed(string memory arg_0) internal {
+        emit AssertionFailed(arg_0);
+    }
+
+    function assertionFailedData(int arg_0, bytes memory arg_1) internal {
+        emit AssertionFailedData(arg_0, arg_1);
+    }
+}
+
+/// Utility contract holding a stack counter
+contract __scribble_ReentrancyUtils {
+    event AssertionFailed(string message);
+
+    event AssertionFailedData(int eventId, bytes encodingData);
+
+    bool __scribble_out_of_contract = true;
 }

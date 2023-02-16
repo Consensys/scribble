@@ -2,17 +2,8 @@
 /// Use --disarm prior to make any changes.
 pragma solidity 0.8.10;
 
-/// Utility contract holding a stack counter
-contract __scribble_ReentrancyUtils {
-    event AssertionFailed(string message);
-
-    event AssertionFailedData(int eventId, bytes encodingData);
-
-    bool __scribble_out_of_contract = true;
-}
-
 ///  #macro ownable(owner);
-contract Ownable is __scribble_ReentrancyUtils {
+contract Ownable {
     event OwnershipTransferred(address indexed from, address indexed to);
 
     struct vars0 {
@@ -45,11 +36,34 @@ contract Ownable is __scribble_ReentrancyUtils {
         RET0 = owner;
         unchecked {
             if (!(_v.old_0 == msg.sender)) {
-                emit AssertionFailed("1: can only be updated by an owner");
+                __ScribbleUtilsLib__57.assertionFailed("1: can only be updated by an owner");
                 assert(false);
             }
         }
     }
+}
+
+library __ScribbleUtilsLib__57 {
+    event AssertionFailed(string message);
+
+    event AssertionFailedData(int eventId, bytes encodingData);
+
+    function assertionFailed(string memory arg_0) internal {
+        emit AssertionFailed(arg_0);
+    }
+
+    function assertionFailedData(int arg_0, bytes memory arg_1) internal {
+        emit AssertionFailedData(arg_0, arg_1);
+    }
+}
+
+/// Utility contract holding a stack counter
+contract __scribble_ReentrancyUtils {
+    event AssertionFailed(string message);
+
+    event AssertionFailedData(int eventId, bytes encodingData);
+
+    bool __scribble_out_of_contract = true;
 }
 
 contract Test is Ownable {}

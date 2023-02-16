@@ -3,13 +3,11 @@
 pragma solidity 0.8.18;
 
 library Foo {
-    event AssertionFailed(string message);
-
     function foo() internal returns (uint RET_0) {
         RET_0 = _original_Foo_foo();
         unchecked {
             if (!(RET_0 == 1)) {
-                emit AssertionFailed("0: ");
+                __ScribbleUtilsLib__21.assertionFailed("0: ");
                 assert(false);
             }
         }
@@ -23,6 +21,20 @@ library Foo {
 contract Boo {
     function main() public {
         Foo.foo();
+    }
+}
+
+library __ScribbleUtilsLib__21 {
+    event AssertionFailed(string message);
+
+    event AssertionFailedData(int eventId, bytes encodingData);
+
+    function assertionFailed(string memory arg_0) internal {
+        emit AssertionFailed(arg_0);
+    }
+
+    function assertionFailedData(int arg_0, bytes memory arg_1) internal {
+        emit AssertionFailedData(arg_0, arg_1);
     }
 }
 

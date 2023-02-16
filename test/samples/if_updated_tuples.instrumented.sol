@@ -2,16 +2,7 @@
 /// Use --disarm prior to make any changes.
 pragma solidity 0.8.7;
 
-/// Utility contract holding a stack counter
-contract __scribble_ReentrancyUtils {
-    event AssertionFailed(string message);
-
-    event AssertionFailedData(int eventId, bytes encodingData);
-
-    bool __scribble_out_of_contract = true;
-}
-
-contract IfUpdatedPrimitive is __scribble_ReentrancyUtils {
+contract IfUpdatedPrimitive {
     struct vars0 {
         address tuple_tmp_0;
         uint256 tuple_tmp_1;
@@ -80,7 +71,7 @@ contract IfUpdatedPrimitive is __scribble_ReentrancyUtils {
     function IfUpdatedPrimitive_x_inline_initializer() internal {
         unchecked {
             if (!(x >= 1)) {
-                emit AssertionFailed("0: ");
+                __ScribbleUtilsLib__205.assertionFailed("0: ");
                 assert(false);
             }
         }
@@ -89,7 +80,7 @@ contract IfUpdatedPrimitive is __scribble_ReentrancyUtils {
     function IfUpdatedPrimitive_a_inline_initializer() internal {
         unchecked {
             if (!(uint160(a) >= 1)) {
-                emit AssertionFailed("1: ");
+                __ScribbleUtilsLib__205.assertionFailed("1: ");
                 assert(false);
             }
         }
@@ -100,7 +91,7 @@ contract IfUpdatedPrimitive is __scribble_ReentrancyUtils {
         RET0 = x;
         unchecked {
             if (!(x >= 1)) {
-                emit AssertionFailed("0: ");
+                __ScribbleUtilsLib__205.assertionFailed("0: ");
                 assert(false);
             }
         }
@@ -111,9 +102,32 @@ contract IfUpdatedPrimitive is __scribble_ReentrancyUtils {
         RET1 = a;
         unchecked {
             if (!(uint160(a) >= 1)) {
-                emit AssertionFailed("1: ");
+                __ScribbleUtilsLib__205.assertionFailed("1: ");
                 assert(false);
             }
         }
     }
+}
+
+library __ScribbleUtilsLib__205 {
+    event AssertionFailed(string message);
+
+    event AssertionFailedData(int eventId, bytes encodingData);
+
+    function assertionFailed(string memory arg_0) internal {
+        emit AssertionFailed(arg_0);
+    }
+
+    function assertionFailedData(int arg_0, bytes memory arg_1) internal {
+        emit AssertionFailedData(arg_0, arg_1);
+    }
+}
+
+/// Utility contract holding a stack counter
+contract __scribble_ReentrancyUtils {
+    event AssertionFailed(string message);
+
+    event AssertionFailedData(int eventId, bytes encodingData);
+
+    bool __scribble_out_of_contract = true;
 }

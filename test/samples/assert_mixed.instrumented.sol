@@ -2,6 +2,20 @@
 /// Use --disarm prior to make any changes.
 pragma solidity 0.8.7;
 
+library __ScribbleUtilsLib__34 {
+    event AssertionFailed(string message);
+
+    event AssertionFailedData(int eventId, bytes encodingData);
+
+    function assertionFailed(string memory arg_0) internal {
+        emit AssertionFailed(arg_0);
+    }
+
+    function assertionFailedData(int arg_0, bytes memory arg_1) internal {
+        emit AssertionFailedData(arg_0, arg_1);
+    }
+}
+
 /// Utility contract holding a stack counter
 contract __scribble_ReentrancyUtils {
     event AssertionFailed(string message);
@@ -35,7 +49,7 @@ contract AssertMixed is __scribble_ReentrancyUtils {
         _original_AssertMixed_main(n);
         unchecked {
             if (!(n.length < 10)) {
-                emit AssertionFailed("2: ");
+                __ScribbleUtilsLib__34.assertionFailed("2: ");
                 assert(false);
             }
         }
@@ -52,14 +66,14 @@ contract AssertMixed is __scribble_ReentrancyUtils {
                 if (!_v.forall_0) break;
             }
             if (!(_v.forall_0)) {
-                emit AssertionFailed("3: ");
+                __ScribbleUtilsLib__34.assertionFailed("3: ");
                 assert(false);
             }
         }
         for (uint i = 0; i < n.length; i++) {
             unchecked {
                 if (!(n[i] > 2)) {
-                    emit AssertionFailed("4: ");
+                    __ScribbleUtilsLib__34.assertionFailed("4: ");
                     assert(false);
                 }
             }
@@ -71,7 +85,7 @@ contract AssertMixed is __scribble_ReentrancyUtils {
     function __scribble_AssertMixed_check_state_invariants_internal() internal {
         unchecked {
             if (!(sum < 200)) {
-                emit AssertionFailed("0: ");
+                __ScribbleUtilsLib__34.assertionFailed("0: ");
                 assert(false);
             }
         }
@@ -97,7 +111,7 @@ contract AssertMixed is __scribble_ReentrancyUtils {
         RET0 = sum;
         unchecked {
             if (!((sum - _v.old_0) > 3)) {
-                emit AssertionFailed("1: ");
+                __ScribbleUtilsLib__34.assertionFailed("1: ");
                 assert(false);
             }
         }

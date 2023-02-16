@@ -9,8 +9,6 @@ import {
     ContractDefinition,
     ContractKind,
     DataLocation,
-    EmitStatement,
-    EventDefinition,
     Expression,
     ExternalReferenceType,
     FunctionCall,
@@ -24,6 +22,7 @@ import {
     isFunctionCallExternal,
     Literal,
     LiteralKind,
+    MemberAccess,
     Mutability,
     OverrideSpecifier,
     SourceUnit,
@@ -252,8 +251,8 @@ export function generateUtilsContract(
 function getDebugInfoEmits(
     annotations: PropertyMetaData[],
     transCtx: TranspilingContext
-): Array<EmitStatement | undefined> {
-    const res: Array<EmitStatement | undefined> = [];
+): Array<Statement | undefined> {
+    const res: Array<Statement | undefined> = [];
     const factory = transCtx.factory;
     const instrCtx = transCtx.instrCtx;
 
@@ -276,14 +275,14 @@ function getDebugInfoEmits(
             );
         }
 
-        const assertionFailedDataEvtDef = instrCtx.getAssertionFailedDataEvent(annot.target);
+        const assertionFailedDataFun = instrCtx.getAssertionFailedDataFun(annot.target);
 
         // Finally construct the emit statement for the debug event.
-        const emitStmt = factory.makeEmitStatement(
+        const emitStmt = factory.makeExpressionStatement(
             factory.makeFunctionCall(
                 "<missing>",
                 FunctionCallKind.FunctionCall,
-                factory.makeIdentifierFor(assertionFailedDataEvtDef),
+                assertionFailedDataFun,
                 [
                     factory.makeLiteral("int", LiteralKind.Number, "", String(annot.id)),
                     factory.makeFunctionCall(
@@ -323,8 +322,8 @@ function emitAssert(
     transCtx: TranspilingContext,
     expr: Expression,
     annotation: PropertyMetaData,
-    event: EventDefinition,
-    emitStmt?: EmitStatement
+    event: MemberAccess,
+    emitStmt?: Statement
 ): Statement {
     const instrCtx = transCtx.instrCtx;
     const factory = instrCtx.factory;
@@ -336,23 +335,15 @@ function emitAssert(
         const strMessage = `${annotation.id}: ${annotation.message}`;
         const message = factory.makeLiteral("<missing>", LiteralKind.String, "", strMessage);
 
-        userAssertFailed = factory.makeEmitStatement(
-            factory.makeFunctionCall(
-                "<missing>",
-                FunctionCallKind.FunctionCall,
-                factory.makeIdentifier("<missing>", "AssertionFailed", event.id),
-                [message]
-            )
+        userAssertFailed = factory.makeExpressionStatement(
+            factory.makeFunctionCall("<missing>", FunctionCallKind.FunctionCall, event, [message])
         );
 
         if (instrCtx.covAssertions) {
-            userAssertionHit = factory.makeEmitStatement(
-                factory.makeFunctionCall(
-                    "<missing>",
-                    FunctionCallKind.FunctionCall,
-                    factory.makeIdentifier("<missing>", "AssertionFailed", 1000 + event.id),
-                    [factory.makeLiteral("<missing>", LiteralKind.String, "", `HIT: ${strMessage}`)]
-                )
+            userAssertionHit = factory.makeExpressionStatement(
+                factory.makeFunctionCall("<missing>", FunctionCallKind.FunctionCall, event, [
+                    factory.makeLiteral("<missing>", LiteralKind.String, "", `HIT: ${strMessage}`)
+                ])
             );
         }
     } else {
@@ -523,8 +514,8 @@ export function insertAnnotations(annotations: PropertyMetaData[], ctx: Transpil
             return [stmt, false];
         }
 
-        const event = instrCtx.getAssertionFailedEvent(contract);
-        return [emitAssert(ctx, predicate, annotation, event, emitStmt), false];
+        const assertFailedFun = instrCtx.getAssertionFailedFun(contract);
+        return [emitAssert(ctx, predicate, annotation, assertFailedFun, emitStmt), false];
     });
 
     for (const [check, isOld] of checkStmts) {

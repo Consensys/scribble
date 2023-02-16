@@ -2,6 +2,20 @@
 /// Use --disarm prior to make any changes.
 pragma solidity 0.6.10;
 
+library __ScribbleUtilsLib__32 {
+    event AssertionFailed(string message);
+
+    event AssertionFailedData(int eventId, bytes encodingData);
+
+    function assertionFailed(string memory arg_0) internal {
+        emit AssertionFailed(arg_0);
+    }
+
+    function assertionFailedData(int arg_0, bytes memory arg_1) internal {
+        emit AssertionFailedData(arg_0, arg_1);
+    }
+}
+
 /// Utility contract holding a stack counter
 contract __scribble_ReentrancyUtils {
     event AssertionFailed(string message);
@@ -56,8 +70,8 @@ contract Foo is __scribble_ReentrancyUtils {
     /// Check only the current contract's state invariants
     function __scribble_Foo_check_state_invariants_internal() internal {
         if (!(x > 0)) {
-            emit AssertionFailedData(0, abi.encode(x));
-            emit AssertionFailed("0: ");
+            __ScribbleUtilsLib__32.assertionFailedData(0, abi.encode(x));
+            __ScribbleUtilsLib__32.assertionFailed("0: ");
         }
     }
 

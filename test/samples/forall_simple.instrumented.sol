@@ -2,6 +2,20 @@
 /// Use --disarm prior to make any changes.
 pragma solidity 0.8.4;
 
+library __ScribbleUtilsLib__106 {
+    event AssertionFailed(string message);
+
+    event AssertionFailedData(int eventId, bytes encodingData);
+
+    function assertionFailed(string memory arg_0) internal {
+        emit AssertionFailed(arg_0);
+    }
+
+    function assertionFailedData(int arg_0, bytes memory arg_1) internal {
+        emit AssertionFailedData(arg_0, arg_1);
+    }
+}
+
 /// Utility contract holding a stack counter
 contract __scribble_ReentrancyUtils {
     event AssertionFailed(string message);
@@ -119,7 +133,7 @@ contract ForallSimple is __scribble_ReentrancyUtils {
                 if (!_v.forall_1) break;
             }
             if (!(_v.forall_1)) {
-                emit AssertionFailed("1: ");
+                __ScribbleUtilsLib__106.assertionFailed("1: ");
                 assert(false);
             }
         }
@@ -144,7 +158,7 @@ contract ForallSimple is __scribble_ReentrancyUtils {
                 if (!_v.forall_2) break;
             }
             if (!(_v.forall_2)) {
-                emit AssertionFailed("2: ");
+                __ScribbleUtilsLib__106.assertionFailed("2: ");
                 assert(false);
             }
         }
@@ -175,7 +189,7 @@ contract ForallSimple is __scribble_ReentrancyUtils {
         _original_ForallSimple_test3(a, x);
         unchecked {
             if (!(_v.old_1)) {
-                emit AssertionFailed("3: ");
+                __ScribbleUtilsLib__106.assertionFailed("3: ");
                 assert(false);
             }
         }
@@ -207,7 +221,7 @@ contract ForallSimple is __scribble_ReentrancyUtils {
                 if (!_v.forall_4) break;
             }
             if (!(_v.forall_4)) {
-                emit AssertionFailed("4: ");
+                __ScribbleUtilsLib__106.assertionFailed("4: ");
                 assert(false);
             }
         }
@@ -231,7 +245,7 @@ contract ForallSimple is __scribble_ReentrancyUtils {
                 if (!_v.forall_6) break;
             }
             if (!(_v.forall_6)) {
-                emit AssertionFailed("5: ");
+                __ScribbleUtilsLib__106.assertionFailed("5: ");
                 assert(false);
             }
         }
@@ -253,7 +267,7 @@ contract ForallSimple is __scribble_ReentrancyUtils {
                 if (!_v.forall_7) break;
             }
             if (!(_v.forall_7)) {
-                emit AssertionFailed("6: ");
+                __ScribbleUtilsLib__106.assertionFailed("6: ");
                 assert(false);
             }
         }
@@ -275,7 +289,7 @@ contract ForallSimple is __scribble_ReentrancyUtils {
                 if (!_v.forall_8) break;
             }
             if (!(_v.forall_8)) {
-                emit AssertionFailed("7: ");
+                __ScribbleUtilsLib__106.assertionFailed("7: ");
                 assert(false);
             }
         }
@@ -297,7 +311,7 @@ contract ForallSimple is __scribble_ReentrancyUtils {
                 if (!_v.forall_9) break;
             }
             if (!(_v.forall_9)) {
-                emit AssertionFailed("8: ");
+                __ScribbleUtilsLib__106.assertionFailed("8: ");
                 assert(false);
             }
         }
@@ -321,7 +335,7 @@ contract ForallSimple is __scribble_ReentrancyUtils {
             }
             _v.let_4 = _v.forall_10;
             if (!(_v.let_4)) {
-                emit AssertionFailed("9: ");
+                __ScribbleUtilsLib__106.assertionFailed("9: ");
                 assert(false);
             }
         }
@@ -341,7 +355,7 @@ contract ForallSimple is __scribble_ReentrancyUtils {
                 if (!_v.forall_0) break;
             }
             if (!(_v.forall_0)) {
-                emit AssertionFailed("0: ");
+                __ScribbleUtilsLib__106.assertionFailed("0: ");
                 assert(false);
             }
         }

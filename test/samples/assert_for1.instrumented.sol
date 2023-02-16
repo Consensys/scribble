@@ -2,21 +2,12 @@
 /// Use --disarm prior to make any changes.
 pragma solidity 0.8.10;
 
-/// Utility contract holding a stack counter
-contract __scribble_ReentrancyUtils {
-    event AssertionFailed(string message);
-
-    event AssertionFailedData(int eventId, bytes encodingData);
-
-    bool __scribble_out_of_contract = true;
-}
-
-contract Foo is __scribble_ReentrancyUtils {
+contract Foo {
     function main(uint n) public {
         uint sum = 0;
         unchecked {
             if (!(true)) {
-                emit AssertionFailed("0: ");
+                __ScribbleUtilsLib__30.assertionFailed("0: ");
                 assert(false);
             }
         }
@@ -25,4 +16,27 @@ contract Foo is __scribble_ReentrancyUtils {
             sum += i;
         }
     }
+}
+
+library __ScribbleUtilsLib__30 {
+    event AssertionFailed(string message);
+
+    event AssertionFailedData(int eventId, bytes encodingData);
+
+    function assertionFailed(string memory arg_0) internal {
+        emit AssertionFailed(arg_0);
+    }
+
+    function assertionFailedData(int arg_0, bytes memory arg_1) internal {
+        emit AssertionFailedData(arg_0, arg_1);
+    }
+}
+
+/// Utility contract holding a stack counter
+contract __scribble_ReentrancyUtils {
+    event AssertionFailed(string message);
+
+    event AssertionFailedData(int eventId, bytes encodingData);
+
+    bool __scribble_out_of_contract = true;
 }

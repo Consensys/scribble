@@ -2,16 +2,7 @@
 /// Use --disarm prior to make any changes.
 pragma solidity 0.8.4;
 
-/// Utility contract holding a stack counter
-contract __scribble_ReentrancyUtils {
-    event AssertionFailed(string message);
-
-    event AssertionFailedData(int eventId, bytes encodingData);
-
-    bool __scribble_out_of_contract = true;
-}
-
-contract Foo is __scribble_ReentrancyUtils {
+contract Foo {
     struct vars0 {
         uint256 dbg_0;
         uint256 old_0;
@@ -51,8 +42,8 @@ contract Foo is __scribble_ReentrancyUtils {
         _original_Foo_changesArg1(x);
         unchecked {
             if (!(_v.old_0 == 0)) {
-                emit AssertionFailedData(4, abi.encode(_v.dbg_0));
-                emit AssertionFailed("4: ");
+                __ScribbleUtilsLib__158.assertionFailedData(4, abi.encode(_v.dbg_0));
+                __ScribbleUtilsLib__158.assertionFailed("4: ");
             }
         }
     }
@@ -65,8 +56,8 @@ contract Foo is __scribble_ReentrancyUtils {
         _original_Foo_changesArg2(x);
         unchecked {
             if (!(x == 0)) {
-                emit AssertionFailedData(5, abi.encode(x));
-                emit AssertionFailed("5: ");
+                __ScribbleUtilsLib__158.assertionFailedData(5, abi.encode(x));
+                __ScribbleUtilsLib__158.assertionFailed("5: ");
             }
         }
     }
@@ -84,8 +75,8 @@ contract Foo is __scribble_ReentrancyUtils {
         _original_Foo_changesArr1();
         unchecked {
             if (!(_v.old_1 == 0)) {
-                emit AssertionFailedData(6, abi.encode(_v.dbg_1));
-                emit AssertionFailed("6: ");
+                __ScribbleUtilsLib__158.assertionFailedData(6, abi.encode(_v.dbg_1));
+                __ScribbleUtilsLib__158.assertionFailed("6: ");
             }
         }
     }
@@ -98,8 +89,8 @@ contract Foo is __scribble_ReentrancyUtils {
         _original_Foo_changesArr2();
         unchecked {
             if (!(x[0] == 0)) {
-                emit AssertionFailedData(7, abi.encode(x));
-                emit AssertionFailed("7: ");
+                __ScribbleUtilsLib__158.assertionFailedData(7, abi.encode(x));
+                __ScribbleUtilsLib__158.assertionFailed("7: ");
             }
         }
     }
@@ -112,8 +103,8 @@ contract Foo is __scribble_ReentrancyUtils {
         RET = _original_Foo_newRet();
         unchecked {
             if (!(RET == 1)) {
-                emit AssertionFailedData(8, abi.encode(RET));
-                emit AssertionFailed("8: ");
+                __ScribbleUtilsLib__158.assertionFailedData(8, abi.encode(RET));
+                __ScribbleUtilsLib__158.assertionFailed("8: ");
             }
         }
     }
@@ -133,8 +124,8 @@ contract Foo is __scribble_ReentrancyUtils {
             _v.let_1 = _v.let_0;
             _v.let_2 = _v.let_1;
             if (!(_v.let_2)) {
-                emit AssertionFailedData(9, abi.encode(x, _v.x1, _v.x2, _v.x3));
-                emit AssertionFailed("9: ");
+                __ScribbleUtilsLib__158.assertionFailedData(9, abi.encode(x, _v.x1, _v.x2, _v.x3));
+                __ScribbleUtilsLib__158.assertionFailed("9: ");
             }
         }
     }
@@ -166,8 +157,8 @@ contract Foo is __scribble_ReentrancyUtils {
     function Foo_arr_inline_initializer() internal {
         unchecked {
             if (!(arr[t] == 3)) {
-                emit AssertionFailedData(0, abi.encode(arr, t));
-                emit AssertionFailed("0: ");
+                __ScribbleUtilsLib__158.assertionFailedData(0, abi.encode(arr, t));
+                __ScribbleUtilsLib__158.assertionFailed("0: ");
             }
         }
     }
@@ -177,8 +168,8 @@ contract Foo is __scribble_ReentrancyUtils {
         RET0 = arr[ARG0];
         unchecked {
             if (!(arr[t] == 3)) {
-                emit AssertionFailedData(0, abi.encode(arr, t));
-                emit AssertionFailed("0: ");
+                __ScribbleUtilsLib__158.assertionFailedData(0, abi.encode(arr, t));
+                __ScribbleUtilsLib__158.assertionFailed("0: ");
             }
         }
     }
@@ -193,8 +184,8 @@ contract Foo is __scribble_ReentrancyUtils {
         RET1 = arr1[ARG2];
         unchecked {
             if (!(_v.old_2 == 3)) {
-                emit AssertionFailedData(1, abi.encode(_v.dbg_2));
-                emit AssertionFailed("1: ");
+                __ScribbleUtilsLib__158.assertionFailedData(1, abi.encode(_v.dbg_2));
+                __ScribbleUtilsLib__158.assertionFailed("1: ");
             }
         }
     }
@@ -204,8 +195,8 @@ contract Foo is __scribble_ReentrancyUtils {
         RET2 = m[ARG4];
         unchecked {
             if (!(m[ARG4].length > 1)) {
-                emit AssertionFailedData(2, abi.encode(ARG4));
-                emit AssertionFailed("2: ");
+                __ScribbleUtilsLib__158.assertionFailedData(2, abi.encode(ARG4));
+                __ScribbleUtilsLib__158.assertionFailed("2: ");
             }
         }
     }
@@ -215,8 +206,8 @@ contract Foo is __scribble_ReentrancyUtils {
         RET3 = m[ARG6];
         unchecked {
             if (!(m[ARG6].length > 1)) {
-                emit AssertionFailedData(2, abi.encode(ARG6));
-                emit AssertionFailed("2: ");
+                __ScribbleUtilsLib__158.assertionFailedData(2, abi.encode(ARG6));
+                __ScribbleUtilsLib__158.assertionFailed("2: ");
             }
         }
     }
@@ -226,9 +217,32 @@ contract Foo is __scribble_ReentrancyUtils {
         RET4 = m[ARG8][ARG9];
         unchecked {
             if (!(m[ARG8][ARG9] > 0)) {
-                emit AssertionFailedData(3, abi.encode(ARG8, ARG9));
-                emit AssertionFailed("3: ");
+                __ScribbleUtilsLib__158.assertionFailedData(3, abi.encode(ARG8, ARG9));
+                __ScribbleUtilsLib__158.assertionFailed("3: ");
             }
         }
     }
+}
+
+library __ScribbleUtilsLib__158 {
+    event AssertionFailed(string message);
+
+    event AssertionFailedData(int eventId, bytes encodingData);
+
+    function assertionFailed(string memory arg_0) internal {
+        emit AssertionFailed(arg_0);
+    }
+
+    function assertionFailedData(int arg_0, bytes memory arg_1) internal {
+        emit AssertionFailedData(arg_0, arg_1);
+    }
+}
+
+/// Utility contract holding a stack counter
+contract __scribble_ReentrancyUtils {
+    event AssertionFailed(string message);
+
+    event AssertionFailedData(int eventId, bytes encodingData);
+
+    bool __scribble_out_of_contract = true;
 }

@@ -2,30 +2,11 @@
 /// Use --disarm prior to make any changes.
 pragma solidity 0.6.12;
 
-library Lib3 {
-    function len(string memory s) public pure returns (uint) {
-        return bytes(s).length;
-    }
-}
-
-/// define some stuff
-///  define some(other stuff
-contract IgnoreNonFunDefines {}
-
-/// Utility contract holding a stack counter
-contract __scribble_ReentrancyUtils {
-    event AssertionFailed(string message);
-
-    event AssertionFailedData(int eventId, bytes encodingData);
-
-    bool __scribble_out_of_contract = true;
-}
-
-contract AddrChecker is __scribble_ReentrancyUtils {
+contract AddrChecker {
     function checkAddr(address addr) external {
         _original_AddrChecker_checkAddr(addr);
         if (!(addr != address(0xAaaaAaAAaaaAAaAAaAaaaaAAAAAaAaaaAaAaaAA0))) {
-            emit AssertionFailed("0: P1");
+            __ScribbleUtilsLib__268.assertionFailed("0: P1");
             assert(false);
         }
     }
@@ -35,13 +16,13 @@ contract AddrChecker is __scribble_ReentrancyUtils {
     }
 }
 
-contract MapIdx is __scribble_ReentrancyUtils {
+contract MapIdx {
     mapping(string => int) internal a;
 
     function main(string memory arg) public {
         _original_MapIdx_main(arg);
         if (!(a[arg] == 0)) {
-            emit AssertionFailed("1: F");
+            __ScribbleUtilsLib__268.assertionFailed("1: F");
             assert(false);
         }
     }
@@ -49,13 +30,13 @@ contract MapIdx is __scribble_ReentrancyUtils {
     function _original_MapIdx_main(string memory arg) private {}
 }
 
-contract MemoryCast is __scribble_ReentrancyUtils {
+contract MemoryCast {
     uint256[] internal _nums;
 
     function entry() external {
         _original_MemoryCast_entry();
         if (!(_isEvenLen(_nums))) {
-            emit AssertionFailed("2: P1");
+            __ScribbleUtilsLib__268.assertionFailed("2: P1");
             assert(false);
         }
     }
@@ -70,7 +51,7 @@ contract MemoryCast is __scribble_ReentrancyUtils {
     }
 }
 
-contract OldInOld is __scribble_ReentrancyUtils {
+contract OldInOld {
     struct vars3 {
         uint256 oldTT;
         uint256 oldT;
@@ -92,7 +73,7 @@ contract OldInOld is __scribble_ReentrancyUtils {
         _v.let_1 = _v.let_0;
         _v.let_2 = _v.let_1;
         if (!(_v.let_2)) {
-            emit AssertionFailed("3: ");
+            __ScribbleUtilsLib__268.assertionFailed("3: ");
             assert(false);
         }
     }
@@ -102,7 +83,7 @@ contract OldInOld is __scribble_ReentrancyUtils {
     }
 }
 
-contract OldInOld2 is __scribble_ReentrancyUtils {
+contract OldInOld2 {
     struct vars4 {
         OldInOld2 t1;
         uint256 old_0;
@@ -116,7 +97,7 @@ contract OldInOld2 is __scribble_ReentrancyUtils {
         RET_0 = _original_OldInOld2_balanceOf();
         _v.let_3 = _v.old_0 == 42;
         if (!(_v.let_3)) {
-            emit AssertionFailed("4: ");
+            __ScribbleUtilsLib__268.assertionFailed("4: ");
             assert(false);
         }
     }
@@ -124,7 +105,7 @@ contract OldInOld2 is __scribble_ReentrancyUtils {
     function _original_OldInOld2_balanceOf() private view returns (uint) {}
 }
 
-contract OldTuple is __scribble_ReentrancyUtils {
+contract OldTuple {
     struct vars5 {
         uint256 oldX;
         uint256 oldY;
@@ -144,7 +125,7 @@ contract OldTuple is __scribble_ReentrancyUtils {
         _original_OldTuple_main(k);
         _v.let_4 = (x == (_v.oldX + k)) && (y == (_v.oldY + k));
         if (!(_v.let_4)) {
-            emit AssertionFailed("5: ");
+            __ScribbleUtilsLib__268.assertionFailed("5: ");
             assert(false);
         }
     }
@@ -155,7 +136,7 @@ contract OldTuple is __scribble_ReentrancyUtils {
     }
 }
 
-contract Result is __scribble_ReentrancyUtils {
+contract Result {
     struct vars7 {
         uint256 t2;
         bool let_5;
@@ -170,7 +151,7 @@ contract Result is __scribble_ReentrancyUtils {
     function a() public returns (uint RET_0) {
         RET_0 = _original_Result_a();
         if (!(RET_0 == 1)) {
-            emit AssertionFailed("6: ");
+            __ScribbleUtilsLib__268.assertionFailed("6: ");
             assert(false);
         }
     }
@@ -185,11 +166,11 @@ contract Result is __scribble_ReentrancyUtils {
         _v.t2 = x;
         _v.let_5 = _v.t2 == x;
         if (!(x == x)) {
-            emit AssertionFailed("7: ");
+            __ScribbleUtilsLib__268.assertionFailed("7: ");
             assert(false);
         }
         if (!(_v.let_5)) {
-            emit AssertionFailed("8: ");
+            __ScribbleUtilsLib__268.assertionFailed("8: ");
             assert(false);
         }
     }
@@ -204,7 +185,7 @@ contract Result is __scribble_ReentrancyUtils {
         (_v.a1, _v.b1) = (RET_0, t);
         _v.let_6 = ((_v.a1 == 1) && (_v.b1 == 2)) && (t == _v.b1);
         if (!(_v.let_6)) {
-            emit AssertionFailed("9: ");
+            __ScribbleUtilsLib__268.assertionFailed("9: ");
             assert(false);
         }
     }
@@ -214,7 +195,13 @@ contract Result is __scribble_ReentrancyUtils {
     }
 }
 
-contract UsingForRefType is __scribble_ReentrancyUtils {
+library Lib3 {
+    function len(string memory s) public pure returns (uint) {
+        return bytes(s).length;
+    }
+}
+
+contract UsingForRefType {
     using Lib3 for string;
 
     string internal sS;
@@ -222,7 +209,7 @@ contract UsingForRefType is __scribble_ReentrancyUtils {
     function main(string memory mS) public {
         _original_UsingForRefType_main(mS);
         if (!(sS.len() == mS.len())) {
-            emit AssertionFailed("10: F");
+            __ScribbleUtilsLib__268.assertionFailed("10: F");
             assert(false);
         }
     }
@@ -230,11 +217,11 @@ contract UsingForRefType is __scribble_ReentrancyUtils {
     function _original_UsingForRefType_main(string memory mS) private {}
 }
 
-contract ExternalCall is __scribble_ReentrancyUtils {
+contract ExternalCall {
     function process(bytes calldata _bytes) external returns (bool result) {
         result = _original_ExternalCall_process(_bytes);
         if (!(this.checkBytes(_bytes) == result)) {
-            emit AssertionFailed("11: wrong byte");
+            __ScribbleUtilsLib__268.assertionFailed("11: wrong byte");
             assert(false);
         }
     }
@@ -248,13 +235,17 @@ contract ExternalCall is __scribble_ReentrancyUtils {
     }
 }
 
-contract CallinInstrumentedFun is __scribble_ReentrancyUtils {
+/// define some stuff
+///  define some(other stuff
+contract IgnoreNonFunDefines {}
+
+contract CallinInstrumentedFun {
     uint internal x = 1;
 
     function getX() public returns (uint res) {
         res = _original_CallinInstrumentedFun_getX();
         if (!(res > 0)) {
-            emit AssertionFailed("12: ");
+            __ScribbleUtilsLib__268.assertionFailed("12: ");
             assert(false);
         }
     }
@@ -266,7 +257,7 @@ contract CallinInstrumentedFun is __scribble_ReentrancyUtils {
     function inc(uint x) public returns (uint res) {
         res = _original_CallinInstrumentedFun_inc(x);
         if (!(res == (x + _original_CallinInstrumentedFun_getX()))) {
-            emit AssertionFailed("13: ");
+            __ScribbleUtilsLib__268.assertionFailed("13: ");
             assert(false);
         }
     }
@@ -276,11 +267,11 @@ contract CallinInstrumentedFun is __scribble_ReentrancyUtils {
     }
 }
 
-contract IndexAccessOnResult is __scribble_ReentrancyUtils {
+contract IndexAccessOnResult {
     function foo() public returns (uint[] memory RET_0) {
         RET_0 = _original_IndexAccessOnResult_foo();
         if (!(RET_0[0] > 1)) {
-            emit AssertionFailed("14: ");
+            __ScribbleUtilsLib__268.assertionFailed("14: ");
             assert(false);
         }
     }
@@ -290,4 +281,27 @@ contract IndexAccessOnResult is __scribble_ReentrancyUtils {
         x[1] = 2;
         return x;
     }
+}
+
+library __ScribbleUtilsLib__268 {
+    event AssertionFailed(string message);
+
+    event AssertionFailedData(int eventId, bytes encodingData);
+
+    function assertionFailed(string memory arg_0) internal {
+        emit AssertionFailed(arg_0);
+    }
+
+    function assertionFailedData(int arg_0, bytes memory arg_1) internal {
+        emit AssertionFailedData(arg_0, arg_1);
+    }
+}
+
+/// Utility contract holding a stack counter
+contract __scribble_ReentrancyUtils {
+    event AssertionFailed(string message);
+
+    event AssertionFailedData(int eventId, bytes encodingData);
+
+    bool __scribble_out_of_contract = true;
 }

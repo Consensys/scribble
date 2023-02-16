@@ -2,6 +2,82 @@
 /// Use --disarm prior to make any changes.
 pragma solidity 0.8.10;
 
+contract Foo {
+    type CustomValueType is uint32;
+
+    struct vars0 {
+        uint256 i0;
+        uint256 k0;
+        bool forall_0;
+    }
+
+    struct vars1 {
+        uint256 i1;
+        CustomValueType t0;
+        bool forall_1;
+    }
+
+    uint256_to_mapping_uint256_to_uint256.S internal m;
+    Foo_CustomValueType_3_to_uint256.S internal _map;
+
+    function main() public {
+        Foo_m_idx_uint256_idx_uint256_uint256_assign(0, 1, 1);
+    }
+
+    function some(CustomValueType t, uint v) external {
+        Foo__map_ud_Foo_CustomValueType_uint256_set(t, v);
+    }
+
+    function Foo_m_idx_uint256_idx_uint256_uint256_assign(uint256 ARG0, uint256 ARG1, uint256 ARG2) internal returns (uint256 RET0) {
+        vars0 memory _v;
+        uint256_to_mapping_uint256_to_uint256.get_lhs(m, ARG0)[ARG1] = ARG2;
+        RET0 = uint256_to_mapping_uint256_to_uint256.get_lhs(m, ARG0)[ARG1];
+        unchecked {
+            _v.forall_0 = true;
+            for (_v.i0 = 1; _v.i0 < m.keys.length; _v.i0++) {
+                _v.k0 = m.keys[_v.i0];
+                _v.forall_0 = uint256_to_mapping_uint256_to_uint256.get(m, _v.k0)[0] > 1;
+                if (!_v.forall_0) break;
+            }
+            if (!(_v.forall_0)) {
+                __ScribbleUtilsLib__45.assertionFailed("0: ");
+                assert(false);
+            }
+        }
+    }
+
+    function Foo__map_ud_Foo_CustomValueType_uint256_set(Foo.CustomValueType ARG3, uint256 ARG4) internal {
+        vars1 memory _v;
+        Foo_CustomValueType_3_to_uint256.set(_map, ARG3, ARG4);
+        unchecked {
+            _v.forall_1 = true;
+            for (_v.i1 = 1; _v.i1 < _map.keys.length; _v.i1++) {
+                _v.t0 = _map.keys[_v.i1];
+                _v.forall_1 = true;
+                if (!_v.forall_1) break;
+            }
+            if (!(_v.forall_1)) {
+                __ScribbleUtilsLib__45.assertionFailed("1: ");
+                assert(false);
+            }
+        }
+    }
+}
+
+library __ScribbleUtilsLib__45 {
+    event AssertionFailed(string message);
+
+    event AssertionFailedData(int eventId, bytes encodingData);
+
+    function assertionFailed(string memory arg_0) internal {
+        emit AssertionFailed(arg_0);
+    }
+
+    function assertionFailedData(int arg_0, bytes memory arg_1) internal {
+        emit AssertionFailedData(arg_0, arg_1);
+    }
+}
+
 /// Utility contract holding a stack counter
 contract __scribble_ReentrancyUtils {
     event AssertionFailed(string message);
@@ -90,67 +166,5 @@ library Foo_CustomValueType_3_to_uint256 {
         m.innerM[key] = val;
         addKey(m, key);
         return m.innerM[key];
-    }
-}
-
-contract Foo is __scribble_ReentrancyUtils {
-    type CustomValueType is uint32;
-
-    struct vars0 {
-        uint256 i0;
-        uint256 k0;
-        bool forall_0;
-    }
-
-    struct vars1 {
-        uint256 i1;
-        CustomValueType t0;
-        bool forall_1;
-    }
-
-    uint256_to_mapping_uint256_to_uint256.S internal m;
-    Foo_CustomValueType_3_to_uint256.S internal _map;
-
-    function main() public {
-        Foo_m_idx_uint256_idx_uint256_uint256_assign(0, 1, 1);
-    }
-
-    function some(CustomValueType t, uint v) external {
-        Foo__map_ud_Foo_CustomValueType_uint256_set(t, v);
-    }
-
-    function Foo_m_idx_uint256_idx_uint256_uint256_assign(uint256 ARG0, uint256 ARG1, uint256 ARG2) internal returns (uint256 RET0) {
-        vars0 memory _v;
-        uint256_to_mapping_uint256_to_uint256.get_lhs(m, ARG0)[ARG1] = ARG2;
-        RET0 = uint256_to_mapping_uint256_to_uint256.get_lhs(m, ARG0)[ARG1];
-        unchecked {
-            _v.forall_0 = true;
-            for (_v.i0 = 1; _v.i0 < m.keys.length; _v.i0++) {
-                _v.k0 = m.keys[_v.i0];
-                _v.forall_0 = uint256_to_mapping_uint256_to_uint256.get(m, _v.k0)[0] > 1;
-                if (!_v.forall_0) break;
-            }
-            if (!(_v.forall_0)) {
-                emit AssertionFailed("0: ");
-                assert(false);
-            }
-        }
-    }
-
-    function Foo__map_ud_Foo_CustomValueType_uint256_set(Foo.CustomValueType ARG3, uint256 ARG4) internal {
-        vars1 memory _v;
-        Foo_CustomValueType_3_to_uint256.set(_map, ARG3, ARG4);
-        unchecked {
-            _v.forall_1 = true;
-            for (_v.i1 = 1; _v.i1 < _map.keys.length; _v.i1++) {
-                _v.t0 = _map.keys[_v.i1];
-                _v.forall_1 = true;
-                if (!_v.forall_1) break;
-            }
-            if (!(_v.forall_1)) {
-                emit AssertionFailed("1: ");
-                assert(false);
-            }
-        }
     }
 }

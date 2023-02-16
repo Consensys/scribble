@@ -11,6 +11,7 @@ import {
     Expression,
     FunctionDefinition,
     ImportDirective,
+    MemberAccess,
     ModifierDefinition,
     SourceUnit,
     SrcRangeMap,
@@ -22,7 +23,7 @@ import {
 import { print } from "../ast_to_source_printer";
 import { SId, SUserConstantDefinition, SUserFunctionDefinition } from "../spec-lang/ast";
 import { SemMap, TypeEnv } from "../spec-lang/tc";
-import { dedup, getOrInit, single } from "../util/misc";
+import { dedup, single } from "../util/misc";
 import { NameGenerator } from "../util/name_generator";
 import { SourceMap, UtilsSolFile } from "../util/sources";
 import { AnnotationFilterOptions, AnnotationMetaData } from "./annotations";
@@ -41,6 +42,7 @@ import { makeArraySumFun, UnsupportedConstruct } from "./instrument";
 import { findAliasedStateVars } from "./state_vars";
 import { InstrumentationSiteType, TranspilingContext } from "./transpiling_context";
 import { FactoryMap, ScribbleFactory, StructMap } from "./utils";
+import { generateUtilsLibrary } from "./utils_library";
 
 /**
  * Gather all named nodes in the provided source units.
@@ -261,6 +263,16 @@ class ArraySumFunMap extends ContextFactoryMap<
     }
 }
 
+class UtilsLibraryMap extends ContextFactoryMap<[SourceUnit], string, ContractDefinition> {
+    protected getName(unit: SourceUnit): string {
+        return `__ScribbleUtilsLib__${unit.id}`;
+    }
+
+    protected makeNew(unit: SourceUnit): ContractDefinition {
+        return generateUtilsLibrary(unit, this.ctx);
+    }
+}
+
 export class InstrumentationContext {
     public readonly nameGenerator: NameGenerator;
     public readonly structVar: string;
@@ -314,21 +326,11 @@ export class InstrumentationContext {
      * to use `ctx.nameGenerator`.
      */
     public utilsContract!: ContractDefinition;
-    private assertionFailedEvent!: EventDefinition;
-    private assertionFailedDataEvent!: EventDefinition;
     private remappedImportPath: string | undefined;
 
     setUtilsContract(contract: ContractDefinition, importPath: string | undefined): void {
         this.utilsContract = contract;
         this.remappedImportPath = importPath;
-
-        this.assertionFailedEvent = single(
-            contract.vEvents.filter((evt) => evt.name === "AssertionFailed")
-        );
-
-        this.assertionFailedDataEvent = single(
-            contract.vEvents.filter((evt) => evt.name === "AssertionFailedData")
-        );
 
         const path = this.utilsUnit.absolutePath;
         this.files.set(path, new UtilsSolFile(path));
@@ -386,6 +388,8 @@ export class InstrumentationContext {
      * Map factory keeping track of array sum functions generated for a given array type and location
      */
     public readonly arraySumFunMap = new ArraySumFunMap(this);
+
+    private readonly utilsLibraryMap = new UtilsLibraryMap(this);
 
     constructor(
         public readonly factory: ScribbleFactory,
@@ -577,68 +581,28 @@ export class InstrumentationContext {
         this.needsUtils(containingContract.vScope);
     }
 
-    /**
-     * libraryEventMap keeps track of the `EventDefinition`s created for each library contract.
-     */
-    private libraryEventMap = new Map<number, Map<string, EventDefinition>>();
+    private getEmitFun(ctx: ASTNode, name: string): MemberAccess {
+        const file = ctx.getClosestParentByType(SourceUnit);
+        assert(file !== undefined, `Can't add AssertionFailed event to node with no unit {0}`, ctx);
 
-    /**
-     * Given the contract `contract` and an `EventDefinition` `event` make sure that `event` is
-     * accessible inside `contract`. There are 2 cases:
-     *
-     * 1. `contract` is a normal contract. In this case ensure that `contract` inherits from the utils contract
-     * and just return the passed-in `event` (which lives in the utils contract).
-     *
-     * 2. `contract` is a library. In this case we need to add a copy of `event` under contract. To avoid definitions
-     * being emitted, first check in `libraryEventMap` if a copy has already been made in `contract`.
-     */
-    private getOrAddEvent(contract: ContractDefinition, event: EventDefinition): EventDefinition {
-        if (contract.kind === ContractKind.Contract) {
-            this.addScribbleUtils(contract);
-            return event;
-        }
+        const lib = this.utilsLibraryMap.get(file);
 
-        if (contract.kind === ContractKind.Library) {
-            const evtM = getOrInit(
-                contract.id,
-                this.libraryEventMap,
-                new Map<string, EventDefinition>()
-            );
+        const funDef = single(lib.vFunctions.filter((evt) => evt.name === name));
 
-            const evtDef = evtM.get(event.name);
-
-            if (evtDef) {
-                return evtDef;
-            }
-
-            const libEventDef = this.factory.copy(event) as EventDefinition;
-            contract.appendChild(libEventDef);
-            evtM.set(libEventDef.name, libEventDef);
-
-            return libEventDef;
-        }
-
-        throw new Error(
-            `Not supported adding ${event.name} event on ${contract.kind} ${contract.name}`
+        return this.factory.makeMemberAccess(
+            "<missing>",
+            this.factory.makeIdentifierFor(lib),
+            name,
+            funDef.id
         );
     }
 
-    getAssertionFailedEvent(ctx: ASTNode): EventDefinition {
-        const contract =
-            ctx instanceof ContractDefinition
-                ? ctx
-                : (ctx.getClosestParentByType(ContractDefinition) as ContractDefinition);
-
-        return this.getOrAddEvent(contract, this.assertionFailedEvent);
+    getAssertionFailedFun(ctx: ASTNode): MemberAccess {
+        return this.getEmitFun(ctx, "assertionFailed");
     }
 
-    getAssertionFailedDataEvent(ctx: ASTNode): EventDefinition {
-        const contract =
-            ctx instanceof ContractDefinition
-                ? ctx
-                : (ctx.getClosestParentByType(ContractDefinition) as ContractDefinition);
-
-        return this.getOrAddEvent(contract, this.assertionFailedDataEvent);
+    getAssertionFailedDataFun(ctx: ASTNode): MemberAccess {
+        return this.getEmitFun(ctx, "assertionFailedData");
     }
 
     /**

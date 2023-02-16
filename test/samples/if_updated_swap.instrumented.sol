@@ -2,16 +2,7 @@
 /// Use --disarm prior to make any changes.
 pragma solidity 0.5.17;
 
-/// Utility contract holding a stack counter
-contract __scribble_ReentrancyUtils {
-    event AssertionFailed(string message);
-
-    event AssertionFailedData(int eventId, bytes encodingData);
-
-    bool __scribble_out_of_contract = true;
-}
-
-contract PointerSwap is __scribble_ReentrancyUtils {
+contract PointerSwap {
     struct vars0 {
         uint256[] tuple_tmp_0;
         uint256[] tuple_tmp_1;
@@ -30,7 +21,7 @@ contract PointerSwap is __scribble_ReentrancyUtils {
 
     function PointerSwap_a_inline_initializer() internal {
         if (!(true)) {
-            emit AssertionFailed("0: ");
+            __ScribbleUtilsLib__43.assertionFailed("0: ");
             assert(false);
         }
     }
@@ -43,8 +34,31 @@ contract PointerSwap is __scribble_ReentrancyUtils {
         a = ARG0;
         RET0 = a;
         if (!(true)) {
-            emit AssertionFailed("0: ");
+            __ScribbleUtilsLib__43.assertionFailed("0: ");
             assert(false);
         }
     }
+}
+
+library __ScribbleUtilsLib__43 {
+    event AssertionFailed(string message);
+
+    event AssertionFailedData(int eventId, bytes encodingData);
+
+    function assertionFailed(string memory arg_0) internal {
+        emit AssertionFailed(arg_0);
+    }
+
+    function assertionFailedData(int arg_0, bytes memory arg_1) internal {
+        emit AssertionFailedData(arg_0, arg_1);
+    }
+}
+
+/// Utility contract holding a stack counter
+contract __scribble_ReentrancyUtils {
+    event AssertionFailed(string message);
+
+    event AssertionFailedData(int eventId, bytes encodingData);
+
+    bool __scribble_out_of_contract = true;
 }

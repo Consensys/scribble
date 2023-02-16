@@ -8,6 +8,20 @@ contract Base {
     }
 }
 
+library __ScribbleUtilsLib__41 {
+    event AssertionFailed(string message);
+
+    event AssertionFailedData(int eventId, bytes encodingData);
+
+    function assertionFailed(string memory arg_0) internal {
+        emit AssertionFailed(arg_0);
+    }
+
+    function assertionFailedData(int arg_0, bytes memory arg_1) internal {
+        emit AssertionFailedData(arg_0, arg_1);
+    }
+}
+
 /// Utility contract holding a stack counter
 contract __scribble_ReentrancyUtils {
     event AssertionFailed(string message);
@@ -17,13 +31,13 @@ contract __scribble_ReentrancyUtils {
     bool __scribble_out_of_contract = true;
 }
 
-contract Foo is __scribble_ReentrancyUtils, Base {
+contract Foo is Base {
     uint internal x = 1;
 
     function getX() virtual override public returns (uint RET_0) {
         RET_0 = _original_Foo_getX();
         if (!(x > 0)) {
-            emit AssertionFailed("0: ");
+            __ScribbleUtilsLib__41.assertionFailed("0: ");
             assert(false);
         }
     }
@@ -33,11 +47,11 @@ contract Foo is __scribble_ReentrancyUtils, Base {
     }
 }
 
-contract Child is __scribble_ReentrancyUtils, Foo {
+contract Child is Foo {
     function getX() virtual override public returns (uint RET_0) {
         RET_0 = _original_Child_getX();
         if (!(x > 0)) {
-            emit AssertionFailed("0: ");
+            __ScribbleUtilsLib__41.assertionFailed("0: ");
             assert(false);
         }
     }

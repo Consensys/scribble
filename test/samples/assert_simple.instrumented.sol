@@ -2,48 +2,39 @@
 /// Use --disarm prior to make any changes.
 pragma solidity 0.8.7;
 
-/// Utility contract holding a stack counter
-contract __scribble_ReentrancyUtils {
-    event AssertionFailed(string message);
-
-    event AssertionFailedData(int eventId, bytes encodingData);
-
-    bool __scribble_out_of_contract = true;
-}
-
-contract SimpleAsserts is __scribble_ReentrancyUtils {
+contract SimpleAsserts {
     function main(uint a1, uint a2, uint a3, bool b1, uint a4, uint a5, uint a6, uint a7, uint a8) public {
         unchecked {
             if (!(a1 == 1)) {
-                emit AssertionFailed("0: ");
+                __ScribbleUtilsLib__59.assertionFailed("0: ");
                 assert(false);
             }
         }
         uint x = 2;
         unchecked {
             if (!(a2 == x)) {
-                emit AssertionFailed("1: ");
+                __ScribbleUtilsLib__59.assertionFailed("1: ");
                 assert(false);
             }
         }
         x++;
         unchecked {
             if (!(a3 == x)) {
-                emit AssertionFailed("2: ");
+                __ScribbleUtilsLib__59.assertionFailed("2: ");
                 assert(false);
             }
         }
         if (b1) {
             unchecked {
                 if (!(a4 == (x + 1))) {
-                    emit AssertionFailed("3: ");
+                    __ScribbleUtilsLib__59.assertionFailed("3: ");
                     assert(false);
                 }
             }
             {
                 unchecked {
                     if (!(a5 == (x + 2))) {
-                        emit AssertionFailed("4: ");
+                        __ScribbleUtilsLib__59.assertionFailed("4: ");
                         assert(false);
                     }
                 }
@@ -53,7 +44,7 @@ contract SimpleAsserts is __scribble_ReentrancyUtils {
             x++;
             unchecked {
                 if (!(a6 == (x + 2))) {
-                    emit AssertionFailed("5: ");
+                    __ScribbleUtilsLib__59.assertionFailed("5: ");
                     assert(false);
                 }
             }
@@ -62,7 +53,7 @@ contract SimpleAsserts is __scribble_ReentrancyUtils {
         while (a6 > 0) {
             unchecked {
                 if (!(a7 >= (a6 + 1))) {
-                    emit AssertionFailed("6: ");
+                    __ScribbleUtilsLib__59.assertionFailed("6: ");
                     assert(false);
                 }
             }
@@ -70,7 +61,7 @@ contract SimpleAsserts is __scribble_ReentrancyUtils {
         }
         unchecked {
             if (!(a8 == (x + 4))) {
-                emit AssertionFailed("7: ");
+                __ScribbleUtilsLib__59.assertionFailed("7: ");
                 assert(false);
             }
         }
@@ -78,4 +69,27 @@ contract SimpleAsserts is __scribble_ReentrancyUtils {
             x++;
         }
     }
+}
+
+library __ScribbleUtilsLib__59 {
+    event AssertionFailed(string message);
+
+    event AssertionFailedData(int eventId, bytes encodingData);
+
+    function assertionFailed(string memory arg_0) internal {
+        emit AssertionFailed(arg_0);
+    }
+
+    function assertionFailedData(int arg_0, bytes memory arg_1) internal {
+        emit AssertionFailedData(arg_0, arg_1);
+    }
+}
+
+/// Utility contract holding a stack counter
+contract __scribble_ReentrancyUtils {
+    event AssertionFailed(string message);
+
+    event AssertionFailedData(int eventId, bytes encodingData);
+
+    bool __scribble_out_of_contract = true;
 }

@@ -33,6 +33,20 @@ library SafeMath {
     }
 }
 
+library __ScribbleUtilsLib__377 {
+    event AssertionFailed(string message);
+
+    event AssertionFailedData(int eventId, bytes encodingData);
+
+    function assertionFailed(string memory arg_0) internal {
+        emit AssertionFailed(arg_0);
+    }
+
+    function assertionFailedData(int arg_0, bytes memory arg_1) internal {
+        emit AssertionFailedData(arg_0, arg_1);
+    }
+}
+
 /// Utility contract holding a stack counter
 contract __scribble_ReentrancyUtils {
     event AssertionFailed(string message);
@@ -152,7 +166,7 @@ contract ERC20Example is __scribble_ReentrancyUtils, IERC20 {
         _v.old_0 = balances.sum;
         _original_ERC20Example_constructor(total);
         if (!((balances.sum == _v.old_0) || (msg.sig == bytes4(0x0)))) {
-            emit AssertionFailed("2: The token has a fixed supply.");
+            __ScribbleUtilsLib__377.assertionFailed("2: The token has a fixed supply.");
             assert(false);
         }
         if (_v.__scribble_check_invs_at_end) __scribble_check_state_invariants();
@@ -173,7 +187,7 @@ contract ERC20Example is __scribble_ReentrancyUtils, IERC20 {
         __scribble_out_of_contract = false;
         RET_0 = _original_ERC20Example_totalSupply();
         if (!(RET_0 == balances.sum)) {
-            emit AssertionFailed("3: Result is equal to sum of balances");
+            __ScribbleUtilsLib__377.assertionFailed("3: Result is equal to sum of balances");
             assert(false);
         }
         if (_v.__scribble_check_invs_at_end) __scribble_check_state_invariants();
@@ -190,7 +204,7 @@ contract ERC20Example is __scribble_ReentrancyUtils, IERC20 {
         __scribble_out_of_contract = false;
         RET_0 = _original_ERC20Example_balanceOf(account);
         if (!(RET_0 == address_to_uint256.get(balances, account))) {
-            emit AssertionFailed("4: Returns the balance of owner in the balances mapping");
+            __ScribbleUtilsLib__377.assertionFailed("4: Returns the balance of owner in the balances mapping");
             assert(false);
         }
         if (_v.__scribble_check_invs_at_end) __scribble_check_state_invariants();
@@ -213,23 +227,23 @@ contract ERC20Example is __scribble_ReentrancyUtils, IERC20 {
         _v.old_6 = balances.sum;
         RET_0 = _original_ERC20Example_transfer(receiver, amount);
         if (!(_v.old_1)) {
-            emit AssertionFailed("6: The sender has sufficient balance at the start");
+            __ScribbleUtilsLib__377.assertionFailed("6: The sender has sufficient balance at the start");
             assert(false);
         }
         if (!((!(msg.sender != receiver)) || ((_v.old_2 - amount) == address_to_uint256.get(balances, msg.sender)))) {
-            emit AssertionFailed("7: The sender has value less balance");
+            __ScribbleUtilsLib__377.assertionFailed("7: The sender has value less balance");
             assert(false);
         }
         if (!((!(msg.sender != receiver)) || ((_v.old_3 + amount) == address_to_uint256.get(balances, receiver)))) {
-            emit AssertionFailed("8: The receiver receives _value");
+            __ScribbleUtilsLib__377.assertionFailed("8: The receiver receives _value");
             assert(false);
         }
         if (!((_v.old_4 + _v.old_5) == (address_to_uint256.get(balances, receiver) + address_to_uint256.get(balances, msg.sender)))) {
-            emit AssertionFailed("9: Transfer does not modify the sum of balances");
+            __ScribbleUtilsLib__377.assertionFailed("9: Transfer does not modify the sum of balances");
             assert(false);
         }
         if (!((balances.sum == _v.old_6) || (msg.sig == bytes4(0x0)))) {
-            emit AssertionFailed("2: The token has a fixed supply.");
+            __ScribbleUtilsLib__377.assertionFailed("2: The token has a fixed supply.");
             assert(false);
         }
         if (_v.__scribble_check_invs_at_end) __scribble_check_state_invariants();
@@ -251,11 +265,11 @@ contract ERC20Example is __scribble_ReentrancyUtils, IERC20 {
         _v.old_7 = balances.sum;
         RET_0 = _original_ERC20Example_approve(delegate, amount);
         if (!(allowances[msg.sender][delegate] == amount)) {
-            emit AssertionFailed("10: spender will have an allowance of value for this sender's balance");
+            __ScribbleUtilsLib__377.assertionFailed("10: spender will have an allowance of value for this sender's balance");
             assert(false);
         }
         if (!((balances.sum == _v.old_7) || (msg.sig == bytes4(0x0)))) {
-            emit AssertionFailed("2: The token has a fixed supply.");
+            __ScribbleUtilsLib__377.assertionFailed("2: The token has a fixed supply.");
             assert(false);
         }
         if (_v.__scribble_check_invs_at_end) __scribble_check_state_invariants();
@@ -274,7 +288,7 @@ contract ERC20Example is __scribble_ReentrancyUtils, IERC20 {
         __scribble_out_of_contract = false;
         RET_0 = _original_ERC20Example_allowance(owner, delegate);
         if (!(RET_0 == allowances[owner][delegate])) {
-            emit AssertionFailed("5: Returns spenders allowance for this owner");
+            __ScribbleUtilsLib__377.assertionFailed("5: Returns spenders allowance for this owner");
             assert(false);
         }
         if (_v.__scribble_check_invs_at_end) __scribble_check_state_invariants();
@@ -299,31 +313,31 @@ contract ERC20Example is __scribble_ReentrancyUtils, IERC20 {
         _v.old_15 = balances.sum;
         RET_0 = _original_ERC20Example_transferFrom(owner, buyer, amount);
         if (!(_v.old_8)) {
-            emit AssertionFailed("11: The sender has sufficient balance at the start");
+            __ScribbleUtilsLib__377.assertionFailed("11: The sender has sufficient balance at the start");
             assert(false);
         }
         if (!((!(owner != buyer)) || ((_v.old_9 - amount) == address_to_uint256.get(balances, owner)))) {
-            emit AssertionFailed("12: The sender has value less balance");
+            __ScribbleUtilsLib__377.assertionFailed("12: The sender has value less balance");
             assert(false);
         }
         if (!((_v.old_10 - amount) == allowances[owner][msg.sender])) {
-            emit AssertionFailed("13: The actor has value less allowance");
+            __ScribbleUtilsLib__377.assertionFailed("13: The actor has value less allowance");
             assert(false);
         }
         if (!(_v.old_11 >= amount)) {
-            emit AssertionFailed("14: The actor has enough allowance");
+            __ScribbleUtilsLib__377.assertionFailed("14: The actor has enough allowance");
             assert(false);
         }
         if (!((!(owner != buyer)) || ((_v.old_12 + amount) == address_to_uint256.get(balances, buyer)))) {
-            emit AssertionFailed("15: The receiver receives value");
+            __ScribbleUtilsLib__377.assertionFailed("15: The receiver receives value");
             assert(false);
         }
         if (!((_v.old_13 + _v.old_14) == (address_to_uint256.get(balances, buyer) + address_to_uint256.get(balances, owner)))) {
-            emit AssertionFailed("16: Transfer does not modify the sum of balances");
+            __ScribbleUtilsLib__377.assertionFailed("16: Transfer does not modify the sum of balances");
             assert(false);
         }
         if (!((balances.sum == _v.old_15) || (msg.sig == bytes4(0x0)))) {
-            emit AssertionFailed("2: The token has a fixed supply.");
+            __ScribbleUtilsLib__377.assertionFailed("2: The token has a fixed supply.");
             assert(false);
         }
         if (_v.__scribble_check_invs_at_end) __scribble_check_state_invariants();
@@ -343,7 +357,7 @@ contract ERC20Example is __scribble_ReentrancyUtils, IERC20 {
     /// Check only the current contract's state invariants
     function __scribble_ERC20Example_check_state_invariants_internal() internal {
         if (!(balances.sum == _totalSupply)) {
-            emit AssertionFailed("1: The sum of balances is always equal to the total supply");
+            __ScribbleUtilsLib__377.assertionFailed("1: The sum of balances is always equal to the total supply");
             assert(false);
         }
     }
