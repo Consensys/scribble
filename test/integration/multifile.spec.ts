@@ -178,6 +178,8 @@ describe("Multiple-file project instrumentation", () => {
                     encoding: "utf-8"
                 });
 
+                delete expectedInstrMetadata["scribbleVersion"];
+
                 // Nit: Macro paths are absolute, so we adjust them here accordingly
                 for (let i = 0; i < expectedInstrMetadata.originalSourceList.length; i++) {
                     const name = expectedInstrMetadata.originalSourceList[i];

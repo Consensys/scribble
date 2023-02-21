@@ -120,128 +120,6 @@ export function findExternalCalls(node: ContractDefinition | FunctionDefinition)
 }
 
 /**
- * Generate and return the `__scribble_reentrancyUtil` contract that
- * contains the out-of-contract flag.
- */
-export function generateUtilsContract(
-    factory: ASTNodeFactory,
-    sourceEntryKey: string,
-    importPath: string | undefined,
-    path: string,
-    version: string,
-    ctx: InstrumentationContext
-): SourceUnit {
-    const exportedSymbols = new Map();
-    const sourceUnit = factory.makeSourceUnit(sourceEntryKey, -1, path, exportedSymbols);
-
-    sourceUnit.appendChild(factory.makePragmaDirective(["solidity", version]));
-
-    const contract = factory.makeContractDefinition(
-        ctx.utilsContractName,
-        sourceUnit.id,
-        ContractKind.Contract,
-        false,
-        true,
-        [],
-        [],
-        `Utility contract holding a stack counter`
-    );
-
-    contract.linearizedBaseContracts.push(contract.id);
-
-    sourceUnit.appendChild(contract);
-
-    /// Add reentrancy boolean flag
-    const flag = factory.makeVariableDeclaration(
-        false,
-        false,
-        ctx.outOfContractFlagName,
-        contract.id,
-        true,
-        DataLocation.Default,
-        StateVariableVisibility.Default,
-        Mutability.Mutable,
-        "uint256",
-        undefined,
-        factory.makeElementaryTypeName("<missing>", "bool"),
-        undefined,
-        factory.makeLiteral("bool", LiteralKind.Bool, "", "true")
-    );
-
-    ctx.addGeneralInstrumentation(flag);
-
-    contract.appendChild(flag);
-
-    /// Add 'AssertionFailed' event
-    const assertionFailedEvtDef = factory.makeEventDefinition(
-        false,
-        "AssertionFailed",
-        factory.makeParameterList([])
-    );
-
-    assertionFailedEvtDef.vParameters.vParameters.push(
-        factory.makeVariableDeclaration(
-            false,
-            false,
-            "message",
-            assertionFailedEvtDef.id,
-            false,
-            DataLocation.Default,
-            StateVariableVisibility.Default,
-            Mutability.Mutable,
-            "<missing>",
-            undefined,
-            factory.makeElementaryTypeName("<missing>", "string")
-        )
-    );
-
-    contract.appendChild(assertionFailedEvtDef);
-
-    /// Add 'AssertionFailedData' event
-    const assertionFailedDataEvtDef = factory.makeEventDefinition(
-        false,
-        `AssertionFailedData`,
-        factory.makeParameterList([])
-    );
-
-    const eventId = factory.makeVariableDeclaration(
-        false,
-        false,
-        "eventId",
-        assertionFailedDataEvtDef.id,
-        false,
-        DataLocation.Default,
-        StateVariableVisibility.Default,
-        Mutability.Mutable,
-        "int",
-        undefined,
-        factory.makeElementaryTypeName("<missing>", "int")
-    );
-
-    const encodingData = factory.makeVariableDeclaration(
-        false,
-        false,
-        "encodingData",
-        assertionFailedDataEvtDef.id,
-        false,
-        DataLocation.Default,
-        StateVariableVisibility.Default,
-        Mutability.Mutable,
-        "bytes",
-        undefined,
-        factory.makeElementaryTypeName("<missing>", "bytes")
-    );
-
-    assertionFailedDataEvtDef.vParameters.appendChild(eventId);
-    assertionFailedDataEvtDef.vParameters.appendChild(encodingData);
-    contract.appendChild(assertionFailedDataEvtDef);
-
-    ctx.setUtilsContract(contract, importPath);
-
-    return sourceUnit;
-}
-
-/**
  * Build a debug event/debug event emission statement for each of the provided `annotations`. Return
  * an array of the computed tuples `[EventDefinition, `EmitStatement`].
  *
@@ -549,12 +427,8 @@ export function instrumentContract(
         (annot) => annot.type !== AnnotationType.IfSucceeds
     );
 
-    if (needsStateInvChecks || userConstantAnnotations.length > 0) {
-        ctx.addScribbleUtils(contract);
-
-        makeUserConstants(ctx, userConstantAnnotations);
-
-        ctx.needsUtils(contract.vScope);
+    if (userConstantAnnotations.length > 0) {
+        makeUserConstants(ctx, contract, userConstantAnnotations);
     }
 
     if (needsStateInvChecks) {
@@ -645,6 +519,7 @@ function makeUserFunctions(
 
 function makeUserConstants(
     ctx: InstrumentationContext,
+    contract: ContractDefinition,
     annotations: UserConstantDefinitionMetaData[]
 ): VariableDeclaration[] {
     const userConsts: VariableDeclaration[] = [];
@@ -656,7 +531,7 @@ function makeUserConstants(
     const factory = ctx.factory;
     const nameGen = ctx.nameGenerator;
 
-    const ctor = factory.getOrAddConstructor(ctx.utilsContract);
+    const ctor = factory.getOrAddConstructor(contract);
     const ctorBody = ctor.vBody as Block;
 
     for (const constDefMd of annotations) {
@@ -667,7 +542,7 @@ function makeUserConstants(
             true,
             false,
             nameGen.getFresh(`${constDef.name.name}_${constDefMd.target.id}_`),
-            ctx.utilsContract.id,
+            contract.id,
             true,
             getTypeLocation(constType),
             StateVariableVisibility.Internal,
@@ -683,7 +558,7 @@ function makeUserConstants(
 
         const constValue = transpileAnnotation(constDefMd, transCtx);
 
-        ctx.utilsContract.appendChild(userConst);
+        contract.appendChild(userConst);
 
         const stmtAssignValue = factory.makeExpressionStatement(
             factory.makeAssignment(
@@ -763,8 +638,7 @@ function makeGeneralInvariantChecker(
 ): FunctionDefinition {
     const factory = ctx.factory;
     const directBases = (ctx.cha.parents.get(contract) as ContractDefinition[])?.filter(
-        (base) =>
-            base.kind === ContractKind.Contract && base !== ctx.utilsContract && base !== contract
+        (base) => base.kind === ContractKind.Contract && base !== contract
     );
 
     let overrideSpecifier: OverrideSpecifier | undefined = undefined;
@@ -808,7 +682,7 @@ function makeGeneralInvariantChecker(
 
     for (const base of contract.vLinearizedBaseContracts) {
         /// Skip the utils contract and any interface bases
-        if (base === ctx.utilsContract || base.kind === ContractKind.Interface) {
+        if (base.kind === ContractKind.Interface) {
             continue;
         }
 
@@ -848,12 +722,7 @@ function instrumentConstructor(
     const body = constructor.vBody as Block;
 
     const entryGuard = factory.makeExpressionStatement(
-        factory.makeAssignment(
-            "<missing>",
-            "=",
-            factory.makeIdentifier("bool", ctx.outOfContractFlagName, -1),
-            factory.makeLiteral("bool", LiteralKind.Bool, "", "false")
-        )
+        ctx.setInContract(constructor, factory.makeLiteral("bool", LiteralKind.Bool, "", "true"))
     );
 
     const callCheckInvs = factory.makeExpressionStatement(
@@ -866,12 +735,7 @@ function instrumentConstructor(
     );
 
     const exitGuard = factory.makeExpressionStatement(
-        factory.makeAssignment(
-            "<missing>",
-            "=",
-            factory.makeIdentifier("bool", ctx.outOfContractFlagName, -1),
-            factory.makeLiteral("bool", LiteralKind.Bool, "", "true")
-        )
+        ctx.setInContract(constructor, factory.makeLiteral("bool", LiteralKind.Bool, "", "false"))
     );
 
     ctx.addGeneralInstrumentation(entryGuard, callCheckInvs, exitGuard);
@@ -923,11 +787,9 @@ function instrumentTryCallsite(
     if (calleeMutable) {
         block.insertBefore(
             factory.makeExpressionStatement(
-                factory.makeAssignment(
-                    "<missing>",
-                    "=",
-                    factory.makeIdentifier("bool", ctx.outOfContractFlagName, -1),
-                    factory.makeLiteral("bool", LiteralKind.Bool, "", "true")
+                ctx.setInContract(
+                    tryStmt,
+                    factory.makeLiteral("bool", LiteralKind.Bool, "", "false")
                 )
             ),
             tryStmt
@@ -936,11 +798,9 @@ function instrumentTryCallsite(
         for (const clause of tryStmt.vClauses) {
             clause.vBlock.insertAtBeginning(
                 factory.makeExpressionStatement(
-                    factory.makeAssignment(
-                        "<missing>",
-                        "=",
-                        factory.makeIdentifier("bool", ctx.outOfContractFlagName, -1),
-                        factory.makeLiteral("bool", LiteralKind.Bool, "", "false")
+                    ctx.setInContract(
+                        tryStmt,
+                        factory.makeLiteral("bool", LiteralKind.Bool, "", "true")
                     )
                 )
             );
@@ -1026,11 +886,9 @@ function replaceExternalCallSites(
         if (isChangingState(callsiteWrapper)) {
             wrapperBody.insertBefore(
                 factory.makeExpressionStatement(
-                    factory.makeAssignment(
-                        "<missing>",
-                        "=",
-                        factory.makeIdentifier("bool", ctx.outOfContractFlagName, -1),
-                        factory.makeLiteral("bool", LiteralKind.Bool, "", "true")
+                    ctx.setInContract(
+                        wrapperBody,
+                        factory.makeLiteral("bool", LiteralKind.Bool, "", "false")
                     )
                 ),
                 callToOriginal
@@ -1038,11 +896,9 @@ function replaceExternalCallSites(
 
             wrapperBody.appendChild(
                 factory.makeExpressionStatement(
-                    factory.makeAssignment(
-                        "<missing>",
-                        "=",
-                        factory.makeIdentifier("bool", ctx.outOfContractFlagName, -1),
-                        factory.makeLiteral("bool", LiteralKind.Bool, "", "false")
+                    ctx.setInContract(
+                        wrapperBody,
+                        factory.makeLiteral("bool", LiteralKind.Bool, "", "true")
                     )
                 )
             );
@@ -1103,11 +959,9 @@ function insertEnterMarker(stub: FunctionDefinition, transCtx: TranspilingContex
 
     if (stub.visibility === FunctionVisibility.External) {
         const enter = factory.makeExpressionStatement(
-            factory.makeAssignment(
-                "<missing>",
-                "=",
-                factory.makeIdentifier("<missing>", instrCtx.outOfContractFlagName, -1),
-                factory.makeLiteral("<missing>", LiteralKind.Bool, "", "false")
+            instrCtx.setInContract(
+                stub,
+                factory.makeLiteral("<missing>", LiteralKind.Bool, "", "true")
             )
         );
 
@@ -1123,16 +977,14 @@ function insertEnterMarker(stub: FunctionDefinition, transCtx: TranspilingContex
                 "<missing>",
                 "=",
                 transCtx.refBinding(instrCtx.checkInvsFlag),
-                factory.makeIdentifier("<missing>", instrCtx.outOfContractFlagName, -1)
+                factory.makeUnaryOperation("<missing>", true, "!", instrCtx.isInContract(stub))
             )
         );
 
         const enter = factory.makeExpressionStatement(
-            factory.makeAssignment(
-                "<missing>",
-                "=",
-                factory.makeIdentifier("<missing>", instrCtx.outOfContractFlagName, -1),
-                factory.makeLiteral("<missing>", LiteralKind.Bool, "", "false")
+            instrCtx.setInContract(
+                stub,
+                factory.makeLiteral("<missing>", LiteralKind.Bool, "", "true")
             )
         );
 
@@ -1187,13 +1039,16 @@ function insertExitMarker(stub: FunctionDefinition, transCtx: TranspilingContext
     // Set re-entrancy flag
     stmts.push(
         factory.makeExpressionStatement(
-            factory.makeAssignment(
-                "<missing>",
-                "=",
-                factory.makeIdentifier("<missing>", instrCtx.outOfContractFlagName, -1),
+            instrCtx.setInContract(
+                stub,
                 stub.visibility === FunctionVisibility.External
-                    ? factory.makeLiteral("bool", LiteralKind.Bool, "", "true")
-                    : transCtx.refBinding(instrCtx.checkInvsFlag)
+                    ? factory.makeLiteral("bool", LiteralKind.Bool, "", "false")
+                    : factory.makeUnaryOperation(
+                          "bool",
+                          true,
+                          "!",
+                          transCtx.refBinding(instrCtx.checkInvsFlag)
+                      )
             )
         )
     );
@@ -1211,7 +1066,7 @@ function insertExitMarker(stub: FunctionDefinition, transCtx: TranspilingContext
  */
 export function makeArraySumFun(
     ctx: InstrumentationContext,
-    container: ContractDefinition | SourceUnit,
+    container: ContractDefinition,
     arrT: ArrayType,
     loc: DataLocation
 ): FunctionDefinition {

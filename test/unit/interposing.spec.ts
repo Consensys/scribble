@@ -320,9 +320,7 @@ contract Foo {
             "Foo",
             `pragma solidity 0.6.0;
 
-import "./scribble_utils.sol";
-
-contract Foo is __scribble_ReentrancyUtils {
+contract Foo {
     function add(int8 x, uint64 y) internal returns (uint64 add) {
         return uint64(x) + y;
     }
@@ -336,9 +334,35 @@ contract Foo is __scribble_ReentrancyUtils {
     }
 
     constructor() public {
-        __scribble_out_of_contract = false;
+        __ScribbleUtilsLib__20.setInContract(true);
         __scribble_check_state_invariants();
-        __scribble_out_of_contract = true;
+        __ScribbleUtilsLib__20.setInContract(false);
+    }
+}
+
+library __ScribbleUtilsLib__20 {
+    event AssertionFailed(string message);
+
+    event AssertionFailedData(int eventId, bytes encodingData);
+
+    function assertionFailed(string memory arg_0) internal {
+        emit AssertionFailed(arg_0);
+    }
+
+    function assertionFailedData(int arg_0, bytes memory arg_1) internal {
+        emit AssertionFailedData(arg_0, arg_1);
+    }
+
+    function isInContract() internal returns (bool res) {
+        assembly {
+            res := sload(0x5f0b92cf9616afdee4f4136f66393f1343b027f01be893fa569eb2e2b667a40c)
+        }
+    }
+
+    function setInContract(bool v) internal {
+        assembly {
+            sstore(0x5f0b92cf9616afdee4f4136f66393f1343b027f01be893fa569eb2e2b667a40c, v)
+        }
     }
 }`
         ],
@@ -357,9 +381,7 @@ contract Foo {
             "Foo",
             `pragma solidity 0.6.0;
 
-import "./scribble_utils.sol";
-
-contract Foo is __scribble_ReentrancyUtils {
+contract Foo {
     uint internal x;
 
     function pureF(uint id) public pure returns (uint) {
@@ -383,14 +405,40 @@ contract Foo is __scribble_ReentrancyUtils {
     }
 
     constructor() public {
-        __scribble_out_of_contract = false;
+        __ScribbleUtilsLib__40.setInContract(true);
         __scribble_check_state_invariants();
-        __scribble_out_of_contract = true;
+        __ScribbleUtilsLib__40.setInContract(false);
     }
 
     function _callsite_30(Foo receiver) private view returns (uint256 ret0) {
         __scribble_check_state_invariants();
         (ret0) = receiver.viewF();
+    }
+}
+
+library __ScribbleUtilsLib__40 {
+    event AssertionFailed(string message);
+
+    event AssertionFailedData(int eventId, bytes encodingData);
+
+    function assertionFailed(string memory arg_0) internal {
+        emit AssertionFailed(arg_0);
+    }
+
+    function assertionFailedData(int arg_0, bytes memory arg_1) internal {
+        emit AssertionFailedData(arg_0, arg_1);
+    }
+
+    function isInContract() internal returns (bool res) {
+        assembly {
+            res := sload(0x5f0b92cf9616afdee4f4136f66393f1343b027f01be893fa569eb2e2b667a40c)
+        }
+    }
+
+    function setInContract(bool v) internal {
+        assembly {
+            sstore(0x5f0b92cf9616afdee4f4136f66393f1343b027f01be893fa569eb2e2b667a40c, v)
+        }
     }
 }`
         ]

@@ -21,17 +21,17 @@ contract Foo {
         bool forall_2;
     }
 
-    uint256_to_uint256.S internal a;
-    uint256_to_int8.S internal b;
-    string_to_uint256_to_int16_S_245.S internal c;
+    uint256_to_uint256_227.S internal a;
+    uint256_to_int8_227.S internal b;
+    string_to_uint256_to_int16_227_S_229_227.S internal c;
 
     constructor() {
-        uint256_to_uint256.set(a, 0, 10);
-        uint256_to_int8.set(b, 0, 127);
+        uint256_to_uint256_227.set(a, 0, 10);
+        uint256_to_int8_227.set(b, 0, 127);
     }
 
     function getA(uint k) public returns (uint) {
-        return uint256_to_uint256.get(a, k);
+        return uint256_to_uint256_227.get(a, k);
     }
 
     function setA(uint k, uint v) public {
@@ -45,7 +45,7 @@ contract Foo {
     }
 
     function _original_Foo_setA(uint k, uint v) private {
-        uint256_to_uint256.set(a, k, v);
+        uint256_to_uint256_227.set(a, k, v);
     }
 
     function incA(uint k) public {
@@ -59,7 +59,7 @@ contract Foo {
     }
 
     function _original_Foo_incA(uint k) private {
-        uint256_to_uint256.inc(a, k);
+        uint256_to_uint256_227.inc(a, k);
     }
 
     function decA(uint k) public {
@@ -73,7 +73,7 @@ contract Foo {
     }
 
     function _original_Foo_decA(uint k) private {
-        uint256_to_uint256.dec(a, k);
+        uint256_to_uint256_227.dec(a, k);
     }
 
     function setB(uint k, int8 v) public {
@@ -87,7 +87,7 @@ contract Foo {
     }
 
     function _original_Foo_setB(uint k, int8 v) private {
-        uint256_to_int8.set(b, k, v);
+        uint256_to_int8_227.set(b, k, v);
     }
 
     function decB(uint k) public {
@@ -101,40 +101,40 @@ contract Foo {
     }
 
     function _original_Foo_decB(uint k) private {
-        uint256_to_int8.dec_pre(b, k);
+        uint256_to_int8_227.dec_pre(b, k);
     }
 
     /// #if_succceeds unchecked_sum(b) == -256;
     function negB() public {
-        uint256_to_int8.set(b, 0, -128);
-        uint256_to_int8.set(b, 1, -128);
+        uint256_to_int8_227.set(b, 0, -128);
+        uint256_to_int8_227.set(b, 1, -128);
     }
 
     /// #if_succceeds unchecked_sum(b) == -1;
     function underflowB0() public {
         unchecked {
-            uint256_to_int8.dec_unch(b, 0);
+            uint256_to_int8_227.dec_unch(b, 0);
         }
     }
 
     /// #if_succceeds unchecked_sum(b) == 254;
     function underflowB1() public {
         unchecked {
-            uint256_to_int8.dec_unch(b, 1);
+            uint256_to_int8_227.dec_unch(b, 1);
         }
     }
 
     /// #if_succceeds unchecked_sum(b) == -1;
     function overflowB0() public {
         unchecked {
-            uint256_to_int8.inc_unch(b, 0);
+            uint256_to_int8_227.inc_unch(b, 0);
         }
     }
 
     /// #if_succceeds unchecked_sum(b) == -256;
     function overflowB1() public {
         unchecked {
-            uint256_to_int8.inc_unch(b, 1);
+            uint256_to_int8_227.inc_unch(b, 1);
         }
     }
 
@@ -145,7 +145,7 @@ contract Foo {
             _v.forall_0 = true;
             for (_v.i0 = 1; _v.i0 < c.keys.length; _v.i0++) {
                 _v.x0 = c.keys[_v.i0];
-                _v.forall_0 = string_to_uint256_to_int16_S_245.get(c, _v.x0).sum > 0;
+                _v.forall_0 = string_to_uint256_to_int16_227_S_229_227.get(c, _v.x0).sum > 0;
                 if (!_v.forall_0) break;
             }
             if (!(_v.forall_0)) {
@@ -156,7 +156,7 @@ contract Foo {
     }
 
     function _original_Foo_setC(string memory k1, uint k2, int16 v) private {
-        uint256_to_int16.set(string_to_uint256_to_int16_S_245.get_lhs(c, k1), k2, v);
+        uint256_to_int16_227.set(string_to_uint256_to_int16_227_S_229_227.get_lhs(c, k1), k2, v);
     }
 
     function decC(string memory k1, uint k2) public {
@@ -166,7 +166,7 @@ contract Foo {
             _v.forall_1 = true;
             for (_v.i1 = 1; _v.i1 < c.keys.length; _v.i1++) {
                 _v.x1 = c.keys[_v.i1];
-                _v.forall_1 = string_to_uint256_to_int16_S_245.get(c, _v.x1).sum > 0;
+                _v.forall_1 = string_to_uint256_to_int16_227_S_229_227.get(c, _v.x1).sum > 0;
                 if (!_v.forall_1) break;
             }
             if (!(_v.forall_1)) {
@@ -178,7 +178,7 @@ contract Foo {
 
     function _original_Foo_decC(string memory k1, uint k2) private {
         unchecked {
-            uint256_to_int16.dec_unch(string_to_uint256_to_int16_S_245.get_lhs(c, k1), k2);
+            uint256_to_int16_227.dec_unch(string_to_uint256_to_int16_227_S_229_227.get_lhs(c, k1), k2);
         }
     }
 
@@ -189,7 +189,7 @@ contract Foo {
             _v.forall_2 = true;
             for (_v.i2 = 1; _v.i2 < c.keys.length; _v.i2++) {
                 _v.x2 = c.keys[_v.i2];
-                _v.forall_2 = string_to_uint256_to_int16_S_245.get(c, _v.x2).sum > 0;
+                _v.forall_2 = string_to_uint256_to_int16_227_S_229_227.get(c, _v.x2).sum > 0;
                 if (!_v.forall_2) break;
             }
             if (!(_v.forall_2)) {
@@ -201,35 +201,12 @@ contract Foo {
 
     function _original_Foo_incC(string memory k1, uint k2) private {
         unchecked {
-            uint256_to_int16.inc_unch(string_to_uint256_to_int16_S_245.get_lhs(c, k1), k2);
+            uint256_to_int16_227.inc_unch(string_to_uint256_to_int16_227_S_229_227.get_lhs(c, k1), k2);
         }
     }
 }
 
-library __ScribbleUtilsLib__227 {
-    event AssertionFailed(string message);
-
-    event AssertionFailedData(int eventId, bytes encodingData);
-
-    function assertionFailed(string memory arg_0) internal {
-        emit AssertionFailed(arg_0);
-    }
-
-    function assertionFailedData(int arg_0, bytes memory arg_1) internal {
-        emit AssertionFailedData(arg_0, arg_1);
-    }
-}
-
-/// Utility contract holding a stack counter
-contract __scribble_ReentrancyUtils {
-    event AssertionFailed(string message);
-
-    event AssertionFailedData(int eventId, bytes encodingData);
-
-    bool __scribble_out_of_contract = true;
-}
-
-library uint256_to_int16 {
+library uint256_to_int16_227 {
     struct S {
         mapping(uint256 => int16) innerM;
         uint256[] keys;
@@ -285,7 +262,7 @@ library uint256_to_int16 {
     }
 }
 
-library uint256_to_uint256 {
+library uint256_to_uint256_227 {
     struct S {
         mapping(uint256 => uint256) innerM;
         uint256[] keys;
@@ -341,7 +318,7 @@ library uint256_to_uint256 {
     }
 }
 
-library uint256_to_int8 {
+library uint256_to_int8_227 {
     struct S {
         mapping(uint256 => int8) innerM;
         uint256[] keys;
@@ -401,9 +378,9 @@ library uint256_to_int8 {
     }
 }
 
-library string_to_uint256_to_int16_S_245 {
+library string_to_uint256_to_int16_227_S_229_227 {
     struct S {
-        mapping(string => uint256_to_int16.S) innerM;
+        mapping(string => uint256_to_int16_227.S) innerM;
         string[] keys;
         mapping(string => uint256) keyIdxM;
     }
@@ -431,12 +408,38 @@ library string_to_uint256_to_int16_S_245 {
         delete m.keyIdxM[key];
     }
 
-    function get_lhs(S storage m, string memory key) internal returns (uint256_to_int16.S storage) {
+    function get_lhs(S storage m, string memory key) internal returns (uint256_to_int16_227.S storage) {
         addKey(m, key);
         return m.innerM[key];
     }
 
-    function get(S storage m, string memory key) internal view returns (uint256_to_int16.S storage) {
+    function get(S storage m, string memory key) internal view returns (uint256_to_int16_227.S storage) {
         return m.innerM[key];
+    }
+}
+
+library __ScribbleUtilsLib__227 {
+    event AssertionFailed(string message);
+
+    event AssertionFailedData(int eventId, bytes encodingData);
+
+    function assertionFailed(string memory arg_0) internal {
+        emit AssertionFailed(arg_0);
+    }
+
+    function assertionFailedData(int arg_0, bytes memory arg_1) internal {
+        emit AssertionFailedData(arg_0, arg_1);
+    }
+
+    function isInContract() internal returns (bool res) {
+        assembly {
+            res := sload(0x5f0b92cf9616afdee4f4136f66393f1343b027f01be893fa569eb2e2b667a40c)
+        }
+    }
+
+    function setInContract(bool v) internal {
+        assembly {
+            sstore(0x5f0b92cf9616afdee4f4136f66393f1343b027f01be893fa569eb2e2b667a40c, v)
+        }
     }
 }

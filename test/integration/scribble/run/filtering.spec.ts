@@ -44,6 +44,18 @@ library __ScribbleUtilsLib__29 {
     function assertionFailedData(int arg_0, bytes memory arg_1) internal {
         emit AssertionFailedData(arg_0, arg_1);
     }
+
+    function isInContract() internal returns (bool res) {
+        assembly {
+            res := sload(0x5f0b92cf9616afdee4f4136f66393f1343b027f01be893fa569eb2e2b667a40c)
+        }
+    }
+
+    function setInContract(bool v) internal {
+        assembly {
+            sstore(0x5f0b92cf9616afdee4f4136f66393f1343b027f01be893fa569eb2e2b667a40c, v)
+        }
+    }
 }
         `
     ],
@@ -60,19 +72,19 @@ contract Foo {
     uint internal x;
 
     constructor(uint _x) public {
-        __scribble_out_of_contract = false;
+        __ScribbleUtilsLib__29.setInContract(true);
         x = _x;
         __scribble_check_state_invariants();
-        __scribble_out_of_contract = true;
+        __ScribbleUtilsLib__29.setInContract(false);
     }
 
     function foo(uint256 a) public returns (uint256 b) {
         vars1 memory _v;
-        _v.__scribble_check_invs_at_end = __scribble_out_of_contract;
-        __scribble_out_of_contract = false;
+        _v.__scribble_check_invs_at_end = !__ScribbleUtilsLib__29.isInContract();
+        __ScribbleUtilsLib__29.setInContract(true);
         b = _original_Foo_foo(a);
         if (_v.__scribble_check_invs_at_end) __scribble_check_state_invariants();
-        __scribble_out_of_contract = _v.__scribble_check_invs_at_end;
+        __ScribbleUtilsLib__29.setInContract(!_v.__scribble_check_invs_at_end);
     }
 
     function _original_Foo_foo(uint256 a) private returns (uint256 b) {
@@ -91,8 +103,7 @@ contract Foo {
     function __scribble_check_state_invariants() virtual internal {
         __scribble_Foo_check_state_invariants_internal();
     }
-}
-        `
+}`
     ],
     [
         "test/samples/filtering.sol",
@@ -107,23 +118,23 @@ contract Foo {
     uint internal x;
 
     constructor(uint _x) public {
-        __scribble_out_of_contract = false;
+        __ScribbleUtilsLib__29.setInContract(true);
         x = _x;
         __scribble_check_state_invariants();
-        __scribble_out_of_contract = true;
+        __ScribbleUtilsLib__29.setInContract(false);
     }
 
     function foo(uint256 a) public returns (uint256 b) {
         vars1 memory _v;
-        _v.__scribble_check_invs_at_end = __scribble_out_of_contract;
-        __scribble_out_of_contract = false;
+        _v.__scribble_check_invs_at_end = !__ScribbleUtilsLib__29.isInContract();
+        __ScribbleUtilsLib__29.setInContract(true);
         b = _original_Foo_foo(a);
         if (!(b == (a + 1))) {
             __ScribbleUtilsLib__29.assertionFailed("3: Critical.P4");
             assert(false);
         }
         if (_v.__scribble_check_invs_at_end) __scribble_check_state_invariants();
-        __scribble_out_of_contract = _v.__scribble_check_invs_at_end;
+        __ScribbleUtilsLib__29.setInContract(!_v.__scribble_check_invs_at_end);
     }
 
     function _original_Foo_foo(uint256 a) private returns (uint256 b) {
@@ -142,8 +153,7 @@ contract Foo {
     function __scribble_check_state_invariants() virtual internal {
         __scribble_Foo_check_state_invariants_internal();
     }
-}
-        `
+}`
     ]
 ];
 

@@ -653,7 +653,7 @@ export function generateMapLibrary(
     container: SourceUnit
 ): ContractDefinition {
     const factory = ctx.factory;
-    const libName = `${getTypeDesc(keyT)}_to_${getTypeDesc(valueT)}`;
+    const libName = `${getTypeDesc(keyT)}_to_${getTypeDesc(valueT)}_${container.id}`;
 
     const lib = factory.makeContractDefinition(
         libName,

@@ -2,6 +2,67 @@
 /// Use --disarm prior to make any changes.
 pragma solidity 0.8.18;
 
+/// #const uint256 H := 60 * 60;
+///  #const uint256 D := H * 24;
+contract A {
+    /// Definition of user constant const uint256 H := (60 * 60)
+    uint256 internal H_7_0;
+    /// Definition of user constant const uint256 D := (H * 24)
+    uint256 internal D_7_0;
+
+    function testHD() public {
+        _original_A_testHD();
+        unchecked {
+            if (!(D_7_0 == (H_7_0 * 24))) {
+                __ScribbleUtilsLib__23.assertionFailed("2: ");
+                assert(false);
+            }
+        }
+    }
+
+    function _original_A_testHD() private {}
+
+    constructor() {
+        /// Value assignment for const uint256 H := (60 * 60)
+        H_7_0 = 60 * 60;
+        /// Value assignment for const uint256 D := (H * 24)
+        D_7_0 = H_7_0 * 24;
+    }
+}
+
+/// #const uint256 H := 60 * 60;
+///  #const uint256 D := H * 24;
+///  #const uint256 W := D * 7;
+contract B {
+    /// Definition of user constant const uint256 H := (60 * 60)
+    uint256 internal H_14_0;
+    /// Definition of user constant const uint256 D := (H * 24)
+    uint256 internal D_14_0;
+    /// Definition of user constant const uint256 W := (D * 7)
+    uint256 internal W_14_0;
+
+    function testWHD() public {
+        _original_B_testWHD();
+        unchecked {
+            if (!(((W_14_0 == (D_14_0 * 7)) && (D_14_0 == (H_14_0 * 24))) && (H_14_0 == (60 * 60)))) {
+                __ScribbleUtilsLib__23.assertionFailed("6: ");
+                assert(false);
+            }
+        }
+    }
+
+    function _original_B_testWHD() private {}
+
+    constructor() {
+        /// Value assignment for const uint256 H := (60 * 60)
+        H_14_0 = 60 * 60;
+        /// Value assignment for const uint256 D := (H * 24)
+        D_14_0 = H_14_0 * 24;
+        /// Value assignment for const uint256 W := (D * 7)
+        W_14_0 = D_14_0 * 7;
+    }
+}
+
 library __ScribbleUtilsLib__23 {
     event AssertionFailed(string message);
 
@@ -14,71 +75,18 @@ library __ScribbleUtilsLib__23 {
     function assertionFailedData(int arg_0, bytes memory arg_1) internal {
         emit AssertionFailedData(arg_0, arg_1);
     }
-}
 
-/// Utility contract holding a stack counter
-contract __scribble_ReentrancyUtils {
-    event AssertionFailed(string message);
-
-    event AssertionFailedData(int eventId, bytes encodingData);
-
-    bool __scribble_out_of_contract = true;
-    /// Definition of user constant const uint256 H := (60 * 60)
-    uint256 internal H_7_0;
-    /// Definition of user constant const uint256 D := (H * 24)
-    uint256 internal D_7_0;
-    /// Definition of user constant const uint256 H := (60 * 60)
-    uint256 internal H_14_0;
-    /// Definition of user constant const uint256 D := (H * 24)
-    uint256 internal D_14_0;
-    /// Definition of user constant const uint256 W := (D * 7)
-    uint256 internal W_14_0;
-
-    constructor() {
-        /// Value assignment for const uint256 H := (60 * 60)
-        H_7_0 = 60 * 60;
-        /// Value assignment for const uint256 D := (H * 24)
-        D_7_0 = H_7_0 * 24;
-        /// Value assignment for const uint256 H := (60 * 60)
-        H_14_0 = 60 * 60;
-        /// Value assignment for const uint256 D := (H * 24)
-        D_14_0 = H_14_0 * 24;
-        /// Value assignment for const uint256 W := (D * 7)
-        W_14_0 = D_14_0 * 7;
-    }
-}
-
-/// #const uint256 H := 60 * 60;
-///  #const uint256 D := H * 24;
-contract A is __scribble_ReentrancyUtils {
-    function testHD() public {
-        _original_A_testHD();
-        unchecked {
-            if (!(D_7_0 == (H_7_0 * 24))) {
-                __ScribbleUtilsLib__23.assertionFailed("2: ");
-                assert(false);
-            }
+    function isInContract() internal returns (bool res) {
+        assembly {
+            res := sload(0x5f0b92cf9616afdee4f4136f66393f1343b027f01be893fa569eb2e2b667a40c)
         }
     }
 
-    function _original_A_testHD() private {}
-}
-
-/// #const uint256 H := 60 * 60;
-///  #const uint256 D := H * 24;
-///  #const uint256 W := D * 7;
-contract B is __scribble_ReentrancyUtils {
-    function testWHD() public {
-        _original_B_testWHD();
-        unchecked {
-            if (!(((W_14_0 == (D_14_0 * 7)) && (D_14_0 == (H_14_0 * 24))) && (H_14_0 == (60 * 60)))) {
-                __ScribbleUtilsLib__23.assertionFailed("6: ");
-                assert(false);
-            }
+    function setInContract(bool v) internal {
+        assembly {
+            sstore(0x5f0b92cf9616afdee4f4136f66393f1343b027f01be893fa569eb2e2b667a40c, v)
         }
     }
-
-    function _original_B_testWHD() private {}
 }
 
 contract C is B {

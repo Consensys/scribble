@@ -1,14 +1,13 @@
-import { basename, dirname, relative } from "path";
 import {
     ArrayType,
     assert,
     ASTNode,
     ContractDefinition,
-    ContractKind,
     DataLocation,
     EnumDefinition,
     EventDefinition,
     Expression,
+    FunctionCallKind,
     FunctionDefinition,
     ImportDirective,
     MemberAccess,
@@ -25,7 +24,7 @@ import { SId, SUserConstantDefinition, SUserFunctionDefinition } from "../spec-l
 import { SemMap, TypeEnv } from "../spec-lang/tc";
 import { dedup, single } from "../util/misc";
 import { NameGenerator } from "../util/name_generator";
-import { SourceMap, UtilsSolFile } from "../util/sources";
+import { SourceMap } from "../util/sources";
 import { AnnotationFilterOptions, AnnotationMetaData } from "./annotations";
 import { CallGraph } from "./callgraph";
 import { CHA } from "./cha";
@@ -143,18 +142,18 @@ class VarToLibraryMap extends StructMap<
 }
 
 class TypesToLibraryMap extends ContextFactoryMap<
-    [TypeNode, TypeNode],
+    [TypeNode, TypeNode, SourceUnit],
     string,
     ContractDefinition
 > {
     private _inverseMap = new Map<ContractDefinition, [TypeNode, TypeNode]>();
 
-    protected getName(keyT: TypeNode, valueT: TypeNode): string {
-        return `${keyT.pp()}_to_${valueT.pp()}`;
+    protected getName(keyT: TypeNode, valueT: TypeNode, unit: SourceUnit): string {
+        return `${keyT.pp()}_to_${valueT.pp()}_${unit.id}`;
     }
 
-    protected makeNew(keyT: TypeNode, valueT: TypeNode): ContractDefinition {
-        const res = generateMapLibrary(this.ctx, keyT, valueT, this.ctx.utilsUnit);
+    protected makeNew(keyT: TypeNode, valueT: TypeNode, unit: SourceUnit): ContractDefinition {
+        const res = generateMapLibrary(this.ctx, keyT, valueT, unit);
 
         this._inverseMap.set(res, [keyT, valueT]);
 
@@ -250,26 +249,34 @@ class MapDeleteFunMap extends ContextFactoryMap<[ContractDefinition], number, Fu
 }
 
 class ArraySumFunMap extends ContextFactoryMap<
-    [ArrayType, DataLocation],
+    [ArrayType, DataLocation, SourceUnit],
     string,
     FunctionDefinition
 > {
-    protected getName(arrT: ArrayType, loc: DataLocation): string {
-        return `${arrT.pp()}_${loc}`;
+    protected getName(arrT: ArrayType, loc: DataLocation, file: SourceUnit): string {
+        return `${arrT.pp()}_${loc}_${file.id}`;
     }
 
-    protected makeNew(arrT: ArrayType, loc: DataLocation): FunctionDefinition {
-        return makeArraySumFun(this.ctx, this.ctx.arrSumLibrary, arrT, loc);
+    protected makeNew(arrT: ArrayType, loc: DataLocation, file: SourceUnit): FunctionDefinition {
+        return this.ctx.getArrSumFun(file, arrT, loc);
     }
 }
 
 class UtilsLibraryMap extends ContextFactoryMap<[SourceUnit], string, ContractDefinition> {
+    inverseMap = new Map<ContractDefinition, SourceUnit>();
+
     protected getName(unit: SourceUnit): string {
         return `__ScribbleUtilsLib__${unit.id}`;
     }
 
     protected makeNew(unit: SourceUnit): ContractDefinition {
-        return generateUtilsLibrary(unit, this.ctx);
+        const res = generateUtilsLibrary(unit, this.ctx);
+        this.inverseMap.set(res, unit);
+        return res;
+    }
+
+    isUtilsLibrary(contract: ContractDefinition): boolean {
+        return this.inverseMap.has(contract);
     }
 }
 
@@ -320,37 +327,10 @@ export class InstrumentationContext {
     public readonly debugEventsDescMap: Map<AnnotationMetaData, Array<[SId[], TypeNode]>> =
         new Map();
 
-    /**
-     * Bit of a hack - this is set by `generateUtilsContract`. We need an
-     * InstrumentationContext already present for `generateUtilsContract` to be able
-     * to use `ctx.nameGenerator`.
-     */
-    public utilsContract!: ContractDefinition;
-    private remappedImportPath: string | undefined;
-
-    setUtilsContract(contract: ContractDefinition, importPath: string | undefined): void {
-        this.utilsContract = contract;
-        this.remappedImportPath = importPath;
-
-        const path = this.utilsUnit.absolutePath;
-        this.files.set(path, new UtilsSolFile(path));
-    }
-
-    public get utilsUnit(): SourceUnit {
-        return this.utilsContract.parent as SourceUnit;
-    }
-
     public readonly varInterposingQueue: Array<[VariableDeclaration, AbsDatastructurePath]>;
 
-    private unitsNeedingUtils = new Set<SourceUnit>();
     private _originalContents: Map<SourceUnit, string>;
     private _aliasedStateVars: Map<VariableDeclaration, ASTNode>;
-    /**
-     * ContractDefinition for a library containing helper functions for
-     * computing sums over arrays. If there are no annotations with sums over
-     * arrays, then this is undefined.
-     */
-    private _arrSumLibrary?: ContractDefinition;
 
     /**
      * Map keeping track of the `TranspilingContext`s for each `FunctionDefinition`.
@@ -437,6 +417,13 @@ export class InstrumentationContext {
         this._aliasedStateVars = findAliasedStateVars(units);
     }
 
+    isScribbleGeneratedContract(contract: ContractDefinition): boolean {
+        return (
+            this.typesToLibraryMap.isCustomMapLibrary(contract) ||
+            this.utilsLibraryMap.isUtilsLibrary(contract)
+        );
+    }
+
     getResolvedPath(arg: SourceUnit | string): string {
         const absPath = arg instanceof SourceUnit ? arg.absolutePath : arg;
         const srcFile = this.files.get(absPath);
@@ -498,24 +485,6 @@ export class InstrumentationContext {
             transCtx.finalize();
         }
 
-        // Add imports in all units that need the ReentrancyUtils contract
-        for (const unit of this.unitsNeedingUtils) {
-            const path = this.remappedImportPath
-                ? this.remappedImportPath + "/" + basename(this.utilsUnit.sourceEntryKey)
-                : `./` + relative(dirname(unit.absolutePath), this.utilsUnit.absolutePath);
-
-            unit.appendChild(
-                this.factory.makeImportDirective(
-                    path,
-                    this.utilsUnit.absolutePath,
-                    "",
-                    [],
-                    unit.id,
-                    this.utilsUnit.id
-                )
-            );
-        }
-
         // Finally scan all nodes in generalInsturmentation for any potential orphans, and remove them
         // Orphans can happen during insturmentation, when we replace some node with a re-written copy
         const orphans = new Set<ASTNode>();
@@ -531,58 +500,8 @@ export class InstrumentationContext {
         );
     }
 
-    /**
-     * Mark the given SourceUnit `unit` as needing an import from the utils module in files
-     * instrumentation mode.
-     */
-    needsUtils(unit: SourceUnit): void {
-        this.unitsNeedingUtils.add(unit);
-    }
-
-    /**
-     * Helper function to add the scribble utils contract as a base to `to`.
-     * If `to` already inherits from the utils contract nothing is changed.
-     */
-    addScribbleUtils(ctx: ASTNode): void {
-        const containingContract =
-            ctx instanceof ContractDefinition
-                ? ctx
-                : ctx.getClosestParentByType(ContractDefinition);
-
-        assert(containingContract !== undefined, `Node {0} not under a contract`, ctx);
-
-        // Make sure `base` is not already a base
-        for (const existingBase of containingContract.vLinearizedBaseContracts) {
-            if (existingBase === this.utilsContract) {
-                return;
-            }
-        }
-
-        const inheritanceSpecifier = this.factory.makeInheritanceSpecifier(
-            this.factory.makeUserDefinedTypeName(
-                "<missing>",
-                this.utilsContractName,
-                this.utilsContract.id
-            ),
-            []
-        );
-
-        containingContract.linearizedBaseContracts.unshift(this.utilsContract.id);
-
-        const specs = containingContract.vInheritanceSpecifiers;
-
-        if (specs.length !== 0) {
-            containingContract.insertBefore(inheritanceSpecifier, specs[0]);
-        } else {
-            containingContract.appendChild(inheritanceSpecifier);
-        }
-
-        // Mark that the containing source units needs to import the generated utils unit
-        this.needsUtils(containingContract.vScope);
-    }
-
-    private getEmitFun(ctx: ASTNode, name: string): MemberAccess {
-        const file = ctx.getClosestParentByType(SourceUnit);
+    private getUtilsLibFun(ctx: ASTNode, name: string): MemberAccess {
+        const file = ctx instanceof SourceUnit ? ctx : ctx.getClosestParentByType(SourceUnit);
         assert(file !== undefined, `Can't add AssertionFailed event to node with no unit {0}`, ctx);
 
         const lib = this.utilsLibraryMap.get(file);
@@ -598,11 +517,37 @@ export class InstrumentationContext {
     }
 
     getAssertionFailedFun(ctx: ASTNode): MemberAccess {
-        return this.getEmitFun(ctx, "assertionFailed");
+        return this.getUtilsLibFun(ctx, "assertionFailed");
     }
 
     getAssertionFailedDataFun(ctx: ASTNode): MemberAccess {
-        return this.getEmitFun(ctx, "assertionFailedData");
+        return this.getUtilsLibFun(ctx, "assertionFailedData");
+    }
+
+    getArrSumFun(file: SourceUnit, arrT: ArrayType, loc: DataLocation): FunctionDefinition {
+        const utilsLib = this.utilsLibraryMap.get(file);
+        return makeArraySumFun(this, utilsLib, arrT, loc);
+    }
+
+    setInContract(ctx: ASTNode, val: Expression): Expression {
+        const factory = this.factory;
+
+        return factory.makeFunctionCall(
+            "<missing>",
+            FunctionCallKind.FunctionCall,
+            this.getUtilsLibFun(ctx, "setInContract"),
+            [val]
+        );
+    }
+
+    isInContract(ctx: ASTNode): Expression {
+        const factory = this.factory;
+        return factory.makeFunctionCall(
+            "bool",
+            FunctionCallKind.FunctionCall,
+            this.getUtilsLibFun(ctx, "isInContract"),
+            []
+        );
     }
 
     /**
@@ -651,25 +596,5 @@ export class InstrumentationContext {
         instrumentationMarker?: string
     ): Map<SourceUnit, string> {
         return print(units, this.compilerVersion, srcMap, instrumentationMarker);
-    }
-
-    get arrSumLibrary(): ContractDefinition {
-        if (this._arrSumLibrary === undefined) {
-            const utilsUnit = this.utilsUnit;
-
-            this._arrSumLibrary = this.factory.makeContractDefinition(
-                "arr_sum_funs",
-                utilsUnit.id,
-                ContractKind.Library,
-                false,
-                true,
-                [],
-                []
-            );
-
-            this.utilsUnit.appendChild(this._arrSumLibrary);
-        }
-
-        return this._arrSumLibrary;
     }
 }

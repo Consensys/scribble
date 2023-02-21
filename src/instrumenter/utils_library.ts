@@ -17,6 +17,158 @@ import {
 } from "solc-typed-ast";
 import { InstrumentationContext } from "./instrumentation_context";
 
+function makeIsInContractFun(
+    lib: ContractDefinition,
+    ctx: InstrumentationContext
+): FunctionDefinition {
+    const factory = ctx.factory;
+
+    const fun = factory.makeFunctionDefinition(
+        lib.id,
+        FunctionKind.Function,
+        "isInContract",
+        false,
+        FunctionVisibility.Internal,
+        FunctionStateMutability.NonPayable,
+        false,
+        factory.makeParameterList([]),
+        factory.makeParameterList([]),
+        [],
+        undefined,
+        factory.makeBlock([])
+    );
+
+    const retDecl = factory.makeVariableDeclaration(
+        false,
+        false,
+        "res",
+        fun.vReturnParameters.id,
+        false,
+        DataLocation.Default,
+        StateVariableVisibility.Default,
+        Mutability.Mutable,
+        "<missing>",
+        undefined,
+        factory.makeElementaryTypeName("<missing>", "bool")
+    );
+
+    fun.vReturnParameters.appendChild(retDecl);
+    ctx.addGeneralInstrumentation(retDecl);
+
+    const asm = factory.makeInlineAssembly([], undefined, {
+        nodeType: "YulBlock",
+        src: "<missing>",
+        statements: [
+            {
+                nodeType: "YulAssignment",
+                value: {
+                    nodeType: "YulFunctionCall",
+                    functionName: {
+                        nodeType: "YulIdentifier",
+                        name: "sload",
+                        src: "<missing>"
+                    },
+                    src: "<missing>",
+                    arguments: [
+                        {
+                            nodeType: "YulLiteral",
+                            kind: "number",
+                            src: "<missing>",
+                            type: "",
+                            /// keccak256("__Scribble.isInContract__")
+                            value: "0x5f0b92cf9616afdee4f4136f66393f1343b027f01be893fa569eb2e2b667a40c"
+                        }
+                    ]
+                },
+                variableNames: [
+                    {
+                        nodeType: "YulIdentifier",
+                        name: "res",
+                        src: "<missing>"
+                    }
+                ]
+            }
+        ]
+    });
+    (fun.vBody as Block).appendChild(asm);
+    ctx.addGeneralInstrumentation(asm);
+
+    return fun;
+}
+
+function makeSetInContractFun(
+    lib: ContractDefinition,
+    ctx: InstrumentationContext
+): FunctionDefinition {
+    const factory = ctx.factory;
+
+    const fun = factory.makeFunctionDefinition(
+        lib.id,
+        FunctionKind.Function,
+        "setInContract",
+        false,
+        FunctionVisibility.Internal,
+        FunctionStateMutability.NonPayable,
+        false,
+        factory.makeParameterList([]),
+        factory.makeParameterList([]),
+        [],
+        undefined,
+        factory.makeBlock([])
+    );
+
+    fun.vParameters.appendChild(
+        factory.makeVariableDeclaration(
+            false,
+            false,
+            "v",
+            fun.vParameters.id,
+            false,
+            DataLocation.Default,
+            StateVariableVisibility.Default,
+            Mutability.Mutable,
+            "<missing>",
+            undefined,
+            factory.makeElementaryTypeName("<missing>", "bool")
+        )
+    );
+
+    const asm = factory.makeInlineAssembly([], undefined, {
+        nodeType: "YulBlock",
+        src: "<missing>",
+        statements: [
+            {
+                nodeType: "YulFunctionCall",
+                functionName: {
+                    nodeType: "YulIdentifier",
+                    name: "sstore",
+                    src: "<missing>"
+                },
+                src: "<missing>",
+                arguments: [
+                    {
+                        nodeType: "YulLiteral",
+                        kind: "number",
+                        src: "<missing>",
+                        type: "",
+                        /// keccak256("__Scribble.isInContract__")
+                        value: "0x5f0b92cf9616afdee4f4136f66393f1343b027f01be893fa569eb2e2b667a40c"
+                    },
+                    {
+                        nodeType: "YulIdentifier",
+                        src: "<missing>",
+                        name: "v"
+                    }
+                ]
+            }
+        ]
+    });
+    (fun.vBody as Block).appendChild(asm);
+    ctx.addGeneralInstrumentation(asm);
+
+    return fun;
+}
+
 function makeEventEmitFun(
     lib: ContractDefinition,
     name: string,
@@ -194,6 +346,9 @@ export function generateUtilsLibrary(
             ctx
         )
     );
+
+    lib.appendChild(makeIsInContractFun(lib, ctx));
+    lib.appendChild(makeSetInContractFun(lib, ctx));
 
     file.appendChild(lib);
 

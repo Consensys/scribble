@@ -2,31 +2,8 @@
 /// Use --disarm prior to make any changes.
 pragma solidity 0.6.10;
 
-library __ScribbleUtilsLib__102 {
-    event AssertionFailed(string message);
-
-    event AssertionFailedData(int eventId, bytes encodingData);
-
-    function assertionFailed(string memory arg_0) internal {
-        emit AssertionFailed(arg_0);
-    }
-
-    function assertionFailedData(int arg_0, bytes memory arg_1) internal {
-        emit AssertionFailedData(arg_0, arg_1);
-    }
-}
-
-/// Utility contract holding a stack counter
-contract __scribble_ReentrancyUtils {
-    event AssertionFailed(string message);
-
-    event AssertionFailedData(int eventId, bytes encodingData);
-
-    bool __scribble_out_of_contract = true;
-}
-
 /// #invariant {:msg ""} x>0;
-contract Foo is __scribble_ReentrancyUtils {
+contract Foo {
     struct vars1 {
         bool __scribble_check_invs_at_end;
     }
@@ -43,11 +20,11 @@ contract Foo is __scribble_ReentrancyUtils {
 
     function inc() public payable {
         vars1 memory _v;
-        _v.__scribble_check_invs_at_end = __scribble_out_of_contract;
-        __scribble_out_of_contract = false;
+        _v.__scribble_check_invs_at_end = !__ScribbleUtilsLib__102.isInContract();
+        __ScribbleUtilsLib__102.setInContract(true);
         _original_Foo_inc();
         if (_v.__scribble_check_invs_at_end) __scribble_check_state_invariants();
-        __scribble_out_of_contract = _v.__scribble_check_invs_at_end;
+        __ScribbleUtilsLib__102.setInContract(!_v.__scribble_check_invs_at_end);
     }
 
     function _original_Foo_inc() private {
@@ -67,11 +44,11 @@ contract Foo is __scribble_ReentrancyUtils {
 
     function fail() public {
         vars2 memory _v;
-        _v.__scribble_check_invs_at_end = __scribble_out_of_contract;
-        __scribble_out_of_contract = false;
+        _v.__scribble_check_invs_at_end = !__ScribbleUtilsLib__102.isInContract();
+        __ScribbleUtilsLib__102.setInContract(true);
         _original_Foo_fail();
         if (_v.__scribble_check_invs_at_end) __scribble_check_state_invariants();
-        __scribble_out_of_contract = _v.__scribble_check_invs_at_end;
+        __ScribbleUtilsLib__102.setInContract(!_v.__scribble_check_invs_at_end);
     }
 
     function _original_Foo_fail() private {
@@ -80,11 +57,11 @@ contract Foo is __scribble_ReentrancyUtils {
 
     function withdraw(uint _amount) public {
         vars3 memory _v;
-        _v.__scribble_check_invs_at_end = __scribble_out_of_contract;
-        __scribble_out_of_contract = false;
+        _v.__scribble_check_invs_at_end = !__ScribbleUtilsLib__102.isInContract();
+        __ScribbleUtilsLib__102.setInContract(true);
         _original_Foo_withdraw(_amount);
         if (_v.__scribble_check_invs_at_end) __scribble_check_state_invariants();
-        __scribble_out_of_contract = _v.__scribble_check_invs_at_end;
+        __ScribbleUtilsLib__102.setInContract(!_v.__scribble_check_invs_at_end);
     }
 
     function _original_Foo_withdraw(uint _amount) private {
@@ -106,43 +83,69 @@ contract Foo is __scribble_ReentrancyUtils {
     }
 
     constructor() public {
-        __scribble_out_of_contract = false;
+        __ScribbleUtilsLib__102.setInContract(true);
         __scribble_check_state_invariants();
-        __scribble_out_of_contract = true;
+        __ScribbleUtilsLib__102.setInContract(false);
     }
 
     function _callsite_26(Foo receiver, uint256 _value) private {
         __scribble_check_state_invariants();
-        __scribble_out_of_contract = true;
+        __ScribbleUtilsLib__102.setInContract(false);
         receiver.inc{value: _value}();
-        __scribble_out_of_contract = false;
+        __ScribbleUtilsLib__102.setInContract(true);
     }
 
     function _callsite_39(Foo receiver, uint256 _gas) private {
         __scribble_check_state_invariants();
-        __scribble_out_of_contract = true;
+        __ScribbleUtilsLib__102.setInContract(false);
         receiver.inc{gas: _gas}();
-        __scribble_out_of_contract = false;
+        __ScribbleUtilsLib__102.setInContract(true);
     }
 
     function _callsite_55(Foo receiver, uint256 _value, uint256 _gas) private {
         __scribble_check_state_invariants();
-        __scribble_out_of_contract = true;
+        __ScribbleUtilsLib__102.setInContract(false);
         receiver.inc{gas: _gas, value: _value}();
-        __scribble_out_of_contract = false;
+        __ScribbleUtilsLib__102.setInContract(true);
     }
 
     function _callsite_67(Foo receiver, uint256 _value, uint256 _gas) private {
         __scribble_check_state_invariants();
-        __scribble_out_of_contract = true;
+        __ScribbleUtilsLib__102.setInContract(false);
         receiver.inc{gas: _gas, value: _value}();
-        __scribble_out_of_contract = false;
+        __ScribbleUtilsLib__102.setInContract(true);
     }
 
     function _callsite_93(address payable receiver, uint256 _value, bytes memory arg0) private returns (bool ret0, bytes memory ret1) {
         __scribble_check_state_invariants();
-        __scribble_out_of_contract = true;
+        __ScribbleUtilsLib__102.setInContract(false);
         (ret0, ret1) = receiver.call{value: _value}(arg0);
-        __scribble_out_of_contract = false;
+        __ScribbleUtilsLib__102.setInContract(true);
+    }
+}
+
+library __ScribbleUtilsLib__102 {
+    event AssertionFailed(string message);
+
+    event AssertionFailedData(int eventId, bytes encodingData);
+
+    function assertionFailed(string memory arg_0) internal {
+        emit AssertionFailed(arg_0);
+    }
+
+    function assertionFailedData(int arg_0, bytes memory arg_1) internal {
+        emit AssertionFailedData(arg_0, arg_1);
+    }
+
+    function isInContract() internal returns (bool res) {
+        assembly {
+            res := sload(0x5f0b92cf9616afdee4f4136f66393f1343b027f01be893fa569eb2e2b667a40c)
+        }
+    }
+
+    function setInContract(bool v) internal {
+        assembly {
+            sstore(0x5f0b92cf9616afdee4f4136f66393f1343b027f01be893fa569eb2e2b667a40c, v)
+        }
     }
 }

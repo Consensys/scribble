@@ -33,30 +33,7 @@ library SafeMath {
     }
 }
 
-library __ScribbleUtilsLib__377 {
-    event AssertionFailed(string message);
-
-    event AssertionFailedData(int eventId, bytes encodingData);
-
-    function assertionFailed(string memory arg_0) internal {
-        emit AssertionFailed(arg_0);
-    }
-
-    function assertionFailedData(int arg_0, bytes memory arg_1) internal {
-        emit AssertionFailedData(arg_0, arg_1);
-    }
-}
-
-/// Utility contract holding a stack counter
-contract __scribble_ReentrancyUtils {
-    event AssertionFailed(string message);
-
-    event AssertionFailedData(int eventId, bytes encodingData);
-
-    bool __scribble_out_of_contract = true;
-}
-
-library address_to_uint256 {
+library address_to_uint256_377 {
     struct S {
         mapping(address => uint256) innerM;
         address[] keys;
@@ -100,8 +77,34 @@ library address_to_uint256 {
     }
 }
 
+library __ScribbleUtilsLib__377 {
+    event AssertionFailed(string message);
+
+    event AssertionFailedData(int eventId, bytes encodingData);
+
+    function assertionFailed(string memory arg_0) internal {
+        emit AssertionFailed(arg_0);
+    }
+
+    function assertionFailedData(int arg_0, bytes memory arg_1) internal {
+        emit AssertionFailedData(arg_0, arg_1);
+    }
+
+    function isInContract() internal returns (bool res) {
+        assembly {
+            res := sload(0x5f0b92cf9616afdee4f4136f66393f1343b027f01be893fa569eb2e2b667a40c)
+        }
+    }
+
+    function setInContract(bool v) internal {
+        assembly {
+            sstore(0x5f0b92cf9616afdee4f4136f66393f1343b027f01be893fa569eb2e2b667a40c, v)
+        }
+    }
+}
+
 ///  #macro erc20(balances, allowances, _totalSupply);
-contract ERC20Example is __scribble_ReentrancyUtils, IERC20 {
+contract ERC20Example is IERC20 {
     using SafeMath for uint;
 
     event Approval(address indexed tokenOwner, address indexed spender, uint tokens);
@@ -155,14 +158,14 @@ contract ERC20Example is __scribble_ReentrancyUtils, IERC20 {
     string public constant name = "ERC20Example";
     string public constant symbol = "XMPL";
     uint8 public constant decimals = 18;
-    address_to_uint256.S internal balances;
+    address_to_uint256_377.S internal balances;
     mapping(address => mapping(address => uint)) internal allowances;
     uint internal _totalSupply;
 
     constructor(uint total) public {
         vars1 memory _v;
-        _v.__scribble_check_invs_at_end = __scribble_out_of_contract;
-        __scribble_out_of_contract = false;
+        _v.__scribble_check_invs_at_end = !__ScribbleUtilsLib__377.isInContract();
+        __ScribbleUtilsLib__377.setInContract(true);
         _v.old_0 = balances.sum;
         _original_ERC20Example_constructor(total);
         if (!((balances.sum == _v.old_0) || (msg.sig == bytes4(0x0)))) {
@@ -170,28 +173,28 @@ contract ERC20Example is __scribble_ReentrancyUtils, IERC20 {
             assert(false);
         }
         if (_v.__scribble_check_invs_at_end) __scribble_check_state_invariants();
-        __scribble_out_of_contract = _v.__scribble_check_invs_at_end;
+        __ScribbleUtilsLib__377.setInContract(!_v.__scribble_check_invs_at_end);
     }
 
     function _original_ERC20Example_constructor(uint total) private {
-        __scribble_out_of_contract = false;
+        __ScribbleUtilsLib__377.setInContract(true);
         _totalSupply = total;
-        address_to_uint256.set(balances, msg.sender, _totalSupply);
+        address_to_uint256_377.set(balances, msg.sender, _totalSupply);
         __scribble_check_state_invariants();
-        __scribble_out_of_contract = true;
+        __ScribbleUtilsLib__377.setInContract(false);
     }
 
     function totalSupply() override public returns (uint RET_0) {
         vars2 memory _v;
-        _v.__scribble_check_invs_at_end = __scribble_out_of_contract;
-        __scribble_out_of_contract = false;
+        _v.__scribble_check_invs_at_end = !__ScribbleUtilsLib__377.isInContract();
+        __ScribbleUtilsLib__377.setInContract(true);
         RET_0 = _original_ERC20Example_totalSupply();
         if (!(RET_0 == balances.sum)) {
             __ScribbleUtilsLib__377.assertionFailed("3: Result is equal to sum of balances");
             assert(false);
         }
         if (_v.__scribble_check_invs_at_end) __scribble_check_state_invariants();
-        __scribble_out_of_contract = _v.__scribble_check_invs_at_end;
+        __ScribbleUtilsLib__377.setInContract(!_v.__scribble_check_invs_at_end);
     }
 
     function _original_ERC20Example_totalSupply() private view returns (uint) {
@@ -200,45 +203,45 @@ contract ERC20Example is __scribble_ReentrancyUtils, IERC20 {
 
     function balanceOf(address account) override public returns (uint RET_0) {
         vars3 memory _v;
-        _v.__scribble_check_invs_at_end = __scribble_out_of_contract;
-        __scribble_out_of_contract = false;
+        _v.__scribble_check_invs_at_end = !__ScribbleUtilsLib__377.isInContract();
+        __ScribbleUtilsLib__377.setInContract(true);
         RET_0 = _original_ERC20Example_balanceOf(account);
-        if (!(RET_0 == address_to_uint256.get(balances, account))) {
+        if (!(RET_0 == address_to_uint256_377.get(balances, account))) {
             __ScribbleUtilsLib__377.assertionFailed("4: Returns the balance of owner in the balances mapping");
             assert(false);
         }
         if (_v.__scribble_check_invs_at_end) __scribble_check_state_invariants();
-        __scribble_out_of_contract = _v.__scribble_check_invs_at_end;
+        __ScribbleUtilsLib__377.setInContract(!_v.__scribble_check_invs_at_end);
     }
 
     function _original_ERC20Example_balanceOf(address account) private view returns (uint) {
-        return address_to_uint256.get(balances, account);
+        return address_to_uint256_377.get(balances, account);
     }
 
     function transfer(address receiver, uint amount) override public returns (bool RET_0) {
         vars4 memory _v;
-        _v.__scribble_check_invs_at_end = __scribble_out_of_contract;
-        __scribble_out_of_contract = false;
-        _v.old_1 = address_to_uint256.get(balances, msg.sender) >= amount;
-        _v.old_2 = address_to_uint256.get(balances, msg.sender);
-        _v.old_3 = address_to_uint256.get(balances, receiver);
-        _v.old_4 = address_to_uint256.get(balances, receiver);
-        _v.old_5 = address_to_uint256.get(balances, msg.sender);
+        _v.__scribble_check_invs_at_end = !__ScribbleUtilsLib__377.isInContract();
+        __ScribbleUtilsLib__377.setInContract(true);
+        _v.old_1 = address_to_uint256_377.get(balances, msg.sender) >= amount;
+        _v.old_2 = address_to_uint256_377.get(balances, msg.sender);
+        _v.old_3 = address_to_uint256_377.get(balances, receiver);
+        _v.old_4 = address_to_uint256_377.get(balances, receiver);
+        _v.old_5 = address_to_uint256_377.get(balances, msg.sender);
         _v.old_6 = balances.sum;
         RET_0 = _original_ERC20Example_transfer(receiver, amount);
         if (!(_v.old_1)) {
             __ScribbleUtilsLib__377.assertionFailed("6: The sender has sufficient balance at the start");
             assert(false);
         }
-        if (!((!(msg.sender != receiver)) || ((_v.old_2 - amount) == address_to_uint256.get(balances, msg.sender)))) {
+        if (!((!(msg.sender != receiver)) || ((_v.old_2 - amount) == address_to_uint256_377.get(balances, msg.sender)))) {
             __ScribbleUtilsLib__377.assertionFailed("7: The sender has value less balance");
             assert(false);
         }
-        if (!((!(msg.sender != receiver)) || ((_v.old_3 + amount) == address_to_uint256.get(balances, receiver)))) {
+        if (!((!(msg.sender != receiver)) || ((_v.old_3 + amount) == address_to_uint256_377.get(balances, receiver)))) {
             __ScribbleUtilsLib__377.assertionFailed("8: The receiver receives _value");
             assert(false);
         }
-        if (!((_v.old_4 + _v.old_5) == (address_to_uint256.get(balances, receiver) + address_to_uint256.get(balances, msg.sender)))) {
+        if (!((_v.old_4 + _v.old_5) == (address_to_uint256_377.get(balances, receiver) + address_to_uint256_377.get(balances, msg.sender)))) {
             __ScribbleUtilsLib__377.assertionFailed("9: Transfer does not modify the sum of balances");
             assert(false);
         }
@@ -247,21 +250,21 @@ contract ERC20Example is __scribble_ReentrancyUtils, IERC20 {
             assert(false);
         }
         if (_v.__scribble_check_invs_at_end) __scribble_check_state_invariants();
-        __scribble_out_of_contract = _v.__scribble_check_invs_at_end;
+        __ScribbleUtilsLib__377.setInContract(!_v.__scribble_check_invs_at_end);
     }
 
     function _original_ERC20Example_transfer(address receiver, uint amount) private returns (bool) {
-        require(amount <= address_to_uint256.get(balances, msg.sender));
-        address_to_uint256.set(balances, msg.sender, address_to_uint256.get(balances, msg.sender).sub(amount));
-        address_to_uint256.set(balances, receiver, address_to_uint256.get(balances, receiver).add(amount));
+        require(amount <= address_to_uint256_377.get(balances, msg.sender));
+        address_to_uint256_377.set(balances, msg.sender, address_to_uint256_377.get(balances, msg.sender).sub(amount));
+        address_to_uint256_377.set(balances, receiver, address_to_uint256_377.get(balances, receiver).add(amount));
         emit Transfer(msg.sender, receiver, amount);
         return true;
     }
 
     function approve(address delegate, uint amount) override public returns (bool RET_0) {
         vars5 memory _v;
-        _v.__scribble_check_invs_at_end = __scribble_out_of_contract;
-        __scribble_out_of_contract = false;
+        _v.__scribble_check_invs_at_end = !__ScribbleUtilsLib__377.isInContract();
+        __ScribbleUtilsLib__377.setInContract(true);
         _v.old_7 = balances.sum;
         RET_0 = _original_ERC20Example_approve(delegate, amount);
         if (!(allowances[msg.sender][delegate] == amount)) {
@@ -273,7 +276,7 @@ contract ERC20Example is __scribble_ReentrancyUtils, IERC20 {
             assert(false);
         }
         if (_v.__scribble_check_invs_at_end) __scribble_check_state_invariants();
-        __scribble_out_of_contract = _v.__scribble_check_invs_at_end;
+        __ScribbleUtilsLib__377.setInContract(!_v.__scribble_check_invs_at_end);
     }
 
     function _original_ERC20Example_approve(address delegate, uint amount) private returns (bool) {
@@ -284,15 +287,15 @@ contract ERC20Example is __scribble_ReentrancyUtils, IERC20 {
 
     function allowance(address owner, address delegate) override public returns (uint RET_0) {
         vars6 memory _v;
-        _v.__scribble_check_invs_at_end = __scribble_out_of_contract;
-        __scribble_out_of_contract = false;
+        _v.__scribble_check_invs_at_end = !__ScribbleUtilsLib__377.isInContract();
+        __ScribbleUtilsLib__377.setInContract(true);
         RET_0 = _original_ERC20Example_allowance(owner, delegate);
         if (!(RET_0 == allowances[owner][delegate])) {
             __ScribbleUtilsLib__377.assertionFailed("5: Returns spenders allowance for this owner");
             assert(false);
         }
         if (_v.__scribble_check_invs_at_end) __scribble_check_state_invariants();
-        __scribble_out_of_contract = _v.__scribble_check_invs_at_end;
+        __ScribbleUtilsLib__377.setInContract(!_v.__scribble_check_invs_at_end);
     }
 
     function _original_ERC20Example_allowance(address owner, address delegate) private view returns (uint) {
@@ -301,22 +304,22 @@ contract ERC20Example is __scribble_ReentrancyUtils, IERC20 {
 
     function transferFrom(address owner, address buyer, uint amount) override public returns (bool RET_0) {
         vars7 memory _v;
-        _v.__scribble_check_invs_at_end = __scribble_out_of_contract;
-        __scribble_out_of_contract = false;
-        _v.old_8 = address_to_uint256.get(balances, owner) >= amount;
-        _v.old_9 = address_to_uint256.get(balances, owner);
+        _v.__scribble_check_invs_at_end = !__ScribbleUtilsLib__377.isInContract();
+        __ScribbleUtilsLib__377.setInContract(true);
+        _v.old_8 = address_to_uint256_377.get(balances, owner) >= amount;
+        _v.old_9 = address_to_uint256_377.get(balances, owner);
         _v.old_10 = allowances[owner][msg.sender];
         _v.old_11 = allowances[owner][msg.sender];
-        _v.old_12 = address_to_uint256.get(balances, buyer);
-        _v.old_13 = address_to_uint256.get(balances, buyer);
-        _v.old_14 = address_to_uint256.get(balances, owner);
+        _v.old_12 = address_to_uint256_377.get(balances, buyer);
+        _v.old_13 = address_to_uint256_377.get(balances, buyer);
+        _v.old_14 = address_to_uint256_377.get(balances, owner);
         _v.old_15 = balances.sum;
         RET_0 = _original_ERC20Example_transferFrom(owner, buyer, amount);
         if (!(_v.old_8)) {
             __ScribbleUtilsLib__377.assertionFailed("11: The sender has sufficient balance at the start");
             assert(false);
         }
-        if (!((!(owner != buyer)) || ((_v.old_9 - amount) == address_to_uint256.get(balances, owner)))) {
+        if (!((!(owner != buyer)) || ((_v.old_9 - amount) == address_to_uint256_377.get(balances, owner)))) {
             __ScribbleUtilsLib__377.assertionFailed("12: The sender has value less balance");
             assert(false);
         }
@@ -328,11 +331,11 @@ contract ERC20Example is __scribble_ReentrancyUtils, IERC20 {
             __ScribbleUtilsLib__377.assertionFailed("14: The actor has enough allowance");
             assert(false);
         }
-        if (!((!(owner != buyer)) || ((_v.old_12 + amount) == address_to_uint256.get(balances, buyer)))) {
+        if (!((!(owner != buyer)) || ((_v.old_12 + amount) == address_to_uint256_377.get(balances, buyer)))) {
             __ScribbleUtilsLib__377.assertionFailed("15: The receiver receives value");
             assert(false);
         }
-        if (!((_v.old_13 + _v.old_14) == (address_to_uint256.get(balances, buyer) + address_to_uint256.get(balances, owner)))) {
+        if (!((_v.old_13 + _v.old_14) == (address_to_uint256_377.get(balances, buyer) + address_to_uint256_377.get(balances, owner)))) {
             __ScribbleUtilsLib__377.assertionFailed("16: Transfer does not modify the sum of balances");
             assert(false);
         }
@@ -341,15 +344,15 @@ contract ERC20Example is __scribble_ReentrancyUtils, IERC20 {
             assert(false);
         }
         if (_v.__scribble_check_invs_at_end) __scribble_check_state_invariants();
-        __scribble_out_of_contract = _v.__scribble_check_invs_at_end;
+        __ScribbleUtilsLib__377.setInContract(!_v.__scribble_check_invs_at_end);
     }
 
     function _original_ERC20Example_transferFrom(address owner, address buyer, uint amount) private returns (bool) {
-        require(amount <= address_to_uint256.get(balances, owner));
+        require(amount <= address_to_uint256_377.get(balances, owner));
         require(amount <= allowances[owner][msg.sender]);
-        address_to_uint256.set(balances, owner, address_to_uint256.get(balances, owner).sub(amount));
+        address_to_uint256_377.set(balances, owner, address_to_uint256_377.get(balances, owner).sub(amount));
         allowances[owner][msg.sender] = allowances[owner][msg.sender].sub(amount);
-        address_to_uint256.set(balances, buyer, address_to_uint256.get(balances, buyer).add(amount));
+        address_to_uint256_377.set(balances, buyer, address_to_uint256_377.get(balances, buyer).add(amount));
         emit Transfer(owner, buyer, amount);
         return true;
     }
