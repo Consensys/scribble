@@ -284,11 +284,9 @@ export class InstrumentationContext {
     public readonly nameGenerator: NameGenerator;
     public readonly structVar: string;
     public readonly checkStateInvsFuncName: string;
-    public readonly outOfContractFlagName: string;
     public readonly scratchField: string;
     public readonly checkInvsFlag: string;
 
-    public readonly utilsContractName: string;
     private internalInvariantCheckers: Map<ContractDefinition, string> = new Map();
     public readonly userFunctions: Map<SUserFunctionDefinition, FunctionDefinition> = new Map();
     public readonly userConstants: Map<SUserConstantDefinition, VariableDeclaration> = new Map();
@@ -316,10 +314,6 @@ export class InstrumentationContext {
         return this._generalInstrumentationNodes;
     }
 
-    /**
-     * Map containing debug event associated with a given annotation.
-     */
-    public readonly debugEventsMap: Map<AnnotationMetaData, EventDefinition> = new Map();
     /**
      * Map from an annotation to an array describing the arguments to the debug
      * event emitted for this annotation.
@@ -398,14 +392,8 @@ export class InstrumentationContext {
             true
         );
 
-        this.outOfContractFlagName = this.nameGenerator.getFresh(
-            "__scribble_out_of_contract",
-            true
-        );
-
         this.scratchField = this.nameGenerator.getFresh("__mstore_scratch__", true);
         this.checkInvsFlag = this.nameGenerator.getFresh("__scribble_check_invs_at_end", true);
-        this.utilsContractName = this.nameGenerator.getFresh("__scribble_ReentrancyUtils", true);
 
         this.varInterposingQueue = dedup(
             _varInterposingQueue,
