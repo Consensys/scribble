@@ -189,7 +189,7 @@ contract ERC20 is IERC20 {
         __ScribbleUtilsLib__406.setInContract(true);
         RET_0 = _original_ERC20_totalSupply();
         if (!(RET_0 == balances.sum)) {
-            __ScribbleUtilsLib__406.assertionFailed("3: Result is equal to sum of balances");
+            emit __ScribbleUtilsLib__406.AssertionFailed("3: Result is equal to sum of balances");
             assert(false);
         }
         if (_v.__scribble_check_invs_at_end) __scribble_check_state_invariants();
@@ -206,7 +206,7 @@ contract ERC20 is IERC20 {
         __ScribbleUtilsLib__406.setInContract(true);
         RET_0 = _original_ERC20_balanceOf(account);
         if (!(RET_0 == address_to_uint256_406.get(balances, account))) {
-            __ScribbleUtilsLib__406.assertionFailed("4: Returns the balance of owner in the balances mapping");
+            emit __ScribbleUtilsLib__406.AssertionFailed("4: Returns the balance of owner in the balances mapping");
             assert(false);
         }
         if (_v.__scribble_check_invs_at_end) __scribble_check_state_invariants();
@@ -228,19 +228,19 @@ contract ERC20 is IERC20 {
         _v.old_5 = address_to_uint256_406.get(balances, msg.sender);
         RET_0 = _original_ERC20_transfer(receiver, amount);
         if (!(_v.old_1)) {
-            __ScribbleUtilsLib__406.assertionFailed("6: The sender has sufficient balance at the start");
+            emit __ScribbleUtilsLib__406.AssertionFailed("6: The sender has sufficient balance at the start");
             assert(false);
         }
         if (!((!(msg.sender != receiver)) || ((_v.old_2 - amount) == address_to_uint256_406.get(balances, msg.sender)))) {
-            __ScribbleUtilsLib__406.assertionFailed("7: The sender has value less balance");
+            emit __ScribbleUtilsLib__406.AssertionFailed("7: The sender has value less balance");
             assert(false);
         }
         if (!((!(msg.sender != receiver)) || ((_v.old_3 + amount) == address_to_uint256_406.get(balances, receiver)))) {
-            __ScribbleUtilsLib__406.assertionFailed("8: The receiver receives _value");
+            emit __ScribbleUtilsLib__406.AssertionFailed("8: The receiver receives _value");
             assert(false);
         }
         if (!((_v.old_4 + _v.old_5) == (address_to_uint256_406.get(balances, receiver) + address_to_uint256_406.get(balances, msg.sender)))) {
-            __ScribbleUtilsLib__406.assertionFailed("9: Transfer does not modify the sum of balances");
+            emit __ScribbleUtilsLib__406.AssertionFailed("9: Transfer does not modify the sum of balances");
             assert(false);
         }
         if (_v.__scribble_check_invs_at_end) __scribble_check_state_invariants();
@@ -261,7 +261,7 @@ contract ERC20 is IERC20 {
         __ScribbleUtilsLib__406.setInContract(true);
         RET_0 = _original_ERC20_approve(delegate, amount);
         if (!(allowances[msg.sender][delegate] == amount)) {
-            __ScribbleUtilsLib__406.assertionFailed("10: spender will have an allowance of value for this sender's balance");
+            emit __ScribbleUtilsLib__406.AssertionFailed("10: spender will have an allowance of value for this sender's balance");
             assert(false);
         }
         if (_v.__scribble_check_invs_at_end) __scribble_check_state_invariants();
@@ -291,27 +291,27 @@ contract ERC20 is IERC20 {
         _v.old_12 = address_to_uint256_406.get(balances, owner);
         RET_0 = _original_ERC20_transferFrom(owner, buyer, amount);
         if (!(_v.old_6)) {
-            __ScribbleUtilsLib__406.assertionFailed("11: The sender has sufficient balance at the start");
+            emit __ScribbleUtilsLib__406.AssertionFailed("11: The sender has sufficient balance at the start");
             assert(false);
         }
         if (!((!(owner != buyer)) || ((_v.old_7 - amount) == address_to_uint256_406.get(balances, owner)))) {
-            __ScribbleUtilsLib__406.assertionFailed("12: The sender has value less balance");
+            emit __ScribbleUtilsLib__406.AssertionFailed("12: The sender has value less balance");
             assert(false);
         }
         if (!((_v.old_8 - amount) == allowances[owner][msg.sender])) {
-            __ScribbleUtilsLib__406.assertionFailed("13: The actor has value less allowance");
+            emit __ScribbleUtilsLib__406.AssertionFailed("13: The actor has value less allowance");
             assert(false);
         }
         if (!(_v.old_9 >= amount)) {
-            __ScribbleUtilsLib__406.assertionFailed("14: The actor has enough allowance");
+            emit __ScribbleUtilsLib__406.AssertionFailed("14: The actor has enough allowance");
             assert(false);
         }
         if (!((!(owner != buyer)) || ((_v.old_10 + amount) == address_to_uint256_406.get(balances, buyer)))) {
-            __ScribbleUtilsLib__406.assertionFailed("15: The receiver receives value");
+            emit __ScribbleUtilsLib__406.AssertionFailed("15: The receiver receives value");
             assert(false);
         }
         if (!((_v.old_11 + _v.old_12) == (address_to_uint256_406.get(balances, buyer) + address_to_uint256_406.get(balances, owner)))) {
-            __ScribbleUtilsLib__406.assertionFailed("16: Transfer does not modify the sum of balances");
+            emit __ScribbleUtilsLib__406.AssertionFailed("16: Transfer does not modify the sum of balances");
             assert(false);
         }
         if (_v.__scribble_check_invs_at_end) __scribble_check_state_invariants();
@@ -355,7 +355,7 @@ contract Token is ERC20 {
         _v.old_0 = balances.sum;
         _original_Token_constructor();
         if (!((balances.sum == _v.old_0) || (msg.sig == bytes4(0x0)))) {
-            __ScribbleUtilsLib__30.assertionFailed("2: The token has a fixed supply.");
+            emit __ScribbleUtilsLib__30.AssertionFailed("2: The token has a fixed supply.");
             assert(false);
         }
         if (_v.__scribble_check_invs_at_end) __scribble_check_state_invariants();
@@ -374,7 +374,7 @@ contract Token is ERC20 {
         __ScribbleUtilsLib__30.setInContract(true);
         RET_0 = _original_Token_allowance(owner, delegate);
         if (!(RET_0 == allowances[owner][delegate])) {
-            __ScribbleUtilsLib__30.assertionFailed("5: Returns spenders allowance for this owner");
+            emit __ScribbleUtilsLib__30.AssertionFailed("5: Returns spenders allowance for this owner");
             assert(false);
         }
         if (_v.__scribble_check_invs_at_end) __scribble_check_state_invariants();
@@ -388,7 +388,7 @@ contract Token is ERC20 {
     /// Check only the current contract's state invariants
     function __scribble_Token_check_state_invariants_internal() internal {
         if (!(balances.sum == _totalSupply)) {
-            __ScribbleUtilsLib__30.assertionFailed("1: The sum of balances is always equal to the total supply");
+            emit __ScribbleUtilsLib__30.AssertionFailed("1: The sum of balances is always equal to the total supply");
             assert(false);
         }
     }

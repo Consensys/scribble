@@ -43,7 +43,7 @@ contract Foo {
                 if (!_v.forall_0) break;
             }
             if (!(_v.forall_0)) {
-                __ScribbleUtilsLib__62.assertionFailed("5: ");
+                emit __ScribbleUtilsLib__62.AssertionFailed("5: ");
                 assert(false);
             }
         }
@@ -65,7 +65,7 @@ contract Foo {
                 if (!_v.forall_2) break;
             }
             if (!(_v.forall_2)) {
-                __ScribbleUtilsLib__62.assertionFailed("0: ");
+                emit __ScribbleUtilsLib__62.AssertionFailed("0: ");
                 assert(false);
             }
         }
@@ -75,11 +75,11 @@ contract Foo {
         string_to_uint256_62.set(address_to_string_to_uint256_62_S_64_62.get_lhs(m1, ARG2), ARG3, ARG4);
         unchecked {
             if (!(string_to_uint256_62.get(address_to_string_to_uint256_62_S_64_62.get(m1, address(0x0)), "abcd") < 5)) {
-                __ScribbleUtilsLib__62.assertionFailed("1: ");
+                emit __ScribbleUtilsLib__62.AssertionFailed("1: ");
                 assert(false);
             }
             if (!(ARG2 == address(0x0))) {
-                __ScribbleUtilsLib__62.assertionFailed("4: ");
+                emit __ScribbleUtilsLib__62.AssertionFailed("4: ");
                 assert(false);
             }
         }

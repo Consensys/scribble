@@ -19,7 +19,7 @@ contract A {
     function __scribble_A_check_state_invariants_internal() internal {
         unchecked {
             if (!(true)) {
-                __ScribbleUtilsLib__16.assertionFailed("0: ");
+                emit __ScribbleUtilsLib__16.AssertionFailed("0: ");
                 assert(false);
             }
         }
@@ -80,7 +80,7 @@ contract B {
     function __scribble_B_check_state_invariants_internal() internal {
         unchecked {
             if (!(true)) {
-                __ScribbleUtilsLib__32.assertionFailed("1: ");
+                emit __ScribbleUtilsLib__32.AssertionFailed("1: ");
                 assert(false);
             }
         }

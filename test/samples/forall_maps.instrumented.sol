@@ -112,7 +112,7 @@ contract Foo {
                 if (!_v.forall_0) break;
             }
             if (!(_v.forall_0)) {
-                __ScribbleUtilsLib__326.assertionFailed("0: ");
+                emit __ScribbleUtilsLib__326.AssertionFailed("0: ");
                 assert(false);
             }
         }
@@ -133,7 +133,7 @@ contract Foo {
                 if (!_v.forall_1) break;
             }
             if (!(_v.forall_1)) {
-                __ScribbleUtilsLib__326.assertionFailed("1: ");
+                emit __ScribbleUtilsLib__326.AssertionFailed("1: ");
                 assert(false);
             }
         }
@@ -154,7 +154,7 @@ contract Foo {
                 if (!_v.forall_2) break;
             }
             if (!(_v.forall_2)) {
-                __ScribbleUtilsLib__326.assertionFailed("2: ");
+                emit __ScribbleUtilsLib__326.AssertionFailed("2: ");
                 assert(false);
             }
         }
@@ -181,7 +181,7 @@ contract Foo {
                 if (!_v.forall_3) break;
             }
             if (!(_v.forall_3)) {
-                __ScribbleUtilsLib__326.assertionFailed("3: ");
+                emit __ScribbleUtilsLib__326.AssertionFailed("3: ");
                 assert(false);
             }
         }
@@ -202,7 +202,7 @@ contract Foo {
                 if (!_v.forall_5) break;
             }
             if (!(_v.forall_5)) {
-                __ScribbleUtilsLib__326.assertionFailed("4: ");
+                emit __ScribbleUtilsLib__326.AssertionFailed("4: ");
                 assert(false);
             }
         }
@@ -226,7 +226,7 @@ contract Foo {
                 if (!_v.forall_6) break;
             }
             if (!(_v.forall_6)) {
-                __ScribbleUtilsLib__326.assertionFailed("5: ");
+                emit __ScribbleUtilsLib__326.AssertionFailed("5: ");
                 assert(false);
             }
         }
@@ -251,7 +251,7 @@ contract Foo {
                 if (!_v.forall_7) break;
             }
             if (!(_v.forall_7)) {
-                __ScribbleUtilsLib__326.assertionFailed("6: ");
+                emit __ScribbleUtilsLib__326.AssertionFailed("6: ");
                 assert(false);
             }
         }
@@ -272,7 +272,7 @@ contract Foo {
                 if (!_v.forall_8) break;
             }
             if (!(_v.forall_8)) {
-                __ScribbleUtilsLib__326.assertionFailed("7: ");
+                emit __ScribbleUtilsLib__326.AssertionFailed("7: ");
                 assert(false);
             }
         }
@@ -293,7 +293,7 @@ contract Foo {
                 if (!_v.forall_9) break;
             }
             if (!(_v.forall_9)) {
-                __ScribbleUtilsLib__326.assertionFailed("8: ");
+                emit __ScribbleUtilsLib__326.AssertionFailed("8: ");
                 assert(false);
             }
         }
@@ -318,7 +318,7 @@ contract Foo {
                 if (!_v.forall_10) break;
             }
             if (!(_v.forall_10)) {
-                __ScribbleUtilsLib__326.assertionFailed("9: ");
+                emit __ScribbleUtilsLib__326.AssertionFailed("9: ");
                 assert(false);
             }
         }
@@ -344,7 +344,7 @@ contract Foo {
                 if (!_v.forall_11) break;
             }
             if (!(_v.forall_11)) {
-                __ScribbleUtilsLib__326.assertionFailed("10: ");
+                emit __ScribbleUtilsLib__326.AssertionFailed("10: ");
                 assert(false);
             }
         }
@@ -372,7 +372,7 @@ contract Foo {
         _original_Foo_setK1(i, v);
         unchecked {
             if (!(_v.old_0)) {
-                __ScribbleUtilsLib__326.assertionFailed("11: ");
+                emit __ScribbleUtilsLib__326.AssertionFailed("11: ");
                 assert(false);
             }
         }

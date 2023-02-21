@@ -16,8 +16,8 @@ contract Foo {
     function __scribble_Foo_check_state_invariants_internal() internal {
         unchecked {
             if (!(b == ((a + c) - 1))) {
-                __ScribbleUtilsLib__46.assertionFailedData(0, abi.encode(b, a, c));
-                __ScribbleUtilsLib__46.assertionFailed("0: ");
+                emit __ScribbleUtilsLib__46.AssertionFailedData(0, abi.encode(b, a, c));
+                emit __ScribbleUtilsLib__46.AssertionFailed("0: ");
             }
         }
     }

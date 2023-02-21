@@ -6,11 +6,11 @@ contract Foo {
     function foo(uint256 x) public returns (uint256 y) {
         y = _original_Foo_foo(x);
         if (!(keccak256("ab;") != bytes32(0x0))) {
-            __ScribbleUtilsLib__16.assertionFailed("0: P0");
+            emit __ScribbleUtilsLib__16.AssertionFailed("0: P0");
             assert(false);
         }
         if (!(y == (x + 1))) {
-            __ScribbleUtilsLib__16.assertionFailed("1: P1");
+            emit __ScribbleUtilsLib__16.AssertionFailed("1: P1");
             assert(false);
         }
     }

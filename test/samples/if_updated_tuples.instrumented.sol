@@ -71,7 +71,7 @@ contract IfUpdatedPrimitive {
     function IfUpdatedPrimitive_x_inline_initializer() internal {
         unchecked {
             if (!(x >= 1)) {
-                __ScribbleUtilsLib__205.assertionFailed("0: ");
+                emit __ScribbleUtilsLib__205.AssertionFailed("0: ");
                 assert(false);
             }
         }
@@ -80,7 +80,7 @@ contract IfUpdatedPrimitive {
     function IfUpdatedPrimitive_a_inline_initializer() internal {
         unchecked {
             if (!(uint160(a) >= 1)) {
-                __ScribbleUtilsLib__205.assertionFailed("1: ");
+                emit __ScribbleUtilsLib__205.AssertionFailed("1: ");
                 assert(false);
             }
         }
@@ -91,7 +91,7 @@ contract IfUpdatedPrimitive {
         RET0 = x;
         unchecked {
             if (!(x >= 1)) {
-                __ScribbleUtilsLib__205.assertionFailed("0: ");
+                emit __ScribbleUtilsLib__205.AssertionFailed("0: ");
                 assert(false);
             }
         }
@@ -102,7 +102,7 @@ contract IfUpdatedPrimitive {
         RET1 = a;
         unchecked {
             if (!(uint160(a) >= 1)) {
-                __ScribbleUtilsLib__205.assertionFailed("1: ");
+                emit __ScribbleUtilsLib__205.AssertionFailed("1: ");
                 assert(false);
             }
         }

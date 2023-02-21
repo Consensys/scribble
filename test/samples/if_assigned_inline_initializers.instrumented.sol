@@ -27,7 +27,7 @@ contract Base {
     function Base_arr_inline_initializer() internal {
         unchecked {
             if (!(arr.length > 0)) {
-                __ScribbleUtilsLib__80.assertionFailed("1: ");
+                emit __ScribbleUtilsLib__80.AssertionFailed("1: ");
                 assert(false);
             }
         }
@@ -36,7 +36,7 @@ contract Base {
     function Base_arr2_inline_initializer() internal {
         unchecked {
             if (!(arr2.length > 0)) {
-                __ScribbleUtilsLib__80.assertionFailed("3: ");
+                emit __ScribbleUtilsLib__80.AssertionFailed("3: ");
                 assert(false);
             }
         }
@@ -45,7 +45,7 @@ contract Base {
     function Base_s_inline_initializer() internal {
         unchecked {
             if (!(s.arr.length > 0)) {
-                __ScribbleUtilsLib__80.assertionFailed("6: ");
+                emit __ScribbleUtilsLib__80.AssertionFailed("6: ");
                 assert(false);
             }
         }
@@ -60,7 +60,7 @@ contract Base {
         RET0 = x;
         unchecked {
             if (!(x >= _v.old_0)) {
-                __ScribbleUtilsLib__80.assertionFailed("0: ");
+                emit __ScribbleUtilsLib__80.AssertionFailed("0: ");
                 assert(false);
             }
         }
@@ -71,7 +71,7 @@ contract Base {
         RET1 = arr;
         unchecked {
             if (!(arr.length > 0)) {
-                __ScribbleUtilsLib__80.assertionFailed("1: ");
+                emit __ScribbleUtilsLib__80.AssertionFailed("1: ");
                 assert(false);
             }
         }
@@ -82,7 +82,7 @@ contract Base {
         RET2 = arr2;
         unchecked {
             if (!(arr2.length > 0)) {
-                __ScribbleUtilsLib__80.assertionFailed("3: ");
+                emit __ScribbleUtilsLib__80.AssertionFailed("3: ");
                 assert(false);
             }
         }

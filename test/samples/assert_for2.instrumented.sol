@@ -9,7 +9,7 @@ contract Foo {
             sum += i;
             unchecked {
                 if (!(true)) {
-                    __ScribbleUtilsLib__29.assertionFailed("0: ");
+                    emit __ScribbleUtilsLib__29.AssertionFailed("0: ");
                     assert(false);
                 }
             }

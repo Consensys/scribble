@@ -67,8 +67,8 @@ contract Base {
         RET0 = x;
         unchecked {
             if (!(x >= _v.old_0)) {
-                __ScribbleUtilsLib__304.assertionFailedData(0, abi.encode(x));
-                __ScribbleUtilsLib__304.assertionFailed("0: ");
+                emit __ScribbleUtilsLib__304.AssertionFailedData(0, abi.encode(x));
+                emit __ScribbleUtilsLib__304.AssertionFailed("0: ");
             }
         }
     }
@@ -78,12 +78,12 @@ contract Base {
         RET1 = arr[ARG1];
         unchecked {
             if (!(arr.length > 0)) {
-                __ScribbleUtilsLib__304.assertionFailedData(1, abi.encode(arr));
-                __ScribbleUtilsLib__304.assertionFailed("1: ");
+                emit __ScribbleUtilsLib__304.AssertionFailedData(1, abi.encode(arr));
+                emit __ScribbleUtilsLib__304.AssertionFailed("1: ");
             }
             if (!((0 <= ARG1) && (ARG1 <= arr.length))) {
-                __ScribbleUtilsLib__304.assertionFailedData(2, abi.encode(ARG1, arr));
-                __ScribbleUtilsLib__304.assertionFailed("2: ");
+                emit __ScribbleUtilsLib__304.AssertionFailedData(2, abi.encode(ARG1, arr));
+                emit __ScribbleUtilsLib__304.AssertionFailed("2: ");
             }
         }
     }
@@ -93,12 +93,12 @@ contract Base {
         RET2 = arr2[ARG3][ARG4];
         unchecked {
             if (!(arr2.length > 0)) {
-                __ScribbleUtilsLib__304.assertionFailedData(3, abi.encode(arr2));
-                __ScribbleUtilsLib__304.assertionFailed("3: ");
+                emit __ScribbleUtilsLib__304.AssertionFailedData(3, abi.encode(arr2));
+                emit __ScribbleUtilsLib__304.AssertionFailed("3: ");
             }
             if (!((0 <= ARG4) && (ARG4 <= arr2[ARG3].length))) {
-                __ScribbleUtilsLib__304.assertionFailedData(5, abi.encode(ARG4, arr2, ARG3));
-                __ScribbleUtilsLib__304.assertionFailed("5: ");
+                emit __ScribbleUtilsLib__304.AssertionFailedData(5, abi.encode(ARG4, arr2, ARG3));
+                emit __ScribbleUtilsLib__304.AssertionFailed("5: ");
             }
         }
     }
@@ -108,12 +108,12 @@ contract Base {
         RET3 = arr2[ARG6];
         unchecked {
             if (!(arr2.length > 0)) {
-                __ScribbleUtilsLib__304.assertionFailedData(3, abi.encode(arr2));
-                __ScribbleUtilsLib__304.assertionFailed("3: ");
+                emit __ScribbleUtilsLib__304.AssertionFailedData(3, abi.encode(arr2));
+                emit __ScribbleUtilsLib__304.AssertionFailed("3: ");
             }
             if (!((0 <= ARG6) && (ARG6 <= arr2.length))) {
-                __ScribbleUtilsLib__304.assertionFailedData(4, abi.encode(ARG6, arr2));
-                __ScribbleUtilsLib__304.assertionFailed("4: ");
+                emit __ScribbleUtilsLib__304.AssertionFailedData(4, abi.encode(ARG6, arr2));
+                emit __ScribbleUtilsLib__304.AssertionFailed("4: ");
             }
         }
     }
@@ -123,8 +123,8 @@ contract Base {
         RET4 = s.arr[ARG8];
         unchecked {
             if (!((0 <= ARG8) && (ARG8 <= s.arr.length))) {
-                __ScribbleUtilsLib__304.assertionFailedData(6, abi.encode(ARG8));
-                __ScribbleUtilsLib__304.assertionFailed("6: ");
+                emit __ScribbleUtilsLib__304.AssertionFailedData(6, abi.encode(ARG8));
+                emit __ScribbleUtilsLib__304.AssertionFailed("6: ");
             }
         }
     }
@@ -134,8 +134,8 @@ contract Base {
         RET5 = s.arr2[ARG10][ARG11];
         unchecked {
             if (!((0 <= ARG11) && (ARG11 <= s.arr2[ARG10].length))) {
-                __ScribbleUtilsLib__304.assertionFailedData(7, abi.encode(ARG11, ARG10));
-                __ScribbleUtilsLib__304.assertionFailed("7: ");
+                emit __ScribbleUtilsLib__304.AssertionFailedData(7, abi.encode(ARG11, ARG10));
+                emit __ScribbleUtilsLib__304.AssertionFailed("7: ");
             }
         }
     }
@@ -144,8 +144,8 @@ contract Base {
         arr.push(ARG13);
         unchecked {
             if (!(arr.length > 0)) {
-                __ScribbleUtilsLib__304.assertionFailedData(1, abi.encode(arr));
-                __ScribbleUtilsLib__304.assertionFailed("1: ");
+                emit __ScribbleUtilsLib__304.AssertionFailedData(1, abi.encode(arr));
+                emit __ScribbleUtilsLib__304.AssertionFailed("1: ");
             }
         }
     }
@@ -154,8 +154,8 @@ contract Base {
         arr2.push(ARG14);
         unchecked {
             if (!(arr2.length > 0)) {
-                __ScribbleUtilsLib__304.assertionFailedData(3, abi.encode(arr2));
-                __ScribbleUtilsLib__304.assertionFailed("3: ");
+                emit __ScribbleUtilsLib__304.AssertionFailedData(3, abi.encode(arr2));
+                emit __ScribbleUtilsLib__304.AssertionFailed("3: ");
             }
         }
     }

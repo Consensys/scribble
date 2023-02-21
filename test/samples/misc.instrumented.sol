@@ -6,7 +6,7 @@ contract AddrChecker {
     function checkAddr(address addr) external {
         _original_AddrChecker_checkAddr(addr);
         if (!(addr != address(0xAaaaAaAAaaaAAaAAaAaaaaAAAAAaAaaaAaAaaAA0))) {
-            __ScribbleUtilsLib__268.assertionFailed("0: P1");
+            emit __ScribbleUtilsLib__268.AssertionFailed("0: P1");
             assert(false);
         }
     }
@@ -22,7 +22,7 @@ contract MapIdx {
     function main(string memory arg) public {
         _original_MapIdx_main(arg);
         if (!(a[arg] == 0)) {
-            __ScribbleUtilsLib__268.assertionFailed("1: F");
+            emit __ScribbleUtilsLib__268.AssertionFailed("1: F");
             assert(false);
         }
     }
@@ -36,7 +36,7 @@ contract MemoryCast {
     function entry() external {
         _original_MemoryCast_entry();
         if (!(_isEvenLen(_nums))) {
-            __ScribbleUtilsLib__268.assertionFailed("2: P1");
+            emit __ScribbleUtilsLib__268.AssertionFailed("2: P1");
             assert(false);
         }
     }
@@ -73,7 +73,7 @@ contract OldInOld {
         _v.let_1 = _v.let_0;
         _v.let_2 = _v.let_1;
         if (!(_v.let_2)) {
-            __ScribbleUtilsLib__268.assertionFailed("3: ");
+            emit __ScribbleUtilsLib__268.AssertionFailed("3: ");
             assert(false);
         }
     }
@@ -97,7 +97,7 @@ contract OldInOld2 {
         RET_0 = _original_OldInOld2_balanceOf();
         _v.let_3 = _v.old_0 == 42;
         if (!(_v.let_3)) {
-            __ScribbleUtilsLib__268.assertionFailed("4: ");
+            emit __ScribbleUtilsLib__268.AssertionFailed("4: ");
             assert(false);
         }
     }
@@ -125,7 +125,7 @@ contract OldTuple {
         _original_OldTuple_main(k);
         _v.let_4 = (x == (_v.oldX + k)) && (y == (_v.oldY + k));
         if (!(_v.let_4)) {
-            __ScribbleUtilsLib__268.assertionFailed("5: ");
+            emit __ScribbleUtilsLib__268.AssertionFailed("5: ");
             assert(false);
         }
     }
@@ -151,7 +151,7 @@ contract Result {
     function a() public returns (uint RET_0) {
         RET_0 = _original_Result_a();
         if (!(RET_0 == 1)) {
-            __ScribbleUtilsLib__268.assertionFailed("6: ");
+            emit __ScribbleUtilsLib__268.AssertionFailed("6: ");
             assert(false);
         }
     }
@@ -166,11 +166,11 @@ contract Result {
         _v.t2 = x;
         _v.let_5 = _v.t2 == x;
         if (!(x == x)) {
-            __ScribbleUtilsLib__268.assertionFailed("7: ");
+            emit __ScribbleUtilsLib__268.AssertionFailed("7: ");
             assert(false);
         }
         if (!(_v.let_5)) {
-            __ScribbleUtilsLib__268.assertionFailed("8: ");
+            emit __ScribbleUtilsLib__268.AssertionFailed("8: ");
             assert(false);
         }
     }
@@ -185,7 +185,7 @@ contract Result {
         (_v.a1, _v.b1) = (RET_0, t);
         _v.let_6 = ((_v.a1 == 1) && (_v.b1 == 2)) && (t == _v.b1);
         if (!(_v.let_6)) {
-            __ScribbleUtilsLib__268.assertionFailed("9: ");
+            emit __ScribbleUtilsLib__268.AssertionFailed("9: ");
             assert(false);
         }
     }
@@ -209,7 +209,7 @@ contract UsingForRefType {
     function main(string memory mS) public {
         _original_UsingForRefType_main(mS);
         if (!(sS.len() == mS.len())) {
-            __ScribbleUtilsLib__268.assertionFailed("10: F");
+            emit __ScribbleUtilsLib__268.AssertionFailed("10: F");
             assert(false);
         }
     }
@@ -221,7 +221,7 @@ contract ExternalCall {
     function process(bytes calldata _bytes) external returns (bool result) {
         result = _original_ExternalCall_process(_bytes);
         if (!(this.checkBytes(_bytes) == result)) {
-            __ScribbleUtilsLib__268.assertionFailed("11: wrong byte");
+            emit __ScribbleUtilsLib__268.AssertionFailed("11: wrong byte");
             assert(false);
         }
     }
@@ -245,7 +245,7 @@ contract CallinInstrumentedFun {
     function getX() public returns (uint res) {
         res = _original_CallinInstrumentedFun_getX();
         if (!(res > 0)) {
-            __ScribbleUtilsLib__268.assertionFailed("12: ");
+            emit __ScribbleUtilsLib__268.AssertionFailed("12: ");
             assert(false);
         }
     }
@@ -257,7 +257,7 @@ contract CallinInstrumentedFun {
     function inc(uint x) public returns (uint res) {
         res = _original_CallinInstrumentedFun_inc(x);
         if (!(res == (x + _original_CallinInstrumentedFun_getX()))) {
-            __ScribbleUtilsLib__268.assertionFailed("13: ");
+            emit __ScribbleUtilsLib__268.AssertionFailed("13: ");
             assert(false);
         }
     }
@@ -271,7 +271,7 @@ contract IndexAccessOnResult {
     function foo() public returns (uint[] memory RET_0) {
         RET_0 = _original_IndexAccessOnResult_foo();
         if (!(RET_0[0] > 1)) {
-            __ScribbleUtilsLib__268.assertionFailed("14: ");
+            emit __ScribbleUtilsLib__268.AssertionFailed("14: ");
             assert(false);
         }
     }

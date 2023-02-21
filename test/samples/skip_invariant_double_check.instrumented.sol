@@ -15,7 +15,7 @@ contract Foo {
         _original_Foo_constructor(x);
         unchecked {
             if (!(false)) {
-                __ScribbleUtilsLib__10.assertionFailed("1: ");
+                emit __ScribbleUtilsLib__10.AssertionFailed("1: ");
                 assert(false);
             }
         }
@@ -29,7 +29,7 @@ contract Foo {
     function __scribble_Foo_check_state_invariants_internal() internal {
         unchecked {
             if (!(true)) {
-                __ScribbleUtilsLib__10.assertionFailed("0: ");
+                emit __ScribbleUtilsLib__10.AssertionFailed("0: ");
                 assert(false);
             }
         }

@@ -504,12 +504,36 @@ export class InstrumentationContext {
         );
     }
 
+    private getUtilsLibEvent(ctx: ASTNode, name: string): MemberAccess {
+        const file = ctx instanceof SourceUnit ? ctx : ctx.getClosestParentByType(SourceUnit);
+        assert(file !== undefined, `Can't add AssertionFailed event to node with no unit {0}`, ctx);
+
+        const lib = this.utilsLibraryMap.get(file);
+
+        const evtDef = single(lib.vEvents.filter((evt) => evt.name === name));
+
+        return this.factory.makeMemberAccess(
+            "<missing>",
+            this.factory.makeIdentifierFor(lib),
+            name,
+            evtDef.id
+        );
+    }
+
     getAssertionFailedFun(ctx: ASTNode): MemberAccess {
         return this.getUtilsLibFun(ctx, "assertionFailed");
     }
 
     getAssertionFailedDataFun(ctx: ASTNode): MemberAccess {
         return this.getUtilsLibFun(ctx, "assertionFailedData");
+    }
+
+    getAssertionFailedEvent(ctx: ASTNode): MemberAccess {
+        return this.getUtilsLibEvent(ctx, "AssertionFailed");
+    }
+
+    getAssertionFailedDataEvent(ctx: ASTNode): MemberAccess {
+        return this.getUtilsLibEvent(ctx, "AssertionFailedData");
     }
 
     getArrSumFun(file: SourceUnit, arrT: ArrayType, loc: DataLocation): FunctionDefinition {

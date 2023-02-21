@@ -47,8 +47,8 @@ contract Foo {
     /// Check only the current contract's state invariants
     function __scribble_Foo_check_state_invariants_internal() internal {
         if (!(x > 0)) {
-            __ScribbleUtilsLib__32.assertionFailedData(0, abi.encode(x));
-            __ScribbleUtilsLib__32.assertionFailed("0: ");
+            emit __ScribbleUtilsLib__32.AssertionFailedData(0, abi.encode(x));
+            emit __ScribbleUtilsLib__32.AssertionFailed("0: ");
         }
     }
 

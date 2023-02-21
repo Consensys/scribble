@@ -26,7 +26,7 @@ contract AssertMixed {
         _original_AssertMixed_main(n);
         unchecked {
             if (!(n.length < 10)) {
-                __ScribbleUtilsLib__34.assertionFailed("2: ");
+                emit __ScribbleUtilsLib__34.AssertionFailed("2: ");
                 assert(false);
             }
         }
@@ -43,14 +43,14 @@ contract AssertMixed {
                 if (!_v.forall_0) break;
             }
             if (!(_v.forall_0)) {
-                __ScribbleUtilsLib__34.assertionFailed("3: ");
+                emit __ScribbleUtilsLib__34.AssertionFailed("3: ");
                 assert(false);
             }
         }
         for (uint i = 0; i < n.length; i++) {
             unchecked {
                 if (!(n[i] > 2)) {
-                    __ScribbleUtilsLib__34.assertionFailed("4: ");
+                    emit __ScribbleUtilsLib__34.AssertionFailed("4: ");
                     assert(false);
                 }
             }
@@ -62,7 +62,7 @@ contract AssertMixed {
     function __scribble_AssertMixed_check_state_invariants_internal() internal {
         unchecked {
             if (!(sum < 200)) {
-                __ScribbleUtilsLib__34.assertionFailed("0: ");
+                emit __ScribbleUtilsLib__34.AssertionFailed("0: ");
                 assert(false);
             }
         }
@@ -88,7 +88,7 @@ contract AssertMixed {
         RET0 = sum;
         unchecked {
             if (!((sum - _v.old_0) > 3)) {
-                __ScribbleUtilsLib__34.assertionFailed("1: ");
+                emit __ScribbleUtilsLib__34.AssertionFailed("1: ");
                 assert(false);
             }
         }

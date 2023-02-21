@@ -24,7 +24,7 @@ contract Child is B.Base {
     function _original_Child_main1(uint t) private {
         unchecked {
             if (!(((((XA == 2) && (XB == 2)) && (A.X == 2)) && (B.X == 2)) && (t == B.X))) {
-                __ScribbleUtilsLib__100.assertionFailed("5: ");
+                emit __ScribbleUtilsLib__100.AssertionFailed("5: ");
                 assert(false);
             }
         }
@@ -34,7 +34,7 @@ contract Child is B.Base {
         p.y = 2;
         unchecked {
             if (!(B.foo(p) == 3)) {
-                __ScribbleUtilsLib__100.assertionFailed("6: ");
+                emit __ScribbleUtilsLib__100.AssertionFailed("6: ");
                 assert(false);
             }
         }

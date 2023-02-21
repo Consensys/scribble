@@ -8,7 +8,7 @@ contract Foo {
         _original_Foo_foo(z, w);
         unchecked {
             if (!((z + w) > 0)) {
-                __ScribbleUtilsLib__69.assertionFailed("3: dummy");
+                emit __ScribbleUtilsLib__69.AssertionFailed("3: dummy");
                 assert(false);
             }
         }

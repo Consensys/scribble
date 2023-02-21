@@ -36,7 +36,7 @@ contract Ownable {
         RET0 = owner;
         unchecked {
             if (!(_v.old_0 == msg.sender)) {
-                __ScribbleUtilsLib__57.assertionFailed("2: can only be updated by an owner");
+                emit __ScribbleUtilsLib__57.AssertionFailed("2: can only be updated by an owner");
                 assert(false);
             }
         }
@@ -75,7 +75,7 @@ contract Foo {
         _original_Foo_foo(z, w);
         unchecked {
             if (!((z + w) > 0)) {
-                __ScribbleUtilsLib__69.assertionFailed("3: dummy");
+                emit __ScribbleUtilsLib__69.AssertionFailed("3: dummy");
                 assert(false);
             }
         }

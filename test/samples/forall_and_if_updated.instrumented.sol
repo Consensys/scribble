@@ -40,7 +40,7 @@ contract Foo {
                 if (!_v.forall_0) break;
             }
             if (!(_v.forall_0)) {
-                __ScribbleUtilsLib__45.assertionFailed("0: ");
+                emit __ScribbleUtilsLib__45.AssertionFailed("0: ");
                 assert(false);
             }
         }
@@ -57,7 +57,7 @@ contract Foo {
                 if (!_v.forall_1) break;
             }
             if (!(_v.forall_1)) {
-                __ScribbleUtilsLib__45.assertionFailed("1: ");
+                emit __ScribbleUtilsLib__45.AssertionFailed("1: ");
                 assert(false);
             }
         }

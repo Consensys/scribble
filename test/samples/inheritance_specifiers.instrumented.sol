@@ -60,7 +60,7 @@ contract B is A {
     function __scribble_B_check_state_invariants_internal() internal {
         unchecked {
             if (!(a > 0)) {
-                __ScribbleUtilsLib__32.assertionFailed("0: ");
+                emit __ScribbleUtilsLib__32.AssertionFailed("0: ");
                 assert(false);
             }
         }

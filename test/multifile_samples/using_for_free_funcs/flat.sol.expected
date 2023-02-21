@@ -31,7 +31,7 @@ contract Test {
         RET_0 = _original_Test_main();
         unchecked {
             if (!(true)) {
-                __ScribbleUtilsLib__65.assertionFailed("0: ");
+                emit __ScribbleUtilsLib__65.AssertionFailed("0: ");
                 assert(false);
             }
         }

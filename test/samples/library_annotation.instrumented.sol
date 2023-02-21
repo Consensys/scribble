@@ -7,7 +7,7 @@ library Foo {
         RET_0 = _original_Foo_foo();
         unchecked {
             if (!(RET_0 == 1)) {
-                __ScribbleUtilsLib__21.assertionFailed("0: ");
+                emit __ScribbleUtilsLib__21.AssertionFailed("0: ");
                 assert(false);
             }
         }

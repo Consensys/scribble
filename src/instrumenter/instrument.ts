@@ -1,4 +1,4 @@
-import { gte } from "semver";
+import { gt, gte } from "semver";
 import {
     ArrayType,
     assert,
@@ -153,25 +153,20 @@ function getDebugInfoEmits(
             );
         }
 
-        const assertionFailedDataFun = instrCtx.getAssertionFailedDataFun(annot.target);
+        const assertionFailedDataExpr = gt(instrCtx.compilerVersion, "0.6.2")
+            ? instrCtx.getAssertionFailedDataEvent(annot.target)
+            : instrCtx.getAssertionFailedDataFun(annot.target);
 
         // Finally construct the emit statement for the debug event.
-        const emitStmt = factory.makeExpressionStatement(
+        const emitStmt = makeEmitStmt(instrCtx, assertionFailedDataExpr, [
+            factory.makeLiteral("int", LiteralKind.Number, "", String(annot.id)),
             factory.makeFunctionCall(
                 "<missing>",
                 FunctionCallKind.FunctionCall,
-                assertionFailedDataFun,
-                [
-                    factory.makeLiteral("int", LiteralKind.Number, "", String(annot.id)),
-                    factory.makeFunctionCall(
-                        "<missing>",
-                        FunctionCallKind.FunctionCall,
-                        factory.makeIdentifier("<missing>", "abi.encode", -1),
-                        evtArgs
-                    )
-                ]
+                factory.makeIdentifier("<missing>", "abi.encode", -1),
+                evtArgs
             )
-        );
+        ]);
 
         res.push(emitStmt);
     }
@@ -188,6 +183,29 @@ function getBitPattern(factory: ASTNodeFactory, id: number): Literal {
         "",
         "0x" + "cafe".repeat(15) + hexId
     );
+}
+
+function makeEmitStmt(
+    ctx: InstrumentationContext,
+    eventExpr: Expression,
+    args: Expression[]
+): Statement {
+    const factory = ctx.factory;
+
+    const callStmt = factory.makeFunctionCall(
+        "<missing>",
+        FunctionCallKind.FunctionCall,
+        eventExpr,
+        args
+    );
+
+    // For solidity > 0.6.2 directly emit the event in place
+    if (gt(ctx.compilerVersion, "0.6.2")) {
+        return factory.makeEmitStatement(callStmt);
+    }
+
+    // For solidity older than 0.6.2 perform a function call on the library
+    return factory.makeExpressionStatement(callStmt);
 }
 
 /**
@@ -213,16 +231,12 @@ function emitAssert(
         const strMessage = `${annotation.id}: ${annotation.message}`;
         const message = factory.makeLiteral("<missing>", LiteralKind.String, "", strMessage);
 
-        userAssertFailed = factory.makeExpressionStatement(
-            factory.makeFunctionCall("<missing>", FunctionCallKind.FunctionCall, event, [message])
-        );
+        userAssertFailed = makeEmitStmt(instrCtx, event, [message]);
 
         if (instrCtx.covAssertions) {
-            userAssertionHit = factory.makeExpressionStatement(
-                factory.makeFunctionCall("<missing>", FunctionCallKind.FunctionCall, event, [
-                    factory.makeLiteral("<missing>", LiteralKind.String, "", `HIT: ${strMessage}`)
-                ])
-            );
+            userAssertionHit = makeEmitStmt(instrCtx, event, [
+                factory.makeLiteral("<missing>", LiteralKind.String, "", `HIT: ${strMessage}`)
+            ]);
         }
     } else {
         const failBitPattern = getBitPattern(factory, annotation.id);
@@ -392,8 +406,10 @@ export function insertAnnotations(annotations: PropertyMetaData[], ctx: Transpil
             return [stmt, false];
         }
 
-        const assertFailedFun = instrCtx.getAssertionFailedFun(contract);
-        return [emitAssert(ctx, predicate, annotation, assertFailedFun, emitStmt), false];
+        const assertFailedExpr = gt(instrCtx.compilerVersion, "0.6.2")
+            ? instrCtx.getAssertionFailedEvent(contract)
+            : instrCtx.getAssertionFailedFun(contract);
+        return [emitAssert(ctx, predicate, annotation, assertFailedExpr, emitStmt), false];
     });
 
     for (const [check, isOld] of checkStmts) {

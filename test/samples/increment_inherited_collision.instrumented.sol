@@ -126,7 +126,7 @@ contract Foo is __scribble_ReentrancyUtils {
         _v1.let_1 = _v1.let_0;
         _v1.let_2 = _v1.let_1;
         if (!(_v1.let_2)) {
-            __ScribbleUtilsLib__86.assertionFailed("0: P0");
+            emit __ScribbleUtilsLib__86.AssertionFailed("0: P0");
             assert(false);
         }
         if (_v1.__scribble_check_invs_at_end) __scribble_check_state_invariants1();
@@ -145,7 +145,7 @@ contract Foo is __scribble_ReentrancyUtils {
     /// Check only the current contract's state invariants
     function __scribble_Foo_check_state_invariants_internal1() internal {
         if (!(t >= 1)) {
-            __ScribbleUtilsLib__86.assertionFailed("1: ");
+            emit __ScribbleUtilsLib__86.AssertionFailed("1: ");
             assert(false);
         }
     }

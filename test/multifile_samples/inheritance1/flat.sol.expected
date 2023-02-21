@@ -13,7 +13,7 @@ contract A {
         __ScribbleUtilsLib__15.setInContract(true);
         RET_0 = _original_A_foo(x);
         if (!(RET_0 >= x)) {
-            __ScribbleUtilsLib__15.assertionFailed("0: ");
+            emit __ScribbleUtilsLib__15.AssertionFailed("0: ");
             assert(false);
         }
         if (_v.__scribble_check_invs_at_end) __scribble_check_state_invariants();
@@ -171,11 +171,11 @@ contract C is B, A {
         __ScribbleUtilsLib__40.setInContract(true);
         RET_0 = _original_C_foo(x);
         if (!(RET_0 >= x)) {
-            __ScribbleUtilsLib__40.assertionFailed("0: ");
+            emit __ScribbleUtilsLib__40.AssertionFailed("0: ");
             assert(false);
         }
         if (!(RET_0 >= (x + 2))) {
-            __ScribbleUtilsLib__40.assertionFailed("2: ");
+            emit __ScribbleUtilsLib__40.AssertionFailed("2: ");
             assert(false);
         }
         if (_v.__scribble_check_invs_at_end) __scribble_check_state_invariants();
@@ -189,7 +189,7 @@ contract C is B, A {
     /// Check only the current contract's state invariants
     function __scribble_C_check_state_invariants_internal() internal {
         if (!(true)) {
-            __ScribbleUtilsLib__40.assertionFailed("1: P1");
+            emit __ScribbleUtilsLib__40.AssertionFailed("1: P1");
             assert(false);
         }
     }

@@ -42,8 +42,8 @@ contract Foo {
         _original_Foo_changesArg1(x);
         unchecked {
             if (!(_v.old_0 == 0)) {
-                __ScribbleUtilsLib__158.assertionFailedData(4, abi.encode(_v.dbg_0));
-                __ScribbleUtilsLib__158.assertionFailed("4: ");
+                emit __ScribbleUtilsLib__158.AssertionFailedData(4, abi.encode(_v.dbg_0));
+                emit __ScribbleUtilsLib__158.AssertionFailed("4: ");
             }
         }
     }
@@ -56,8 +56,8 @@ contract Foo {
         _original_Foo_changesArg2(x);
         unchecked {
             if (!(x == 0)) {
-                __ScribbleUtilsLib__158.assertionFailedData(5, abi.encode(x));
-                __ScribbleUtilsLib__158.assertionFailed("5: ");
+                emit __ScribbleUtilsLib__158.AssertionFailedData(5, abi.encode(x));
+                emit __ScribbleUtilsLib__158.AssertionFailed("5: ");
             }
         }
     }
@@ -75,8 +75,8 @@ contract Foo {
         _original_Foo_changesArr1();
         unchecked {
             if (!(_v.old_1 == 0)) {
-                __ScribbleUtilsLib__158.assertionFailedData(6, abi.encode(_v.dbg_1));
-                __ScribbleUtilsLib__158.assertionFailed("6: ");
+                emit __ScribbleUtilsLib__158.AssertionFailedData(6, abi.encode(_v.dbg_1));
+                emit __ScribbleUtilsLib__158.AssertionFailed("6: ");
             }
         }
     }
@@ -89,8 +89,8 @@ contract Foo {
         _original_Foo_changesArr2();
         unchecked {
             if (!(x[0] == 0)) {
-                __ScribbleUtilsLib__158.assertionFailedData(7, abi.encode(x));
-                __ScribbleUtilsLib__158.assertionFailed("7: ");
+                emit __ScribbleUtilsLib__158.AssertionFailedData(7, abi.encode(x));
+                emit __ScribbleUtilsLib__158.AssertionFailed("7: ");
             }
         }
     }
@@ -103,8 +103,8 @@ contract Foo {
         RET = _original_Foo_newRet();
         unchecked {
             if (!(RET == 1)) {
-                __ScribbleUtilsLib__158.assertionFailedData(8, abi.encode(RET));
-                __ScribbleUtilsLib__158.assertionFailed("8: ");
+                emit __ScribbleUtilsLib__158.AssertionFailedData(8, abi.encode(RET));
+                emit __ScribbleUtilsLib__158.AssertionFailed("8: ");
             }
         }
     }
@@ -124,8 +124,8 @@ contract Foo {
             _v.let_1 = _v.let_0;
             _v.let_2 = _v.let_1;
             if (!(_v.let_2)) {
-                __ScribbleUtilsLib__158.assertionFailedData(9, abi.encode(x, _v.x1, _v.x2, _v.x3));
-                __ScribbleUtilsLib__158.assertionFailed("9: ");
+                emit __ScribbleUtilsLib__158.AssertionFailedData(9, abi.encode(x, _v.x1, _v.x2, _v.x3));
+                emit __ScribbleUtilsLib__158.AssertionFailed("9: ");
             }
         }
     }
@@ -157,8 +157,8 @@ contract Foo {
     function Foo_arr_inline_initializer() internal {
         unchecked {
             if (!(arr[t] == 3)) {
-                __ScribbleUtilsLib__158.assertionFailedData(0, abi.encode(arr, t));
-                __ScribbleUtilsLib__158.assertionFailed("0: ");
+                emit __ScribbleUtilsLib__158.AssertionFailedData(0, abi.encode(arr, t));
+                emit __ScribbleUtilsLib__158.AssertionFailed("0: ");
             }
         }
     }
@@ -168,8 +168,8 @@ contract Foo {
         RET0 = arr[ARG0];
         unchecked {
             if (!(arr[t] == 3)) {
-                __ScribbleUtilsLib__158.assertionFailedData(0, abi.encode(arr, t));
-                __ScribbleUtilsLib__158.assertionFailed("0: ");
+                emit __ScribbleUtilsLib__158.AssertionFailedData(0, abi.encode(arr, t));
+                emit __ScribbleUtilsLib__158.AssertionFailed("0: ");
             }
         }
     }
@@ -184,8 +184,8 @@ contract Foo {
         RET1 = arr1[ARG2];
         unchecked {
             if (!(_v.old_2 == 3)) {
-                __ScribbleUtilsLib__158.assertionFailedData(1, abi.encode(_v.dbg_2));
-                __ScribbleUtilsLib__158.assertionFailed("1: ");
+                emit __ScribbleUtilsLib__158.AssertionFailedData(1, abi.encode(_v.dbg_2));
+                emit __ScribbleUtilsLib__158.AssertionFailed("1: ");
             }
         }
     }
@@ -195,8 +195,8 @@ contract Foo {
         RET2 = m[ARG4];
         unchecked {
             if (!(m[ARG4].length > 1)) {
-                __ScribbleUtilsLib__158.assertionFailedData(2, abi.encode(ARG4));
-                __ScribbleUtilsLib__158.assertionFailed("2: ");
+                emit __ScribbleUtilsLib__158.AssertionFailedData(2, abi.encode(ARG4));
+                emit __ScribbleUtilsLib__158.AssertionFailed("2: ");
             }
         }
     }
@@ -206,8 +206,8 @@ contract Foo {
         RET3 = m[ARG6];
         unchecked {
             if (!(m[ARG6].length > 1)) {
-                __ScribbleUtilsLib__158.assertionFailedData(2, abi.encode(ARG6));
-                __ScribbleUtilsLib__158.assertionFailed("2: ");
+                emit __ScribbleUtilsLib__158.AssertionFailedData(2, abi.encode(ARG6));
+                emit __ScribbleUtilsLib__158.AssertionFailed("2: ");
             }
         }
     }
@@ -217,8 +217,8 @@ contract Foo {
         RET4 = m[ARG8][ARG9];
         unchecked {
             if (!(m[ARG8][ARG9] > 0)) {
-                __ScribbleUtilsLib__158.assertionFailedData(3, abi.encode(ARG8, ARG9));
-                __ScribbleUtilsLib__158.assertionFailed("3: ");
+                emit __ScribbleUtilsLib__158.AssertionFailedData(3, abi.encode(ARG8, ARG9));
+                emit __ScribbleUtilsLib__158.AssertionFailed("3: ");
             }
         }
     }
