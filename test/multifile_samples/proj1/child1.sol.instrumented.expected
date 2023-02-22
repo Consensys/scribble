@@ -3,9 +3,8 @@
 pragma solidity 0.6.11;
 
 import { Base } from "./base.sol";
-import "./__scribble_ReentrancyUtils.sol";
 
-contract Child1 is __scribble_ReentrancyUtils, Base {
+contract Child1 is Base {
     struct vars2 {
         uint256 old_0;
         bool __scribble_check_invs_at_end;
@@ -13,16 +12,16 @@ contract Child1 is __scribble_ReentrancyUtils, Base {
 
     function add(uint y) public {
         vars2 memory _v;
-        _v.__scribble_check_invs_at_end = __scribble_out_of_contract;
-        __scribble_out_of_contract = false;
+        _v.__scribble_check_invs_at_end = !__ScribbleUtilsLib__25.isInContract();
+        __ScribbleUtilsLib__25.setInContract(true);
         _v.old_0 = x;
         _original_Child1_add(y);
         if (!(x == (_v.old_0 + y))) {
-            emit AssertionFailed("1: P1");
+            emit __ScribbleUtilsLib__25.AssertionFailed("1: P1");
             assert(false);
         }
         if (_v.__scribble_check_invs_at_end) __scribble_check_state_invariants();
-        __scribble_out_of_contract = _v.__scribble_check_invs_at_end;
+        __ScribbleUtilsLib__25.setInContract(!_v.__scribble_check_invs_at_end);
     }
 
     function _original_Child1_add(uint y) private {
@@ -39,8 +38,34 @@ contract Child1 is __scribble_ReentrancyUtils, Base {
     }
 
     constructor() public {
-        __scribble_out_of_contract = false;
+        __ScribbleUtilsLib__25.setInContract(true);
         __scribble_check_state_invariants();
-        __scribble_out_of_contract = true;
+        __ScribbleUtilsLib__25.setInContract(false);
+    }
+}
+
+library __ScribbleUtilsLib__25 {
+    event AssertionFailed(string message);
+
+    event AssertionFailedData(int eventId, bytes encodingData);
+
+    function assertionFailed(string memory arg_0) internal {
+        emit AssertionFailed(arg_0);
+    }
+
+    function assertionFailedData(int arg_0, bytes memory arg_1) internal {
+        emit AssertionFailedData(arg_0, arg_1);
+    }
+
+    function isInContract() internal returns (bool res) {
+        assembly {
+            res := sload(0x5f0b92cf9616afdee4f4136f66393f1343b027f01be893fa569eb2e2b667a40c)
+        }
+    }
+
+    function setInContract(bool v) internal {
+        assembly {
+            sstore(0x5f0b92cf9616afdee4f4136f66393f1343b027f01be893fa569eb2e2b667a40c, v)
+        }
     }
 }

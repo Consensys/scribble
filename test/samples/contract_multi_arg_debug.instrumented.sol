@@ -2,17 +2,8 @@
 /// Use --disarm prior to make any changes.
 pragma solidity 0.8.7;
 
-/// Utility contract holding a stack counter
-contract __scribble_ReentrancyUtils {
-    event AssertionFailed(string message);
-
-    event AssertionFailedData(int eventId, bytes encodingData);
-
-    bool __scribble_out_of_contract = true;
-}
-
 /// #invariant {:msg ""} b == a + c - 1; 
-contract Foo is __scribble_ReentrancyUtils {
+contract Foo {
     uint internal a = 2;
     uint internal b = 101;
     uint internal c = 100;
@@ -25,8 +16,8 @@ contract Foo is __scribble_ReentrancyUtils {
     function __scribble_Foo_check_state_invariants_internal() internal {
         unchecked {
             if (!(b == ((a + c) - 1))) {
-                emit AssertionFailedData(0, abi.encode(b, a, c));
-                emit AssertionFailed("0: ");
+                emit __ScribbleUtilsLib__46.AssertionFailedData(0, abi.encode(b, a, c));
+                emit __ScribbleUtilsLib__46.AssertionFailed("0: ");
             }
         }
     }
@@ -37,18 +28,44 @@ contract Foo is __scribble_ReentrancyUtils {
     }
 
     constructor() {
-        __scribble_out_of_contract = false;
+        __ScribbleUtilsLib__46.setInContract(true);
         __scribble_check_state_invariants();
-        __scribble_out_of_contract = true;
+        __ScribbleUtilsLib__46.setInContract(false);
     }
 }
 
-contract Base is __scribble_ReentrancyUtils, Foo {
+library __ScribbleUtilsLib__46 {
+    event AssertionFailed(string message);
+
+    event AssertionFailedData(int eventId, bytes encodingData);
+
+    function assertionFailed(string memory arg_0) internal {
+        emit AssertionFailed(arg_0);
+    }
+
+    function assertionFailedData(int arg_0, bytes memory arg_1) internal {
+        emit AssertionFailedData(arg_0, arg_1);
+    }
+
+    function isInContract() internal returns (bool res) {
+        assembly {
+            res := sload(0x5f0b92cf9616afdee4f4136f66393f1343b027f01be893fa569eb2e2b667a40c)
+        }
+    }
+
+    function setInContract(bool v) internal {
+        assembly {
+            sstore(0x5f0b92cf9616afdee4f4136f66393f1343b027f01be893fa569eb2e2b667a40c, v)
+        }
+    }
+}
+
+contract Base is Foo {
     function inc3(uint x) external returns (uint y) {
-        __scribble_out_of_contract = false;
+        __ScribbleUtilsLib__46.setInContract(true);
         y = _original_Base_inc3(x);
         __scribble_check_state_invariants();
-        __scribble_out_of_contract = true;
+        __ScribbleUtilsLib__46.setInContract(false);
     }
 
     function _original_Base_inc3(uint x) private returns (uint y) {
@@ -66,8 +83,8 @@ contract Base is __scribble_ReentrancyUtils, Foo {
     }
 
     constructor() {
-        __scribble_out_of_contract = false;
+        __ScribbleUtilsLib__46.setInContract(true);
         __scribble_check_state_invariants();
-        __scribble_out_of_contract = true;
+        __ScribbleUtilsLib__46.setInContract(false);
     }
 }

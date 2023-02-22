@@ -2,17 +2,8 @@
 /// Use --disarm prior to make any changes.
 pragma solidity 0.6.10;
 
-/// Utility contract holding a stack counter
-contract __scribble_ReentrancyUtils {
-    event AssertionFailed(string message);
-
-    event AssertionFailedData(int eventId, bytes encodingData);
-
-    bool __scribble_out_of_contract = true;
-}
-
 /// #invariant {:msg ""} x > 0;
-contract Foo is __scribble_ReentrancyUtils {
+contract Foo {
     struct vars1 {
         bool __scribble_check_invs_at_end;
     }
@@ -25,15 +16,15 @@ contract Foo is __scribble_ReentrancyUtils {
 
     function getX() public returns (uint RET_0) {
         vars1 memory _v;
-        _v.__scribble_check_invs_at_end = __scribble_out_of_contract;
-        __scribble_out_of_contract = false;
+        _v.__scribble_check_invs_at_end = !__ScribbleUtilsLib__39.isInContract();
+        __ScribbleUtilsLib__39.setInContract(true);
         RET_0 = _original_Foo_getX();
         if (!(x > 0)) {
-            emit AssertionFailed("1: ");
+            emit __ScribbleUtilsLib__39.AssertionFailed("1: ");
             assert(false);
         }
         if (_v.__scribble_check_invs_at_end) __scribble_check_state_invariants();
-        __scribble_out_of_contract = _v.__scribble_check_invs_at_end;
+        __ScribbleUtilsLib__39.setInContract(!_v.__scribble_check_invs_at_end);
     }
 
     function _original_Foo_getX() private view returns (uint) {
@@ -46,15 +37,15 @@ contract Foo is __scribble_ReentrancyUtils {
 
     function getXPlus2() public returns (uint RET_0) {
         vars2 memory _v;
-        _v.__scribble_check_invs_at_end = __scribble_out_of_contract;
-        __scribble_out_of_contract = false;
+        _v.__scribble_check_invs_at_end = !__ScribbleUtilsLib__39.isInContract();
+        __ScribbleUtilsLib__39.setInContract(true);
         RET_0 = _original_Foo_getXPlus2();
         if (!(x > 2)) {
-            emit AssertionFailed("2: ");
+            emit __ScribbleUtilsLib__39.AssertionFailed("2: ");
             assert(false);
         }
         if (_v.__scribble_check_invs_at_end) __scribble_check_state_invariants();
-        __scribble_out_of_contract = _v.__scribble_check_invs_at_end;
+        __ScribbleUtilsLib__39.setInContract(!_v.__scribble_check_invs_at_end);
     }
 
     function _original_Foo_getXPlus2() private returns (uint) {
@@ -64,7 +55,7 @@ contract Foo is __scribble_ReentrancyUtils {
     /// Check only the current contract's state invariants
     function __scribble_Foo_check_state_invariants_internal() internal {
         if (!(x > 0)) {
-            emit AssertionFailed("0: ");
+            emit __ScribbleUtilsLib__39.AssertionFailed("0: ");
             assert(false);
         }
     }
@@ -75,8 +66,34 @@ contract Foo is __scribble_ReentrancyUtils {
     }
 
     constructor() public {
-        __scribble_out_of_contract = false;
+        __ScribbleUtilsLib__39.setInContract(true);
         __scribble_check_state_invariants();
-        __scribble_out_of_contract = true;
+        __ScribbleUtilsLib__39.setInContract(false);
+    }
+}
+
+library __ScribbleUtilsLib__39 {
+    event AssertionFailed(string message);
+
+    event AssertionFailedData(int eventId, bytes encodingData);
+
+    function assertionFailed(string memory arg_0) internal {
+        emit AssertionFailed(arg_0);
+    }
+
+    function assertionFailedData(int arg_0, bytes memory arg_1) internal {
+        emit AssertionFailedData(arg_0, arg_1);
+    }
+
+    function isInContract() internal returns (bool res) {
+        assembly {
+            res := sload(0x5f0b92cf9616afdee4f4136f66393f1343b027f01be893fa569eb2e2b667a40c)
+        }
+    }
+
+    function setInContract(bool v) internal {
+        assembly {
+            sstore(0x5f0b92cf9616afdee4f4136f66393f1343b027f01be893fa569eb2e2b667a40c, v)
+        }
     }
 }

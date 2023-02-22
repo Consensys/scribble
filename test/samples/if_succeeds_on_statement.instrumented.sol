@@ -2,16 +2,7 @@
 /// Use --disarm prior to make any changes.
 pragma solidity 0.8.11;
 
-/// Utility contract holding a stack counter
-contract __scribble_ReentrancyUtils {
-    event AssertionFailed(string message);
-
-    event AssertionFailedData(int eventId, bytes encodingData);
-
-    bool __scribble_out_of_contract = true;
-}
-
-contract IfSucceedsOnStatement is __scribble_ReentrancyUtils {
+contract IfSucceedsOnStatement {
     struct vars0 {
         uint256 old_0;
     }
@@ -30,7 +21,7 @@ contract IfSucceedsOnStatement is __scribble_ReentrancyUtils {
             a[i] += amount;
             unchecked {
                 if (!((_v.old_0 + amount) == a[i])) {
-                    emit AssertionFailed("0: ");
+                    emit __ScribbleUtilsLib__65.AssertionFailed("0: ");
                     assert(false);
                 }
             }
@@ -49,10 +40,36 @@ contract IfSucceedsOnStatement is __scribble_ReentrancyUtils {
             }
             unchecked {
                 if (!((_v.old_1 + amount) == a[i])) {
-                    emit AssertionFailed("1: ");
+                    emit __ScribbleUtilsLib__65.AssertionFailed("1: ");
                     assert(false);
                 }
             }
+        }
+    }
+}
+
+library __ScribbleUtilsLib__65 {
+    event AssertionFailed(string message);
+
+    event AssertionFailedData(int eventId, bytes encodingData);
+
+    function assertionFailed(string memory arg_0) internal {
+        emit AssertionFailed(arg_0);
+    }
+
+    function assertionFailedData(int arg_0, bytes memory arg_1) internal {
+        emit AssertionFailedData(arg_0, arg_1);
+    }
+
+    function isInContract() internal returns (bool res) {
+        assembly {
+            res := sload(0x5f0b92cf9616afdee4f4136f66393f1343b027f01be893fa569eb2e2b667a40c)
+        }
+    }
+
+    function setInContract(bool v) internal {
+        assembly {
+            sstore(0x5f0b92cf9616afdee4f4136f66393f1343b027f01be893fa569eb2e2b667a40c, v)
         }
     }
 }

@@ -2,16 +2,7 @@
 /// Use --disarm prior to make any changes.
 pragma solidity 0.8.11;
 
-/// Utility contract holding a stack counter
-contract __scribble_ReentrancyUtils {
-    event AssertionFailed(string message);
-
-    event AssertionFailedData(int eventId, bytes encodingData);
-
-    bool __scribble_out_of_contract = true;
-}
-
-contract LetAnnotation is __scribble_ReentrancyUtils {
+contract LetAnnotation {
     struct vars0 {
         uint256 oldVal;
     }
@@ -34,7 +25,7 @@ contract LetAnnotation is __scribble_ReentrancyUtils {
             a[i] += amount;
             unchecked {
                 if (!(_v.oldVal > 0)) {
-                    emit AssertionFailed("1: ");
+                    emit __ScribbleUtilsLib__100.AssertionFailed("1: ");
                     assert(false);
                 }
             }
@@ -49,7 +40,7 @@ contract LetAnnotation is __scribble_ReentrancyUtils {
             unchecked {
                 _v.oldVal1 = a[i];
                 if (!(_v.oldVal1 > 0)) {
-                    emit AssertionFailed("3: ");
+                    emit __ScribbleUtilsLib__100.AssertionFailed("3: ");
                     assert(false);
                 }
             }
@@ -67,11 +58,37 @@ contract LetAnnotation is __scribble_ReentrancyUtils {
         for (uint i = 0; i < a.length; i++) {
             unchecked {
                 if (!(_v.oldVal2 > 0)) {
-                    emit AssertionFailed("5: ");
+                    emit __ScribbleUtilsLib__100.AssertionFailed("5: ");
                     assert(false);
                 }
             }
             a[i] += amount;
+        }
+    }
+}
+
+library __ScribbleUtilsLib__100 {
+    event AssertionFailed(string message);
+
+    event AssertionFailedData(int eventId, bytes encodingData);
+
+    function assertionFailed(string memory arg_0) internal {
+        emit AssertionFailed(arg_0);
+    }
+
+    function assertionFailedData(int arg_0, bytes memory arg_1) internal {
+        emit AssertionFailedData(arg_0, arg_1);
+    }
+
+    function isInContract() internal returns (bool res) {
+        assembly {
+            res := sload(0x5f0b92cf9616afdee4f4136f66393f1343b027f01be893fa569eb2e2b667a40c)
+        }
+    }
+
+    function setInContract(bool v) internal {
+        assembly {
+            sstore(0x5f0b92cf9616afdee4f4136f66393f1343b027f01be893fa569eb2e2b667a40c, v)
         }
     }
 }

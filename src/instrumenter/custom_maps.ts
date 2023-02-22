@@ -326,13 +326,15 @@ export function interposeMap(
             `Referenced state var (part) must be mapping, not ${mapT.constructor.name}`
         );
 
-        instrCtx.needsUtils((stateVar.vScope as ContractDefinition).vScope);
-
         const keyT = instrCtx.typeEnv.inference.typeNameToTypeNode(mapT.vKeyType);
         const valueT = instrCtx.typeEnv.inference.typeNameToTypeNode(mapT.vValueType);
 
         // 0. Generate custom library implementation
-        const lib = instrCtx.typesToLibraryMap.get(keyT, valueT);
+        const lib = instrCtx.typesToLibraryMap.get(
+            keyT,
+            valueT,
+            stateVar.getClosestParentByType(SourceUnit) as SourceUnit
+        );
         const struct = single(lib.vStructs);
 
         instrCtx.sVarToLibraryMap.set(lib, stateVar, path);

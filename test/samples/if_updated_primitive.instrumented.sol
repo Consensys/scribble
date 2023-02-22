@@ -2,16 +2,7 @@
 /// Use --disarm prior to make any changes.
 pragma solidity 0.8.7;
 
-/// Utility contract holding a stack counter
-contract __scribble_ReentrancyUtils {
-    event AssertionFailed(string message);
-
-    event AssertionFailedData(int eventId, bytes encodingData);
-
-    bool __scribble_out_of_contract = true;
-}
-
-contract Base is __scribble_ReentrancyUtils {
+contract Base {
     struct vars3 {
         uint256 old_0;
     }
@@ -57,7 +48,7 @@ contract Base is __scribble_ReentrancyUtils {
     function Base_x_inline_initializer() internal {
         unchecked {
             if (!(x >= 1)) {
-                emit AssertionFailed("0: ");
+                emit __ScribbleUtilsLib__139.AssertionFailed("0: ");
                 assert(false);
             }
         }
@@ -66,7 +57,7 @@ contract Base is __scribble_ReentrancyUtils {
     function Base_a_inline_initializer() internal {
         unchecked {
             if (!(uint160(a) >= 1)) {
-                emit AssertionFailed("3: ");
+                emit __ScribbleUtilsLib__139.AssertionFailed("3: ");
                 assert(false);
             }
         }
@@ -77,7 +68,7 @@ contract Base is __scribble_ReentrancyUtils {
         RET0 = x;
         unchecked {
             if (!(x >= 1)) {
-                emit AssertionFailed("0: ");
+                emit __ScribbleUtilsLib__139.AssertionFailed("0: ");
                 assert(false);
             }
         }
@@ -92,7 +83,7 @@ contract Base is __scribble_ReentrancyUtils {
         RET1 = y;
         unchecked {
             if (!(y >= _v.old_0)) {
-                emit AssertionFailed("1: ");
+                emit __ScribbleUtilsLib__139.AssertionFailed("1: ");
                 assert(false);
             }
         }
@@ -103,7 +94,7 @@ contract Base is __scribble_ReentrancyUtils {
         RET2 = a;
         unchecked {
             if (!(uint160(a) >= 1)) {
-                emit AssertionFailed("3: ");
+                emit __ScribbleUtilsLib__139.AssertionFailed("3: ");
                 assert(false);
             }
         }
@@ -114,7 +105,7 @@ contract Base is __scribble_ReentrancyUtils {
         x++;
         unchecked {
             if (!(x >= 1)) {
-                emit AssertionFailed("0: ");
+                emit __ScribbleUtilsLib__139.AssertionFailed("0: ");
                 assert(false);
             }
         }
@@ -129,7 +120,7 @@ contract Base is __scribble_ReentrancyUtils {
         y++;
         unchecked {
             if (!(y >= _v.old_1)) {
-                emit AssertionFailed("1: ");
+                emit __ScribbleUtilsLib__139.AssertionFailed("1: ");
                 assert(false);
             }
         }
@@ -139,7 +130,7 @@ contract Base is __scribble_ReentrancyUtils {
         delete t;
         unchecked {
             if (!(t == 0)) {
-                emit AssertionFailed("2: ");
+                emit __ScribbleUtilsLib__139.AssertionFailed("2: ");
                 assert(false);
             }
         }
@@ -150,9 +141,35 @@ contract Base is __scribble_ReentrancyUtils {
         RET5 = x;
         unchecked {
             if (!(x >= 1)) {
-                emit AssertionFailed("0: ");
+                emit __ScribbleUtilsLib__139.AssertionFailed("0: ");
                 assert(false);
             }
+        }
+    }
+}
+
+library __ScribbleUtilsLib__139 {
+    event AssertionFailed(string message);
+
+    event AssertionFailedData(int eventId, bytes encodingData);
+
+    function assertionFailed(string memory arg_0) internal {
+        emit AssertionFailed(arg_0);
+    }
+
+    function assertionFailedData(int arg_0, bytes memory arg_1) internal {
+        emit AssertionFailedData(arg_0, arg_1);
+    }
+
+    function isInContract() internal returns (bool res) {
+        assembly {
+            res := sload(0x5f0b92cf9616afdee4f4136f66393f1343b027f01be893fa569eb2e2b667a40c)
+        }
+    }
+
+    function setInContract(bool v) internal {
+        assembly {
+            sstore(0x5f0b92cf9616afdee4f4136f66393f1343b027f01be893fa569eb2e2b667a40c, v)
         }
     }
 }

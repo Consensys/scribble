@@ -2,17 +2,8 @@
 /// Use --disarm prior to make any changes.
 pragma solidity 0.8.4;
 
-/// Utility contract holding a stack counter
-contract __scribble_ReentrancyUtils {
-    event AssertionFailed(string message);
-
-    event AssertionFailedData(int eventId, bytes encodingData);
-
-    bool __scribble_out_of_contract = true;
-}
-
 /// #invariant forall (uint i in a) a[i] > 10;
-contract ForallSimple is __scribble_ReentrancyUtils {
+contract ForallSimple {
     struct vars0 {
         uint256 i0;
         bool forall_0;
@@ -93,10 +84,10 @@ contract ForallSimple is __scribble_ReentrancyUtils {
     uint internal t2 = 0;
 
     function push(uint x) external {
-        __scribble_out_of_contract = false;
+        __ScribbleUtilsLib__106.setInContract(true);
         _original_ForallSimple_push(x);
         __scribble_check_state_invariants();
-        __scribble_out_of_contract = true;
+        __ScribbleUtilsLib__106.setInContract(false);
     }
 
     function _original_ForallSimple_push(uint x) private {
@@ -105,8 +96,8 @@ contract ForallSimple is __scribble_ReentrancyUtils {
 
     function test1(uint[] memory a, uint x) public {
         vars2 memory _v;
-        _v.__scribble_check_invs_at_end = __scribble_out_of_contract;
-        __scribble_out_of_contract = false;
+        _v.__scribble_check_invs_at_end = !__ScribbleUtilsLib__106.isInContract();
+        __ScribbleUtilsLib__106.setInContract(true);
         _original_ForallSimple_test1(a, x);
         unchecked {
             _v.forall_1 = true;
@@ -119,20 +110,20 @@ contract ForallSimple is __scribble_ReentrancyUtils {
                 if (!_v.forall_1) break;
             }
             if (!(_v.forall_1)) {
-                emit AssertionFailed("1: ");
+                emit __ScribbleUtilsLib__106.AssertionFailed("1: ");
                 assert(false);
             }
         }
         if (_v.__scribble_check_invs_at_end) __scribble_check_state_invariants();
-        __scribble_out_of_contract = _v.__scribble_check_invs_at_end;
+        __ScribbleUtilsLib__106.setInContract(!_v.__scribble_check_invs_at_end);
     }
 
     function _original_ForallSimple_test1(uint[] memory a, uint x) private {}
 
     function test2(uint[] memory a, uint x) public {
         vars3 memory _v;
-        _v.__scribble_check_invs_at_end = __scribble_out_of_contract;
-        __scribble_out_of_contract = false;
+        _v.__scribble_check_invs_at_end = !__ScribbleUtilsLib__106.isInContract();
+        __ScribbleUtilsLib__106.setInContract(true);
         unchecked {
             _v.old_0 = t;
         }
@@ -144,12 +135,12 @@ contract ForallSimple is __scribble_ReentrancyUtils {
                 if (!_v.forall_2) break;
             }
             if (!(_v.forall_2)) {
-                emit AssertionFailed("2: ");
+                emit __ScribbleUtilsLib__106.AssertionFailed("2: ");
                 assert(false);
             }
         }
         if (_v.__scribble_check_invs_at_end) __scribble_check_state_invariants();
-        __scribble_out_of_contract = _v.__scribble_check_invs_at_end;
+        __ScribbleUtilsLib__106.setInContract(!_v.__scribble_check_invs_at_end);
     }
 
     function _original_ForallSimple_test2(uint[] memory a, uint x) private {
@@ -158,8 +149,8 @@ contract ForallSimple is __scribble_ReentrancyUtils {
 
     function test3(uint[] memory a, uint x) public {
         vars4 memory _v;
-        _v.__scribble_check_invs_at_end = __scribble_out_of_contract;
-        __scribble_out_of_contract = false;
+        _v.__scribble_check_invs_at_end = !__ScribbleUtilsLib__106.isInContract();
+        __ScribbleUtilsLib__106.setInContract(true);
         unchecked {
             _v.forall_3 = true;
             for (_v.i3 = 0; _v.i3 < a.length; _v.i3++) {
@@ -175,12 +166,12 @@ contract ForallSimple is __scribble_ReentrancyUtils {
         _original_ForallSimple_test3(a, x);
         unchecked {
             if (!(_v.old_1)) {
-                emit AssertionFailed("3: ");
+                emit __ScribbleUtilsLib__106.AssertionFailed("3: ");
                 assert(false);
             }
         }
         if (_v.__scribble_check_invs_at_end) __scribble_check_state_invariants();
-        __scribble_out_of_contract = _v.__scribble_check_invs_at_end;
+        __ScribbleUtilsLib__106.setInContract(!_v.__scribble_check_invs_at_end);
     }
 
     function _original_ForallSimple_test3(uint[] memory a, uint x) private {
@@ -189,8 +180,8 @@ contract ForallSimple is __scribble_ReentrancyUtils {
 
     function test4(uint[][] memory a, uint x) public {
         vars5 memory _v;
-        _v.__scribble_check_invs_at_end = __scribble_out_of_contract;
-        __scribble_out_of_contract = false;
+        _v.__scribble_check_invs_at_end = !__ScribbleUtilsLib__106.isInContract();
+        __ScribbleUtilsLib__106.setInContract(true);
         unchecked {
             _v.old_2 = t2;
         }
@@ -207,12 +198,12 @@ contract ForallSimple is __scribble_ReentrancyUtils {
                 if (!_v.forall_4) break;
             }
             if (!(_v.forall_4)) {
-                emit AssertionFailed("4: ");
+                emit __ScribbleUtilsLib__106.AssertionFailed("4: ");
                 assert(false);
             }
         }
         if (_v.__scribble_check_invs_at_end) __scribble_check_state_invariants();
-        __scribble_out_of_contract = _v.__scribble_check_invs_at_end;
+        __ScribbleUtilsLib__106.setInContract(!_v.__scribble_check_invs_at_end);
     }
 
     function _original_ForallSimple_test4(uint[][] memory a, uint x) private {
@@ -221,8 +212,8 @@ contract ForallSimple is __scribble_ReentrancyUtils {
 
     function test5() public {
         vars6 memory _v;
-        _v.__scribble_check_invs_at_end = __scribble_out_of_contract;
-        __scribble_out_of_contract = false;
+        _v.__scribble_check_invs_at_end = !__ScribbleUtilsLib__106.isInContract();
+        __ScribbleUtilsLib__106.setInContract(true);
         _original_ForallSimple_test5();
         unchecked {
             _v.forall_6 = true;
@@ -231,20 +222,20 @@ contract ForallSimple is __scribble_ReentrancyUtils {
                 if (!_v.forall_6) break;
             }
             if (!(_v.forall_6)) {
-                emit AssertionFailed("5: ");
+                emit __ScribbleUtilsLib__106.AssertionFailed("5: ");
                 assert(false);
             }
         }
         if (_v.__scribble_check_invs_at_end) __scribble_check_state_invariants();
-        __scribble_out_of_contract = _v.__scribble_check_invs_at_end;
+        __ScribbleUtilsLib__106.setInContract(!_v.__scribble_check_invs_at_end);
     }
 
     function _original_ForallSimple_test5() private {}
 
     function test6() public {
         vars7 memory _v;
-        _v.__scribble_check_invs_at_end = __scribble_out_of_contract;
-        __scribble_out_of_contract = false;
+        _v.__scribble_check_invs_at_end = !__ScribbleUtilsLib__106.isInContract();
+        __ScribbleUtilsLib__106.setInContract(true);
         _original_ForallSimple_test6();
         unchecked {
             _v.forall_7 = true;
@@ -253,20 +244,20 @@ contract ForallSimple is __scribble_ReentrancyUtils {
                 if (!_v.forall_7) break;
             }
             if (!(_v.forall_7)) {
-                emit AssertionFailed("6: ");
+                emit __ScribbleUtilsLib__106.AssertionFailed("6: ");
                 assert(false);
             }
         }
         if (_v.__scribble_check_invs_at_end) __scribble_check_state_invariants();
-        __scribble_out_of_contract = _v.__scribble_check_invs_at_end;
+        __ScribbleUtilsLib__106.setInContract(!_v.__scribble_check_invs_at_end);
     }
 
     function _original_ForallSimple_test6() private {}
 
     function test7() public {
         vars8 memory _v;
-        _v.__scribble_check_invs_at_end = __scribble_out_of_contract;
-        __scribble_out_of_contract = false;
+        _v.__scribble_check_invs_at_end = !__ScribbleUtilsLib__106.isInContract();
+        __ScribbleUtilsLib__106.setInContract(true);
         _original_ForallSimple_test7();
         unchecked {
             _v.forall_8 = true;
@@ -275,20 +266,20 @@ contract ForallSimple is __scribble_ReentrancyUtils {
                 if (!_v.forall_8) break;
             }
             if (!(_v.forall_8)) {
-                emit AssertionFailed("7: ");
+                emit __ScribbleUtilsLib__106.AssertionFailed("7: ");
                 assert(false);
             }
         }
         if (_v.__scribble_check_invs_at_end) __scribble_check_state_invariants();
-        __scribble_out_of_contract = _v.__scribble_check_invs_at_end;
+        __ScribbleUtilsLib__106.setInContract(!_v.__scribble_check_invs_at_end);
     }
 
     function _original_ForallSimple_test7() private {}
 
     function test11() public {
         vars9 memory _v;
-        _v.__scribble_check_invs_at_end = __scribble_out_of_contract;
-        __scribble_out_of_contract = false;
+        _v.__scribble_check_invs_at_end = !__ScribbleUtilsLib__106.isInContract();
+        __ScribbleUtilsLib__106.setInContract(true);
         _original_ForallSimple_test11();
         unchecked {
             _v.forall_9 = true;
@@ -297,20 +288,20 @@ contract ForallSimple is __scribble_ReentrancyUtils {
                 if (!_v.forall_9) break;
             }
             if (!(_v.forall_9)) {
-                emit AssertionFailed("8: ");
+                emit __ScribbleUtilsLib__106.AssertionFailed("8: ");
                 assert(false);
             }
         }
         if (_v.__scribble_check_invs_at_end) __scribble_check_state_invariants();
-        __scribble_out_of_contract = _v.__scribble_check_invs_at_end;
+        __ScribbleUtilsLib__106.setInContract(!_v.__scribble_check_invs_at_end);
     }
 
     function _original_ForallSimple_test11() private {}
 
     function test12() public {
         vars10 memory _v;
-        _v.__scribble_check_invs_at_end = __scribble_out_of_contract;
-        __scribble_out_of_contract = false;
+        _v.__scribble_check_invs_at_end = !__ScribbleUtilsLib__106.isInContract();
+        __ScribbleUtilsLib__106.setInContract(true);
         _original_ForallSimple_test12();
         unchecked {
             _v.MAX_INT = uint256(((2 ** 255) - 1) + (2 ** 255));
@@ -321,12 +312,12 @@ contract ForallSimple is __scribble_ReentrancyUtils {
             }
             _v.let_4 = _v.forall_10;
             if (!(_v.let_4)) {
-                emit AssertionFailed("9: ");
+                emit __ScribbleUtilsLib__106.AssertionFailed("9: ");
                 assert(false);
             }
         }
         if (_v.__scribble_check_invs_at_end) __scribble_check_state_invariants();
-        __scribble_out_of_contract = _v.__scribble_check_invs_at_end;
+        __ScribbleUtilsLib__106.setInContract(!_v.__scribble_check_invs_at_end);
     }
 
     function _original_ForallSimple_test12() private {}
@@ -341,7 +332,7 @@ contract ForallSimple is __scribble_ReentrancyUtils {
                 if (!_v.forall_0) break;
             }
             if (!(_v.forall_0)) {
-                emit AssertionFailed("0: ");
+                emit __ScribbleUtilsLib__106.AssertionFailed("0: ");
                 assert(false);
             }
         }
@@ -353,8 +344,34 @@ contract ForallSimple is __scribble_ReentrancyUtils {
     }
 
     constructor() {
-        __scribble_out_of_contract = false;
+        __ScribbleUtilsLib__106.setInContract(true);
         __scribble_check_state_invariants();
-        __scribble_out_of_contract = true;
+        __ScribbleUtilsLib__106.setInContract(false);
+    }
+}
+
+library __ScribbleUtilsLib__106 {
+    event AssertionFailed(string message);
+
+    event AssertionFailedData(int eventId, bytes encodingData);
+
+    function assertionFailed(string memory arg_0) internal {
+        emit AssertionFailed(arg_0);
+    }
+
+    function assertionFailedData(int arg_0, bytes memory arg_1) internal {
+        emit AssertionFailedData(arg_0, arg_1);
+    }
+
+    function isInContract() internal returns (bool res) {
+        assembly {
+            res := sload(0x5f0b92cf9616afdee4f4136f66393f1343b027f01be893fa569eb2e2b667a40c)
+        }
+    }
+
+    function setInContract(bool v) internal {
+        assembly {
+            sstore(0x5f0b92cf9616afdee4f4136f66393f1343b027f01be893fa569eb2e2b667a40c, v)
+        }
     }
 }

@@ -439,9 +439,7 @@ export function generateInstrumentationMetadata(
     }
 
     instrSourceList = instrSourceList.map((fileName) =>
-        fileName === "--" || (ctx.outputMode === "files" && fileName === ctx.utilsUnit.absolutePath)
-            ? fileName
-            : fileName + ".instrumented"
+        fileName === "--" ? fileName : fileName + ".instrumented"
     );
 
     return {

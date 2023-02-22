@@ -2,24 +2,15 @@
 /// Use --disarm prior to make any changes.
 pragma solidity 0.8.7;
 
-/// Utility contract holding a stack counter
-contract __scribble_ReentrancyUtils {
-    event AssertionFailed(string message);
-
-    event AssertionFailedData(int eventId, bytes encodingData);
-
-    bool __scribble_out_of_contract = true;
-}
-
 /// #define id(uint x) uint = x + 1 - 1;
-contract TestUnchecked is __scribble_ReentrancyUtils {
+contract TestUnchecked {
     uint8 internal x = 100;
 
     function foo() public {
         _original_TestUnchecked_foo();
         unchecked {
             if (!(x == 1)) {
-                emit AssertionFailed("3: S1");
+                emit __ScribbleUtilsLib__25.AssertionFailed("3: S1");
                 assert(false);
             }
         }
@@ -43,11 +34,11 @@ contract TestUnchecked is __scribble_ReentrancyUtils {
     function TestUnchecked_x_inline_initializer() internal {
         unchecked {
             if (!(id(x) > 0)) {
-                emit AssertionFailed("1: A1");
+                emit __ScribbleUtilsLib__25.AssertionFailed("1: A1");
                 assert(false);
             }
             if (!(x > 0)) {
-                emit AssertionFailed("2: U1");
+                emit __ScribbleUtilsLib__25.AssertionFailed("2: U1");
                 assert(false);
             }
         }
@@ -62,11 +53,11 @@ contract TestUnchecked is __scribble_ReentrancyUtils {
         RET0 = x;
         unchecked {
             if (!(id(x) > 0)) {
-                emit AssertionFailed("1: A1");
+                emit __ScribbleUtilsLib__25.AssertionFailed("1: A1");
                 assert(false);
             }
             if (!(x > 0)) {
-                emit AssertionFailed("2: U1");
+                emit __ScribbleUtilsLib__25.AssertionFailed("2: U1");
                 assert(false);
             }
         }
@@ -77,11 +68,11 @@ contract TestUnchecked is __scribble_ReentrancyUtils {
         RET1 = x;
         unchecked {
             if (!(id(x) > 0)) {
-                emit AssertionFailed("1: A1");
+                emit __ScribbleUtilsLib__25.AssertionFailed("1: A1");
                 assert(false);
             }
             if (!(x > 0)) {
-                emit AssertionFailed("2: U1");
+                emit __ScribbleUtilsLib__25.AssertionFailed("2: U1");
                 assert(false);
             }
         }
@@ -94,13 +85,39 @@ contract TestUnchecked is __scribble_ReentrancyUtils {
         RET2 = x;
         unchecked {
             if (!(id(x) > 0)) {
-                emit AssertionFailed("1: A1");
+                emit __ScribbleUtilsLib__25.AssertionFailed("1: A1");
                 assert(false);
             }
             if (!(x > 0)) {
-                emit AssertionFailed("2: U1");
+                emit __ScribbleUtilsLib__25.AssertionFailed("2: U1");
                 assert(false);
             }
+        }
+    }
+}
+
+library __ScribbleUtilsLib__25 {
+    event AssertionFailed(string message);
+
+    event AssertionFailedData(int eventId, bytes encodingData);
+
+    function assertionFailed(string memory arg_0) internal {
+        emit AssertionFailed(arg_0);
+    }
+
+    function assertionFailedData(int arg_0, bytes memory arg_1) internal {
+        emit AssertionFailedData(arg_0, arg_1);
+    }
+
+    function isInContract() internal returns (bool res) {
+        assembly {
+            res := sload(0x5f0b92cf9616afdee4f4136f66393f1343b027f01be893fa569eb2e2b667a40c)
+        }
+    }
+
+    function setInContract(bool v) internal {
+        assembly {
+            sstore(0x5f0b92cf9616afdee4f4136f66393f1343b027f01be893fa569eb2e2b667a40c, v)
         }
     }
 }

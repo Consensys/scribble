@@ -2,17 +2,8 @@
 /// Use --disarm prior to make any changes.
 pragma solidity 0.8.7;
 
-/// Utility contract holding a stack counter
-contract __scribble_ReentrancyUtils {
-    event AssertionFailed(string message);
-
-    event AssertionFailedData(int eventId, bytes encodingData);
-
-    bool __scribble_out_of_contract = true;
-}
-
 /// #invariant sum < 200;
-contract AssertMixed is __scribble_ReentrancyUtils {
+contract AssertMixed {
     struct vars1 {
         bool __scribble_check_invs_at_end;
     }
@@ -30,17 +21,17 @@ contract AssertMixed is __scribble_ReentrancyUtils {
 
     function main(uint[] memory n) public {
         vars1 memory _v;
-        _v.__scribble_check_invs_at_end = __scribble_out_of_contract;
-        __scribble_out_of_contract = false;
+        _v.__scribble_check_invs_at_end = !__ScribbleUtilsLib__34.isInContract();
+        __ScribbleUtilsLib__34.setInContract(true);
         _original_AssertMixed_main(n);
         unchecked {
             if (!(n.length < 10)) {
-                emit AssertionFailed("2: ");
+                emit __ScribbleUtilsLib__34.AssertionFailed("2: ");
                 assert(false);
             }
         }
         if (_v.__scribble_check_invs_at_end) __scribble_check_state_invariants();
-        __scribble_out_of_contract = _v.__scribble_check_invs_at_end;
+        __ScribbleUtilsLib__34.setInContract(!_v.__scribble_check_invs_at_end);
     }
 
     function _original_AssertMixed_main(uint[] memory n) private {
@@ -52,14 +43,14 @@ contract AssertMixed is __scribble_ReentrancyUtils {
                 if (!_v.forall_0) break;
             }
             if (!(_v.forall_0)) {
-                emit AssertionFailed("3: ");
+                emit __ScribbleUtilsLib__34.AssertionFailed("3: ");
                 assert(false);
             }
         }
         for (uint i = 0; i < n.length; i++) {
             unchecked {
                 if (!(n[i] > 2)) {
-                    emit AssertionFailed("4: ");
+                    emit __ScribbleUtilsLib__34.AssertionFailed("4: ");
                     assert(false);
                 }
             }
@@ -71,7 +62,7 @@ contract AssertMixed is __scribble_ReentrancyUtils {
     function __scribble_AssertMixed_check_state_invariants_internal() internal {
         unchecked {
             if (!(sum < 200)) {
-                emit AssertionFailed("0: ");
+                emit __ScribbleUtilsLib__34.AssertionFailed("0: ");
                 assert(false);
             }
         }
@@ -83,9 +74,9 @@ contract AssertMixed is __scribble_ReentrancyUtils {
     }
 
     constructor() {
-        __scribble_out_of_contract = false;
+        __ScribbleUtilsLib__34.setInContract(true);
         __scribble_check_state_invariants();
-        __scribble_out_of_contract = true;
+        __ScribbleUtilsLib__34.setInContract(false);
     }
 
     function AssertMixed_sum_uint256_plus_assign(uint256 ARG0) internal returns (uint256 RET0) {
@@ -97,9 +88,35 @@ contract AssertMixed is __scribble_ReentrancyUtils {
         RET0 = sum;
         unchecked {
             if (!((sum - _v.old_0) > 3)) {
-                emit AssertionFailed("1: ");
+                emit __ScribbleUtilsLib__34.AssertionFailed("1: ");
                 assert(false);
             }
+        }
+    }
+}
+
+library __ScribbleUtilsLib__34 {
+    event AssertionFailed(string message);
+
+    event AssertionFailedData(int eventId, bytes encodingData);
+
+    function assertionFailed(string memory arg_0) internal {
+        emit AssertionFailed(arg_0);
+    }
+
+    function assertionFailedData(int arg_0, bytes memory arg_1) internal {
+        emit AssertionFailedData(arg_0, arg_1);
+    }
+
+    function isInContract() internal returns (bool res) {
+        assembly {
+            res := sload(0x5f0b92cf9616afdee4f4136f66393f1343b027f01be893fa569eb2e2b667a40c)
+        }
+    }
+
+    function setInContract(bool v) internal {
+        assembly {
+            sstore(0x5f0b92cf9616afdee4f4136f66393f1343b027f01be893fa569eb2e2b667a40c, v)
         }
     }
 }

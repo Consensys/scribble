@@ -1,10 +1,9 @@
 #!/usr/bin/env node
 import fse from "fs-extra";
-import { dirname, join, normalize, relative, resolve } from "path";
+import { join, resolve } from "path";
 import {
     assert,
     ASTContext,
-    ASTNodeFactory,
     ASTReader,
     CompilationOutput,
     CompileFailedError,
@@ -55,7 +54,6 @@ import { CHA, getCHA } from "../instrumenter/cha";
 import { AbsDatastructurePath, interposeMap } from "../instrumenter/custom_maps";
 import { findDeprecatedAnnotations, Warning } from "../instrumenter/deprecated_warnings";
 import {
-    generateUtilsContract,
     instrumentContract,
     instrumentFunction,
     instrumentStatement,
@@ -91,7 +89,6 @@ import {
 import { YamlSchemaError } from "../util/yaml";
 import cli from "./scribble_cli.json";
 
-const glob = require("glob");
 const commandLineArgs = require("command-line-args");
 const commandLineUsage = require("command-line-usage");
 
@@ -350,6 +347,11 @@ function instrumentFiles(
                 continue;
             }
 
+            // Nothing to do if this is a scribble-generated contract
+            if (ctx.isScribbleGeneratedContract(contract)) {
+                continue;
+            }
+
             if (needsStateInvariantInstr || userFuns.length > 0 || userConsts.length > 0) {
                 worklist.push([contract, contractAnnot]);
                 assert(
@@ -499,104 +501,6 @@ export function applyRemappings(
     }
 
     return [path, undefined, undefined];
-}
-
-/**
- * This functions picks the location where we will place the `__scribble_ReentrancyUtils.sol` file.
- * Optionally, in some cases it also returns the exact import path we should use. There are 3 cases:
- *
- * 1. If the user specified a --utils-output-path command line option just use that
- * 2. If there is some path remapping from say @openzeppelin to node_modules/@openzeppelin and there is a package.json
- *    somewhere inside in say node_modules/@openzeppelin/contracts then put the file in the same directory
- *    as the package.json. Also return an import path starting with the remap prefix (e.g. @openzeppelin)
- * 3. Otherwise if we have some --include-path's specified, and we have an instrumented file that lives under some --include-path
- *    put the utils there. Return the relative path from the include path to the target.
- * 4. Otherwise put the utils file in the same directory as the first target contract.
- *
- * This complex procedure is needed to support truffle in-place compilation when instrumentation
- * impacts files under node_modules (see https://github.com/ConsenSys/scribble/issues/160) for more details.
- */
-function pickUtilsLocAndImport(
-    explicitUtilsPath: string | undefined,
-    pathRemappings: Iterable<Remapping>,
-    includePaths: string[],
-    resolvedFilesMap: Map<string, string>,
-    targets: string[],
-    basePath: string
-): [string, string | undefined] {
-    // 1. If the the user specified a --utils-module-path then use that
-    if (explicitUtilsPath !== undefined) {
-        return [explicitUtilsPath, undefined];
-    }
-
-    // 2. Otherwise, if we have an import X/Y/Z.sol that is remapped to some
-    // node_modules directory node_modules/X/Y/Z.sol, find a sub-directory
-    // of node_modules/X that contains a package.json and use that.
-    // The requirement for there to be a package.json file comes from hardhat's resolver.
-    for (const [, prefix, remappedPrefix] of pathRemappings) {
-        const pkgPaths: string[] = glob.sync(join(basePath, remappedPrefix, "**", "package.json"));
-
-        if (pkgPaths.length === 0) {
-            continue;
-        }
-
-        const pkgPath = dirname(pkgPaths[0]);
-        const normalizedPrefix = normalize(remappedPrefix);
-        const normalizedBasePath = normalize(basePath);
-        return [pkgPath, pkgPath.replace(normalizedBasePath, "").replace(normalizedPrefix, prefix)];
-    }
-
-    // 3. Check if we can put the unit under some --include-path
-    if (includePaths.length > 0) {
-        for (const includePath of includePaths) {
-            for (const [, resolvedPath] of resolvedFilesMap) {
-                if (resolvedPath.startsWith(includePath)) {
-                    const resolvedDir = dirname(resolvedPath);
-                    let importPath = resolvedDir.replace(includePath, "");
-
-                    if (importPath.startsWith("/")) {
-                        importPath = importPath.slice(1);
-                    }
-                    return [resolvedDir, importPath];
-                }
-            }
-        }
-    }
-
-    // 4. If no remapping to a node-module was found, then place the utils unit alongside the
-    // first target contract.
-    const targetDir =
-        targets[0] !== "--"
-            ? relative(process.cwd(), dirname(fse.realpathSync(targets[0])))
-            : targets[0];
-
-    return [targetDir, undefined];
-}
-
-function makeUtilsUnit(
-    utilsOutputDir: string,
-    utilsRemappedImportPath: string | undefined,
-    factory: ASTNodeFactory,
-    version: string,
-    ctx: InstrumentationContext
-): SourceUnit {
-    let utilsPath = "__scribble_ReentrancyUtils.sol";
-    let utilsAbsPath = "__scribble_ReentrancyUtils.sol";
-
-    if (utilsOutputDir !== "--") {
-        utilsPath = join(utilsOutputDir, "__scribble_ReentrancyUtils.sol");
-
-        utilsAbsPath = join(fse.realpathSync(utilsOutputDir), "__scribble_ReentrancyUtils.sol");
-    }
-
-    return generateUtilsContract(
-        factory,
-        utilsPath,
-        utilsRemappedImportPath,
-        utilsAbsPath,
-        version,
-        ctx
-    );
 }
 
 function copy(from: string, to: string, options: any): void {
@@ -1113,23 +1017,6 @@ function loadInstrMetaData(fileName: string): InstrumentationMetaData {
             }
         }
 
-        const [utilsOutputDir, utilsRemappedImportPath] = pickUtilsLocAndImport(
-            options["utils-output-path"],
-            allRemappings.values(),
-            includePaths,
-            resolvedFilesMap,
-            rebasedTargets,
-            basePath
-        );
-
-        const utilsUnit = makeUtilsUnit(
-            utilsOutputDir,
-            utilsRemappedImportPath,
-            factory,
-            compilerVersionUsed,
-            instrCtx
-        );
-
         try {
             // Check that none of the map state vars to be overwritten is aliased
             for (const [stateVar] of interposingQueue) {
@@ -1145,7 +1032,7 @@ function loadInstrMetaData(fileName: string): InstrumentationMetaData {
             throw e;
         }
 
-        const allUnits: SourceUnit[] = [...instrCtx.units, utilsUnit];
+        const allUnits: SourceUnit[] = [...instrCtx.units];
         const newSrcMap: SrcRangeMap = new Map();
 
         let modifiedFiles: SourceUnit[];
@@ -1224,7 +1111,7 @@ function loadInstrMetaData(fileName: string): InstrumentationMetaData {
                 );
             }
 
-            modifiedFiles = [...instrCtx.changedUnits, utilsUnit];
+            modifiedFiles = [...instrCtx.changedUnits];
             // 1. In 'files' mode first write out the files
             const newContents = instrCtx.printUnits(
                 modifiedFiles,
@@ -1242,9 +1129,6 @@ function loadInstrMetaData(fileName: string): InstrumentationMetaData {
 
                 fse.writeFileSync(instrumentedFileName, newContents.get(unit) as string);
             }
-
-            // 3. Write out the utils contract
-            fse.writeFileSync(utilsUnit.absolutePath, newContents.get(utilsUnit) as string);
 
             // 4. Finally if --arm is passed put the instrumented files in-place
             if (options["arm"]) {

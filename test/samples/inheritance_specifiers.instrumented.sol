@@ -2,24 +2,15 @@
 /// Use --disarm prior to make any changes.
 pragma solidity 0.8.7;
 
-/// Utility contract holding a stack counter
-contract __scribble_ReentrancyUtils {
-    event AssertionFailed(string message);
-
-    event AssertionFailedData(int eventId, bytes encodingData);
-
-    bool __scribble_out_of_contract = true;
-}
-
-contract A is __scribble_ReentrancyUtils {
+contract A {
     uint public a;
 
     constructor(uint _a) {
-        __scribble_out_of_contract = false;
+        __ScribbleUtilsLib__32.setInContract(true);
         require(_a >= 0);
         a = _a;
         __scribble_check_state_invariants();
-        __scribble_out_of_contract = true;
+        __ScribbleUtilsLib__32.setInContract(false);
     }
 
     /// Check only the current contract's state invariants
@@ -31,19 +22,45 @@ contract A is __scribble_ReentrancyUtils {
     }
 }
 
+library __ScribbleUtilsLib__32 {
+    event AssertionFailed(string message);
+
+    event AssertionFailedData(int eventId, bytes encodingData);
+
+    function assertionFailed(string memory arg_0) internal {
+        emit AssertionFailed(arg_0);
+    }
+
+    function assertionFailedData(int arg_0, bytes memory arg_1) internal {
+        emit AssertionFailedData(arg_0, arg_1);
+    }
+
+    function isInContract() internal returns (bool res) {
+        assembly {
+            res := sload(0x5f0b92cf9616afdee4f4136f66393f1343b027f01be893fa569eb2e2b667a40c)
+        }
+    }
+
+    function setInContract(bool v) internal {
+        assembly {
+            sstore(0x5f0b92cf9616afdee4f4136f66393f1343b027f01be893fa569eb2e2b667a40c, v)
+        }
+    }
+}
+
 /// #invariant a > 0;
-contract B is __scribble_ReentrancyUtils, A {
+contract B is A {
     constructor() A(1) {
-        __scribble_out_of_contract = false;
+        __ScribbleUtilsLib__32.setInContract(true);
         __scribble_check_state_invariants();
-        __scribble_out_of_contract = true;
+        __ScribbleUtilsLib__32.setInContract(false);
     }
 
     /// Check only the current contract's state invariants
     function __scribble_B_check_state_invariants_internal() internal {
         unchecked {
             if (!(a > 0)) {
-                emit AssertionFailed("0: ");
+                emit __ScribbleUtilsLib__32.AssertionFailed("0: ");
                 assert(false);
             }
         }

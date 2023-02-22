@@ -2,16 +2,7 @@
 /// Use --disarm prior to make any changes.
 pragma solidity 0.8.7;
 
-/// Utility contract holding a stack counter
-contract __scribble_ReentrancyUtils {
-    event AssertionFailed(string message);
-
-    event AssertionFailedData(int eventId, bytes encodingData);
-
-    bool __scribble_out_of_contract = true;
-}
-
-contract Base is __scribble_ReentrancyUtils {
+contract Base {
     struct S {
         uint[] arr;
         uint[][] arr2;
@@ -36,7 +27,7 @@ contract Base is __scribble_ReentrancyUtils {
     function Base_arr_inline_initializer() internal {
         unchecked {
             if (!(arr.length > 0)) {
-                emit AssertionFailed("1: ");
+                emit __ScribbleUtilsLib__80.AssertionFailed("1: ");
                 assert(false);
             }
         }
@@ -45,7 +36,7 @@ contract Base is __scribble_ReentrancyUtils {
     function Base_arr2_inline_initializer() internal {
         unchecked {
             if (!(arr2.length > 0)) {
-                emit AssertionFailed("3: ");
+                emit __ScribbleUtilsLib__80.AssertionFailed("3: ");
                 assert(false);
             }
         }
@@ -54,7 +45,7 @@ contract Base is __scribble_ReentrancyUtils {
     function Base_s_inline_initializer() internal {
         unchecked {
             if (!(s.arr.length > 0)) {
-                emit AssertionFailed("6: ");
+                emit __ScribbleUtilsLib__80.AssertionFailed("6: ");
                 assert(false);
             }
         }
@@ -69,7 +60,7 @@ contract Base is __scribble_ReentrancyUtils {
         RET0 = x;
         unchecked {
             if (!(x >= _v.old_0)) {
-                emit AssertionFailed("0: ");
+                emit __ScribbleUtilsLib__80.AssertionFailed("0: ");
                 assert(false);
             }
         }
@@ -80,7 +71,7 @@ contract Base is __scribble_ReentrancyUtils {
         RET1 = arr;
         unchecked {
             if (!(arr.length > 0)) {
-                emit AssertionFailed("1: ");
+                emit __ScribbleUtilsLib__80.AssertionFailed("1: ");
                 assert(false);
             }
         }
@@ -91,9 +82,35 @@ contract Base is __scribble_ReentrancyUtils {
         RET2 = arr2;
         unchecked {
             if (!(arr2.length > 0)) {
-                emit AssertionFailed("3: ");
+                emit __ScribbleUtilsLib__80.AssertionFailed("3: ");
                 assert(false);
             }
+        }
+    }
+}
+
+library __ScribbleUtilsLib__80 {
+    event AssertionFailed(string message);
+
+    event AssertionFailedData(int eventId, bytes encodingData);
+
+    function assertionFailed(string memory arg_0) internal {
+        emit AssertionFailed(arg_0);
+    }
+
+    function assertionFailedData(int arg_0, bytes memory arg_1) internal {
+        emit AssertionFailedData(arg_0, arg_1);
+    }
+
+    function isInContract() internal returns (bool res) {
+        assembly {
+            res := sload(0x5f0b92cf9616afdee4f4136f66393f1343b027f01be893fa569eb2e2b667a40c)
+        }
+    }
+
+    function setInContract(bool v) internal {
+        assembly {
+            sstore(0x5f0b92cf9616afdee4f4136f66393f1343b027f01be893fa569eb2e2b667a40c, v)
         }
     }
 }

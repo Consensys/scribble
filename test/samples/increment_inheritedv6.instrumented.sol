@@ -7,20 +7,37 @@ abstract contract Base {
     function foo(uint256 x) virtual public returns (uint256 y);
 }
 
-/// Utility contract holding a stack counter
-contract __scribble_ReentrancyUtils {
+library __ScribbleUtilsLib__27 {
     event AssertionFailed(string message);
 
     event AssertionFailedData(int eventId, bytes encodingData);
 
-    bool __scribble_out_of_contract = true;
+    function assertionFailed(string memory arg_0) internal {
+        emit AssertionFailed(arg_0);
+    }
+
+    function assertionFailedData(int arg_0, bytes memory arg_1) internal {
+        emit AssertionFailedData(arg_0, arg_1);
+    }
+
+    function isInContract() internal returns (bool res) {
+        assembly {
+            res := sload(0x5f0b92cf9616afdee4f4136f66393f1343b027f01be893fa569eb2e2b667a40c)
+        }
+    }
+
+    function setInContract(bool v) internal {
+        assembly {
+            sstore(0x5f0b92cf9616afdee4f4136f66393f1343b027f01be893fa569eb2e2b667a40c, v)
+        }
+    }
 }
 
-contract Foo is __scribble_ReentrancyUtils, Base {
+contract Foo is Base {
     function foo(uint256 x) override public returns (uint256 y) {
         y = _original_Foo_foo(x);
         if (!(y == (x + 1))) {
-            emit AssertionFailed("0: P0");
+            emit __ScribbleUtilsLib__27.AssertionFailed("0: P0");
             assert(false);
         }
     }

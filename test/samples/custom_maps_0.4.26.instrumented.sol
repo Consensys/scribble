@@ -2,16 +2,34 @@
 /// Use --disarm prior to make any changes.
 pragma solidity 0.4.26;
 
-/// Utility contract holding a stack counter
-contract __scribble_ReentrancyUtils {
-    event AssertionFailed(string message);
+contract Foo {
+    struct vars0 {
+        uint256 i0;
+        address a0;
+        bool forall_0;
+    }
 
-    event AssertionFailedData(int eventId, bytes encodingData);
+    address_to_uint256_11.S private _valueMap;
 
-    bool __scribble_out_of_contract = true;
+    function foo() public {
+        vars0 memory _v;
+        _original_Foo_foo();
+        _v.forall_0 = true;
+        for (_v.i0 = 1; _v.i0 < _valueMap.keys.length; _v.i0++) {
+            _v.a0 = _valueMap.keys[_v.i0];
+            _v.forall_0 = address_to_uint256_11.get(_valueMap, _v.a0) > 0;
+            if (!_v.forall_0) break;
+        }
+        if (!(_v.forall_0)) {
+            __ScribbleUtilsLib__11.assertionFailed("0: ");
+            assert(false);
+        }
+    }
+
+    function _original_Foo_foo() private {}
 }
 
-library address_to_uint256 {
+library address_to_uint256_11 {
     struct S {
         mapping(address => uint256) innerM;
         address[] keys;
@@ -48,29 +66,28 @@ library address_to_uint256 {
     }
 }
 
-contract Foo is __scribble_ReentrancyUtils {
-    struct vars0 {
-        uint256 i0;
-        address a0;
-        bool forall_0;
+library __ScribbleUtilsLib__11 {
+    event AssertionFailed(string message);
+
+    event AssertionFailedData(int eventId, bytes encodingData);
+
+    function assertionFailed(string memory arg_0) internal {
+        emit AssertionFailed(arg_0);
     }
 
-    address_to_uint256.S private _valueMap;
+    function assertionFailedData(int arg_0, bytes memory arg_1) internal {
+        emit AssertionFailedData(arg_0, arg_1);
+    }
 
-    function foo() public {
-        vars0 memory _v;
-        _original_Foo_foo();
-        _v.forall_0 = true;
-        for (_v.i0 = 1; _v.i0 < _valueMap.keys.length; _v.i0++) {
-            _v.a0 = _valueMap.keys[_v.i0];
-            _v.forall_0 = address_to_uint256.get(_valueMap, _v.a0) > 0;
-            if (!_v.forall_0) break;
-        }
-        if (!(_v.forall_0)) {
-            emit AssertionFailed("0: ");
-            assert(false);
+    function isInContract() internal returns (bool res) {
+        assembly {
+            res := sload(0x5f0b92cf9616afdee4f4136f66393f1343b027f01be893fa569eb2e2b667a40c)
         }
     }
 
-    function _original_Foo_foo() private {}
+    function setInContract(bool v) internal {
+        assembly {
+            sstore(0x5f0b92cf9616afdee4f4136f66393f1343b027f01be893fa569eb2e2b667a40c, v)
+        }
+    }
 }

@@ -2,16 +2,7 @@
 /// Use --disarm prior to make any changes.
 pragma solidity 0.5.11;
 
-/// Utility contract holding a stack counter
-contract __scribble_ReentrancyUtils {
-    event AssertionFailed(string message);
-
-    event AssertionFailedData(int eventId, bytes encodingData);
-
-    bool __scribble_out_of_contract = true;
-}
-
-contract FooToken is __scribble_ReentrancyUtils {
+contract FooToken {
     event Transfer(address indexed _from, address indexed _to, uint256 _value);
 
     event Approval(address indexed _owner, address indexed _spender, uint256 _value);
@@ -46,7 +37,7 @@ contract FooToken is __scribble_ReentrancyUtils {
         _v.old_0 = _balances[msg.sender] + _balances[_to];
         RET_0 = _original_FooToken_transfer(_to, _value);
         if (!(_v.old_0 == (_balances[msg.sender] + _balances[_to]))) {
-            emit AssertionFailed("0: P0");
+            __ScribbleUtilsLib__237.assertionFailed("0: P0");
             assert(false);
         }
     }
@@ -78,5 +69,31 @@ contract FooToken is __scribble_ReentrancyUtils {
         _allowances[_from][msg.sender] -= _value;
         emit Transfer(_from, _to, _value);
         return true;
+    }
+}
+
+library __ScribbleUtilsLib__237 {
+    event AssertionFailed(string message);
+
+    event AssertionFailedData(int eventId, bytes encodingData);
+
+    function assertionFailed(string memory arg_0) internal {
+        emit AssertionFailed(arg_0);
+    }
+
+    function assertionFailedData(int arg_0, bytes memory arg_1) internal {
+        emit AssertionFailedData(arg_0, arg_1);
+    }
+
+    function isInContract() internal returns (bool res) {
+        assembly {
+            res := sload(0x5f0b92cf9616afdee4f4136f66393f1343b027f01be893fa569eb2e2b667a40c)
+        }
+    }
+
+    function setInContract(bool v) internal {
+        assembly {
+            sstore(0x5f0b92cf9616afdee4f4136f66393f1343b027f01be893fa569eb2e2b667a40c, v)
+        }
     }
 }

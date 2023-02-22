@@ -41,9 +41,7 @@
       "146:6:3"
     ]
   ],
-  "otherInstrumentation": [
-    "451:38:0"
-  ],
+  "otherInstrumentation": [],
   "propertyMap": [],
   "originalSourceList": [
     "test/multifile_samples/reexported_imports/imp1.sol",
@@ -53,5 +51,6 @@
   ],
   "instrSourceList": [
     "--"
-  ]
+  ],
+  "scribbleVersion": "0.6.17"
 }

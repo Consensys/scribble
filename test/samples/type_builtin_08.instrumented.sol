@@ -14,51 +14,68 @@ contract Boo {
     function foo() external {}
 }
 
-/// Utility contract holding a stack counter
-contract __scribble_ReentrancyUtils {
-    event AssertionFailed(string message);
-
-    event AssertionFailedData(int eventId, bytes encodingData);
-
-    bool __scribble_out_of_contract = true;
-}
-
-contract UserDefinedValueTypes is __scribble_ReentrancyUtils {
+contract UserDefinedValueTypes {
     type Quantity is uint32;
 
     function main(uint32 a, int64 b, A c) public {
         _original_UserDefinedValueTypes_main(a, b, c);
         unchecked {
             if (!((a >= type(uint32).min) && (a <= type(uint32).max))) {
-                emit AssertionFailed("0: ");
+                emit __ScribbleUtilsLib__32.AssertionFailed("0: ");
                 assert(false);
             }
             if (!((b >= type(int64).min) && (b <= type(int64).max))) {
-                emit AssertionFailed("1: ");
+                emit __ScribbleUtilsLib__32.AssertionFailed("1: ");
                 assert(false);
             }
             if (!((c != type(A).min) && (c != type(A).max))) {
-                emit AssertionFailed("2: ");
+                emit __ScribbleUtilsLib__32.AssertionFailed("2: ");
                 assert(false);
             }
             if (!(keccak256(bytes(type(IFace).name)) == keccak256(bytes("IFace")))) {
-                emit AssertionFailed("3: ");
+                emit __ScribbleUtilsLib__32.AssertionFailed("3: ");
                 assert(false);
             }
             if (!(keccak256(type(Boo).creationCode) == bytes32(0x0))) {
-                emit AssertionFailed("4: ");
+                emit __ScribbleUtilsLib__32.AssertionFailed("4: ");
                 assert(false);
             }
             if (!(keccak256(type(Boo).runtimeCode) == bytes32(0x0))) {
-                emit AssertionFailed("5: ");
+                emit __ScribbleUtilsLib__32.AssertionFailed("5: ");
                 assert(false);
             }
             if (!(type(IFace).interfaceId != bytes4(0x0))) {
-                emit AssertionFailed("6: ");
+                emit __ScribbleUtilsLib__32.AssertionFailed("6: ");
                 assert(false);
             }
         }
     }
 
     function _original_UserDefinedValueTypes_main(uint32 a, int64 b, A c) private {}
+}
+
+library __ScribbleUtilsLib__32 {
+    event AssertionFailed(string message);
+
+    event AssertionFailedData(int eventId, bytes encodingData);
+
+    function assertionFailed(string memory arg_0) internal {
+        emit AssertionFailed(arg_0);
+    }
+
+    function assertionFailedData(int arg_0, bytes memory arg_1) internal {
+        emit AssertionFailedData(arg_0, arg_1);
+    }
+
+    function isInContract() internal returns (bool res) {
+        assembly {
+            res := sload(0x5f0b92cf9616afdee4f4136f66393f1343b027f01be893fa569eb2e2b667a40c)
+        }
+    }
+
+    function setInContract(bool v) internal {
+        assembly {
+            sstore(0x5f0b92cf9616afdee4f4136f66393f1343b027f01be893fa569eb2e2b667a40c, v)
+        }
+    }
 }

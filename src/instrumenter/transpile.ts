@@ -657,9 +657,11 @@ function transpileFunctionCall(expr: SFunctionCall, ctx: TranspilingContext): Ex
                 argT
             );
 
-            const sumFun = ctx.instrCtx.arraySumFunMap.get(argT.to, argT.location);
-
-            ctx.instrCtx.needsUtils(ctx.containerContract.vScope);
+            const sumFun = ctx.instrCtx.arraySumFunMap.get(
+                argT.to,
+                argT.location,
+                ctx.contract.getClosestParentByType(SourceUnit) as SourceUnit
+            );
 
             return factory.makeFunctionCall(
                 "<missing>",

@@ -14,20 +14,11 @@ interface IERC721Receiver {
     function onERC721Received(address operator, address from, uint256 tokenId, bytes calldata data) external returns (bytes4);
 }
 
-/// Utility contract holding a stack counter
-contract __scribble_ReentrancyUtils {
-    event AssertionFailed(string message);
-
-    event AssertionFailedData(int eventId, bytes encodingData);
-
-    bool __scribble_out_of_contract = true;
-}
-
 ///  @dev Implementation of https://eips.ethereum.org/EIPS/eip-721[ERC721] Non-Fungible Token Standard, including
 ///  the Metadata extension, but not including the Enumerable extension, which is available separately as
 ///  {ERC721Enumerable}.
 ///  #macro erc721();
-contract ERC721 is __scribble_ReentrancyUtils {
+contract ERC721 {
     event Transfer(address from, address to, uint256 tokenId);
 
     event Approval(address owner, address operator, uint256 tokenId);
@@ -76,7 +67,7 @@ contract ERC721 is __scribble_ReentrancyUtils {
         RET_0 = _original_ERC721_balanceOf(owner);
         unchecked {
             if (!(owner != address(0))) {
-                emit AssertionFailed("1: NFTs cannot be owned by the 0 address");
+                emit __ScribbleUtilsLib__826.AssertionFailed("1: NFTs cannot be owned by the 0 address");
                 assert(false);
             }
         }
@@ -91,11 +82,11 @@ contract ERC721 is __scribble_ReentrancyUtils {
         RET_0 = _original_ERC721_ownerOf(tokenId);
         unchecked {
             if (!(RET_0 != address(0))) {
-                emit AssertionFailed("2: NFTs cannot be owned by the 0 address");
+                emit __ScribbleUtilsLib__826.AssertionFailed("2: NFTs cannot be owned by the 0 address");
                 assert(false);
             }
             if (!(_original_ERC721_balanceOf(RET_0) > 0)) {
-                emit AssertionFailed("3: ownerOf() should not contradict balanceOf");
+                emit __ScribbleUtilsLib__826.AssertionFailed("3: ownerOf() should not contradict balanceOf");
                 assert(false);
             }
         }
@@ -139,15 +130,15 @@ contract ERC721 is __scribble_ReentrancyUtils {
         _original_ERC721_approve(to, tokenId);
         unchecked {
             if (!((msg.sender == _original_ERC721_ownerOf(tokenId)) || isApprovedForAll(_original_ERC721_ownerOf(tokenId), msg.sender))) {
-                emit AssertionFailed("16: Sender must be properly authorized to approve");
+                emit __ScribbleUtilsLib__826.AssertionFailed("16: Sender must be properly authorized to approve");
                 assert(false);
             }
             if (!(getApproved(tokenId) == to)) {
-                emit AssertionFailed("17: Approve works correctly");
+                emit __ScribbleUtilsLib__826.AssertionFailed("17: Approve works correctly");
                 assert(false);
             }
             if (!(_original_ERC721_ownerOf(tokenId) == _v.old_0)) {
-                emit AssertionFailed("18: Approve doesn't change ownership");
+                emit __ScribbleUtilsLib__826.AssertionFailed("18: Approve doesn't change ownership");
                 assert(false);
             }
         }
@@ -170,7 +161,7 @@ contract ERC721 is __scribble_ReentrancyUtils {
         _original_ERC721_setApprovalForAll(operator, approved);
         unchecked {
             if (!(approved == isApprovedForAll(msg.sender, operator))) {
-                emit AssertionFailed("19: setApprovalForAll worked correctly");
+                emit __ScribbleUtilsLib__826.AssertionFailed("19: setApprovalForAll worked correctly");
                 assert(false);
             }
         }
@@ -196,19 +187,19 @@ contract ERC721 is __scribble_ReentrancyUtils {
         _original_ERC721_transferFrom(from, to, tokenId);
         unchecked {
             if (!(to != address(0))) {
-                emit AssertionFailed("12: Cannot transfer to 0 address");
+                emit __ScribbleUtilsLib__826.AssertionFailed("12: Cannot transfer to 0 address");
                 assert(false);
             }
             if (!(_v.old_1 == from)) {
-                emit AssertionFailed("13: from must be the current owner");
+                emit __ScribbleUtilsLib__826.AssertionFailed("13: from must be the current owner");
                 assert(false);
             }
             if (!(((msg.sender == _v.old_2) || _v.old_3) || (_v.old_4 == msg.sender))) {
-                emit AssertionFailed("14: Sender must be properly authorized to transfer");
+                emit __ScribbleUtilsLib__826.AssertionFailed("14: Sender must be properly authorized to transfer");
                 assert(false);
             }
             if (!(_original_ERC721_ownerOf(tokenId) == to)) {
-                emit AssertionFailed("15: Transfer worked");
+                emit __ScribbleUtilsLib__826.AssertionFailed("15: Transfer worked");
                 assert(false);
             }
         }
@@ -230,19 +221,19 @@ contract ERC721 is __scribble_ReentrancyUtils {
         _original_ERC721_safeTransferFrom(from, to, tokenId);
         unchecked {
             if (!(to != address(0))) {
-                emit AssertionFailed("8: Cannot transfer to 0 address");
+                emit __ScribbleUtilsLib__826.AssertionFailed("8: Cannot transfer to 0 address");
                 assert(false);
             }
             if (!(_v.old_5 == from)) {
-                emit AssertionFailed("9: from must be the current owner");
+                emit __ScribbleUtilsLib__826.AssertionFailed("9: from must be the current owner");
                 assert(false);
             }
             if (!(((msg.sender == _v.old_6) || _v.old_7) || (_v.old_8 == msg.sender))) {
-                emit AssertionFailed("10: Sender must be properly authorized to transfer");
+                emit __ScribbleUtilsLib__826.AssertionFailed("10: Sender must be properly authorized to transfer");
                 assert(false);
             }
             if (!(_original_ERC721_ownerOf(tokenId) == to)) {
-                emit AssertionFailed("11: Transfer worked");
+                emit __ScribbleUtilsLib__826.AssertionFailed("11: Transfer worked");
                 assert(false);
             }
         }
@@ -263,19 +254,19 @@ contract ERC721 is __scribble_ReentrancyUtils {
         _original_ERC721_safeTransferFrom1(from, to, tokenId, _data);
         unchecked {
             if (!(to != address(0))) {
-                emit AssertionFailed("4: Cannot transfer to 0 address");
+                emit __ScribbleUtilsLib__826.AssertionFailed("4: Cannot transfer to 0 address");
                 assert(false);
             }
             if (!(_v.old_9 == from)) {
-                emit AssertionFailed("5: from must be the current owner");
+                emit __ScribbleUtilsLib__826.AssertionFailed("5: from must be the current owner");
                 assert(false);
             }
             if (!(((msg.sender == _v.old_10) || _v.old_11) || (_v.old_12 == msg.sender))) {
-                emit AssertionFailed("6: Sender must be properly authorized to transfer");
+                emit __ScribbleUtilsLib__826.AssertionFailed("6: Sender must be properly authorized to transfer");
                 assert(false);
             }
             if (!(_original_ERC721_ownerOf(tokenId) == to)) {
-                emit AssertionFailed("7: Transfer worked");
+                emit __ScribbleUtilsLib__826.AssertionFailed("7: Transfer worked");
                 assert(false);
             }
         }
@@ -442,4 +433,30 @@ contract ERC721 is __scribble_ReentrancyUtils {
     ///  - `from` and `to` are never both zero.
     ///  To learn more about hooks, head to xref:ROOT:extending-contracts.adoc#using-hooks[Using Hooks].
     function _afterTokenTransfer(address from, address to, uint256 tokenId) virtual internal {}
+}
+
+library __ScribbleUtilsLib__826 {
+    event AssertionFailed(string message);
+
+    event AssertionFailedData(int eventId, bytes encodingData);
+
+    function assertionFailed(string memory arg_0) internal {
+        emit AssertionFailed(arg_0);
+    }
+
+    function assertionFailedData(int arg_0, bytes memory arg_1) internal {
+        emit AssertionFailedData(arg_0, arg_1);
+    }
+
+    function isInContract() internal returns (bool res) {
+        assembly {
+            res := sload(0x5f0b92cf9616afdee4f4136f66393f1343b027f01be893fa569eb2e2b667a40c)
+        }
+    }
+
+    function setInContract(bool v) internal {
+        assembly {
+            sstore(0x5f0b92cf9616afdee4f4136f66393f1343b027f01be893fa569eb2e2b667a40c, v)
+        }
+    }
 }

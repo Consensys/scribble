@@ -1,5 +1,5 @@
 import { InferType, SourceUnit } from "solc-typed-ast";
-import { generateUtilsContract, ScribbleFactory, SourceMap } from "../../src";
+import { ScribbleFactory, SourceMap } from "../../src";
 import { getCallGraph } from "../../src/instrumenter/callgraph";
 import { getCHA } from "../../src/instrumenter/cha";
 import { InstrumentationContext } from "../../src/instrumenter/instrumentation_context";
@@ -37,9 +37,6 @@ export function makeInstrumentationCtx(
         new Map(),
         []
     );
-
-    generateUtilsContract(factory, "", undefined, "scribble_utils.sol", compilerVersion, ctx)
-        .vContracts;
 
     return ctx;
 }
