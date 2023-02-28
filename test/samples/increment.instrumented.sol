@@ -6,7 +6,7 @@ contract Foo {
     function foo(uint256 x) public returns (uint256 y) {
         y = _original_Foo_foo(x);
         if (!(y == (x + 1))) {
-            emit __ScribbleUtilsLib__16.AssertionFailed("00296:065:00 0: P0");
+            emit __ScribbleUtilsLib__16.AssertionFailed("000296:0068:000 0: P0");
             assert(false);
         }
     }

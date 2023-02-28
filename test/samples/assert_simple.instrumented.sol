@@ -6,35 +6,35 @@ contract SimpleAsserts {
     function main(uint a1, uint a2, uint a3, bool b1, uint a4, uint a5, uint a6, uint a7, uint a8) public {
         unchecked {
             if (!(a1 == 1)) {
-                emit __ScribbleUtilsLib__59.AssertionFailed("00345:063:00 0: ");
+                emit __ScribbleUtilsLib__59.AssertionFailed("000345:0066:000 0: ");
                 assert(false);
             }
         }
         uint x = 2;
         unchecked {
             if (!(a2 == x)) {
-                emit __ScribbleUtilsLib__59.AssertionFailed("00551:063:00 1: ");
+                emit __ScribbleUtilsLib__59.AssertionFailed("000554:0066:000 1: ");
                 assert(false);
             }
         }
         x++;
         unchecked {
             if (!(a3 == x)) {
-                emit __ScribbleUtilsLib__59.AssertionFailed("00750:063:00 2: ");
+                emit __ScribbleUtilsLib__59.AssertionFailed("000756:0066:000 2: ");
                 assert(false);
             }
         }
         if (b1) {
             unchecked {
                 if (!(a4 == (x + 1))) {
-                    emit __ScribbleUtilsLib__59.AssertionFailed("00972:063:00 3: ");
+                    emit __ScribbleUtilsLib__59.AssertionFailed("000981:0066:000 3: ");
                     assert(false);
                 }
             }
             {
                 unchecked {
                     if (!(a5 == (x + 2))) {
-                        emit __ScribbleUtilsLib__59.AssertionFailed("01214:063:00 4: ");
+                        emit __ScribbleUtilsLib__59.AssertionFailed("001226:0066:000 4: ");
                         assert(false);
                     }
                 }
@@ -44,7 +44,7 @@ contract SimpleAsserts {
             x++;
             unchecked {
                 if (!(a6 == (x + 2))) {
-                    emit __ScribbleUtilsLib__59.AssertionFailed("01511:063:00 5: ");
+                    emit __ScribbleUtilsLib__59.AssertionFailed("001526:0066:000 5: ");
                     assert(false);
                 }
             }
@@ -53,7 +53,7 @@ contract SimpleAsserts {
         while (a6 > 0) {
             unchecked {
                 if (!(a7 >= (a6 + 1))) {
-                    emit __ScribbleUtilsLib__59.AssertionFailed("01782:063:00 6: ");
+                    emit __ScribbleUtilsLib__59.AssertionFailed("001800:0066:000 6: ");
                     assert(false);
                 }
             }
@@ -61,7 +61,7 @@ contract SimpleAsserts {
         }
         unchecked {
             if (!(a8 == (x + 4))) {
-                emit __ScribbleUtilsLib__59.AssertionFailed("02014:063:00 7: ");
+                emit __ScribbleUtilsLib__59.AssertionFailed("002035:0066:000 7: ");
                 assert(false);
             }
         }

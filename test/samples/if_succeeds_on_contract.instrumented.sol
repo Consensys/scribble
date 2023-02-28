@@ -11,15 +11,15 @@ contract Foo {
     function inc(uint x) public returns (uint y) {
         y = _original_Foo_inc(x);
         if (!(b == (a ^ 1))) {
-            emit __ScribbleUtilsLib__69.AssertionFailed("00415:063:00 2: ");
+            emit __ScribbleUtilsLib__69.AssertionFailed("000415:0066:000 2: ");
             assert(false);
         }
         if (!(b == (a + 1))) {
-            emit __ScribbleUtilsLib__69.AssertionFailed("00560:063:00 0: ");
+            emit __ScribbleUtilsLib__69.AssertionFailed("000563:0066:000 0: ");
             assert(false);
         }
         if (!(b == (a & 1))) {
-            emit __ScribbleUtilsLib__69.AssertionFailed("00705:063:00 1: ");
+            emit __ScribbleUtilsLib__69.AssertionFailed("000711:0066:000 1: ");
             assert(false);
         }
     }

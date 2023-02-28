@@ -21,31 +21,31 @@ contract UserDefinedValueTypes {
         _original_UserDefinedValueTypes_main(a, b, c);
         unchecked {
             if (!((a >= type(uint32).min) && (a <= type(uint32).max))) {
-                emit __ScribbleUtilsLib__32.AssertionFailed("00566:063:00 0: ");
+                emit __ScribbleUtilsLib__32.AssertionFailed("000566:0066:000 0: ");
                 assert(false);
             }
             if (!((b >= type(int64).min) && (b <= type(int64).max))) {
-                emit __ScribbleUtilsLib__32.AssertionFailed("00763:063:00 1: ");
+                emit __ScribbleUtilsLib__32.AssertionFailed("000766:0066:000 1: ");
                 assert(false);
             }
             if (!((c != type(A).min) && (c != type(A).max))) {
-                emit __ScribbleUtilsLib__32.AssertionFailed("00952:063:00 2: ");
+                emit __ScribbleUtilsLib__32.AssertionFailed("000958:0066:000 2: ");
                 assert(false);
             }
             if (!(keccak256(bytes(type(IFace).name)) == keccak256(bytes("IFace")))) {
-                emit __ScribbleUtilsLib__32.AssertionFailed("01164:063:00 3: ");
+                emit __ScribbleUtilsLib__32.AssertionFailed("001173:0066:000 3: ");
                 assert(false);
             }
             if (!(keccak256(type(Boo).creationCode) == bytes32(0x0))) {
-                emit __ScribbleUtilsLib__32.AssertionFailed("01362:063:00 4: ");
+                emit __ScribbleUtilsLib__32.AssertionFailed("001374:0066:000 4: ");
                 assert(false);
             }
             if (!(keccak256(type(Boo).runtimeCode) == bytes32(0x0))) {
-                emit __ScribbleUtilsLib__32.AssertionFailed("01559:063:00 5: ");
+                emit __ScribbleUtilsLib__32.AssertionFailed("001574:0066:000 5: ");
                 assert(false);
             }
             if (!(type(IFace).interfaceId != bytes4(0x0))) {
-                emit __ScribbleUtilsLib__32.AssertionFailed("01746:063:00 6: ");
+                emit __ScribbleUtilsLib__32.AssertionFailed("001764:0066:000 6: ");
                 assert(false);
             }
         }

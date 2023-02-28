@@ -17,7 +17,7 @@ contract Child1 is Base {
         _v.old_0 = x;
         _original_Child1_add(y);
         if (!(x == (_v.old_0 + y))) {
-            emit __ScribbleUtilsLib__25.AssertionFailed("00599:065:01 1: P1");
+            emit __ScribbleUtilsLib__25.AssertionFailed("000599:0068:001 1: P1");
             assert(false);
         }
         if (_v.__scribble_check_invs_at_end) __scribble_check_state_invariants();

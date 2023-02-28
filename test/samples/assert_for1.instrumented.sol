@@ -7,7 +7,7 @@ contract Foo {
         uint sum = 0;
         unchecked {
             if (!(true)) {
-                emit __ScribbleUtilsLib__30.AssertionFailed("00282:063:00 0: ");
+                emit __ScribbleUtilsLib__30.AssertionFailed("000282:0066:000 0: ");
                 assert(false);
             }
         }

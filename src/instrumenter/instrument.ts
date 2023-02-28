@@ -228,7 +228,7 @@ function emitAssert(
     let userAssertionHit: Statement | undefined;
 
     if (instrCtx.assertionMode === "log") {
-        const strMessage = `00000:000:00 ${annotation.id}: ${annotation.message}`;
+        const strMessage = `000000:0000:000 ${annotation.id}: ${annotation.message}`;
         const message = factory.makeLiteral("<missing>", LiteralKind.String, "", strMessage);
 
         userAssertFailed = makeEmitStmt(instrCtx, event, [message]);

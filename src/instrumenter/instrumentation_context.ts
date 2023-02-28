@@ -499,19 +499,19 @@ export class InstrumentationContext {
                 contents[strLoc[0]]
             );
             assert(
-                contents.startsWith("00000:000:00", strLoc[0] + 1),
+                contents.startsWith("000000:0000:000", strLoc[0] + 1),
                 `Expected 00000:000:00 at {0} not {1}`,
                 strLoc[0] + 1,
-                contents.slice(strLoc[0] + 1, strLoc[0] + 13)
+                contents.slice(strLoc[0] + 1, strLoc[0] + 16)
             );
 
             contents =
                 contents.slice(0, strLoc[0] + 1) +
-                `${String(newLoc[0]).padStart(5, "0")}:${String(newLoc[1]).padStart(
-                    3,
+                `${String(newLoc[0]).padStart(6, "0")}:${String(newLoc[1]).padStart(
+                    4,
                     "0"
-                )}:${String(fileInd).padStart(2, "0")}` +
-                contents.slice(strLoc[0] + 13);
+                )}:${String(fileInd).padStart(3, "0")}` +
+                contents.slice(strLoc[0] + 16);
         }
 
         return contents;

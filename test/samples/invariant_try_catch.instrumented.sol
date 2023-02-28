@@ -31,7 +31,7 @@ contract Foo {
     function __scribble_Foo_check_state_invariants_internal() internal {
         unchecked {
             if (!(true)) {
-                emit __ScribbleUtilsLib__49.AssertionFailed("01103:063:00 0: ");
+                emit __ScribbleUtilsLib__49.AssertionFailed("001103:0066:000 0: ");
                 assert(false);
             }
         }

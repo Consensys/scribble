@@ -10,7 +10,7 @@ contract Foo {
         _original_Foo_pushA(k);
         unchecked {
             if (!((__ScribbleUtilsLib__91.sum_arr_uint256_arr_storage(a) > 10) && (__ScribbleUtilsLib__91.sum_arr_uint256_arr_storage(a) < 20))) {
-                emit __ScribbleUtilsLib__91.AssertionFailed("00466:063:00 0: ");
+                emit __ScribbleUtilsLib__91.AssertionFailed("000466:0066:000 0: ");
                 assert(false);
             }
         }
@@ -24,7 +24,7 @@ contract Foo {
         _original_Foo_setA(k, v);
         unchecked {
             if (!((__ScribbleUtilsLib__91.sum_arr_uint256_arr_storage(a) > 10) && (__ScribbleUtilsLib__91.sum_arr_uint256_arr_storage(a) < 20))) {
-                emit __ScribbleUtilsLib__91.AssertionFailed("00930:063:00 1: ");
+                emit __ScribbleUtilsLib__91.AssertionFailed("000933:0066:000 1: ");
                 assert(false);
             }
         }
@@ -38,7 +38,7 @@ contract Foo {
         _original_Foo_pushB(k);
         unchecked {
             if (!((__ScribbleUtilsLib__91.sum_arr_int8_arr_storage(b) > (-10)) && (__ScribbleUtilsLib__91.sum_arr_int8_arr_storage(b) < 10))) {
-                emit __ScribbleUtilsLib__91.AssertionFailed("01388:063:00 2: ");
+                emit __ScribbleUtilsLib__91.AssertionFailed("001394:0066:000 2: ");
                 assert(false);
             }
         }
@@ -52,7 +52,7 @@ contract Foo {
         _original_Foo_setB(k, v);
         unchecked {
             if (!((__ScribbleUtilsLib__91.sum_arr_int8_arr_storage(b) > (-10)) && (__ScribbleUtilsLib__91.sum_arr_int8_arr_storage(b) < 10))) {
-                emit __ScribbleUtilsLib__91.AssertionFailed("01849:063:00 3: ");
+                emit __ScribbleUtilsLib__91.AssertionFailed("001858:0066:000 3: ");
                 assert(false);
             }
         }
@@ -66,7 +66,7 @@ contract Foo {
         _original_Foo_memArr(c);
         unchecked {
             if (!((__ScribbleUtilsLib__91.sum_arr_int16_arr_memory(c) > (-10)) && (__ScribbleUtilsLib__91.sum_arr_int16_arr_memory(c) < 10))) {
-                emit __ScribbleUtilsLib__91.AssertionFailed("02319:063:00 4: ");
+                emit __ScribbleUtilsLib__91.AssertionFailed("002331:0066:000 4: ");
                 assert(false);
             }
         }
@@ -78,7 +78,7 @@ contract Foo {
         _original_Foo_calldataArr(c);
         unchecked {
             if (!((__ScribbleUtilsLib__91.sum_arr_int16_arr_calldata(c) > (-10)) && (__ScribbleUtilsLib__91.sum_arr_int16_arr_calldata(c) < 10))) {
-                emit __ScribbleUtilsLib__91.AssertionFailed("02788:063:00 5: ");
+                emit __ScribbleUtilsLib__91.AssertionFailed("002803:0066:000 5: ");
                 assert(false);
             }
         }
@@ -90,7 +90,7 @@ contract Foo {
         _original_Foo_overflowCheck(c);
         unchecked {
             if (!(__ScribbleUtilsLib__91.sum_arr_uint256_arr_calldata(c) < 10)) {
-                emit __ScribbleUtilsLib__91.AssertionFailed("03201:063:00 6: ");
+                emit __ScribbleUtilsLib__91.AssertionFailed("003219:0066:000 6: ");
                 assert(false);
             }
         }

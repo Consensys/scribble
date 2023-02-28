@@ -17,7 +17,7 @@ contract TokenSale {
     function buy(uint256 numTokens) public payable {
         _original_TokenSale_buy(numTokens);
         if (!(address(this).balance >= 1)) {
-            __ScribbleUtilsLib__88.assertionFailed("00621:060:00 0: P0");
+            __ScribbleUtilsLib__88.assertionFailed("000621:0063:000 0: P0");
             assert(false);
         }
     }
@@ -30,7 +30,7 @@ contract TokenSale {
     function sell(uint256 numTokens) public {
         _original_TokenSale_sell(numTokens);
         if (!(address(this).balance >= 1)) {
-            __ScribbleUtilsLib__88.assertionFailed("01053:060:00 1: P1");
+            __ScribbleUtilsLib__88.assertionFailed("001056:0063:000 1: P1");
             assert(false);
         }
     }

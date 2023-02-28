@@ -19,7 +19,7 @@ contract A {
     function __scribble_A_check_state_invariants_internal() internal {
         unchecked {
             if (!(true)) {
-                emit __ScribbleUtilsLib__16.AssertionFailed("00687:063:00 0: ");
+                emit __ScribbleUtilsLib__16.AssertionFailed("000687:0066:000 0: ");
                 assert(false);
             }
         }

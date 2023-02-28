@@ -36,7 +36,7 @@ contract Ownable {
         RET0 = owner;
         unchecked {
             if (!(_v.old_0 == msg.sender)) {
-                emit __ScribbleUtilsLib__57.AssertionFailed("01042:094:00 1: can only be updated by an owner");
+                emit __ScribbleUtilsLib__57.AssertionFailed("001042:0097:000 1: can only be updated by an owner");
                 assert(false);
             }
         }

@@ -48,7 +48,7 @@ contract Foo {
     function __scribble_Foo_check_state_invariants_internal() internal {
         if (!(x > 0)) {
             emit __ScribbleUtilsLib__32.AssertionFailedData(0, abi.encode(x));
-            emit __ScribbleUtilsLib__32.AssertionFailed("01627:063:00 0: ");
+            emit __ScribbleUtilsLib__32.AssertionFailed("001627:0066:000 0: ");
         }
     }
 
