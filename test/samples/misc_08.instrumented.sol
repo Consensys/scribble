@@ -9,7 +9,7 @@ contract RevertStmt {
         _original_RevertStmt_foo();
         unchecked {
             if (!(false)) {
-                emit __ScribbleUtilsLib__13.AssertionFailed("0: ");
+                emit __ScribbleUtilsLib__13.AssertionFailed("000313:0066:000 0: ");
                 assert(false);
             }
         }

@@ -17,7 +17,7 @@ contract Child2 is Base {
         _v.old_1 = x;
         _original_Child2_double();
         if (!(x == (2 * _v.old_1))) {
-            emit __ScribbleUtilsLib__41.AssertionFailed("2: P2");
+            emit __ScribbleUtilsLib__41.AssertionFailed("000598:0068:002 2: P2");
             assert(false);
         }
         if (_v.__scribble_check_invs_at_end) __scribble_check_state_invariants();

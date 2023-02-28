@@ -21,7 +21,7 @@ contract PointerSwap {
 
     function PointerSwap_a_inline_initializer() internal {
         if (!(true)) {
-            __ScribbleUtilsLib__43.assertionFailed("0: ");
+            __ScribbleUtilsLib__43.assertionFailed("000676:0061:000 0: ");
             assert(false);
         }
     }
@@ -34,7 +34,7 @@ contract PointerSwap {
         a = ARG0;
         RET0 = a;
         if (!(true)) {
-            __ScribbleUtilsLib__43.assertionFailed("0: ");
+            __ScribbleUtilsLib__43.assertionFailed("001056:0061:000 0: ");
             assert(false);
         }
     }

@@ -18,7 +18,7 @@ contract Foo {
         _v.let_0 = _v.t == c;
         _v.let_1 = _v.let_0;
         if (!(_v.let_1)) {
-            emit __ScribbleUtilsLib__18.AssertionFailed("0: ");
+            emit __ScribbleUtilsLib__18.AssertionFailed("000527:0066:000 0: ");
             assert(false);
         }
     }

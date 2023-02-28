@@ -7,7 +7,7 @@ contract Foo {
         _original_Foo_foo(v);
         unchecked {
             if (!(abi.encode(v).length > 0)) {
-                emit __ScribbleUtilsLib__31.AssertionFailed("0: ");
+                emit __ScribbleUtilsLib__31.AssertionFailed("000309:0066:000 0: ");
                 assert(false);
             }
         }
@@ -19,7 +19,7 @@ contract Foo {
         _original_Foo_foo1(v);
         unchecked {
             if (!(abi.encodePacked(v).length > 0)) {
-                emit __ScribbleUtilsLib__31.AssertionFailed("1: ");
+                emit __ScribbleUtilsLib__31.AssertionFailed("000645:0066:000 1: ");
                 assert(false);
             }
         }
@@ -31,7 +31,7 @@ contract Foo {
         _original_Foo_foo2(v);
         unchecked {
             if (!(abi.encodeWithSelector(bytes4(hex"01020304"), v).length > 0)) {
-                emit __ScribbleUtilsLib__31.AssertionFailed("2: ");
+                emit __ScribbleUtilsLib__31.AssertionFailed("001011:0066:000 2: ");
                 assert(false);
             }
         }
@@ -43,7 +43,7 @@ contract Foo {
         _original_Foo_foo3(v);
         unchecked {
             if (!(abi.encodeWithSignature("dummy", v).length > 0)) {
-                emit __ScribbleUtilsLib__31.AssertionFailed("3: ");
+                emit __ScribbleUtilsLib__31.AssertionFailed("001364:0066:000 3: ");
                 assert(false);
             }
         }

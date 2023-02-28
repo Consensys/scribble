@@ -7,7 +7,7 @@ contract Foo {
         _original_Foo_main();
         unchecked {
             if (!(1 > 0)) {
-                emit __ScribbleUtilsLib__8.AssertionFailed("0: ");
+                emit __ScribbleUtilsLib__8.AssertionFailed("000285:0065:000 0: ");
                 assert(false);
             }
         }

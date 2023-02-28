@@ -19,7 +19,7 @@ contract Foo {
         (_v.dummy_, _v.x) = snd(v);
         _v.let_0 = _v.x == 2;
         if (!(_v.let_0)) {
-            emit __ScribbleUtilsLib__24.AssertionFailed("0: P0");
+            emit __ScribbleUtilsLib__24.AssertionFailed("000537:0068:000 0: P0");
             assert(false);
         }
     }

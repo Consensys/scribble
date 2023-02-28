@@ -70,7 +70,7 @@ contract Foo {
     /// Check only the current contract's state invariants
     function __scribble_Foo_check_state_invariants_internal() internal {
         if (!(x > 0)) {
-            __ScribbleUtilsLib__89.assertionFailed("0: ");
+            __ScribbleUtilsLib__89.assertionFailed("002289:0061:000 0: ");
             assert(false);
         }
     }

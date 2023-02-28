@@ -21,7 +21,7 @@ contract IfSucceedsOnStatement {
             a[i] += amount;
             unchecked {
                 if (!((_v.old_0 + amount) == a[i])) {
-                    emit __ScribbleUtilsLib__65.AssertionFailed("0: ");
+                    emit __ScribbleUtilsLib__65.AssertionFailed("000610:0066:000 0: ");
                     assert(false);
                 }
             }
@@ -40,7 +40,7 @@ contract IfSucceedsOnStatement {
             }
             unchecked {
                 if (!((_v.old_1 + amount) == a[i])) {
-                    emit __ScribbleUtilsLib__65.AssertionFailed("1: ");
+                    emit __ScribbleUtilsLib__65.AssertionFailed("001126:0066:000 1: ");
                     assert(false);
                 }
             }

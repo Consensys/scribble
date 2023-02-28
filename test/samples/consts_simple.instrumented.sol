@@ -14,7 +14,7 @@ contract A {
         _original_A_testHD();
         unchecked {
             if (!(D_7_0 == (H_7_0 * 24))) {
-                emit __ScribbleUtilsLib__23.AssertionFailed("2: ");
+                emit __ScribbleUtilsLib__23.AssertionFailed("000553:0066:000 2: ");
                 assert(false);
             }
         }
@@ -45,7 +45,7 @@ contract B {
         _original_B_testWHD();
         unchecked {
             if (!(((W_14_0 == (D_14_0 * 7)) && (D_14_0 == (H_14_0 * 24))) && (H_14_0 == (60 * 60)))) {
-                emit __ScribbleUtilsLib__23.AssertionFailed("6: ");
+                emit __ScribbleUtilsLib__23.AssertionFailed("001527:0066:000 6: ");
                 assert(false);
             }
         }
@@ -94,7 +94,7 @@ contract C is B {
         _original_C_constructor();
         unchecked {
             if (!(W_14_0 == (D_14_0 * 7))) {
-                emit __ScribbleUtilsLib__23.AssertionFailed("7: ");
+                emit __ScribbleUtilsLib__23.AssertionFailed("002893:0066:000 7: ");
                 assert(false);
             }
         }

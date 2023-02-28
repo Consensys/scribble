@@ -81,6 +81,12 @@ function findPredicates(
     return res;
 }
 
+const assertionFailedRX =
+    /(emit )?__ScribbleUtilsLib__([0-9]*).[Aa]ssertionFailed\("([0-9]*:[0-9]*:[0-9]*) ([0-9]*).*"\)/;
+
+const assertionFailedDataRX =
+    /(emit )?__ScribbleUtilsLib__([0-9]*).[Aa]ssertionFailedData\(([0-9]*), abi.encode\(.*\)\)/;
+
 describe("Property map test", () => {
     const samplesDir = "test/samples/";
     /**
@@ -194,6 +200,45 @@ describe("Property map test", () => {
                             expect(srcStart >= propStart).toBeTruthy();
                             expect(srcStart + srcLen <= propStart + propLen).toBeTruthy();
                         }
+                    }
+                }
+            });
+
+            it("Assertion messages contain a correct source location", () => {
+                const instrMetadata: InstrumentationMetaData = outJSON.instrumentationMetadata;
+                for (const propMD of instrMetadata.propertyMap) {
+                    for (const assertionRng of propMD.assertionRanges) {
+                        const [start, len, fileInd] = getSrcTripple(assertionRng);
+
+                        // All the test samples have a single file
+                        expect(fileInd).toBe(0);
+                        expect(instrMetadata.instrSourceList[fileInd]).toBe("--");
+                        const contents = outJSON.sources["flattened.sol"]["source"];
+                        const extracted = contents.slice(start, start + len).trim();
+
+                        if (extracted === "assert(false)") {
+                            continue;
+                        }
+
+                        let m = extracted.match(assertionFailedRX);
+
+                        if (m) {
+                            const strSrcRange = m[3];
+                            const [srcStart, srcLen, srcFileInd] = getSrcTripple(strSrcRange);
+
+                            expect(start).toEqual(srcStart);
+                            expect(len).toEqual(srcLen);
+                            expect(fileInd).toEqual(srcFileInd);
+                            continue;
+                        }
+
+                        m = extracted.match(assertionFailedDataRX);
+
+                        if (m) {
+                            continue;
+                        }
+
+                        assert(false, `Unexpected assertion: ${extracted}`);
                     }
                 }
             });

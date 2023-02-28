@@ -30,7 +30,7 @@ contract AssertFunCall {
             _v.let_0 = (_v.oldSum + (2 * 1)) == (_v.a1 + _v.b1);
             _v.let_1 = _v.let_0;
             if (!(_v.let_1)) {
-                emit __ScribbleUtilsLib__60.AssertionFailed("0: ");
+                emit __ScribbleUtilsLib__60.AssertionFailed("000868:0066:000 0: ");
                 assert(false);
             }
         }

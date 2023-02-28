@@ -17,7 +17,7 @@ contract Foo {
         unchecked {
             if (!(b == ((a + c) - 1))) {
                 emit __ScribbleUtilsLib__46.AssertionFailedData(0, abi.encode(b, a, c));
-                emit __ScribbleUtilsLib__46.AssertionFailed("0: ");
+                emit __ScribbleUtilsLib__46.AssertionFailed("000669:0066:000 0: ");
             }
         }
     }

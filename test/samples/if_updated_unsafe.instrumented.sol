@@ -10,7 +10,7 @@ contract TestUnchecked {
         _original_TestUnchecked_foo();
         unchecked {
             if (!(x == 1)) {
-                emit __ScribbleUtilsLib__25.AssertionFailed("3: S1");
+                emit __ScribbleUtilsLib__25.AssertionFailed("000373:0068:000 3: S1");
                 assert(false);
             }
         }
@@ -34,11 +34,11 @@ contract TestUnchecked {
     function TestUnchecked_x_inline_initializer() internal {
         unchecked {
             if (!(id(x) > 0)) {
-                emit __ScribbleUtilsLib__25.AssertionFailed("1: A1");
+                emit __ScribbleUtilsLib__25.AssertionFailed("001090:0068:000 1: A1");
                 assert(false);
             }
             if (!(x > 0)) {
-                emit __ScribbleUtilsLib__25.AssertionFailed("2: U1");
+                emit __ScribbleUtilsLib__25.AssertionFailed("001249:0068:000 2: U1");
                 assert(false);
             }
         }
@@ -53,11 +53,11 @@ contract TestUnchecked {
         RET0 = x;
         unchecked {
             if (!(id(x) > 0)) {
-                emit __ScribbleUtilsLib__25.AssertionFailed("1: A1");
+                emit __ScribbleUtilsLib__25.AssertionFailed("001644:0068:000 1: A1");
                 assert(false);
             }
             if (!(x > 0)) {
-                emit __ScribbleUtilsLib__25.AssertionFailed("2: U1");
+                emit __ScribbleUtilsLib__25.AssertionFailed("001803:0068:000 2: U1");
                 assert(false);
             }
         }
@@ -68,11 +68,11 @@ contract TestUnchecked {
         RET1 = x;
         unchecked {
             if (!(id(x) > 0)) {
-                emit __ScribbleUtilsLib__25.AssertionFailed("1: A1");
+                emit __ScribbleUtilsLib__25.AssertionFailed("002131:0068:000 1: A1");
                 assert(false);
             }
             if (!(x > 0)) {
-                emit __ScribbleUtilsLib__25.AssertionFailed("2: U1");
+                emit __ScribbleUtilsLib__25.AssertionFailed("002290:0068:000 2: U1");
                 assert(false);
             }
         }
@@ -85,11 +85,11 @@ contract TestUnchecked {
         RET2 = x;
         unchecked {
             if (!(id(x) > 0)) {
-                emit __ScribbleUtilsLib__25.AssertionFailed("1: A1");
+                emit __ScribbleUtilsLib__25.AssertionFailed("002662:0068:000 1: A1");
                 assert(false);
             }
             if (!(x > 0)) {
-                emit __ScribbleUtilsLib__25.AssertionFailed("2: U1");
+                emit __ScribbleUtilsLib__25.AssertionFailed("002821:0068:000 2: U1");
                 assert(false);
             }
         }

@@ -21,7 +21,7 @@ contract Foo {
             if (!_v.forall_0) break;
         }
         if (!(_v.forall_0)) {
-            __ScribbleUtilsLib__11.assertionFailed("0: ");
+            __ScribbleUtilsLib__11.assertionFailed("000682:0061:000 0: ");
             assert(false);
         }
     }

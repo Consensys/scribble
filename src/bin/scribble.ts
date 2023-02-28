@@ -1044,9 +1044,11 @@ function loadInstrMetaData(fileName: string): InstrumentationMetaData {
             modifiedFiles = [flatUnit];
 
             // 2. Print the flattened unit
-            const flatContents = instrCtx
+            let flatContents = instrCtx
                 .printUnits(modifiedFiles, newSrcMap, instrumentationMarker)
                 .get(flatUnit) as string;
+
+            flatContents = instrCtx.adjustStringLiterals(flatContents, flatUnit, 0, newSrcMap);
 
             // 3. If the output mode is just 'flat' we just write out the contents now.
             if (outputMode === "flat") {
@@ -1118,6 +1120,17 @@ function loadInstrMetaData(fileName: string): InstrumentationMetaData {
                 newSrcMap,
                 instrumentationMarker
             );
+
+            for (const [unit, contents] of newContents) {
+                const adjustedContents = instrCtx.adjustStringLiterals(
+                    contents,
+                    unit,
+                    modifiedFiles.indexOf(unit),
+                    newSrcMap
+                );
+
+                newContents.set(unit, adjustedContents);
+            }
 
             // 2. For all changed files write out a `.instrumented` version of the file.
             for (const unit of instrCtx.changedUnits) {

@@ -28,7 +28,7 @@ contract Base {
         _original_Base_main(n);
         unchecked {
             if (!(n.length < 10)) {
-                emit __ScribbleUtilsLib__59.AssertionFailed("2: ");
+                emit __ScribbleUtilsLib__59.AssertionFailed("000725:0066:000 2: ");
                 assert(false);
             }
         }
@@ -45,14 +45,14 @@ contract Base {
                 if (!_v.forall_0) break;
             }
             if (!(_v.forall_0)) {
-                emit __ScribbleUtilsLib__59.AssertionFailed("3: ");
+                emit __ScribbleUtilsLib__59.AssertionFailed("001362:0066:000 3: ");
                 assert(false);
             }
         }
         for (uint i = 0; i < n.length; i++) {
             unchecked {
                 if (!(n[i] > X)) {
-                    emit __ScribbleUtilsLib__59.AssertionFailed("4: ");
+                    emit __ScribbleUtilsLib__59.AssertionFailed("001610:0066:000 4: ");
                     assert(false);
                 }
             }
@@ -64,7 +64,7 @@ contract Base {
     function __scribble_Base_check_state_invariants_internal() internal {
         unchecked {
             if (!(sum < 200)) {
-                emit __ScribbleUtilsLib__59.AssertionFailed("0: ");
+                emit __ScribbleUtilsLib__59.AssertionFailed("002011:0066:000 0: ");
                 assert(false);
             }
         }
@@ -90,7 +90,7 @@ contract Base {
         RET0 = sum;
         unchecked {
             if (!((sum - _v.old_0) > (X + 1))) {
-                emit __ScribbleUtilsLib__59.AssertionFailed("1: ");
+                emit __ScribbleUtilsLib__59.AssertionFailed("002828:0066:000 1: ");
                 assert(false);
             }
         }

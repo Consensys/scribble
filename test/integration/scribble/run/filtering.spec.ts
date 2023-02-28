@@ -22,7 +22,7 @@ contract Foo {
     function foo(uint256 a) public returns (uint256 b) {
         b = _original_Foo_foo(a);
         if (!(b == (a + 1))) {
-            emit __ScribbleUtilsLib__29.AssertionFailed("3: Critical.P4");
+            emit __ScribbleUtilsLib__29.AssertionFailed("000500:0077:000 3: Critical.P4");
             assert(false);
         }
     }
@@ -94,7 +94,7 @@ contract Foo {
     /// Check only the current contract's state invariants
     function __scribble_Foo_check_state_invariants_internal() internal {
         if (!(x == 0)) {
-            emit __ScribbleUtilsLib__29.AssertionFailed("1: Medium.P1");
+            emit __ScribbleUtilsLib__29.AssertionFailed("001274:0075:000 1: Medium.P1");
             assert(false);
         }
     }
@@ -130,7 +130,7 @@ contract Foo {
         __ScribbleUtilsLib__29.setInContract(true);
         b = _original_Foo_foo(a);
         if (!(b == (a + 1))) {
-            emit __ScribbleUtilsLib__29.AssertionFailed("3: Critical.P4");
+            emit __ScribbleUtilsLib__29.AssertionFailed("000878:0077:000 3: Critical.P4");
             assert(false);
         }
         if (_v.__scribble_check_invs_at_end) __scribble_check_state_invariants();
@@ -144,7 +144,7 @@ contract Foo {
     /// Check only the current contract's state invariants
     function __scribble_Foo_check_state_invariants_internal() internal {
         if (!(x < 0)) {
-            emit __ScribbleUtilsLib__29.AssertionFailed("2: Critical.P2");
+            emit __ScribbleUtilsLib__29.AssertionFailed("001432:0077:000 2: Critical.P2");
             assert(false);
         }
     }

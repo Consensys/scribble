@@ -86,7 +86,7 @@ contract Foo is Base {
                 if (!_v.forall_0) break;
             }
             if (!(_v.forall_0)) {
-                emit __ScribbleUtilsLib__293.AssertionFailed("0: ");
+                emit __ScribbleUtilsLib__293.AssertionFailed("001693:0067:001 0: ");
                 assert(false);
             }
         }
@@ -107,7 +107,7 @@ contract Foo is Base {
                 if (!_v.forall_1) break;
             }
             if (!(_v.forall_1)) {
-                emit __ScribbleUtilsLib__293.AssertionFailed("1: ");
+                emit __ScribbleUtilsLib__293.AssertionFailed("002365:0067:001 1: ");
                 assert(false);
             }
         }
@@ -128,7 +128,7 @@ contract Foo is Base {
                 if (!_v.forall_2) break;
             }
             if (!(_v.forall_2)) {
-                emit __ScribbleUtilsLib__293.AssertionFailed("2: ");
+                emit __ScribbleUtilsLib__293.AssertionFailed("003042:0067:001 2: ");
                 assert(false);
             }
         }
@@ -155,7 +155,7 @@ contract Foo is Base {
                 if (!_v.forall_3) break;
             }
             if (!(_v.forall_3)) {
-                emit __ScribbleUtilsLib__293.AssertionFailed("3: ");
+                emit __ScribbleUtilsLib__293.AssertionFailed("004136:0067:001 3: ");
                 assert(false);
             }
         }
@@ -176,7 +176,7 @@ contract Foo is Base {
                 if (!_v.forall_5) break;
             }
             if (!(_v.forall_5)) {
-                emit __ScribbleUtilsLib__293.AssertionFailed("4: ");
+                emit __ScribbleUtilsLib__293.AssertionFailed("004888:0067:001 4: ");
                 assert(false);
             }
         }
@@ -200,7 +200,7 @@ contract Foo is Base {
                 if (!_v.forall_6) break;
             }
             if (!(_v.forall_6)) {
-                emit __ScribbleUtilsLib__293.AssertionFailed("5: ");
+                emit __ScribbleUtilsLib__293.AssertionFailed("005570:0067:001 5: ");
                 assert(false);
             }
         }
@@ -225,7 +225,7 @@ contract Foo is Base {
                 if (!_v.forall_7) break;
             }
             if (!(_v.forall_7)) {
-                emit __ScribbleUtilsLib__293.AssertionFailed("6: ");
+                emit __ScribbleUtilsLib__293.AssertionFailed("006301:0067:001 6: ");
                 assert(false);
             }
         }
@@ -246,7 +246,7 @@ contract Foo is Base {
                 if (!_v.forall_8) break;
             }
             if (!(_v.forall_8)) {
-                emit __ScribbleUtilsLib__293.AssertionFailed("7: ");
+                emit __ScribbleUtilsLib__293.AssertionFailed("007020:0067:001 7: ");
                 assert(false);
             }
         }
@@ -267,7 +267,7 @@ contract Foo is Base {
                 if (!_v.forall_9) break;
             }
             if (!(_v.forall_9)) {
-                emit __ScribbleUtilsLib__293.AssertionFailed("8: ");
+                emit __ScribbleUtilsLib__293.AssertionFailed("007755:0067:001 8: ");
                 assert(false);
             }
         }
@@ -292,7 +292,7 @@ contract Foo is Base {
                 if (!_v.forall_10) break;
             }
             if (!(_v.forall_10)) {
-                emit __ScribbleUtilsLib__293.AssertionFailed("9: ");
+                emit __ScribbleUtilsLib__293.AssertionFailed("008565:0067:001 9: ");
                 assert(false);
             }
         }
@@ -318,7 +318,7 @@ contract Foo is Base {
                 if (!_v.forall_11) break;
             }
             if (!(_v.forall_11)) {
-                emit __ScribbleUtilsLib__293.AssertionFailed("10: ");
+                emit __ScribbleUtilsLib__293.AssertionFailed("009563:0068:001 10: ");
                 assert(false);
             }
         }

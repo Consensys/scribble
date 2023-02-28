@@ -67,7 +67,7 @@ contract ERC721 {
         RET_0 = _original_ERC721_balanceOf(owner);
         unchecked {
             if (!(owner != address(0))) {
-                emit __ScribbleUtilsLib__826.AssertionFailed("1: NFTs cannot be owned by the 0 address");
+                emit __ScribbleUtilsLib__826.AssertionFailed("002533:0104:000 1: NFTs cannot be owned by the 0 address");
                 assert(false);
             }
         }
@@ -82,11 +82,11 @@ contract ERC721 {
         RET_0 = _original_ERC721_ownerOf(tokenId);
         unchecked {
             if (!(RET_0 != address(0))) {
-                emit __ScribbleUtilsLib__826.AssertionFailed("2: NFTs cannot be owned by the 0 address");
+                emit __ScribbleUtilsLib__826.AssertionFailed("003121:0104:000 2: NFTs cannot be owned by the 0 address");
                 assert(false);
             }
             if (!(_original_ERC721_balanceOf(RET_0) > 0)) {
-                emit __ScribbleUtilsLib__826.AssertionFailed("3: ownerOf() should not contradict balanceOf");
+                emit __ScribbleUtilsLib__826.AssertionFailed("003348:0108:000 3: ownerOf() should not contradict balanceOf");
                 assert(false);
             }
         }
@@ -130,15 +130,15 @@ contract ERC721 {
         _original_ERC721_approve(to, tokenId);
         unchecked {
             if (!((msg.sender == _original_ERC721_ownerOf(tokenId)) || isApprovedForAll(_original_ERC721_ownerOf(tokenId), msg.sender))) {
-                emit __ScribbleUtilsLib__826.AssertionFailed("16: Sender must be properly authorized to approve");
+                emit __ScribbleUtilsLib__826.AssertionFailed("005060:0113:000 16: Sender must be properly authorized to approve");
                 assert(false);
             }
             if (!(getApproved(tokenId) == to)) {
-                emit __ScribbleUtilsLib__826.AssertionFailed("17: Approve works correctly");
+                emit __ScribbleUtilsLib__826.AssertionFailed("005285:0091:000 17: Approve works correctly");
                 assert(false);
             }
             if (!(_original_ERC721_ownerOf(tokenId) == _v.old_0)) {
-                emit __ScribbleUtilsLib__826.AssertionFailed("18: Approve doesn't change ownership");
+                emit __ScribbleUtilsLib__826.AssertionFailed("005507:0100:000 18: Approve doesn't change ownership");
                 assert(false);
             }
         }
@@ -161,7 +161,7 @@ contract ERC721 {
         _original_ERC721_setApprovalForAll(operator, approved);
         unchecked {
             if (!(approved == isApprovedForAll(msg.sender, operator))) {
-                emit __ScribbleUtilsLib__826.AssertionFailed("19: setApprovalForAll worked correctly");
+                emit __ScribbleUtilsLib__826.AssertionFailed("006549:0102:000 19: setApprovalForAll worked correctly");
                 assert(false);
             }
         }
@@ -187,19 +187,19 @@ contract ERC721 {
         _original_ERC721_transferFrom(from, to, tokenId);
         unchecked {
             if (!(to != address(0))) {
-                emit __ScribbleUtilsLib__826.AssertionFailed("12: Cannot transfer to 0 address");
+                emit __ScribbleUtilsLib__826.AssertionFailed("007601:0096:000 12: Cannot transfer to 0 address");
                 assert(false);
             }
             if (!(_v.old_1 == from)) {
-                emit __ScribbleUtilsLib__826.AssertionFailed("13: from must be the current owner");
+                emit __ScribbleUtilsLib__826.AssertionFailed("007799:0098:000 13: from must be the current owner");
                 assert(false);
             }
             if (!(((msg.sender == _v.old_2) || _v.old_3) || (_v.old_4 == msg.sender))) {
-                emit __ScribbleUtilsLib__826.AssertionFailed("14: Sender must be properly authorized to transfer");
+                emit __ScribbleUtilsLib__826.AssertionFailed("008049:0114:000 14: Sender must be properly authorized to transfer");
                 assert(false);
             }
             if (!(_original_ERC721_ownerOf(tokenId) == to)) {
-                emit __ScribbleUtilsLib__826.AssertionFailed("15: Transfer worked");
+                emit __ScribbleUtilsLib__826.AssertionFailed("008288:0083:000 15: Transfer worked");
                 assert(false);
             }
         }
@@ -221,19 +221,19 @@ contract ERC721 {
         _original_ERC721_safeTransferFrom(from, to, tokenId);
         unchecked {
             if (!(to != address(0))) {
-                emit __ScribbleUtilsLib__826.AssertionFailed("8: Cannot transfer to 0 address");
+                emit __ScribbleUtilsLib__826.AssertionFailed("009218:0095:000 8: Cannot transfer to 0 address");
                 assert(false);
             }
             if (!(_v.old_5 == from)) {
-                emit __ScribbleUtilsLib__826.AssertionFailed("9: from must be the current owner");
+                emit __ScribbleUtilsLib__826.AssertionFailed("009415:0097:000 9: from must be the current owner");
                 assert(false);
             }
             if (!(((msg.sender == _v.old_6) || _v.old_7) || (_v.old_8 == msg.sender))) {
-                emit __ScribbleUtilsLib__826.AssertionFailed("10: Sender must be properly authorized to transfer");
+                emit __ScribbleUtilsLib__826.AssertionFailed("009664:0114:000 10: Sender must be properly authorized to transfer");
                 assert(false);
             }
             if (!(_original_ERC721_ownerOf(tokenId) == to)) {
-                emit __ScribbleUtilsLib__826.AssertionFailed("11: Transfer worked");
+                emit __ScribbleUtilsLib__826.AssertionFailed("009903:0083:000 11: Transfer worked");
                 assert(false);
             }
         }
@@ -254,19 +254,19 @@ contract ERC721 {
         _original_ERC721_safeTransferFrom1(from, to, tokenId, _data);
         unchecked {
             if (!(to != address(0))) {
-                emit __ScribbleUtilsLib__826.AssertionFailed("4: Cannot transfer to 0 address");
+                emit __ScribbleUtilsLib__826.AssertionFailed("010768:0095:000 4: Cannot transfer to 0 address");
                 assert(false);
             }
             if (!(_v.old_9 == from)) {
-                emit __ScribbleUtilsLib__826.AssertionFailed("5: from must be the current owner");
+                emit __ScribbleUtilsLib__826.AssertionFailed("010965:0097:000 5: from must be the current owner");
                 assert(false);
             }
             if (!(((msg.sender == _v.old_10) || _v.old_11) || (_v.old_12 == msg.sender))) {
-                emit __ScribbleUtilsLib__826.AssertionFailed("6: Sender must be properly authorized to transfer");
+                emit __ScribbleUtilsLib__826.AssertionFailed("011217:0113:000 6: Sender must be properly authorized to transfer");
                 assert(false);
             }
             if (!(_original_ERC721_ownerOf(tokenId) == to)) {
-                emit __ScribbleUtilsLib__826.AssertionFailed("7: Transfer worked");
+                emit __ScribbleUtilsLib__826.AssertionFailed("011455:0082:000 7: Transfer worked");
                 assert(false);
             }
         }

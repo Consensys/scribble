@@ -110,7 +110,7 @@ contract ForallSimple {
                 if (!_v.forall_1) break;
             }
             if (!(_v.forall_1)) {
-                emit __ScribbleUtilsLib__106.AssertionFailed("1: ");
+                emit __ScribbleUtilsLib__106.AssertionFailed("002683:0067:000 1: ");
                 assert(false);
             }
         }
@@ -135,7 +135,7 @@ contract ForallSimple {
                 if (!_v.forall_2) break;
             }
             if (!(_v.forall_2)) {
-                emit __ScribbleUtilsLib__106.AssertionFailed("2: ");
+                emit __ScribbleUtilsLib__106.AssertionFailed("003635:0067:000 2: ");
                 assert(false);
             }
         }
@@ -166,7 +166,7 @@ contract ForallSimple {
         _original_ForallSimple_test3(a, x);
         unchecked {
             if (!(_v.old_1)) {
-                emit __ScribbleUtilsLib__106.AssertionFailed("3: ");
+                emit __ScribbleUtilsLib__106.AssertionFailed("004742:0067:000 3: ");
                 assert(false);
             }
         }
@@ -198,7 +198,7 @@ contract ForallSimple {
                 if (!_v.forall_4) break;
             }
             if (!(_v.forall_4)) {
-                emit __ScribbleUtilsLib__106.AssertionFailed("4: ");
+                emit __ScribbleUtilsLib__106.AssertionFailed("005939:0067:000 4: ");
                 assert(false);
             }
         }
@@ -222,7 +222,7 @@ contract ForallSimple {
                 if (!_v.forall_6) break;
             }
             if (!(_v.forall_6)) {
-                emit __ScribbleUtilsLib__106.AssertionFailed("5: ");
+                emit __ScribbleUtilsLib__106.AssertionFailed("006832:0067:000 5: ");
                 assert(false);
             }
         }
@@ -244,7 +244,7 @@ contract ForallSimple {
                 if (!_v.forall_7) break;
             }
             if (!(_v.forall_7)) {
-                emit __ScribbleUtilsLib__106.AssertionFailed("6: ");
+                emit __ScribbleUtilsLib__106.AssertionFailed("007661:0067:000 6: ");
                 assert(false);
             }
         }
@@ -266,7 +266,7 @@ contract ForallSimple {
                 if (!_v.forall_8) break;
             }
             if (!(_v.forall_8)) {
-                emit __ScribbleUtilsLib__106.AssertionFailed("7: ");
+                emit __ScribbleUtilsLib__106.AssertionFailed("008490:0067:000 7: ");
                 assert(false);
             }
         }
@@ -288,7 +288,7 @@ contract ForallSimple {
                 if (!_v.forall_9) break;
             }
             if (!(_v.forall_9)) {
-                emit __ScribbleUtilsLib__106.AssertionFailed("8: ");
+                emit __ScribbleUtilsLib__106.AssertionFailed("009317:0067:000 8: ");
                 assert(false);
             }
         }
@@ -312,7 +312,7 @@ contract ForallSimple {
             }
             _v.let_4 = _v.forall_10;
             if (!(_v.let_4)) {
-                emit __ScribbleUtilsLib__106.AssertionFailed("9: ");
+                emit __ScribbleUtilsLib__106.AssertionFailed("010266:0067:000 9: ");
                 assert(false);
             }
         }
@@ -332,7 +332,7 @@ contract ForallSimple {
                 if (!_v.forall_0) break;
             }
             if (!(_v.forall_0)) {
-                emit __ScribbleUtilsLib__106.AssertionFailed("0: ");
+                emit __ScribbleUtilsLib__106.AssertionFailed("011042:0067:000 0: ");
                 assert(false);
             }
         }
