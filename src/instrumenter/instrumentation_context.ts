@@ -11,7 +11,6 @@ import {
     FunctionDefinition,
     ImportDirective,
     Literal,
-    LiteralKind,
     MemberAccess,
     ModifierDefinition,
     SourceUnit,
@@ -477,16 +476,15 @@ export class InstrumentationContext {
 
     adjustStringLiterals(
         contents: string,
-        units: SourceUnit,
+        unit: SourceUnit,
         fileInd: number,
         srcMap: SrcRangeMap
     ): string {
-        for (const lit of units.getChildrenByType(Literal)) {
-            if (!(lit.kind === LiteralKind.String && this.litAdjustMap.has(lit))) {
+        for (const [lit, targetNode] of this.litAdjustMap) {
+            if (lit.getClosestParentByType(SourceUnit) !== unit) {
                 continue;
             }
 
-            const targetNode = this.litAdjustMap.get(lit) as ASTNode;
             const newLoc = srcMap.get(targetNode);
             const strLoc = srcMap.get(lit);
 
@@ -505,13 +503,13 @@ export class InstrumentationContext {
                 contents.slice(strLoc[0] + 1, strLoc[0] + 16)
             );
 
+            const newLocStr = `${String(newLoc[0]).padStart(6, "0")}:${String(newLoc[1]).padStart(
+                4,
+                "0"
+            )}:${String(fileInd).padStart(3, "0")}`;
+
             contents =
-                contents.slice(0, strLoc[0] + 1) +
-                `${String(newLoc[0]).padStart(6, "0")}:${String(newLoc[1]).padStart(
-                    4,
-                    "0"
-                )}:${String(fileInd).padStart(3, "0")}` +
-                contents.slice(strLoc[0] + 16);
+                contents.slice(0, strLoc[0] + 1) + newLocStr + contents.slice(strLoc[0] + 16);
         }
 
         return contents;
