@@ -18,7 +18,7 @@ contract AssertForall {
                 if (!_v.forall_0) break;
             }
             if (!(_v.forall_0)) {
-                emit __ScribbleUtilsLib__33.AssertionFailed("0: ");
+                emit __ScribbleUtilsLib__33.AssertionFailed("00591:063:00 0: ");
                 assert(false);
             }
         }

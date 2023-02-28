@@ -10,6 +10,8 @@ import {
     FunctionCallKind,
     FunctionDefinition,
     ImportDirective,
+    Literal,
+    LiteralKind,
     MemberAccess,
     ModifierDefinition,
     SourceUnit,
@@ -365,6 +367,8 @@ export class InstrumentationContext {
 
     private readonly utilsLibraryMap = new UtilsLibraryMap(this);
 
+    private readonly litAdjustMap = new Map<Literal, ASTNode>();
+
     constructor(
         public readonly factory: ScribbleFactory,
         public readonly units: SourceUnit[],
@@ -465,6 +469,52 @@ export class InstrumentationContext {
         } else {
             targets.push(...nodes);
         }
+    }
+
+    addStringLiteralToAdjust(lit: Literal, loc: ASTNode): void {
+        this.litAdjustMap.set(lit, loc);
+    }
+
+    adjustStringLiterals(
+        contents: string,
+        units: SourceUnit,
+        fileInd: number,
+        srcMap: SrcRangeMap
+    ): string {
+        for (const lit of units.getChildrenByType(Literal)) {
+            if (!(lit.kind === LiteralKind.String && this.litAdjustMap.has(lit))) {
+                continue;
+            }
+
+            const targetNode = this.litAdjustMap.get(lit) as ASTNode;
+            const newLoc = srcMap.get(targetNode);
+            const strLoc = srcMap.get(lit);
+
+            assert(newLoc !== undefined, `Missing loc for {0}`, targetNode);
+            assert(strLoc !== undefined, `Missing loc for {0}`, lit);
+            assert(
+                contents[strLoc[0]] === "'" || contents[strLoc[0]] === '"',
+                `Expected string start at {0} not {1}`,
+                strLoc[0],
+                contents[strLoc[0]]
+            );
+            assert(
+                contents.startsWith("00000:000:00", strLoc[0] + 1),
+                `Expected 00000:000:00 at {0} not {1}`,
+                strLoc[0] + 1,
+                contents.slice(strLoc[0] + 1, strLoc[0] + 13)
+            );
+
+            contents =
+                contents.slice(0, strLoc[0] + 1) +
+                `${String(newLoc[0]).padStart(5, "0")}:${String(newLoc[1]).padStart(
+                    3,
+                    "0"
+                )}:${String(fileInd).padStart(2, "0")}` +
+                contents.slice(strLoc[0] + 13);
+        }
+
+        return contents;
     }
 
     finalize(): void {

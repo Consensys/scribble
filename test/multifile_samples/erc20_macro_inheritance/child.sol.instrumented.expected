@@ -20,7 +20,7 @@ contract Token is ERC20 {
         _v.old_0 = balances.sum;
         _original_Token_constructor();
         if (!((balances.sum == _v.old_0) || (msg.sig == bytes4(0x0)))) {
-            emit __ScribbleUtilsLib__30.AssertionFailed("2: The token has a fixed supply.");
+            emit __ScribbleUtilsLib__30.AssertionFailed("00749:092:00 2: The token has a fixed supply.");
             assert(false);
         }
         if (_v.__scribble_check_invs_at_end) __scribble_check_state_invariants();
@@ -39,7 +39,7 @@ contract Token is ERC20 {
         __ScribbleUtilsLib__30.setInContract(true);
         RET_0 = _original_Token_allowance(owner, delegate);
         if (!(RET_0 == allowances[owner][delegate])) {
-            emit __ScribbleUtilsLib__30.AssertionFailed("5: Returns spenders allowance for this owner");
+            emit __ScribbleUtilsLib__30.AssertionFailed("01640:104:00 5: Returns spenders allowance for this owner");
             assert(false);
         }
         if (_v.__scribble_check_invs_at_end) __scribble_check_state_invariants();
@@ -53,7 +53,7 @@ contract Token is ERC20 {
     /// Check only the current contract's state invariants
     function __scribble_Token_check_state_invariants_internal() internal {
         if (!(balances.sum == _totalSupply)) {
-            emit __ScribbleUtilsLib__30.AssertionFailed("1: The sum of balances is always equal to the total supply");
+            emit __ScribbleUtilsLib__30.AssertionFailed("02298:118:00 1: The sum of balances is always equal to the total supply");
             assert(false);
         }
     }

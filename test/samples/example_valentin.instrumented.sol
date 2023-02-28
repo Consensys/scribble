@@ -37,7 +37,7 @@ contract FooToken {
         _v.old_0 = _balances[msg.sender] + _balances[_to];
         RET_0 = _original_FooToken_transfer(_to, _value);
         if (!(_v.old_0 == (_balances[msg.sender] + _balances[_to]))) {
-            __ScribbleUtilsLib__237.assertionFailed("0: P0");
+            __ScribbleUtilsLib__237.assertionFailed("01313:061:00 0: P0");
             assert(false);
         }
     }

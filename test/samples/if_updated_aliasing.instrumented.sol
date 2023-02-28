@@ -51,7 +51,7 @@ contract IfUpdatedAliasing {
         RET0 = a1[ARG0];
         unchecked {
             if (!(true)) {
-                emit __ScribbleUtilsLib__173.AssertionFailed("0: ");
+                emit __ScribbleUtilsLib__173.AssertionFailed("01852:064:00 0: ");
                 assert(false);
             }
         }
@@ -62,7 +62,7 @@ contract IfUpdatedAliasing {
         RET1 = aa1[ARG2];
         unchecked {
             if (!(true)) {
-                emit __ScribbleUtilsLib__173.AssertionFailed("1: ");
+                emit __ScribbleUtilsLib__173.AssertionFailed("02253:064:00 1: ");
                 assert(false);
             }
         }
@@ -72,7 +72,7 @@ contract IfUpdatedAliasing {
         a1.push(ARG4);
         unchecked {
             if (!(true)) {
-                emit __ScribbleUtilsLib__173.AssertionFailed("0: ");
+                emit __ScribbleUtilsLib__173.AssertionFailed("02539:064:00 0: ");
                 assert(false);
             }
         }
@@ -82,7 +82,7 @@ contract IfUpdatedAliasing {
         aa1.push(ARG5);
         unchecked {
             if (!(true)) {
-                emit __ScribbleUtilsLib__173.AssertionFailed("1: ");
+                emit __ScribbleUtilsLib__173.AssertionFailed("02853:064:00 1: ");
                 assert(false);
             }
         }

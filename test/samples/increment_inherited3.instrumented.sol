@@ -6,7 +6,7 @@ contract Base {
     function foo(uint256 x) public returns (uint256 y) {
         y = _original_Base_foo(x);
         if (!(y > x)) {
-            __ScribbleUtilsLib__30.assertionFailed("0: P0");
+            __ScribbleUtilsLib__30.assertionFailed("00291:060:00 0: P0");
             assert(false);
         }
     }
@@ -46,11 +46,11 @@ contract Foo is Base {
     function foo(uint256 x) public returns (uint256 y) {
         y = _original_Foo_foo(x);
         if (!(y > x)) {
-            __ScribbleUtilsLib__30.assertionFailed("0: P0");
+            __ScribbleUtilsLib__30.assertionFailed("01389:060:00 0: P0");
             assert(false);
         }
         if (!(y == (x + 1))) {
-            __ScribbleUtilsLib__30.assertionFailed("1: P0");
+            __ScribbleUtilsLib__30.assertionFailed("01531:060:00 1: P0");
             assert(false);
         }
     }

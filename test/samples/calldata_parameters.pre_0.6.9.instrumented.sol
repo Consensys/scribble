@@ -18,7 +18,7 @@ contract Test {
     /// Check only the current contract's state invariants
     function __scribble_Test_check_state_invariants_internal() internal {
         if (!(true)) {
-            emit __ScribbleUtilsLib__15.AssertionFailed("0: P1");
+            emit __ScribbleUtilsLib__15.AssertionFailed("00731:065:00 0: P1");
             assert(false);
         }
     }

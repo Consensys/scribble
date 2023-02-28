@@ -43,7 +43,7 @@ contract Foo {
         unchecked {
             if (!(_v.old_0 == 0)) {
                 emit __ScribbleUtilsLib__158.AssertionFailedData(4, abi.encode(_v.dbg_0));
-                emit __ScribbleUtilsLib__158.AssertionFailed("4: ");
+                emit __ScribbleUtilsLib__158.AssertionFailed("01043:064:00 4: ");
             }
         }
     }
@@ -57,7 +57,7 @@ contract Foo {
         unchecked {
             if (!(x == 0)) {
                 emit __ScribbleUtilsLib__158.AssertionFailedData(5, abi.encode(x));
-                emit __ScribbleUtilsLib__158.AssertionFailed("5: ");
+                emit __ScribbleUtilsLib__158.AssertionFailed("01448:064:00 5: ");
             }
         }
     }
@@ -76,7 +76,7 @@ contract Foo {
         unchecked {
             if (!(_v.old_1 == 0)) {
                 emit __ScribbleUtilsLib__158.AssertionFailedData(6, abi.encode(_v.dbg_1));
-                emit __ScribbleUtilsLib__158.AssertionFailed("6: ");
+                emit __ScribbleUtilsLib__158.AssertionFailed("01970:064:00 6: ");
             }
         }
     }
@@ -90,7 +90,7 @@ contract Foo {
         unchecked {
             if (!(x[0] == 0)) {
                 emit __ScribbleUtilsLib__158.AssertionFailedData(7, abi.encode(x));
-                emit __ScribbleUtilsLib__158.AssertionFailed("7: ");
+                emit __ScribbleUtilsLib__158.AssertionFailed("02368:064:00 7: ");
             }
         }
     }
@@ -104,7 +104,7 @@ contract Foo {
         unchecked {
             if (!(RET == 1)) {
                 emit __ScribbleUtilsLib__158.AssertionFailedData(8, abi.encode(RET));
-                emit __ScribbleUtilsLib__158.AssertionFailed("8: ");
+                emit __ScribbleUtilsLib__158.AssertionFailed("02782:064:00 8: ");
             }
         }
     }
@@ -125,7 +125,7 @@ contract Foo {
             _v.let_2 = _v.let_1;
             if (!(_v.let_2)) {
                 emit __ScribbleUtilsLib__158.AssertionFailedData(9, abi.encode(x, _v.x1, _v.x2, _v.x3));
-                emit __ScribbleUtilsLib__158.AssertionFailed("9: ");
+                emit __ScribbleUtilsLib__158.AssertionFailed("03442:064:00 9: ");
             }
         }
     }
@@ -158,7 +158,7 @@ contract Foo {
         unchecked {
             if (!(arr[t] == 3)) {
                 emit __ScribbleUtilsLib__158.AssertionFailedData(0, abi.encode(arr, t));
-                emit __ScribbleUtilsLib__158.AssertionFailed("0: ");
+                emit __ScribbleUtilsLib__158.AssertionFailed("04415:064:00 0: ");
             }
         }
     }
@@ -169,7 +169,7 @@ contract Foo {
         unchecked {
             if (!(arr[t] == 3)) {
                 emit __ScribbleUtilsLib__158.AssertionFailedData(0, abi.encode(arr, t));
-                emit __ScribbleUtilsLib__158.AssertionFailed("0: ");
+                emit __ScribbleUtilsLib__158.AssertionFailed("04833:064:00 0: ");
             }
         }
     }
@@ -185,7 +185,7 @@ contract Foo {
         unchecked {
             if (!(_v.old_2 == 3)) {
                 emit __ScribbleUtilsLib__158.AssertionFailedData(1, abi.encode(_v.dbg_2));
-                emit __ScribbleUtilsLib__158.AssertionFailed("1: ");
+                emit __ScribbleUtilsLib__158.AssertionFailed("05374:064:00 1: ");
             }
         }
     }
@@ -196,7 +196,7 @@ contract Foo {
         unchecked {
             if (!(m[ARG4].length > 1)) {
                 emit __ScribbleUtilsLib__158.AssertionFailedData(2, abi.encode(ARG4));
-                emit __ScribbleUtilsLib__158.AssertionFailed("2: ");
+                emit __ScribbleUtilsLib__158.AssertionFailed("05844:064:00 2: ");
             }
         }
     }
@@ -207,7 +207,7 @@ contract Foo {
         unchecked {
             if (!(m[ARG6].length > 1)) {
                 emit __ScribbleUtilsLib__158.AssertionFailedData(2, abi.encode(ARG6));
-                emit __ScribbleUtilsLib__158.AssertionFailed("2: ");
+                emit __ScribbleUtilsLib__158.AssertionFailed("06310:064:00 2: ");
             }
         }
     }
@@ -218,7 +218,7 @@ contract Foo {
         unchecked {
             if (!(m[ARG8][ARG9] > 0)) {
                 emit __ScribbleUtilsLib__158.AssertionFailedData(3, abi.encode(ARG8, ARG9));
-                emit __ScribbleUtilsLib__158.AssertionFailed("3: ");
+                emit __ScribbleUtilsLib__158.AssertionFailed("06788:064:00 3: ");
             }
         }
     }

@@ -6,7 +6,7 @@ contract Base {
     function foo(uint256 x) virtual public returns (uint256 y) {
         y = _original_Base_foo(x);
         if (!(y > x)) {
-            emit __ScribbleUtilsLib__33.AssertionFailed("0: P0");
+            emit __ScribbleUtilsLib__33.AssertionFailed("00299:065:00 0: P0");
             assert(false);
         }
     }
@@ -46,11 +46,11 @@ contract Foo is Base {
     function foo(uint256 x) override public returns (uint256 y) {
         y = _original_Foo_foo(x);
         if (!(y > x)) {
-            emit __ScribbleUtilsLib__33.AssertionFailed("0: P0");
+            emit __ScribbleUtilsLib__33.AssertionFailed("01411:065:00 0: P0");
             assert(false);
         }
         if (!(y == (x + 1))) {
-            emit __ScribbleUtilsLib__33.AssertionFailed("1: P0");
+            emit __ScribbleUtilsLib__33.AssertionFailed("01558:065:00 1: P0");
             assert(false);
         }
     }

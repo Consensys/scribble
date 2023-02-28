@@ -13,7 +13,7 @@ contract UserDefinedValueTypes {
         RET_0 = _original_UserDefinedValueTypes_orderPrice(p, q);
         unchecked {
             if (!((Price.unwrap(p) * Quantity.unwrap(q)) == Price.unwrap(RET_0))) {
-                emit __ScribbleUtilsLib__38.AssertionFailed("0: ");
+                emit __ScribbleUtilsLib__38.AssertionFailed("00514:063:00 0: ");
                 assert(false);
             }
         }

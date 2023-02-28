@@ -9,7 +9,7 @@ contract Foo {
         _original_Foo_foo();
         unchecked {
             if (!(true)) {
-                emit __ScribbleUtilsLib__10.AssertionFailed("0: ");
+                emit __ScribbleUtilsLib__10.AssertionFailed("00297:063:00 0: ");
                 assert(false);
             }
         }

@@ -37,7 +37,7 @@ contract Foo is Base {
     function foo(uint256 x) override public returns (uint256 y) {
         y = _original_Foo_foo(x);
         if (!(y == (x + 1))) {
-            emit __ScribbleUtilsLib__27.AssertionFailed("0: P0");
+            emit __ScribbleUtilsLib__27.AssertionFailed("01186:065:00 0: P0");
             assert(false);
         }
     }

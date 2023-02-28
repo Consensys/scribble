@@ -53,7 +53,7 @@ contract Base {
     function Base_x_inline_initializer() internal {
         unchecked {
             if (!(x >= 1)) {
-                emit __ScribbleUtilsLib__177.AssertionFailed("0: ");
+                emit __ScribbleUtilsLib__177.AssertionFailed("01490:064:00 0: ");
                 assert(false);
             }
         }
@@ -62,7 +62,7 @@ contract Base {
     function Base_a_inline_initializer() internal {
         unchecked {
             if (!(uint160(a) >= 1)) {
-                emit __ScribbleUtilsLib__177.AssertionFailed("2: ");
+                emit __ScribbleUtilsLib__177.AssertionFailed("01744:064:00 2: ");
                 assert(false);
             }
         }
@@ -77,7 +77,7 @@ contract Base {
         RET0 = y;
         unchecked {
             if (!(y >= _v.old_0)) {
-                emit __ScribbleUtilsLib__177.AssertionFailed("1: ");
+                emit __ScribbleUtilsLib__177.AssertionFailed("02144:064:00 1: ");
                 assert(false);
             }
         }
@@ -88,7 +88,7 @@ contract Base {
         RET1 = x;
         unchecked {
             if (!(x >= 1)) {
-                emit __ScribbleUtilsLib__177.AssertionFailed("0: ");
+                emit __ScribbleUtilsLib__177.AssertionFailed("02456:064:00 0: ");
                 assert(false);
             }
         }
@@ -99,7 +99,7 @@ contract Base {
         RET2 = a;
         unchecked {
             if (!(uint160(a) >= 1)) {
-                emit __ScribbleUtilsLib__177.AssertionFailed("2: ");
+                emit __ScribbleUtilsLib__177.AssertionFailed("02777:064:00 2: ");
                 assert(false);
             }
         }
@@ -110,7 +110,7 @@ contract Base {
         x++;
         unchecked {
             if (!(x >= 1)) {
-                emit __ScribbleUtilsLib__177.AssertionFailed("0: ");
+                emit __ScribbleUtilsLib__177.AssertionFailed("03069:064:00 0: ");
                 assert(false);
             }
         }
@@ -125,7 +125,7 @@ contract Base {
         y++;
         unchecked {
             if (!(y >= _v.old_1)) {
-                emit __ScribbleUtilsLib__177.AssertionFailed("1: ");
+                emit __ScribbleUtilsLib__177.AssertionFailed("03449:064:00 1: ");
                 assert(false);
             }
         }
@@ -135,7 +135,7 @@ contract Base {
         delete x;
         unchecked {
             if (!(x >= 1)) {
-                emit __ScribbleUtilsLib__177.AssertionFailed("0: ");
+                emit __ScribbleUtilsLib__177.AssertionFailed("03700:064:00 0: ");
                 assert(false);
             }
         }
@@ -146,7 +146,7 @@ contract Base {
         RET5 = x;
         unchecked {
             if (!(x >= 1)) {
-                emit __ScribbleUtilsLib__177.AssertionFailed("0: ");
+                emit __ScribbleUtilsLib__177.AssertionFailed("03991:064:00 0: ");
                 assert(false);
             }
         }

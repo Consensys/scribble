@@ -9,7 +9,7 @@ contract Base {
     /// Check only the current contract's state invariants
     function __scribble_Base_check_state_invariants_internal() internal {
         if (!(x > 0)) {
-            emit __ScribbleUtilsLib__7.AssertionFailed("0: P0");
+            emit __ScribbleUtilsLib__7.AssertionFailed("00392:064:00 0: P0");
             assert(false);
         }
     }
@@ -117,7 +117,7 @@ contract Child1 is Base {
         _v.old_0 = x;
         _original_Child1_add(y);
         if (!(x == (_v.old_0 + y))) {
-            emit __ScribbleUtilsLib__25.AssertionFailed("1: P1");
+            emit __ScribbleUtilsLib__25.AssertionFailed("03526:065:00 1: P1");
             assert(false);
         }
         if (_v.__scribble_check_invs_at_end) __scribble_check_state_invariants();
@@ -157,7 +157,7 @@ contract Child2 is Base {
         _v.old_1 = x;
         _original_Child2_double();
         if (!(x == (2 * _v.old_1))) {
-            emit __ScribbleUtilsLib__41.AssertionFailed("2: P2");
+            emit __ScribbleUtilsLib__41.AssertionFailed("04893:065:00 2: P2");
             assert(false);
         }
         if (_v.__scribble_check_invs_at_end) __scribble_check_state_invariants();

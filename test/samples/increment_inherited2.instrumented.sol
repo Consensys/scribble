@@ -37,11 +37,11 @@ contract Foo is Base {
     function foo(uint256 x) public returns (uint256 y) {
         y = _original_Foo_foo(x);
         if (!(y > 1)) {
-            __ScribbleUtilsLib__25.assertionFailed("0: P0");
+            __ScribbleUtilsLib__25.assertionFailed("01150:060:00 0: P0");
             assert(false);
         }
         if (!(y == (x + 1))) {
-            __ScribbleUtilsLib__25.assertionFailed("1: P0");
+            __ScribbleUtilsLib__25.assertionFailed("01292:060:00 1: P0");
             assert(false);
         }
     }

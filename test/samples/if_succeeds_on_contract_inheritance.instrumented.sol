@@ -10,7 +10,7 @@ contract Foo {
     function inc(uint x) public returns (uint y) {
         y = _original_Foo_inc(x);
         if (!(b == (a + 1))) {
-            emit __ScribbleUtilsLib__56.AssertionFailed("0: ");
+            emit __ScribbleUtilsLib__56.AssertionFailed("00372:063:00 0: ");
             assert(false);
         }
     }
@@ -22,7 +22,7 @@ contract Foo {
     function inc2(uint x) virtual public returns (uint y) {
         y = _original_Foo_inc2(x);
         if (!(b == (a + 1))) {
-            emit __ScribbleUtilsLib__56.AssertionFailed("0: ");
+            emit __ScribbleUtilsLib__56.AssertionFailed("00714:063:00 0: ");
             assert(false);
         }
     }
@@ -60,7 +60,7 @@ contract Bar is Foo {
     function inc2(uint x) override public returns (uint y) {
         y = _original_Bar_inc2(x);
         if (!(b == (a + 1))) {
-            emit __ScribbleUtilsLib__56.AssertionFailed("0: ");
+            emit __ScribbleUtilsLib__56.AssertionFailed("01793:063:00 0: ");
             assert(false);
         }
     }

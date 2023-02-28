@@ -228,10 +228,11 @@ function emitAssert(
     let userAssertionHit: Statement | undefined;
 
     if (instrCtx.assertionMode === "log") {
-        const strMessage = `${annotation.id}: ${annotation.message}`;
+        const strMessage = `00000:000:00 ${annotation.id}: ${annotation.message}`;
         const message = factory.makeLiteral("<missing>", LiteralKind.String, "", strMessage);
 
         userAssertFailed = makeEmitStmt(instrCtx, event, [message]);
+        instrCtx.addStringLiteralToAdjust(message, userAssertFailed);
 
         if (instrCtx.covAssertions) {
             userAssertionHit = makeEmitStmt(instrCtx, event, [
@@ -409,6 +410,7 @@ export function insertAnnotations(annotations: PropertyMetaData[], ctx: Transpil
         const assertFailedExpr = gt(instrCtx.compilerVersion, "0.6.2")
             ? instrCtx.getAssertionFailedEvent(contract)
             : instrCtx.getAssertionFailedFun(contract);
+
         return [emitAssert(ctx, predicate, annotation, assertFailedExpr, emitStmt), false];
     });
 

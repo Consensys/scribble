@@ -14,7 +14,7 @@ contract Test {
     function operate() public {
         _original_Test_operate();
         if (!(num == 25)) {
-            emit __ScribbleUtilsLib__31.AssertionFailed("0: P1");
+            emit __ScribbleUtilsLib__31.AssertionFailed("00389:065:00 0: P1");
             assert(false);
         }
     }

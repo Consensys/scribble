@@ -40,7 +40,7 @@ contract Foo is Base {
     function getX() virtual override public returns (uint RET_0) {
         RET_0 = _original_Foo_getX();
         if (!(x > 0)) {
-            emit __ScribbleUtilsLib__41.AssertionFailed("0: ");
+            emit __ScribbleUtilsLib__41.AssertionFailed("01170:063:00 0: ");
             assert(false);
         }
     }
@@ -54,7 +54,7 @@ contract Child is Foo {
     function getX() virtual override public returns (uint RET_0) {
         RET_0 = _original_Child_getX();
         if (!(x > 0)) {
-            emit __ScribbleUtilsLib__41.AssertionFailed("0: ");
+            emit __ScribbleUtilsLib__41.AssertionFailed("01537:063:00 0: ");
             assert(false);
         }
     }

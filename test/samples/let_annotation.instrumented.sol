@@ -25,7 +25,7 @@ contract LetAnnotation {
             a[i] += amount;
             unchecked {
                 if (!(_v.oldVal > 0)) {
-                    emit __ScribbleUtilsLib__100.AssertionFailed("1: ");
+                    emit __ScribbleUtilsLib__100.AssertionFailed("00643:064:00 1: ");
                     assert(false);
                 }
             }
@@ -40,7 +40,7 @@ contract LetAnnotation {
             unchecked {
                 _v.oldVal1 = a[i];
                 if (!(_v.oldVal1 > 0)) {
-                    emit __ScribbleUtilsLib__100.AssertionFailed("3: ");
+                    emit __ScribbleUtilsLib__100.AssertionFailed("01064:064:00 3: ");
                     assert(false);
                 }
             }
@@ -58,7 +58,7 @@ contract LetAnnotation {
         for (uint i = 0; i < a.length; i++) {
             unchecked {
                 if (!(_v.oldVal2 > 0)) {
-                    emit __ScribbleUtilsLib__100.AssertionFailed("5: ");
+                    emit __ScribbleUtilsLib__100.AssertionFailed("01539:064:00 5: ");
                     assert(false);
                 }
             }
