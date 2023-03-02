@@ -113,7 +113,15 @@ function getMaterialExprType(
             );
 
             return new TupleType(
-                actualType.elements.map((el, i) => sanitizeType(el, expectedType.elements[i]))
+                actualType.elements.map((actualElT, i) => {
+                    const expectedElT = expectedType.elements[i];
+
+                    if (actualElT && expectedElT) {
+                        return sanitizeType(actualElT, expectedElT);
+                    }
+
+                    return expectedElT ?? actualElT;
+                })
             );
         }
 

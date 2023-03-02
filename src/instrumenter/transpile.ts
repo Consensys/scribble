@@ -767,12 +767,16 @@ function transpileLet(expr: SLet, ctx: TranspilingContext): Expression {
 
         lhss.push(ctx.refBinding(name));
     } else {
-        const getLhsT = (i: number): TypeNode =>
+        const getLhsT = (i: number): TypeNode | null =>
             rhsT instanceof TupleType ? rhsT.elements[i] : (rhsT as FunctionType).returns[i];
 
         for (let i = 0; i < expr.lhs.length; i++) {
+            const lhsT = getLhsT(i);
+
+            assert(lhsT !== null, "Unsupported tuple with empty element in SLet: {0}", expr);
+
             const name = ctx.getLetBinding([expr, i]);
-            const type = transpileType(getLhsT(i), ctx.factory);
+            const type = transpileType(lhsT, ctx.factory);
 
             ctx.addBinding(name, type);
 
