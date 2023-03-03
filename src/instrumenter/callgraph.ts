@@ -1,10 +1,12 @@
 import {
+    BinaryOperation,
     ContractDefinition,
     FunctionCall,
     FunctionDefinition,
     InferType,
     resolveCallable,
-    SourceUnit
+    SourceUnit,
+    UnaryOperation
 } from "solc-typed-ast";
 import { getOr, single } from "../util/misc";
 
@@ -31,6 +33,25 @@ export interface CallGraph {
      * overridenBy[h] = {g} and overridenBy[g] = {f})
      */
     overridenBy: FunMap;
+}
+
+function findCallersAndCallees(fun: FunctionDefinition, callers: FunMap, callees: FunMap): void {
+    const candidates = fun.getChildrenBySelector<FunctionCall | BinaryOperation | UnaryOperation>(
+        (node) =>
+            node instanceof FunctionCall ||
+            node instanceof BinaryOperation ||
+            node instanceof UnaryOperation
+    );
+
+    for (const node of candidates) {
+        const called =
+            node instanceof FunctionCall ? node.vReferencedDeclaration : node.vUserFunction;
+
+        if (called instanceof FunctionDefinition) {
+            getOr(callers, called).add(fun);
+            getOr(callees, fun).add(called);
+        }
+    }
 }
 
 export function getCallGraph(inference: InferType, srcs: SourceUnit[]): CallGraph {
@@ -61,16 +82,7 @@ export function getCallGraph(inference: InferType, srcs: SourceUnit[]): CallGrap
 
     for (const file of srcs) {
         for (const fun of file.vFunctions) {
-            for (const call of fun.getChildrenByType(FunctionCall)) {
-                const called = call.vReferencedDeclaration;
-
-                if (!(called instanceof FunctionDefinition)) {
-                    continue;
-                }
-
-                getOr(callers, called).add(fun);
-                getOr(callees, fun).add(called);
-            }
+            findCallersAndCallees(fun, callers, callees);
         }
 
         for (const contract of file.vContracts) {
@@ -109,17 +121,7 @@ export function getCallGraph(inference: InferType, srcs: SourceUnit[]): CallGrap
                     getOr(overridenBy, overridenFun).add(fun);
                 }
 
-                // Next fill out `callers` and `callees`
-                for (const call of fun.getChildrenByType(FunctionCall)) {
-                    const called = call.vReferencedDeclaration;
-
-                    if (!(called instanceof FunctionDefinition)) {
-                        continue;
-                    }
-
-                    getOr(callers, called).add(fun);
-                    getOr(callees, fun).add(called);
-                }
+                findCallersAndCallees(fun, callers, callees);
             }
         }
     }
