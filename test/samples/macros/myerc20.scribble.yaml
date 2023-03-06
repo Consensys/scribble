@@ -1,0 +1,8 @@
+myerc20:
+    variables:
+        bal: "mapping(address => uint256)"
+        sup: "uint256"
+    properties:
+        <contract>:
+            - msg: "Sum of balances is total supply"
+              prop: "#invariant unchecked_sum(bal) == sup;"

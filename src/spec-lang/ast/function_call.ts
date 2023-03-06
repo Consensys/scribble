@@ -16,6 +16,6 @@ export class SFunctionCall extends SNode {
     }
 
     getFields(): any[] {
-        return [this.callee, this.args];
+        return [this.callee, ...this.args];
     }
 }

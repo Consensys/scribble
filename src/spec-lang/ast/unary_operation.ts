@@ -15,10 +15,11 @@ export class SUnaryOperation extends SNode {
     pp(): string {
         if (this.op === "old") {
             return `old(${this.subexp.pp()})`;
-        } else {
-            return `(${this.op}${this.subexp.pp()})`;
         }
+
+        return `(${this.op}${this.subexp.pp()})`;
     }
+
     getFields(): any[] {
         return [this.op, this.subexp];
     }

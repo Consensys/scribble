@@ -20,6 +20,6 @@ export class SLet extends SNode {
     }
 
     getFields(): any[] {
-        return [this.lhs, this.rhs, this.in];
+        return [...this.lhs, this.rhs, this.in];
     }
 }
