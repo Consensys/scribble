@@ -10,9 +10,10 @@ import {
     StructuredDocumentation,
     VariableDeclaration
 } from "solc-typed-ast";
-import { InstrumentationMetaData, searchRecursive } from "../../src/util";
+import { getOr, InstrumentationMetaData, searchRecursive } from "../../src/util";
 import { loc2Src, removeProcWd, scrSample, toAstUsingCache } from "./utils";
 import YAML from "yaml";
+import { basename } from "path";
 
 function findPredicates(
     inAST: SourceUnit[],
@@ -89,6 +90,7 @@ const assertionFailedDataRX =
 
 describe("Property map test", () => {
     const samplesDir = "test/samples/";
+
     /**
      * This test is hacky - it finds the expected set of predicates using a
      * regex that only supports single-line invariant with no semicolons in
@@ -100,6 +102,10 @@ describe("Property map test", () => {
         "semicolon_in_string.sol",
         "increment_inherited_collision.sol"
     ];
+
+    const argMap = new Map<string, string[]>([
+        ["macro_erc20_nested_vars.sol", ["--macro-path", "test/samples/macros"]]
+    ]);
 
     const samples = searchRecursive(samplesDir, (fileName) =>
         fileName.endsWith(".instrumented.sol")
@@ -139,7 +145,15 @@ describe("Property map test", () => {
 
                 inAst = result.units;
 
-                outJSON = JSON.parse(scrSample(sample, "--debug-events", "--output-mode", "json"));
+                outJSON = JSON.parse(
+                    scrSample(
+                        sample,
+                        "--debug-events",
+                        "--output-mode",
+                        "json",
+                        ...getOr(argMap, basename(sample), [])
+                    )
+                );
             });
 
             it("All predicates appear in the source map", () => {
