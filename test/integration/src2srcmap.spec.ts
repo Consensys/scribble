@@ -1,5 +1,4 @@
 import expect from "expect";
-import { basename } from "path";
 import {
     assert,
     Assignment,
@@ -30,7 +29,6 @@ import {
     contains,
     forAll,
     forAny,
-    getOr,
     InstrumentationMetaData,
     parseSrcTriple,
     PropertyMap,
