@@ -128,7 +128,8 @@ describe("Multiple-file project instrumentation", () => {
             ],
             true
         ],
-        ["test/multifile_samples/using_for_free_funcs", ["sample.sol"], "0.8.13", [], false]
+        ["test/multifile_samples/using_for_free_funcs", ["sample.sol"], "0.8.13", [], false],
+        ["test/multifile_samples/custom_operators", ["sample.sol"], "0.8.19", [], false]
     ];
 
     for (const [dirName, solFiles, version, additionalArgs, skipPrepend] of samples) {

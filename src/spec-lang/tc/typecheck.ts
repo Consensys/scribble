@@ -26,6 +26,7 @@ import {
     FunctionVisibility,
     generalizeType,
     globalBuiltins,
+    IdentifierPath,
     ImportDirective,
     ImportRefType,
     InferType,
@@ -951,7 +952,9 @@ function tcIdVariable(expr: SId, ctx: STypingCtx, typeEnv: TypeEnv): TypeNode | 
                 );
             }
 
-            return rhsT.elements[bindingIdx];
+            const elT = rhsT.elements[bindingIdx];
+
+            return elT ? elT : undefined;
         }
 
         return rhsT;
@@ -1738,9 +1741,12 @@ export function tcMemberAccess(expr: SMemberAccess, ctx: STypingCtx, typeEnv: Ty
                     .forEach((funDef) => funs.add(funDef));
             }
 
-            if (usingFor.vFunctionList !== undefined) {
+            if (usingFor.vFunctionList) {
                 usingFor.vFunctionList
-                    .filter((idPath) => idPath.name === expr.member)
+                    .filter(
+                        (idPath): idPath is IdentifierPath =>
+                            idPath instanceof IdentifierPath && idPath.name === expr.member
+                    )
                     .forEach((idPath) =>
                         funs.add(idPath.vReferencedDeclaration as FunctionDefinition)
                     );

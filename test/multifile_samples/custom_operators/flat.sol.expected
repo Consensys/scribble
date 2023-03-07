@@ -2,29 +2,46 @@
 /// Use --disarm prior to make any changes.
 pragma solidity 0.8.19;
 
-library Foo {
-    function foo() internal returns (uint RET_0) {
-        RET_0 = _original_Foo_foo();
+type Custom is uint256;
+
+using { plus as +, diff as -, eq as == } for Custom global;
+
+function plus(Custom a, Custom b) pure returns (Custom) {
+    return Custom.wrap(Custom.unwrap(a) + Custom.unwrap(b));
+}
+
+function diff(Custom a, Custom b) pure returns (Custom) {
+    return Custom.wrap(Custom.unwrap(a) - Custom.unwrap(b));
+}
+
+function eq(Custom a, Custom b) pure returns (bool) {
+    return Custom.unwrap(a) == Custom.unwrap(b);
+}
+
+contract Test {
+    Custom internal a;
+    Custom internal b;
+
+    function main() public {
+        _original_Test_main();
         unchecked {
-            if (!(RET_0 == 1)) {
-                emit __ScribbleUtilsLib__21.AssertionFailed("000318:0066:000 0: ");
+            if (!(true)) {
+                emit __ScribbleUtilsLib__127.AssertionFailed("000769:0067:000 0: ");
                 assert(false);
             }
         }
     }
 
-    function _original_Foo_foo() private returns (uint) {
-        return 1;
+    function _original_Test_main() private {
+        Custom a = Custom.wrap(1);
+        Custom b = Custom.wrap(2);
+        a + b;
+        a - b;
+        a == b;
     }
 }
 
-contract Boo {
-    function main() public {
-        Foo.foo();
-    }
-}
-
-library __ScribbleUtilsLib__21 {
+library __ScribbleUtilsLib__127 {
     event AssertionFailed(string message);
 
     event AssertionFailedData(int eventId, bytes encodingData);

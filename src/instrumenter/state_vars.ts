@@ -546,7 +546,15 @@ export function stateVarUpdateValToType(
 
         assert(tupleT instanceof TupleType, `Expectd tuple type not {0} in {1}`, tupleT, newVal[0]);
 
-        return tupleT.elements[newVal[1]];
+        const elementT = tupleT.elements[newVal[1]];
+
+        assert(
+            elementT !== null,
+            "Unexpected empty tuple element for state var update, {0}",
+            newVal
+        );
+
+        return elementT;
     }
 
     return undefined;
