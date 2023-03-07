@@ -110,16 +110,13 @@ function parseBytecodeSourceMapping(sourceMap: string): DecodedBytecodeSourceMap
 describe("Src2src map test", () => {
     const samplesDir = "test/samples/";
 
-    /**
-     * @todo Need to investigate issues deeper for following samples
-     */
-    const skip = ["macro_erc20_nested_vars.sol"];
+    const argMap = new Map<string, string[]>([
+        ["test/samples/macro_erc20_nested_vars.sol", ["--macro-path", "test/samples/macros"]]
+    ]);
 
     const samples = searchRecursive(samplesDir, (fileName) =>
         fileName.endsWith(".instrumented.sol")
-    )
-        .map((fileName) => removeProcWd(fileName).replace(".instrumented.sol", ".sol"))
-        .filter((fileName) => !skip.some((needle) => fileName.includes(needle)));
+    ).map((fileName) => removeProcWd(fileName).replace(".instrumented.sol", ".sol"));
 
     it(`Source samples are present in ${samplesDir}`, () => {
         expect(samples.length).toBeGreaterThan(0);
@@ -148,7 +145,12 @@ describe("Src2src map test", () => {
                 inAst = result.units;
                 contents = result.files.get(sample) as string;
 
-                outJSON = JSON.parse(scrSample(sample, "--output-mode", "json"));
+                const args = [sample, "--output-mode", "json"];
+
+                if (argMap.has(sample)) {
+                    args.push(...(argMap.get(sample) as string[]));
+                }
+                outJSON = JSON.parse(scrSample(args[0], ...args.slice(1)));
 
                 instrContents = outJSON["sources"]["flattened.sol"]["source"];
 
