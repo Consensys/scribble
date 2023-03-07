@@ -35,7 +35,7 @@ export interface CallGraph {
     overridenBy: FunMap;
 }
 
-function findCallersAndCallees(fun: FunctionDefinition, callers: FunMap, callees: FunMap): void {
+function processCallNodes(fun: FunctionDefinition, callers: FunMap, callees: FunMap): void {
     const candidates = fun.getChildrenBySelector<FunctionCall | BinaryOperation | UnaryOperation>(
         (node) =>
             node instanceof FunctionCall ||
@@ -82,7 +82,7 @@ export function getCallGraph(inference: InferType, srcs: SourceUnit[]): CallGrap
 
     for (const file of srcs) {
         for (const fun of file.vFunctions) {
-            findCallersAndCallees(fun, callers, callees);
+            processCallNodes(fun, callers, callees);
         }
 
         for (const contract of file.vContracts) {
@@ -121,7 +121,7 @@ export function getCallGraph(inference: InferType, srcs: SourceUnit[]): CallGrap
                     getOr(overridenBy, overridenFun).add(fun);
                 }
 
-                findCallersAndCallees(fun, callers, callees);
+                processCallNodes(fun, callers, callees);
             }
         }
     }
