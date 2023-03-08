@@ -28,7 +28,7 @@ export class SStateVarProp extends SProperty {
     }
 
     getFields(): any[] {
-        return [this.type, this.expression, this.datastructurePath, this.label];
+        return [this.type, this.expression, ...this.datastructurePath, this.label];
     }
 
     pp(): string {

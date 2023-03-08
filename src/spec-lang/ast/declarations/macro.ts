@@ -14,7 +14,7 @@ export class SMacro extends SAnnotation {
     }
 
     getFields(): any[] {
-        return [this.name, this.parameters];
+        return [this.name, ...this.parameters];
     }
 
     pp(): string {

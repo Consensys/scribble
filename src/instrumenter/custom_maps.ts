@@ -148,14 +148,25 @@ function replaceAssignmentHelper(
 
     if (assignment.operator !== "=") {
         const getter = instrCtx.libToMapGetterMap.get(lib, false);
+        const baseCopy = factory.copy(base);
+        const idxCopy = factory.copy(index);
+
+        baseCopy.src = base.src;
+        idxCopy.src = index.src;
+
         const oldVal = factory.makeFunctionCall(
             "<missing>",
             FunctionCallKind.FunctionCall,
             factory.mkLibraryFunRef(instrCtx, getter),
-            [base, index]
+            [baseCopy, idxCopy]
         );
+
+        oldVal.src = assignment.vLeftHandSide.src;
+
         const op = assignment.operator.slice(0, -1);
         newVal = factory.makeBinaryOperation("<missing>", op, oldVal, newVal);
+
+        instrCtx.addGeneralInstrumentation(newVal);
     }
 
     const newNode = factory.makeFunctionCall(

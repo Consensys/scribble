@@ -1,4 +1,5 @@
 import expect from "expect";
+import { basename } from "path";
 import {
     ContractDefinition,
     FunctionDefinition,
@@ -8,7 +9,7 @@ import {
     StateVariableVisibility,
     VariableDeclaration
 } from "solc-typed-ast";
-import { searchRecursive } from "../../src";
+import { getOr, searchRecursive } from "../../src";
 import { removeProcWd, scrSample, toAst, toAstUsingCache } from "./utils";
 
 function extractExportSymbols(units: SourceUnit[]): Map<string, ContractDefinition> {
@@ -122,6 +123,10 @@ describe("Interface compatibility test", () => {
         fileName.endsWith(".instrumented.sol")
     ).map((fileName) => removeProcWd(fileName).replace(".instrumented.sol", ".sol"));
 
+    const argMap = new Map<string, string[]>([
+        ["macro_erc20_nested_vars.sol", ["--macro-path", "test/samples/macros"]]
+    ]);
+
     it(`Source samples are present in ${samplesDir}`, () => {
         expect(samples.length).toBeGreaterThan(0);
     });
@@ -131,6 +136,7 @@ describe("Interface compatibility test", () => {
             let compilerVersion: string;
             let inAst: SourceUnit[];
             let inference: InferType;
+            let customArgs: string[];
 
             before(async () => {
                 const result = await toAstUsingCache(sample);
@@ -138,6 +144,7 @@ describe("Interface compatibility test", () => {
                 inAst = result.units;
                 compilerVersion = result.compilerVersion;
                 inference = new InferType(compilerVersion);
+                customArgs = getOr(argMap, basename(sample), []);
             });
 
             const compareSourceUnits = (inAst: SourceUnit[], outAst: SourceUnit[]) => {
@@ -161,7 +168,7 @@ describe("Interface compatibility test", () => {
             it("Instrumented source in 'log' mode has compatible external interface", async () => {
                 const result = await toAst(
                     sample + ".log.sol",
-                    scrSample(sample, "--debug-events")
+                    scrSample(sample, "--debug-events", ...customArgs)
                 );
 
                 compareSourceUnits(inAst, result.units);
@@ -170,7 +177,7 @@ describe("Interface compatibility test", () => {
             it("Instrumented source in 'mstore' mode has compatible external interface", async () => {
                 const result = await toAst(
                     sample + ".mstore.sol",
-                    scrSample(sample, "--user-assert-mode", "mstore")
+                    scrSample(sample, "--user-assert-mode", "mstore", ...customArgs)
                 );
 
                 compareSourceUnits(inAst, result.units);
