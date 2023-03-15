@@ -7,6 +7,7 @@ import {
     ASTReader,
     Block,
     ContractDefinition,
+    DataLocation,
     ExpressionStatement,
     FunctionCall,
     FunctionDefinition,
@@ -23,7 +24,8 @@ import {
     StructuredDocumentation,
     TupleExpression,
     TypeName,
-    UnaryOperation
+    UnaryOperation,
+    VariableDeclaration
 } from "solc-typed-ast";
 import {
     contains,
@@ -54,6 +56,20 @@ function buildSrc2NodeMap(units: SourceUnit[], newSrcList?: string[]): Src2NodeM
         unit.walk((node) => {
             const src = newSrcList ? reNumber(node.src, newIdx) : node.src;
             const set = res.get(src);
+
+            // There is a bug in solc where for return parameters such as `uint[] memory`
+            // It considers their source to be just `uint[]` missing the location.
+            // Account for this by adding the extra range here
+            if (
+                node instanceof VariableDeclaration &&
+                node.parent instanceof ParameterList &&
+                node.storageLocation !== DataLocation.Default &&
+                node.name === ""
+            ) {
+                const t = parseSrcTriple(src);
+                const widerSrc = `${t[0]}:${t[1] + 1 + node.storageLocation.length}:${t[2]}`;
+                res.set(widerSrc, new Set([node]));
+            }
 
             if (set) {
                 set.add(node);
