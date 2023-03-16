@@ -184,11 +184,15 @@ describe(`Command "scribble <filename>" is failing as expected`, () => {
         ],
         [
             ["test/samples/invalid/consts_non_const.invalid.sol"],
-            /.*TypeError: Cannot use non-constant expression msg.value in constant definition*/g
+            /.*TypeError: Cannot use non-constant expression msg.value in constant definition.*/g
         ],
         [
             ["test/samples/invalid/userDefinedTypesInFunction.invalid.sol"],
-            /.*TypeError: Missing data location for argument policy of function isPolicyValid*/g
+            /.*TypeError: Missing data location for argument policy of function isPolicyValid.*/g
+        ],
+        [
+            ["test/samples/invalid/if_updated_fun_return_ptr_bad.sol"],
+            /.*Error: Cannot instrument state var Foo.arr as it may be aliased by a storage pointer.*/g
         ]
     ];
 

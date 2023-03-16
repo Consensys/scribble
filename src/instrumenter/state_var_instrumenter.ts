@@ -207,6 +207,16 @@ function decomposeLHSWithTypes(
 ): [Identifier | MemberAccess, ConcreteDatastructurePathWTypes, TypeName] {
     const [base, concretePath] = decomposeLHS(lhs);
 
+    // If we are instrumenting this state var, then it must not be aliased.
+    // Therefore its pointer should not be returned by a function, so the base
+    // must be an exact reference.
+    assert(
+        base instanceof Identifier || base instanceof MemberAccess,
+        `Unexpected base {0} when instrumenting lhs {1}`,
+        base,
+        lhs
+    );
+
     assert(
         base.vReferencedDeclaration instanceof VariableDeclaration,
         "Expected LHS to be decomposed to variable reference, got {0}",

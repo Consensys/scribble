@@ -560,6 +560,8 @@ export function stateVarUpdateValToType(
     return undefined;
 }
 
+export type LHSRoot = Identifier | MemberAccess | FunctionCall;
+
 /**
  * Given a LHS expression that may be wrapped in `MemberAccess` and
  * `IndexAccess`-es, unwrap it into a base expression that is either an
@@ -569,9 +571,7 @@ export function stateVarUpdateValToType(
  *
  * @note there is one exception here: `arr.push() = 10`. But honestly screw it.
  */
-export function decomposeLHS(
-    e: Expression
-): [Identifier | MemberAccess, ConcreteDatastructurePath] {
+export function decomposeLHS(e: Expression): [LHSRoot, ConcreteDatastructurePath] {
     const path: ConcreteDatastructurePath = [];
     const originalExp = e;
 
@@ -641,7 +641,11 @@ export function decomposeLHS(
         );
     }
 
-    assert(e instanceof Identifier || e instanceof MemberAccess, "Unexpected LHS", e);
+    assert(
+        e instanceof Identifier || e instanceof MemberAccess || e instanceof FunctionCall,
+        "Unexpected LHS",
+        e
+    );
 
     return [e, path];
 }
