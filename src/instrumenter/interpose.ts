@@ -340,7 +340,7 @@ export function interposeCall(
     const factory = ctx.factory;
     const callsite = decodeCallsite(call);
     const callee = callsite.callee;
-    const calleeT = ctx.typeEnv.inference.typeOf(callee);
+    const calleeT = ctx.typeEnv.inference.typeOfCallee(call);
 
     assert(
         call.kind === FunctionCallKind.FunctionCall,
