@@ -848,7 +848,7 @@ function replaceExternalCallSites(
             continue;
         }
 
-        const calleeType = ctx.typeEnv.inference.typeOf(callSite.vExpression);
+        const calleeType = ctx.typeEnv.inference.typeOfCallee(callSite);
 
         assert(
             calleeType instanceof FunctionType || calleeType instanceof BuiltinFunctionType,
