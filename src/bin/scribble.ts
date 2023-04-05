@@ -850,6 +850,15 @@ function loadInstrMetaData(fileName: string): InstrumentationMetaData {
             error(e.message);
         }
 
+        /**
+         * Check if there is an instrumentation already in-place
+         */
+        for (const unit of units) {
+            if (isInstrumented(unit.sourceEntryKey, instrumentationMarker)) {
+                error(`File "${unit.sourceEntryKey}" is already instrumented`);
+            }
+        }
+
         const contentsMap: SourceMap = new Map();
 
         // First load any macros if `--macro-path` was specified
@@ -1007,15 +1016,6 @@ function loadInstrMetaData(fileName: string): InstrumentationMetaData {
             semMap,
             interposingQueue
         );
-
-        /**
-         * Check if there is an instrumentation already in-place
-         */
-        for (const unit of instrCtx.units) {
-            if (isInstrumented(unit.sourceEntryKey, instrumentationMarker)) {
-                error(`File "${unit.sourceEntryKey}" is already instrumented`);
-            }
-        }
 
         try {
             // Check that none of the map state vars to be overwritten is aliased
