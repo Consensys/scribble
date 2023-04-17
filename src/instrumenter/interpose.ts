@@ -17,10 +17,12 @@ import {
     FunctionStateMutability,
     FunctionType,
     FunctionVisibility,
+    generalizeType,
     MemberAccess,
     ModifierDefinition,
     Mutability,
     PointerType,
+    specializeType,
     StateVariableVisibility,
     TypeName,
     TypeNode,
@@ -434,14 +436,26 @@ export function interposeCall(
         );
 
         params.push(
-            ...calleeT.parameters.map((paramT, idx) =>
-                factory.typeNodeToVariableDecl(paramT, `arg${idx}`, call)
-            )
+            ...calleeT.parameters.map((paramT, idx) => {
+                return factory.typeNodeToVariableDecl(
+                    paramT instanceof PointerType && paramT.location === DataLocation.CallData
+                        ? specializeType(generalizeType(paramT)[0], DataLocation.Memory)
+                        : paramT,
+                    `arg${idx}`,
+                    call
+                );
+            })
         );
 
         returns.push(
             ...calleeT.returns.map((retT, idx) =>
-                factory.typeNodeToVariableDecl(retT, `ret${idx}`, call)
+                factory.typeNodeToVariableDecl(
+                    retT instanceof PointerType && retT.location === DataLocation.CallData
+                        ? specializeType(generalizeType(retT)[0], DataLocation.Memory)
+                        : retT,
+                    `ret${idx}`,
+                    call
+                )
             )
         );
 
