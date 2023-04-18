@@ -745,8 +745,8 @@ export class BuiltinTypeDetector {
     }
 }
 
-function tcIdBuiltinType(expr: SId, typeEnv: TypeEnv): TypeNameType | undefined {
-    const type = typeEnv.inference.elementaryTypeNameStringToTypeNode(expr.name);
+function tcIdBuiltinType(expr: SId): TypeNameType | undefined {
+    const type = InferType.elementaryTypeNameStringToTypeNode(expr.name);
 
     if (type === undefined) {
         return undefined;
@@ -1007,7 +1007,7 @@ export function tcId(expr: SId, ctx: STypingCtx, typeEnv: TypeEnv): TypeNode {
     }
 
     // First try to TC the id as a builtin type
-    let retT: TypeNode | undefined = tcIdBuiltinType(expr, typeEnv);
+    let retT: TypeNode | undefined = tcIdBuiltinType(expr);
 
     if (retT !== undefined) {
         return retT;
@@ -1886,7 +1886,7 @@ export function tcForAll(expr: SForAll, ctx: STypingCtx, typeEnv: TypeEnv): Type
         ) {
             if (!castable(expr.iteratorType, uintT, typeEnv.compilerVersion)) {
                 throw new SWrongType(
-                    `The type ${expr.iteratorType.pp()} of the iterator variable ${expr.iteratorVariable.pp()} is not compatible with iterator type uint of ${expr.container.pp()}.`,
+                    `The type ${expr.iteratorType.pp()} of the iterator variable ${expr.iteratorVariable.pp()} is not castable to the array index type uint of ${expr.container.pp()}.`,
                     expr.iteratorVariable,
                     expr.iteratorType
                 );
