@@ -19,7 +19,7 @@ import {
     MemberAccess,
     OverrideSpecifier,
     ParameterList,
-    parseBytecodeSourceMapping,
+    fastParseBytecodeSourceMapping,
     PragmaDirective,
     SourceUnit,
     StructuredDocumentation,
@@ -396,30 +396,30 @@ describe("Src2src map test", () => {
                         const bytecodeMap = contractJSON.evm.bytecode.sourceMap;
                         const deployedBytecodeMap = contractJSON.evm.deployedBytecode.sourceMap;
 
+                        // Interfaces and abstract contracts have empty source maps.
+                        // Skip them.
+                        if (bytecodeMap === "") {
+                            continue;
+                        }
+
                         // Since 0.7.2 builtin utility code has a source range with source index -1.
                         // Since 0.8.0 builtin utility code is emitted and has a positive source index 1 greater than the source list.
                         // Want to ignore utility code in both the bytecode and deployedBytecode maps
-                        const bytecodeMapEntries = parseBytecodeSourceMapping(bytecodeMap).filter(
-                            (entry) =>
-                                entry.sourceIndex !== -1 &&
-                                entry.sourceIndex < instrMD.instrSourceList.length
-                        );
-
-                        const deployedBytecodeMapEntries = parseBytecodeSourceMapping(
-                            deployedBytecodeMap
+                        const bytecodeMapEntries = fastParseBytecodeSourceMapping(
+                            bytecodeMap
                         ).filter(
                             (entry) =>
                                 entry.sourceIndex !== -1 &&
                                 entry.sourceIndex < instrMD.instrSourceList.length
                         );
 
-                        // Interfaces have weird source maps. Skip them
-                        if (
-                            bytecodeMapEntries.length === 1 &&
-                            isNaN(bytecodeMapEntries[0].sourceIndex)
-                        ) {
-                            continue;
-                        }
+                        const deployedBytecodeMapEntries = fastParseBytecodeSourceMapping(
+                            deployedBytecodeMap
+                        ).filter(
+                            (entry) =>
+                                entry.sourceIndex !== -1 &&
+                                entry.sourceIndex < instrMD.instrSourceList.length
+                        );
 
                         assert(
                             forAll(bytecodeMapEntries, (entry) => entry.sourceIndex === 0),
