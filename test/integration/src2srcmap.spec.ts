@@ -19,6 +19,7 @@ import {
     MemberAccess,
     OverrideSpecifier,
     ParameterList,
+    fastParseBytecodeSourceMapping,
     PragmaDirective,
     SourceUnit,
     StructuredDocumentation,
@@ -86,41 +87,6 @@ function fragment(src: string, contents: string) {
     const [off, len] = parseSrcTriple(src);
 
     return contents.slice(off, off + len);
-}
-
-type DecodedBytecodeSourceMapEntry = {
-    byteIndex: number;
-    start: number;
-    length: number;
-    sourceIndex: number;
-    jump: string;
-};
-
-function parseBytecodeSourceMapping(sourceMap: string): DecodedBytecodeSourceMapEntry[] {
-    return sourceMap
-        .split(";")
-        .map((chunk) => chunk.split(":"))
-        .map(([start, length, sourceIndex, jump]) => ({
-            start: start === "" ? undefined : start,
-            length: length === "" ? undefined : length,
-            sourceIndex: sourceIndex === "" ? undefined : sourceIndex,
-            jump: jump === "" ? undefined : jump
-        }))
-        .reduce(
-            ([previous, ...all], entry) => [
-                {
-                    start: parseInt(entry.start || previous.start, 10),
-                    length: parseInt(entry.length || previous.length, 10),
-                    sourceIndex: parseInt(entry.sourceIndex || previous.sourceIndex, 10),
-                    jump: entry.jump || previous.jump
-                },
-                previous,
-                ...all
-            ],
-            [{} as any]
-        )
-        .reverse()
-        .slice(1);
 }
 
 describe("Src2src map test", () => {
@@ -430,30 +396,30 @@ describe("Src2src map test", () => {
                         const bytecodeMap = contractJSON.evm.bytecode.sourceMap;
                         const deployedBytecodeMap = contractJSON.evm.deployedBytecode.sourceMap;
 
+                        // Interfaces and abstract contracts have empty source maps.
+                        // Skip them.
+                        if (bytecodeMap === "") {
+                            continue;
+                        }
+
                         // Since 0.7.2 builtin utility code has a source range with source index -1.
                         // Since 0.8.0 builtin utility code is emitted and has a positive source index 1 greater than the source list.
                         // Want to ignore utility code in both the bytecode and deployedBytecode maps
-                        const bytecodeMapEntries = parseBytecodeSourceMapping(bytecodeMap).filter(
-                            (entry) =>
-                                entry.sourceIndex !== -1 &&
-                                entry.sourceIndex < instrMD.instrSourceList.length
-                        );
-
-                        const deployedBytecodeMapEntries = parseBytecodeSourceMapping(
-                            deployedBytecodeMap
+                        const bytecodeMapEntries = fastParseBytecodeSourceMapping(
+                            bytecodeMap
                         ).filter(
                             (entry) =>
                                 entry.sourceIndex !== -1 &&
                                 entry.sourceIndex < instrMD.instrSourceList.length
                         );
 
-                        // Interfaces have weird source maps. Skip them
-                        if (
-                            bytecodeMapEntries.length === 1 &&
-                            isNaN(bytecodeMapEntries[0].sourceIndex)
-                        ) {
-                            continue;
-                        }
+                        const deployedBytecodeMapEntries = fastParseBytecodeSourceMapping(
+                            deployedBytecodeMap
+                        ).filter(
+                            (entry) =>
+                                entry.sourceIndex !== -1 &&
+                                entry.sourceIndex < instrMD.instrSourceList.length
+                        );
 
                         assert(
                             forAll(bytecodeMapEntries, (entry) => entry.sourceIndex === 0),
