@@ -19,7 +19,7 @@
         "fs-extra": "^11.1.1",
         "logplease": "^1.2.15",
         "semver": "^7.5.0",
-        "solc-typed-ast": "file:../solc-typed-ast",
+        "solc-typed-ast": "^14.0.2",
         "src-location": "^1.1.0",
         "yaml": "^1.10.2"
     },
