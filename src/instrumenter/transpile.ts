@@ -619,7 +619,6 @@ function transpileFunctionCall(expr: SFunctionCall, ctx: TranspilingContext): Ex
 
     // Builtin functions
     if (expr.callee instanceof SId && expr.callee.defSite === "builtin_fun") {
-        /// unchecked_sum()
         if (expr.callee.name === ScribbleBuiltinFunctions.unchecked_sum) {
             const arg = single(expr.args);
             const argT = ctx.typeEnv.typeOf(arg);
@@ -671,7 +670,20 @@ function transpileFunctionCall(expr: SFunctionCall, ctx: TranspilingContext): Ex
             );
         }
 
-        /// type()
+        if (expr.callee.name === ScribbleBuiltinFunctions.eq_bytes) {
+            const fun = ctx.instrCtx.getBuiltin(
+                ctx.contract.getClosestParentByType(SourceUnit) as SourceUnit,
+                expr.callee.name
+            );
+
+            return factory.makeFunctionCall(
+                "<missing>",
+                FunctionCallKind.FunctionCall,
+                fun,
+                expr.args.map((arg) => transpile(arg, ctx))
+            );
+        }
+
         if (expr.callee.name === SolidityBuiltinFunctions.type) {
             const arg = single(expr.args);
             const argT = ctx.typeEnv.typeOf(arg);

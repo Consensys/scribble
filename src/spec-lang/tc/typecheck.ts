@@ -1,31 +1,23 @@
 import {
-    addressBuiltins,
-    AddressType,
-    AnyResolvable,
-    applySubstitution,
-    ArrayType,
-    ArrayTypeName,
-    assert,
     ASTNode,
     ASTNodeConstructor,
+    AddressType,
+    AnyResolvable,
+    ArrayType,
+    ArrayTypeName,
     BoolType,
     BuiltinFunctionType,
     BuiltinStructType,
     BytesType,
-    castable,
     ContractDefinition,
     ContractKind,
     DataLocation,
     EnumDefinition,
-    eq,
-    evalBinaryImpl,
     FixedBytesType,
     FunctionDefinition,
     FunctionStateMutability,
     FunctionType,
     FunctionVisibility,
-    generalizeType,
-    globalBuiltins,
     IdentifierPath,
     ImportDirective,
     ImportRefType,
@@ -34,24 +26,17 @@ import {
     IntType,
     Mapping,
     MappingType,
+    PPAble,
     PackedArrayType,
     PointerType,
-    pp,
-    PPAble,
-    resolveAny,
-    resolveByName,
     SourceUnit,
-    specializeType,
+    StateVariableVisibility,
     Statement,
     StatementWithChildren,
-    StateVariableVisibility,
     StringLiteralType,
     StructDefinition,
     TRest,
     TupleType,
-    typeContract,
-    typeInt,
-    typeInterface,
     TypeName,
     TypeNameType,
     TypeNode,
@@ -60,7 +45,23 @@ import {
     UserDefinedValueTypeDefinition,
     UsingForDirective,
     VariableDeclaration,
-    VariableDeclarationStatement
+    VariableDeclarationStatement,
+    addressBuiltins,
+    applySubstitution,
+    assert,
+    castable,
+    eq,
+    evalBinaryImpl,
+    generalizeType,
+    globalBuiltins,
+    pp,
+    resolveAny,
+    resolveByName,
+    specializeType,
+    typeContract,
+    typeInt,
+    typeInterface,
+    types
 } from "solc-typed-ast";
 import { AnnotationMap, AnnotationMetaData, AnnotationTarget } from "../../instrumenter";
 import { Logger } from "../../logger";
@@ -74,7 +75,6 @@ import {
     SBinaryOperation,
     SBooleanLiteral,
     SConditional,
-    ScribbleBuiltinFunctions,
     SForAll,
     SFunctionCall,
     SHexLiteral,
@@ -92,6 +92,7 @@ import {
     SUnaryOperation,
     SUserConstantDefinition,
     SUserFunctionDefinition,
+    ScribbleBuiltinFunctions,
     VarDefSite
 } from "../ast";
 import { FunctionSetType } from "./internal_types";
@@ -1085,8 +1086,8 @@ export function tcId(expr: SId, ctx: STypingCtx, typeEnv: TypeEnv): TypeNode {
     // Next check if this is a builtin symbol
     retT = tcIdImportUnitRef(expr, ctx, typeEnv);
 
-    if (retT !== undefined) {
-        expr.defSite = (retT as ImportRefType).importStmt;
+    if (retT instanceof ImportRefType) {
+        expr.defSite = retT.importStmt;
 
         return retT;
     }
@@ -1962,19 +1963,37 @@ export function tcForAll(expr: SForAll, ctx: STypingCtx, typeEnv: TypeEnv): Type
 export function tcFunctionCall(expr: SFunctionCall, ctx: STypingCtx, typeEnv: TypeEnv): TypeNode {
     const callee = expr.callee;
 
-    if (callee instanceof SId && callee.name === ScribbleBuiltinFunctions.unchecked_sum) {
-        callee.defSite = "builtin_fun";
+    if (callee instanceof SId) {
+        if (callee.name === ScribbleBuiltinFunctions.unchecked_sum) {
+            callee.defSite = "builtin_fun";
 
-        if (expr.args.length !== 1) {
-            throw new SExprCountMismatch(
-                `Calls to sum expect a single argument, not ${expr.args.length} in ${expr.pp()}`,
-                expr
-            );
-        }
+            if (expr.args.length !== 1) {
+                throw new SExprCountMismatch(
+                    `Calls to sum expect a single argument, not ${
+                        expr.args.length
+                    } in ${expr.pp()}`,
+                    expr
+                );
+            }
 
-        const argT = tc(expr.args[0], ctx, typeEnv);
+            const argT = tc(expr.args[0], ctx, typeEnv);
 
-        if (!(argT instanceof PointerType)) {
+            if (!(argT instanceof PointerType)) {
+                throw new SWrongType(
+                    `sum expects a numeric array or map to numbers, not ${argT.pp()} in ${expr.pp()}`,
+                    expr,
+                    argT
+                );
+            }
+
+            if (argT.to instanceof MappingType && argT.to.valueType instanceof IntType) {
+                return new IntType(256, argT.to.valueType.signed);
+            }
+
+            if (argT.to instanceof ArrayType && argT.to.elementT instanceof IntType) {
+                return new IntType(256, argT.to.elementT.signed);
+            }
+
             throw new SWrongType(
                 `sum expects a numeric array or map to numbers, not ${argT.pp()} in ${expr.pp()}`,
                 expr,
@@ -1982,77 +2001,101 @@ export function tcFunctionCall(expr: SFunctionCall, ctx: STypingCtx, typeEnv: Ty
             );
         }
 
-        if (argT.to instanceof MappingType && argT.to.valueType instanceof IntType) {
-            return new IntType(256, argT.to.valueType.signed);
+        if (callee.name === ScribbleBuiltinFunctions.eq_bytes) {
+            callee.defSite = "builtin_fun";
+
+            if (expr.args.length !== 2) {
+                throw new SExprCountMismatch(
+                    `Calls to ${callee.name} expect a 2 arguments, not ${
+                        expr.args.length
+                    } in ${expr.pp()}`,
+                    expr
+                );
+            }
+
+            const aT = tc(expr.args[0], ctx, typeEnv);
+            const bT = tc(expr.args[1], ctx, typeEnv);
+
+            if (!castable(aT, types.bytesMemory, typeEnv.compilerVersion)) {
+                throw new SWrongType(
+                    `${
+                        callee.name
+                    } expects an argument castable to bytes memory, not ${aT.pp()} in ${expr.pp()}`,
+                    expr,
+                    aT
+                );
+            }
+
+            if (!castable(bT, types.bytesMemory, typeEnv.compilerVersion)) {
+                throw new SWrongType(
+                    `${
+                        callee.name
+                    } expects an argument castable to bytes memory, not ${bT.pp()} in ${expr.pp()}`,
+                    expr,
+                    aT
+                );
+            }
+
+            return new BoolType();
         }
 
-        if (argT.to instanceof ArrayType && argT.to.elementT instanceof IntType) {
-            return new IntType(256, argT.to.elementT.signed);
-        }
+        if (callee.name === "type") {
+            callee.defSite = "builtin_fun";
 
-        throw new SWrongType(
-            `sum expects a numeric array or map to numbers, not ${argT.pp()} in ${expr.pp()}`,
-            expr,
-            argT
-        );
-    }
+            if (expr.args.length !== 1) {
+                throw new SExprCountMismatch(
+                    `type() expects a single argument, not ${expr.args.length} in ${expr.pp()}`,
+                    expr
+                );
+            }
 
-    if (callee instanceof SId && callee.name === "type") {
-        callee.defSite = "builtin_fun";
+            const argT = tc(expr.args[0], ctx, typeEnv);
 
-        if (expr.args.length !== 1) {
-            throw new SExprCountMismatch(
-                `type() expects a single argument, not ${expr.args.length} in ${expr.pp()}`,
-                expr
-            );
-        }
+            if (!(argT instanceof TypeNameType)) {
+                throw new SWrongType(
+                    `type() expects a type name as argument, not ${argT.pp()} in ${expr.pp()}`,
+                    expr,
+                    argT
+                );
+            }
 
-        const argT = tc(expr.args[0], ctx, typeEnv);
+            const underlyingType = argT.type;
+            let typeFunT: BuiltinFunctionType | undefined;
 
-        if (!(argT instanceof TypeNameType)) {
+            if (
+                underlyingType instanceof IntType ||
+                (underlyingType instanceof UserDefinedType &&
+                    underlyingType.definition instanceof EnumDefinition)
+            ) {
+                typeFunT = applySubstitution(
+                    typeInt,
+                    new Map([["T", underlyingType]])
+                ) as BuiltinFunctionType;
+            }
+
+            if (
+                underlyingType instanceof UserDefinedType &&
+                underlyingType.definition instanceof ContractDefinition
+            ) {
+                typeFunT = applySubstitution(
+                    underlyingType.definition.kind === ContractKind.Interface ||
+                        underlyingType.definition.abstract
+                        ? typeInterface
+                        : typeContract,
+                    new Map([["T", underlyingType]])
+                ) as BuiltinFunctionType;
+            }
+
+            if (typeFunT !== undefined) {
+                return typeFunT.returns[0];
+            }
+
             throw new SWrongType(
-                `type() expects a type name as argument, not ${argT.pp()} in ${expr.pp()}`,
+                `type() expects a contract name, numeric or enum type, not ${argT.pp()} in ${expr.pp()}`,
                 expr,
                 argT
             );
         }
-
-        const underlyingType = argT.type;
-        let typeFunT: BuiltinFunctionType | undefined;
-
-        if (
-            underlyingType instanceof IntType ||
-            (underlyingType instanceof UserDefinedType &&
-                underlyingType.definition instanceof EnumDefinition)
-        ) {
-            typeFunT = applySubstitution(
-                typeInt,
-                new Map([["T", underlyingType]])
-            ) as BuiltinFunctionType;
-        }
-
-        if (
-            underlyingType instanceof UserDefinedType &&
-            underlyingType.definition instanceof ContractDefinition
-        ) {
-            typeFunT = applySubstitution(
-                underlyingType.definition.kind === ContractKind.Interface ||
-                    underlyingType.definition.abstract
-                    ? typeInterface
-                    : typeContract,
-                new Map([["T", underlyingType]])
-            ) as BuiltinFunctionType;
-        }
-
-        if (typeFunT !== undefined) {
-            return typeFunT?.returns[0];
-        }
-
-        throw new SWrongType(
-            `type() expects a contract name, numeric or enum type, not ${argT.pp()} in ${expr.pp()}`,
-            expr,
-            argT
-        );
     }
 
     /**

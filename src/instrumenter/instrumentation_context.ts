@@ -538,11 +538,12 @@ export class InstrumentationContext {
 
     private getUtilsLibFun(ctx: ASTNode, name: string): MemberAccess {
         const file = ctx instanceof SourceUnit ? ctx : ctx.getClosestParentByType(SourceUnit);
+
         assert(file !== undefined, `Can't add AssertionFailed event to node with no unit {0}`, ctx);
 
         const lib = this.utilsLibraryMap.get(file);
 
-        const funDef = single(lib.vFunctions.filter((evt) => evt.name === name));
+        const funDef = single(lib.vFunctions.filter((fn) => fn.name === name));
 
         return this.factory.makeMemberAccess(
             "<missing>",
@@ -584,8 +585,13 @@ export class InstrumentationContext {
         return this.getUtilsLibEvent(ctx, "AssertionFailedData");
     }
 
+    getBuiltin(ctx: ASTNode, name: string): MemberAccess {
+        return this.getUtilsLibFun(ctx, name);
+    }
+
     getArrSumFun(file: SourceUnit, arrT: ArrayType, loc: DataLocation): FunctionDefinition {
         const utilsLib = this.utilsLibraryMap.get(file);
+
         return makeArraySumFun(this, utilsLib, arrT, loc);
     }
 

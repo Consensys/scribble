@@ -461,7 +461,7 @@ export function scFunctionCall(
     const argsInfo: SemInfo[] = expr.args.map((arg) => sc(arg, ctx, typeEnv, semMap));
 
     // Compute whether all args are constant
-    const allArgsConst = argsInfo.map((argInfo) => argInfo.isConst).reduce((a, b) => a && b, true);
+    const allArgsConst = argsInfo.every((argInfo) => argInfo.isConst);
 
     if (callee instanceof SId && callee.defSite === "builtin_fun") {
         if (callee.name === ScribbleBuiltinFunctions.unchecked_sum) {
@@ -479,6 +479,16 @@ export function scFunctionCall(
             }
 
             return { isOld: isOld, isConst: allArgsConst, canFail: argsInfo[0].canFail };
+        }
+
+        if (callee.name === ScribbleBuiltinFunctions.eq_bytes) {
+            const isOld = ctx.isOld || argsInfo.some((argInfo) => argInfo.isOld);
+
+            return {
+                isOld: isOld,
+                isConst: allArgsConst,
+                canFail: argsInfo.some((argInfo) => argInfo.canFail)
+            };
         }
 
         if (callee.name === SolidityBuiltinFunctions.type) {
