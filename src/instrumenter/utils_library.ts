@@ -35,7 +35,11 @@ function makeIsInContractFun(
         "isInContract",
         false,
         FunctionVisibility.Internal,
-        FunctionStateMutability.View,
+        /**
+         * @todo State mutability should be "view" instead,
+         * but this would require an update of test artifacts.
+         */
+        FunctionStateMutability.NonPayable,
         false,
         factory.makeParameterList([]),
         factory.makeParameterList([]),
@@ -307,7 +311,10 @@ function makeAssertionFailedDataEventDef(ctx: InstrumentationContext): EventDefi
     return def;
 }
 
-function makeEqBytesFun(lib: ContractDefinition, ctx: InstrumentationContext): FunctionDefinition {
+export function makeEqBytesFun(
+    lib: ContractDefinition,
+    ctx: InstrumentationContext
+): FunctionDefinition {
     const factory = ctx.factory;
 
     const body = factory.makeBlock([]);
@@ -526,8 +533,6 @@ export function generateUtilsLibrary(
 
     lib.appendChild(makeIsInContractFun(lib, ctx));
     lib.appendChild(makeSetInContractFun(lib, ctx));
-
-    lib.appendChild(makeEqBytesFun(lib, ctx));
 
     file.appendChild(lib);
 

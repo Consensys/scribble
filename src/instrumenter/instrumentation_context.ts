@@ -21,9 +21,14 @@ import {
     VariableDeclaration
 } from "solc-typed-ast";
 import { print } from "../ast_to_source_printer";
-import { SId, SUserConstantDefinition, SUserFunctionDefinition } from "../spec-lang/ast";
+import {
+    ScribbleBuiltinFunctions,
+    SId,
+    SUserConstantDefinition,
+    SUserFunctionDefinition
+} from "../spec-lang/ast";
 import { SemMap, TypeEnv } from "../spec-lang/tc";
-import { dedup, single } from "../util/misc";
+import { dedup } from "../util/misc";
 import { NameGenerator } from "../util/name_generator";
 import { SourceMap } from "../util/sources";
 import { AnnotationFilterOptions, AnnotationMetaData } from "./annotations";
@@ -42,7 +47,7 @@ import { makeArraySumFun, UnsupportedConstruct } from "./instrument";
 import { findAliasedStateVars } from "./state_vars";
 import { InstrumentationSiteType, TranspilingContext } from "./transpiling_context";
 import { FactoryMap, ScribbleFactory, StructMap } from "./utils";
-import { generateUtilsLibrary } from "./utils_library";
+import { generateUtilsLibrary, makeEqBytesFun } from "./utils_library";
 
 /**
  * Gather all named nodes in the provided source units.
@@ -272,7 +277,9 @@ class UtilsLibraryMap extends ContextFactoryMap<[SourceUnit], string, ContractDe
 
     protected makeNew(unit: SourceUnit): ContractDefinition {
         const res = generateUtilsLibrary(unit, this.ctx);
+
         this.inverseMap.set(res, unit);
+
         return res;
     }
 
@@ -536,14 +543,19 @@ export class InstrumentationContext {
         );
     }
 
-    private getUtilsLibFun(ctx: ASTNode, name: string): MemberAccess {
+    private getUtilsLib(ctx: ASTNode): ContractDefinition {
         const file = ctx instanceof SourceUnit ? ctx : ctx.getClosestParentByType(SourceUnit);
 
-        assert(file !== undefined, `Can't add AssertionFailed event to node with no unit {0}`, ctx);
+        assert(file !== undefined, "Unable to detect source unit for node {0}", ctx);
 
-        const lib = this.utilsLibraryMap.get(file);
+        return this.utilsLibraryMap.get(file);
+    }
 
-        const funDef = single(lib.vFunctions.filter((fn) => fn.name === name));
+    private getUtilsLibFun(ctx: ASTNode, name: string): MemberAccess {
+        const lib = this.getUtilsLib(ctx);
+        const funDef = lib.vFunctions.find((fn) => fn.name === name);
+
+        assert(funDef !== undefined, 'Unable to find definition of utility function "{0}"', name);
 
         return this.factory.makeMemberAccess(
             "<missing>",
@@ -554,12 +566,10 @@ export class InstrumentationContext {
     }
 
     private getUtilsLibEvent(ctx: ASTNode, name: string): MemberAccess {
-        const file = ctx instanceof SourceUnit ? ctx : ctx.getClosestParentByType(SourceUnit);
-        assert(file !== undefined, `Can't add AssertionFailed event to node with no unit {0}`, ctx);
+        const lib = this.getUtilsLib(ctx);
+        const evtDef = lib.vEvents.find((evt) => evt.name === name);
 
-        const lib = this.utilsLibraryMap.get(file);
-
-        const evtDef = single(lib.vEvents.filter((evt) => evt.name === name));
+        assert(evtDef !== undefined, 'Unable to find definition of utility event "{0}"', name);
 
         return this.factory.makeMemberAccess(
             "<missing>",
@@ -585,8 +595,31 @@ export class InstrumentationContext {
         return this.getUtilsLibEvent(ctx, "AssertionFailedData");
     }
 
-    getBuiltin(ctx: ASTNode, name: string): MemberAccess {
-        return this.getUtilsLibFun(ctx, name);
+    getBuiltinFun(ctx: ASTNode, name: string): MemberAccess {
+        const allowed = new Set<string>(Object.values(ScribbleBuiltinFunctions));
+
+        assert(allowed.has(name), 'Unsupported builtin "{0}"', name);
+
+        const lib = this.getUtilsLib(ctx);
+
+        let funDef = lib.vFunctions.find((fn) => fn.name === name);
+
+        if (funDef === undefined) {
+            if (name === ScribbleBuiltinFunctions.eq_bytes) {
+                funDef = makeEqBytesFun(lib, this);
+            } else {
+                throw new Error(`Unable to compose builtin function "${name}"`);
+            }
+
+            lib.appendChild(funDef);
+        }
+
+        return this.factory.makeMemberAccess(
+            "<missing>",
+            this.factory.makeIdentifierFor(lib),
+            name,
+            funDef.id
+        );
     }
 
     getArrSumFun(file: SourceUnit, arrT: ArrayType, loc: DataLocation): FunctionDefinition {
