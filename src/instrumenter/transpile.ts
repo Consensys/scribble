@@ -7,6 +7,7 @@ import {
     Block,
     BoolType,
     BytesType,
+    castable,
     ContractDefinition,
     ElementaryTypeName,
     EnumDefinition,
@@ -33,6 +34,7 @@ import {
     TypeName,
     TypeNameType,
     TypeNode,
+    types,
     UserDefinedType,
     UserDefinedValueTypeDefinition,
     VariableDeclaration
@@ -680,7 +682,26 @@ function transpileFunctionCall(expr: SFunctionCall, ctx: TranspilingContext): Ex
                 "<missing>",
                 FunctionCallKind.FunctionCall,
                 fun,
-                expr.args.map((arg) => transpile(arg, ctx))
+                expr.args.map((arg) => {
+                    const argT = ctx.typeEnv.typeOf(arg);
+                    const solArg = transpile(arg, ctx);
+
+                    if (castable(argT, types.bytesMemory, ctx.typeEnv.compilerVersion)) {
+                        return solArg;
+                    }
+
+                    return factory.makeFunctionCall(
+                        "<missing>",
+                        FunctionCallKind.FunctionCall,
+                        factory.makeMemberAccess(
+                            "<missing>",
+                            factory.makeIdentifier("<missing>", "abi", -1),
+                            "encode",
+                            -1
+                        ),
+                        [solArg]
+                    );
+                })
             );
         }
 

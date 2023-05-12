@@ -60,8 +60,7 @@ import {
     specializeType,
     typeContract,
     typeInt,
-    typeInterface,
-    types
+    typeInterface
 } from "solc-typed-ast";
 import { AnnotationMap, AnnotationMetaData, AnnotationTarget } from "../../instrumenter";
 import { Logger } from "../../logger";
@@ -2013,28 +2012,13 @@ export function tcFunctionCall(expr: SFunctionCall, ctx: STypingCtx, typeEnv: Ty
                 );
             }
 
-            const aT = tc(expr.args[0], ctx, typeEnv);
-            const bT = tc(expr.args[1], ctx, typeEnv);
-
-            if (!castable(aT, types.bytesMemory, typeEnv.compilerVersion)) {
-                throw new SWrongType(
-                    `${
-                        callee.name
-                    } expects an argument castable to bytes memory, not ${aT.pp()} in ${expr.pp()}`,
-                    expr,
-                    aT
-                );
-            }
-
-            if (!castable(bT, types.bytesMemory, typeEnv.compilerVersion)) {
-                throw new SWrongType(
-                    `${
-                        callee.name
-                    } expects an argument castable to bytes memory, not ${bT.pp()} in ${expr.pp()}`,
-                    expr,
-                    aT
-                );
-            }
+            /**
+             * @todo Consider checking that type is encodable.
+             * Here is how compiler does it:
+             * https://github.com/ethereum/solidity/blob/0a0c389541c0f247691951edd64451be7145436c/libsolidity/ast/Types.cpp#L314-L339
+             */
+            tc(expr.args[0], ctx, typeEnv);
+            tc(expr.args[1], ctx, typeEnv);
 
             return new BoolType();
         }
