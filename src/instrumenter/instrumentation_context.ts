@@ -605,7 +605,7 @@ export class InstrumentationContext {
         let funDef = lib.vFunctions.find((fn) => fn.name === name);
 
         if (funDef === undefined) {
-            if (name === ScribbleBuiltinFunctions.eq_bytes) {
+            if (name === ScribbleBuiltinFunctions.eq_encoded) {
                 funDef = makeEqBytesFun(lib, this);
             } else {
                 throw new Error(`Unable to compose builtin function "${name}"`);

@@ -481,7 +481,7 @@ export function scFunctionCall(
             return { isOld: isOld, isConst: allArgsConst, canFail: argsInfo[0].canFail };
         }
 
-        if (callee.name === ScribbleBuiltinFunctions.eq_bytes) {
+        if (callee.name === ScribbleBuiltinFunctions.eq_encoded) {
             const isOld = ctx.isOld || argsInfo.some((argInfo) => argInfo.isOld);
 
             return {

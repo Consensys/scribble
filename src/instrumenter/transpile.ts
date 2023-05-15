@@ -672,7 +672,7 @@ function transpileFunctionCall(expr: SFunctionCall, ctx: TranspilingContext): Ex
             );
         }
 
-        if (expr.callee.name === ScribbleBuiltinFunctions.eq_bytes) {
+        if (expr.callee.name === ScribbleBuiltinFunctions.eq_encoded) {
             const fun = ctx.instrCtx.getBuiltinFun(
                 ctx.contract.getClosestParentByType(SourceUnit) as SourceUnit,
                 expr.callee.name

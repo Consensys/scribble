@@ -2000,7 +2000,7 @@ export function tcFunctionCall(expr: SFunctionCall, ctx: STypingCtx, typeEnv: Ty
             );
         }
 
-        if (callee.name === ScribbleBuiltinFunctions.eq_bytes) {
+        if (callee.name === ScribbleBuiltinFunctions.eq_encoded) {
             callee.defSite = "builtin_fun";
 
             if (expr.args.length !== 2) {

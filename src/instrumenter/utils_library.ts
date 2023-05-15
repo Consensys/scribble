@@ -321,7 +321,7 @@ export function makeEqBytesFun(
     const fun = factory.makeFunctionDefinition(
         lib.id,
         FunctionKind.Function,
-        ScribbleBuiltinFunctions.eq_bytes,
+        ScribbleBuiltinFunctions.eq_encoded,
         false,
         FunctionVisibility.Internal,
         FunctionStateMutability.Pure,
