@@ -10,3 +10,4 @@ src/rewriter/import_directive_parser.ts
 .vscode/launch.json
 test/multifile_samples/*/__scribble_ReentrancyUtils.sol
 test/multifile_samples/*/*.sol.instrumented
+.idea
