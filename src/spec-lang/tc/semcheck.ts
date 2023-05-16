@@ -482,7 +482,7 @@ export function scFunctionCall(
         }
 
         if (callee.name === ScribbleBuiltinFunctions.eq_encoded) {
-            const isOld = ctx.isOld || argsInfo.some((argInfo) => argInfo.isOld);
+            const isOld = ctx.isOld || argsInfo.every((argInfo) => argInfo.isOld);
 
             return {
                 isOld: isOld,

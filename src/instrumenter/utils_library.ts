@@ -395,71 +395,30 @@ export function makeEqBytesFun(
         )
     );
 
-    const i = factory.makeVariableDeclaration(
-        false,
-        false,
-        "i",
-        fun.id,
-        false,
-        DataLocation.Default,
-        StateVariableVisibility.Default,
-        Mutability.Mutable,
-        "<missing>",
-        undefined,
-        factory.makeElementaryTypeName("uint256", "uint256")
-    );
-
-    const byteCheck = factory.makeForStatement(
-        factory.makeBlock([
-            factory.makeIfStatement(
-                factory.makeBinaryOperation(
-                    "bool",
-                    "!=",
-                    factory.makeIndexAccess(
-                        "uint8",
-                        factory.makeIdentifierFor(a),
-                        factory.makeIdentifierFor(i)
-                    ),
-                    factory.makeIndexAccess(
-                        "uint8",
-                        factory.makeIdentifierFor(b),
-                        factory.makeIdentifierFor(i)
-                    )
-                ),
-                factory.makeReturn(
-                    fun.vReturnParameters.id,
-                    factory.makeLiteral("bool", LiteralKind.Bool, "", "false")
-                )
-            )
-        ]),
-        factory.makeVariableDeclarationStatement(
-            [i.id],
-            [i],
-            factory.makeLiteral("int_const 0", LiteralKind.Number, "00", "0")
-        ),
+    const retStmt = factory.makeReturn(
+        fun.vReturnParameters.id,
         factory.makeBinaryOperation(
             "bool",
-            "<",
-            factory.makeIdentifierFor(i),
-            factory.makeMemberAccess("uint256", factory.makeIdentifierFor(a), "length", -1)
-        ),
-        factory.makeExpressionStatement(
-            factory.makeUnaryOperation("uint256", false, "++", factory.makeIdentifierFor(i))
+            "==",
+            factory.makeFunctionCall(
+                "bytes32",
+                FunctionCallKind.FunctionCall,
+                factory.makeIdentifier("<missing>", "keccak256", -1),
+                [factory.makeIdentifierFor(a)]
+            ),
+            factory.makeFunctionCall(
+                "bytes32",
+                FunctionCallKind.FunctionCall,
+                factory.makeIdentifier("<missing>", "keccak256", -1),
+                [factory.makeIdentifierFor(b)]
+            )
         )
     );
 
-    const retStmt = factory.makeReturn(
-        fun.vReturnParameters.id,
-        factory.makeLiteral("bool", LiteralKind.Bool, "", "true")
-    );
-
     body.appendChild(lenEqCheck);
-    body.appendChild(byteCheck);
     body.appendChild(retStmt);
 
     ctx.addGeneralInstrumentation(lenEqCheck);
-    ctx.addGeneralInstrumentation(i);
-    ctx.addGeneralInstrumentation(byteCheck);
     ctx.addGeneralInstrumentation(retStmt);
 
     return fun;
