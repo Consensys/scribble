@@ -59,7 +59,6 @@ jobs:
   notify-slack:
     needs: build
     runs-on: ubuntu-latest
-    if: github.ref == 'refs/heads/master'
     steps:
       - uses: actions/checkout@v3
         with:
@@ -73,7 +72,7 @@ jobs:
           payload: |
             {
               "project": "${{ github.repository }}",
-              "env": "master",
+              "env": "${{ github.ref_name }}",
               "version": "",
               "actor": "${{ github.triggering_actor }}",
               "commit_sha": "${{ github.sha }}",
