@@ -2,7 +2,9 @@ name: Build and release package
 
 on:
     release:
-        types: [published]
+        types: [ published ]
+
+permissions: read-all
 
 jobs:
     publish:
