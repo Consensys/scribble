@@ -1,0 +1,56 @@
+{
+    "file": "test/samples/eq_encoded.instrumented.sol",
+    "steps": [
+        {
+            "act": "createUser",
+            "alias": "owner",
+            "options": {
+                "balance": 1000e18
+            }
+        },
+        {
+            "act": "deployContract",
+            "contract": "Sample",
+            "user": "owner",
+            "alias": "instance1"
+        },
+        {
+            "act": "txCall",
+            "user": "owner",
+            "contract": "instance1",
+
+            "method": "positive",
+            "returns": ["bool"],
+
+            "args": {
+                "types": [],
+                "values": []
+            },
+
+            "onReturns": [
+                {
+                    "expect": true
+                }
+            ]
+        },
+        {
+            "act": "txCall",
+            "user": "owner",
+            "contract": "instance1",
+
+            "method": "negative",
+            "returns": ["bool"],
+
+            "args": {
+                "types": [],
+                "values": []
+            },
+
+            "onReturns": [
+                {
+                    "expect": true
+                }
+            ]
+        }
+    ]
+}
