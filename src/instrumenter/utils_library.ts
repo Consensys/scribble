@@ -9,13 +9,19 @@ import {
     FunctionKind,
     FunctionStateMutability,
     FunctionVisibility,
+    LiteralKind,
     Mutability,
     SourceUnit,
     StateVariableVisibility,
     TypeName,
     VariableDeclaration
 } from "solc-typed-ast";
+import { ScribbleBuiltinFunctions } from "../spec-lang/ast";
 import { InstrumentationContext } from "./instrumentation_context";
+
+// keccak256("__Scribble.isInContract__")
+const SCRIBBLE_IS_IN_CONTRACT_HASH =
+    "0x5f0b92cf9616afdee4f4136f66393f1343b027f01be893fa569eb2e2b667a40c";
 
 function makeIsInContractFun(
     lib: ContractDefinition,
@@ -29,6 +35,10 @@ function makeIsInContractFun(
         "isInContract",
         false,
         FunctionVisibility.Internal,
+        /**
+         * @todo State mutability should be "view" instead,
+         * but this would require an update of test artifacts.
+         */
         FunctionStateMutability.NonPayable,
         false,
         factory.makeParameterList([]),
@@ -53,6 +63,7 @@ function makeIsInContractFun(
     );
 
     fun.vReturnParameters.appendChild(retDecl);
+
     ctx.addGeneralInstrumentation(retDecl);
 
     const asm = factory.makeInlineAssembly([], undefined, {
@@ -75,8 +86,7 @@ function makeIsInContractFun(
                             kind: "number",
                             src: "<missing>",
                             type: "",
-                            /// keccak256("__Scribble.isInContract__")
-                            value: "0x5f0b92cf9616afdee4f4136f66393f1343b027f01be893fa569eb2e2b667a40c"
+                            value: SCRIBBLE_IS_IN_CONTRACT_HASH
                         }
                     ]
                 },
@@ -90,7 +100,9 @@ function makeIsInContractFun(
             }
         ]
     });
+
     (fun.vBody as Block).appendChild(asm);
+
     ctx.addGeneralInstrumentation(asm);
 
     return fun;
@@ -151,8 +163,7 @@ function makeSetInContractFun(
                         kind: "number",
                         src: "<missing>",
                         type: "",
-                        /// keccak256("__Scribble.isInContract__")
-                        value: "0x5f0b92cf9616afdee4f4136f66393f1343b027f01be893fa569eb2e2b667a40c"
+                        value: SCRIBBLE_IS_IN_CONTRACT_HASH
                     },
                     {
                         nodeType: "YulIdentifier",
@@ -163,7 +174,9 @@ function makeSetInContractFun(
             }
         ]
     });
+
     (fun.vBody as Block).appendChild(asm);
+
     ctx.addGeneralInstrumentation(asm);
 
     return fun;
@@ -221,7 +234,192 @@ function makeEventEmitFun(
     );
 
     (fun.vBody as Block).appendChild(factory.makeEmitStatement(callStmt));
+
     ctx.addGeneralInstrumentation(callStmt);
+
+    return fun;
+}
+
+function makeAssertionFailedEventDef(ctx: InstrumentationContext): EventDefinition {
+    const factory = ctx.factory;
+
+    const def = factory.makeEventDefinition(
+        false,
+        "AssertionFailed",
+        factory.makeParameterList([])
+    );
+
+    const message = factory.makeVariableDeclaration(
+        false,
+        false,
+        "message",
+        def.id,
+        false,
+        DataLocation.Default,
+        StateVariableVisibility.Default,
+        Mutability.Mutable,
+        "<missing>",
+        undefined,
+        factory.makeElementaryTypeName("<missing>", "string")
+    );
+
+    def.vParameters.vParameters.push(message);
+
+    return def;
+}
+
+function makeAssertionFailedDataEventDef(ctx: InstrumentationContext): EventDefinition {
+    const factory = ctx.factory;
+
+    const def = factory.makeEventDefinition(
+        false,
+        `AssertionFailedData`,
+        factory.makeParameterList([])
+    );
+
+    const eventId = factory.makeVariableDeclaration(
+        false,
+        false,
+        "eventId",
+        def.id,
+        false,
+        DataLocation.Default,
+        StateVariableVisibility.Default,
+        Mutability.Mutable,
+        "int",
+        undefined,
+        factory.makeElementaryTypeName("<missing>", "int")
+    );
+
+    const encodingData = factory.makeVariableDeclaration(
+        false,
+        false,
+        "encodingData",
+        def.id,
+        false,
+        DataLocation.Default,
+        StateVariableVisibility.Default,
+        Mutability.Mutable,
+        "bytes",
+        undefined,
+        factory.makeElementaryTypeName("<missing>", "bytes")
+    );
+
+    def.vParameters.appendChild(eventId);
+    def.vParameters.appendChild(encodingData);
+
+    return def;
+}
+
+export function makeEqBytesFun(
+    lib: ContractDefinition,
+    ctx: InstrumentationContext
+): FunctionDefinition {
+    const factory = ctx.factory;
+
+    const body = factory.makeBlock([]);
+    const fun = factory.makeFunctionDefinition(
+        lib.id,
+        FunctionKind.Function,
+        ScribbleBuiltinFunctions.eq_encoded,
+        false,
+        FunctionVisibility.Internal,
+        FunctionStateMutability.Pure,
+        false,
+        factory.makeParameterList([]),
+        factory.makeParameterList([]),
+        [],
+        undefined,
+        body
+    );
+
+    const a = factory.makeVariableDeclaration(
+        false,
+        false,
+        "a",
+        fun.id,
+        false,
+        DataLocation.Memory,
+        StateVariableVisibility.Default,
+        Mutability.Mutable,
+        "bytes",
+        undefined,
+        factory.makeElementaryTypeName("<missing>", "bytes")
+    );
+
+    const b = factory.makeVariableDeclaration(
+        false,
+        false,
+        "b",
+        fun.id,
+        false,
+        DataLocation.Memory,
+        StateVariableVisibility.Default,
+        Mutability.Mutable,
+        "bytes",
+        undefined,
+        factory.makeElementaryTypeName("<missing>", "bytes")
+    );
+
+    const ret = factory.makeVariableDeclaration(
+        false,
+        false,
+        "",
+        fun.id,
+        false,
+        DataLocation.Default,
+        StateVariableVisibility.Default,
+        Mutability.Mutable,
+        "<missing>",
+        undefined,
+        factory.makeElementaryTypeName("<missing>", "bool")
+    );
+
+    fun.vParameters.appendChild(a);
+    fun.vParameters.appendChild(b);
+
+    fun.vReturnParameters.appendChild(ret);
+
+    ctx.addGeneralInstrumentation(ret);
+
+    const lenEqCheck = factory.makeIfStatement(
+        factory.makeBinaryOperation(
+            "bool",
+            "!=",
+            factory.makeMemberAccess("uint256", factory.makeIdentifierFor(a), "length", -1),
+            factory.makeMemberAccess("uint256", factory.makeIdentifierFor(b), "length", -1)
+        ),
+        factory.makeReturn(
+            fun.vReturnParameters.id,
+            factory.makeLiteral("bool", LiteralKind.Bool, "", "false")
+        )
+    );
+
+    const retStmt = factory.makeReturn(
+        fun.vReturnParameters.id,
+        factory.makeBinaryOperation(
+            "bool",
+            "==",
+            factory.makeFunctionCall(
+                "bytes32",
+                FunctionCallKind.FunctionCall,
+                factory.makeIdentifier("<missing>", "keccak256", -1),
+                [factory.makeIdentifierFor(a)]
+            ),
+            factory.makeFunctionCall(
+                "bytes32",
+                FunctionCallKind.FunctionCall,
+                factory.makeIdentifier("<missing>", "keccak256", -1),
+                [factory.makeIdentifierFor(b)]
+            )
+        )
+    );
+
+    body.appendChild(lenEqCheck);
+    body.appendChild(retStmt);
+
+    ctx.addGeneralInstrumentation(lenEqCheck);
+    ctx.addGeneralInstrumentation(retStmt);
 
     return fun;
 }
@@ -247,6 +445,7 @@ export function generateUtilsLibrary(
     ctx: InstrumentationContext
 ): ContractDefinition {
     const factory = ctx.factory;
+
     const lib = factory.makeContractDefinition(
         `__ScribbleUtilsLib__${file.id}`,
         file.id,
@@ -260,75 +459,19 @@ export function generateUtilsLibrary(
 
     lib.linearizedBaseContracts.push(lib.id);
 
-    /// Add 'AssertionFailed' event
-    const assertionFailedEvtDef = factory.makeEventDefinition(
-        false,
-        "AssertionFailed",
-        factory.makeParameterList([])
-    );
+    const assertionFailedDef = makeAssertionFailedEventDef(ctx);
 
-    assertionFailedEvtDef.vParameters.vParameters.push(
-        factory.makeVariableDeclaration(
-            false,
-            false,
-            "message",
-            assertionFailedEvtDef.id,
-            false,
-            DataLocation.Default,
-            StateVariableVisibility.Default,
-            Mutability.Mutable,
-            "<missing>",
-            undefined,
-            factory.makeElementaryTypeName("<missing>", "string")
-        )
-    );
+    lib.appendChild(assertionFailedDef);
 
-    lib.appendChild(assertionFailedEvtDef);
+    const assertionFailedDataDef = makeAssertionFailedDataEventDef(ctx);
 
-    /// Add 'AssertionFailedData' event
-    const assertionFailedDataEvtDef = factory.makeEventDefinition(
-        false,
-        `AssertionFailedData`,
-        factory.makeParameterList([])
-    );
-
-    const eventId = factory.makeVariableDeclaration(
-        false,
-        false,
-        "eventId",
-        assertionFailedDataEvtDef.id,
-        false,
-        DataLocation.Default,
-        StateVariableVisibility.Default,
-        Mutability.Mutable,
-        "int",
-        undefined,
-        factory.makeElementaryTypeName("<missing>", "int")
-    );
-
-    const encodingData = factory.makeVariableDeclaration(
-        false,
-        false,
-        "encodingData",
-        assertionFailedDataEvtDef.id,
-        false,
-        DataLocation.Default,
-        StateVariableVisibility.Default,
-        Mutability.Mutable,
-        "bytes",
-        undefined,
-        factory.makeElementaryTypeName("<missing>", "bytes")
-    );
-
-    assertionFailedDataEvtDef.vParameters.appendChild(eventId);
-    assertionFailedDataEvtDef.vParameters.appendChild(encodingData);
-    lib.appendChild(assertionFailedDataEvtDef);
+    lib.appendChild(assertionFailedDataDef);
 
     lib.appendChild(
         makeEventEmitFun(
             lib,
             "assertionFailed",
-            assertionFailedEvtDef,
+            assertionFailedDef,
             [[factory.makeElementaryTypeName("<missing>", "string"), DataLocation.Memory]],
             ctx
         )
@@ -338,7 +481,7 @@ export function generateUtilsLibrary(
         makeEventEmitFun(
             lib,
             "assertionFailedData",
-            assertionFailedDataEvtDef,
+            assertionFailedDataDef,
             [
                 [factory.makeElementaryTypeName("<missing>", "int"), DataLocation.Default],
                 [factory.makeElementaryTypeName("<missing>", "bytes"), DataLocation.Memory]

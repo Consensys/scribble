@@ -7,6 +7,7 @@ import {
     Block,
     BoolType,
     BytesType,
+    castable,
     ContractDefinition,
     ElementaryTypeName,
     EnumDefinition,
@@ -33,6 +34,7 @@ import {
     TypeName,
     TypeNameType,
     TypeNode,
+    types,
     UserDefinedType,
     UserDefinedValueTypeDefinition,
     VariableDeclaration
@@ -619,7 +621,6 @@ function transpileFunctionCall(expr: SFunctionCall, ctx: TranspilingContext): Ex
 
     // Builtin functions
     if (expr.callee instanceof SId && expr.callee.defSite === "builtin_fun") {
-        /// unchecked_sum()
         if (expr.callee.name === ScribbleBuiltinFunctions.unchecked_sum) {
             const arg = single(expr.args);
             const argT = ctx.typeEnv.typeOf(arg);
@@ -671,7 +672,39 @@ function transpileFunctionCall(expr: SFunctionCall, ctx: TranspilingContext): Ex
             );
         }
 
-        /// type()
+        if (expr.callee.name === ScribbleBuiltinFunctions.eq_encoded) {
+            const fun = ctx.instrCtx.getBuiltinFun(
+                ctx.contract.getClosestParentByType(SourceUnit) as SourceUnit,
+                expr.callee.name
+            );
+
+            return factory.makeFunctionCall(
+                "<missing>",
+                FunctionCallKind.FunctionCall,
+                fun,
+                expr.args.map((arg) => {
+                    const argT = ctx.typeEnv.typeOf(arg);
+                    const solArg = transpile(arg, ctx);
+
+                    if (castable(argT, types.bytesMemory, ctx.typeEnv.compilerVersion)) {
+                        return solArg;
+                    }
+
+                    return factory.makeFunctionCall(
+                        "<missing>",
+                        FunctionCallKind.FunctionCall,
+                        factory.makeMemberAccess(
+                            "<missing>",
+                            factory.makeIdentifier("<missing>", "abi", -1),
+                            "encode",
+                            -1
+                        ),
+                        [solArg]
+                    );
+                })
+            );
+        }
+
         if (expr.callee.name === SolidityBuiltinFunctions.type) {
             const arg = single(expr.args);
             const argT = ctx.typeEnv.typeOf(arg);
