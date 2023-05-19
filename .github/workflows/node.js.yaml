@@ -6,6 +6,8 @@ on:
   pull_request:
     branches: [ "master", "develop" ]
 
+permissions: read-all
+
 jobs:
   build:
     runs-on: ubuntu-latest
@@ -72,14 +74,20 @@ jobs:
         with:
           payload: |
             {
-              "project": "${{ github.repository }}",
-              "env": "${{ github.ref_name }}",
+              "project": "$PROJECT",
+              "env": "$ENV",
               "version": "",
-              "actor": "${{ github.triggering_actor }}",
-              "commit_sha": "${{ github.sha }}",
-              "commit_message": "${{ steps.non_merge_commit_message.outputs.commit_message }}",
-              "commit_link": "${{ github.server_url }}/${{ github.repository }}/commit/${{ github.sha }}",
+              "actor": "$ACTOR",
+              "commit_sha": "$COMMIT_SHA",
+              "commit_message": "$COMMIT_MESSAGE",
+              "commit_link": "$COMMIT_LINK",
               "message": ""
             }
         env:
+          PROJECT: ${{ github.repository }}
+          ENV: ${{ github.ref_name }}
+          ACTOR: ${{ github.triggering_actor }}
+          COMMIT_SHA: ${{ github.sha }}
+          COMMIT_MESSAGE: ${{ steps.non_merge_commit_message.outputs.commit_message }}
+          COMMIT_LINK: ${{ github.server_url }}/${{ github.repository }}/commit/${{ github.sha }}
           SLACK_WEBHOOK_URL: ${{ secrets.slack_webhook_url }}
