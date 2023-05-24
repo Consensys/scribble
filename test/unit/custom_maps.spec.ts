@@ -945,7 +945,11 @@ contract Foo {
         `pragma solidity 0.8.4;
 
 contract Foo {
-    enum E { A, B, C }
+    enum E {
+        A,
+        B,
+        C
+    }
 
     uint256_to_uint256_127.S x0;
     uint256_to_uint256_to_uint256_127_S_129_127.S y0;

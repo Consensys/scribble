@@ -454,6 +454,7 @@ export function generateUtilsLibrary(
         true,
         [],
         [],
+        [],
         undefined
     );
 
