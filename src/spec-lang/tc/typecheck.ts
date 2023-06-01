@@ -2005,20 +2005,26 @@ export function tcFunctionCall(expr: SFunctionCall, ctx: STypingCtx, typeEnv: Ty
 
             if (expr.args.length !== 2) {
                 throw new SExprCountMismatch(
-                    `Calls to ${callee.name} expect a 2 arguments, not ${
+                    `Calls to ${callee.name} expect 2 arguments, not ${
                         expr.args.length
                     } in ${expr.pp()}`,
                     expr
                 );
             }
 
-            /**
-             * @todo Consider checking that type is encodable.
-             * Here is how compiler does it:
-             * https://github.com/ethereum/solidity/blob/0a0c389541c0f247691951edd64451be7145436c/libsolidity/ast/Types.cpp#L314-L339
-             */
-            tc(expr.args[0], ctx, typeEnv);
-            tc(expr.args[1], ctx, typeEnv);
+            const encoderVersion = typeEnv.inference.getUnitLevelAbiEncoderVersion(ctx.target);
+
+            for (const arg of expr.args) {
+                const argT = tc(arg, ctx, typeEnv);
+
+                if (!typeEnv.inference.isABIEncodable(argT, encoderVersion)) {
+                    throw new SWrongType(
+                        `${arg.pp()} of type ${argT.pp()} is not encodable (can not be wrapped by abi.encode()) in ${expr.pp()}`,
+                        expr,
+                        argT
+                    );
+                }
+            }
 
             return new BoolType();
         }
