@@ -3,11 +3,17 @@
 pragma solidity 0.7.5;
 
 abstract contract __scribble_ReentrancyUtils {
-    enum vars0 { A }
+    enum vars0 {
+        A
+    }
 
-    enum vars1 { B }
+    enum vars1 {
+        B
+    }
 
-    enum vars2 { C }
+    enum vars2 {
+        C
+    }
 
     struct vars4 {
         bool __scribble_check_invs_at_end;
@@ -126,7 +132,7 @@ contract Foo is __scribble_ReentrancyUtils {
         _v1.let_1 = _v1.let_0;
         _v1.let_2 = _v1.let_1;
         if (!(_v1.let_2)) {
-            emit __ScribbleUtilsLib__86.AssertionFailed("004447:0068:000 0: P0");
+            emit __ScribbleUtilsLib__86.AssertionFailed("004483:0068:000 0: P0");
             assert(false);
         }
         if (_v1.__scribble_check_invs_at_end) __scribble_check_state_invariants1();
@@ -145,7 +151,7 @@ contract Foo is __scribble_ReentrancyUtils {
     /// Check only the current contract's state invariants
     function __scribble_Foo_check_state_invariants_internal1() internal {
         if (!(t >= 1)) {
-            emit __ScribbleUtilsLib__86.AssertionFailed("005116:0066:000 1: ");
+            emit __ScribbleUtilsLib__86.AssertionFailed("005152:0066:000 1: ");
             assert(false);
         }
     }

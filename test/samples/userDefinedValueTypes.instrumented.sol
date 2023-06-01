@@ -2,7 +2,11 @@
 /// Use --disarm prior to make any changes.
 pragma solidity 0.8.8;
 
-enum A { A, B, C }
+enum A {
+    A,
+    B,
+    C
+}
 
 type Price is uint32;
 
@@ -13,7 +17,7 @@ contract UserDefinedValueTypes {
         RET_0 = _original_UserDefinedValueTypes_orderPrice(p, q);
         unchecked {
             if (!((Price.unwrap(p) * Quantity.unwrap(q)) == Price.unwrap(RET_0))) {
-                emit __ScribbleUtilsLib__38.AssertionFailed("000514:0066:000 0: ");
+                emit __ScribbleUtilsLib__38.AssertionFailed("000526:0066:000 0: ");
                 assert(false);
             }
         }

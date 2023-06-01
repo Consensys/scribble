@@ -2,11 +2,23 @@
 /// Use --disarm prior to make any changes.
 pragma solidity 0.6.11;
 
-enum Enum1 { A, B, C }
+enum Enum1 {
+    A,
+    B,
+    C
+}
 
-enum Enum2 { E, F, G }
+enum Enum2 {
+    E,
+    F,
+    G
+}
 
-enum Struct1_1 { H, I, J }
+enum Struct1_1 {
+    H,
+    I,
+    J
+}
 
 struct Struct1 {
     uint256 x;

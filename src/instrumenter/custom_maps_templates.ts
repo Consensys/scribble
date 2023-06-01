@@ -662,6 +662,7 @@ export function generateMapLibrary(
         false,
         true,
         [],
+        [],
         []
     );
 

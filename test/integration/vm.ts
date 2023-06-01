@@ -6,8 +6,9 @@ import bigInt from "big-integer";
 import BN from "bn.js";
 import crypto from "crypto";
 import expect from "expect";
-import { compileSol, compileSourceString, LatestCompilerVersion } from "solc-typed-ast";
+import { assert, compileSol, compileSourceString, LatestCompilerVersion } from "solc-typed-ast";
 import { getCompilerKind } from "./utils";
+import { gte } from "semver";
 
 const abi = require("ethereumjs-abi");
 
@@ -84,10 +85,10 @@ async function compileSource(
     fileName: string,
     contents?: string,
     version: string = LatestCompilerVersion
-): Promise<ContractBytecodeMap> {
+): Promise<{ bytecodes: ContractBytecodeMap; hardfork: Hardfork }> {
     const compilerKind = getCompilerKind();
 
-    const { data } = await (contents
+    const { data, compilerVersion } = await (contents
         ? compileSourceString(
               fileName,
               contents,
@@ -99,18 +100,20 @@ async function compileSource(
           )
         : compileSol(fileName, "auto", undefined, undefined, undefined, compilerKind));
 
-    const result = new Map<string, Buffer>();
+    assert(compilerVersion !== undefined, "Expected compiler version to be defined");
+
+    const bytecodes = new Map<string, Buffer>();
     const contracts: { [name: string]: any } = data.contracts[fileName];
 
     for (const [name, meta] of Object.entries(contracts)) {
         const bytecode = meta && meta.evm && meta.evm.bytecode && meta.evm.bytecode.object;
 
         if (bytecode !== undefined) {
-            result.set(name, Buffer.from(bytecode, "hex"));
+            bytecodes.set(name, Buffer.from(bytecode, "hex"));
         }
     }
 
-    return result;
+    return { bytecodes, hardfork: getHardForkForCompiler(compilerVersion) };
 }
 
 function encodeCallArgs(args: CallArgs): Buffer {
@@ -157,7 +160,7 @@ async function deployContract(
     const txData = {
         value: 0,
         gasLimit: 200000000,
-        gasPrice: 1,
+        gasPrice: 7,
         data: payload,
         nonce: (await sender.getAccount(vm)).nonce
     };
@@ -185,12 +188,13 @@ async function txCall(
         to: contractAddress,
         value: 0,
         gasLimit: 2000000,
-        gasPrice: 1,
+        gasPrice: 7,
         data: createCallPayload(options),
         nonce: (await sender.getAccount(vm)).nonce
     };
 
     const tx = Transaction.fromTxData(txData).sign(sender.privateKey);
+
     const result = await vm.runTx({ tx });
     const exception = result.execResult.exceptionError;
 
@@ -498,6 +502,25 @@ const processors = new Map<string, StepProcessor>([
 ]);
 
 /**
+ * @see https://docs.soliditylang.org/en/latest/using-the-compiler.html#target-options
+ */
+export function getHardForkForCompiler(compilerVersion: string): Hardfork {
+    if (gte(compilerVersion, "0.8.20")) {
+        return Hardfork.Shanghai;
+    }
+
+    if (
+        gte(compilerVersion, "0.8.0") ||
+        gte(compilerVersion, "0.7.0") ||
+        gte(compilerVersion, "0.6.0")
+    ) {
+        return Hardfork.Berlin;
+    }
+
+    return Hardfork.Constantinople;
+}
+
+/**
  * @see https://github.com/ethereumjs/ethereumjs-vm/tree/master/packages/vm/examples/run-solidity-contract
  */
 export async function executeTestSuite(fileName: string, config: Config): Promise<void> {
@@ -507,11 +530,12 @@ export async function executeTestSuite(fileName: string, config: Config): Promis
         const env = {} as Environment;
 
         before(async () => {
-            const common = new Common({ chain: Chain.Mainnet, hardfork: Hardfork.Berlin });
+            const { bytecodes, hardfork } = await compileSource(sample, config.contents);
+            const common = new Common({ chain: Chain.Mainnet, hardfork });
 
             env.vm = await VM.create({ common });
             env.aliases = new Map<string, any>();
-            env.contracts = await compileSource(sample, config.contents);
+            env.contracts = bytecodes;
         });
 
         for (const step of config.steps) {
@@ -535,11 +559,13 @@ export async function executeTestSuiteInternal(config: Config, version: string):
 
     const env = {} as Environment;
 
-    const common = new Common({ chain: Chain.Mainnet, hardfork: Hardfork.Berlin });
+    const { bytecodes, hardfork } = await compileSource(sample, config.contents, version);
+
+    const common = new Common({ chain: Chain.Mainnet, hardfork });
 
     env.vm = await VM.create({ common });
     env.aliases = new Map<string, any>();
-    env.contracts = await compileSource(sample, config.contents, version);
+    env.contracts = bytecodes;
 
     for (const step of config.steps) {
         const processor = processors.get(step.act);
