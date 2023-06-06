@@ -35,6 +35,7 @@ import {
     SMacro,
     BinaryOperator,
     SLetAnnotation,
+    STryAnnotation,
     // @ts-ignore
     RelationalBinaryOperator
 } from "./ast";
@@ -192,4 +193,5 @@ makeRange;
 buildBinaryExpression;
 makeUserDefinedType;
 SLetAnnotation;
+STryAnnotation;
 DataLocation;

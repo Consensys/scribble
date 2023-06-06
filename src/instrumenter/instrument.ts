@@ -1,9 +1,8 @@
 import { gt, gte } from "semver";
 import {
-    ArrayType,
-    assert,
     ASTNode,
     ASTNodeFactory,
+    ArrayType,
     Block,
     BuiltinFunctionType,
     ContractDefinition,
@@ -19,38 +18,40 @@ import {
     FunctionType,
     FunctionVisibility,
     IntType,
-    isFunctionCallExternal,
     Literal,
     LiteralKind,
     MemberAccess,
     Mutability,
     OverrideSpecifier,
     SourceUnit,
+    StateVariableVisibility,
     Statement,
     StatementWithChildren,
-    StateVariableVisibility,
     TryStatement,
     TypeName,
     TypeNode,
     UncheckedBlock,
-    VariableDeclaration
+    VariableDeclaration,
+    assert,
+    isFunctionCallExternal
 } from "solc-typed-ast";
 import { AnnotationType, SLetAnnotation, SNode } from "../spec-lang/ast";
 import {
+    PPAbleError,
+    SourceMap,
     filterByType,
     isChangingState,
     isExternallyVisible,
     parseSrcTriple,
-    PPAbleError,
     print,
     rangeToLocRange,
-    single,
-    SourceMap
+    single
 } from "../util";
 import {
     AnnotationMap,
     AnnotationMetaData,
     PropertyMetaData,
+    TryAnnotationMetaData,
     UserConstantDefinitionMetaData,
     UserFunctionDefinitionMetaData
 } from "./annotations";
@@ -127,7 +128,7 @@ export function findExternalCalls(node: ContractDefinition | FunctionDefinition)
  * in that respective index.
  */
 function getDebugInfoEmits(
-    annotations: PropertyMetaData[],
+    annotations: Array<PropertyMetaData | TryAnnotationMetaData>,
     transCtx: TranspilingContext
 ): Array<Statement | undefined> {
     const res: Array<Statement | undefined> = [];
@@ -217,7 +218,7 @@ function makeEmitStmt(
 function emitAssert(
     transCtx: TranspilingContext,
     expr: Expression,
-    annotation: PropertyMetaData,
+    annotation: PropertyMetaData | TryAnnotationMetaData,
     event: MemberAccess,
     emitStmt?: Statement
 ): Statement {
@@ -328,11 +329,15 @@ function isPublic(fn: FunctionDefinition): boolean {
  * Given a list of `PropertyMetaData` `annotations` and a `TranspilingContext` `ctx`,
  * transpile all the `annotations`, generate the checks for each one, and insert them in `ctx.container`.
  */
-export function insertAnnotations(annotations: PropertyMetaData[], ctx: TranspilingContext): void {
+export function insertAnnotations(
+    annotations: Array<PropertyMetaData | TryAnnotationMetaData>,
+    ctx: TranspilingContext
+): void {
     const factory = ctx.factory;
     const contract = ctx.containerContract;
     const instrCtx = ctx.instrCtx;
-    const predicates: Array<[PropertyMetaData, Expression]> = [];
+    const predicates: Array<[PropertyMetaData | TryAnnotationMetaData, Expression | Expression[]]> =
+        [];
 
     for (const annotation of annotations) {
         predicates.push([annotation, transpileAnnotation(annotation, ctx)]);
@@ -346,76 +351,115 @@ export function insertAnnotations(annotations: PropertyMetaData[], ctx: Transpil
             ? getDebugInfoEmits(annotations, ctx)
             : [];
 
-    const checkStmts: Array<[Statement, boolean]> = predicates.map(([annotation, predicate], i) => {
-        const emitStmt = debugInfos[i];
-        const targetIsStmt =
-            annotation.target instanceof Statement ||
-            annotation.target instanceof StatementWithChildren;
+    const checkStmts: Array<[Statement | Statement[], boolean]> = predicates.map(
+        ([annotation, predicate], i) => {
+            const emitStmt = debugInfos[i];
+            const targetIsStmt =
+                annotation.target instanceof Statement ||
+                annotation.target instanceof StatementWithChildren;
 
-        if (annotation.type === AnnotationType.Require) {
-            const reqStmt = factory.makeExpressionStatement(
-                factory.makeFunctionCall(
-                    "<mising>",
-                    FunctionCallKind.FunctionCall,
-                    factory.makeIdentifier("<missing>", "require", -1),
-                    [predicate]
-                )
-            );
-
-            instrCtx.addAnnotationInstrumentation(annotation, reqStmt);
-            instrCtx.addAnnotationCheck(annotation, predicate);
-            return [reqStmt, !targetIsStmt];
-        }
-
-        if (annotation.type === AnnotationType.Try) {
-            if (!ctx.hasBinding(ctx.instrCtx.scratchField)) {
-                ctx.addBinding(
-                    ctx.instrCtx.scratchField,
-                    factory.makeElementaryTypeName("<missing>", "uint256")
+            if (annotation.type === AnnotationType.Require) {
+                assert(
+                    predicate instanceof Expression,
+                    `Annotation type "${annotation.type}" expected single expression (got array)`
                 );
+
+                const reqStmt = factory.makeExpressionStatement(
+                    factory.makeFunctionCall(
+                        "<missing>",
+                        FunctionCallKind.FunctionCall,
+                        factory.makeIdentifier("<missing>", "require", -1),
+                        [predicate]
+                    )
+                );
+
+                instrCtx.addAnnotationInstrumentation(annotation, reqStmt);
+                instrCtx.addAnnotationCheck(annotation, predicate);
+
+                return [reqStmt, !targetIsStmt];
             }
 
-            const lhs = ctx.refBinding(ctx.instrCtx.scratchField);
-            const scratchAssign = factory.makeExpressionStatement(
-                factory.makeAssignment(
+            if (annotation.type === AnnotationType.Try) {
+                assert(
+                    predicate instanceof Array,
+                    `Annotation type "${annotation.type}" expected array of expressions (got expression instance)`
+                );
+
+                if (!ctx.hasBinding(ctx.instrCtx.scratchField)) {
+                    ctx.addBinding(
+                        ctx.instrCtx.scratchField,
+                        factory.makeElementaryTypeName("<missing>", "uint256")
+                    );
+                }
+
+                return [
+                    predicate.map((expr) => {
+                        const lhs = ctx.refBinding(ctx.instrCtx.scratchField);
+                        const scratchAssign = factory.makeExpressionStatement(
+                            factory.makeAssignment(
+                                "<missing>",
+                                "=",
+                                lhs,
+                                factory.makeLiteral("uint256", LiteralKind.Number, "", "42")
+                            )
+                        );
+
+                        const stmt = factory.makeIfStatement(expr, scratchAssign);
+
+                        instrCtx.addAnnotationInstrumentation(annotation, stmt);
+                        instrCtx.addAnnotationCheck(annotation, expr);
+
+                        return stmt;
+                    }),
+                    !targetIsStmt
+                ];
+            }
+
+            if (annotation.type === AnnotationType.LetAnnotation) {
+                assert(
+                    predicate instanceof Expression,
+                    `Annotation type "${annotation.type}" expected single expression (got array)`
+                );
+
+                const parsedAnnot = annotation.parsedAnnot as SLetAnnotation;
+                const name = ctx.getLetAnnotationBinding(parsedAnnot);
+                const stmt = factory.makeAssignment(
                     "<missing>",
                     "=",
-                    lhs,
-                    factory.makeLiteral("uint256", LiteralKind.Number, "", "42")
-                )
+                    ctx.refBinding(name),
+                    predicate
+                );
+
+                /// For now keep #let annotations as 'general' annotation, as to not
+                /// confuse consumers of the instrumentation metadata (they only
+                /// expect actual "check" annotations). This however is hacky.
+                /// TODO: Separate src mapping information for all annotations as a separate entity in metadata
+                instrCtx.addGeneralInstrumentation(stmt);
+
+                return [stmt, false];
+            }
+
+            assert(
+                predicate instanceof Expression,
+                `Annotation type "${annotation.type}" expected single expression (got array)`
             );
 
-            const stmt = factory.makeIfStatement(predicate, scratchAssign);
+            const assertFailedExpr = gt(instrCtx.compilerVersion, "0.6.2")
+                ? instrCtx.getAssertionFailedEvent(contract)
+                : instrCtx.getAssertionFailedFun(contract);
 
-            instrCtx.addAnnotationInstrumentation(annotation, stmt);
-            instrCtx.addAnnotationCheck(annotation, predicate);
-
-            return [stmt, !targetIsStmt];
+            return [emitAssert(ctx, predicate, annotation, assertFailedExpr, emitStmt), false];
         }
-
-        if (annotation.type === AnnotationType.LetAnnotation) {
-            const parsedAnnot = annotation.parsedAnnot as SLetAnnotation;
-            const name = ctx.getLetAnnotationBinding(parsedAnnot);
-            const stmt = factory.makeAssignment("<missing>", "=", ctx.refBinding(name), predicate);
-
-            /// For now keep #let annotations as 'general' annotation, as to not
-            /// confuse consumers of the instrumentation metadata (they only
-            /// expect actual "check" annotations). This however is hacky.
-            /// TODO: Separate src mapping information for all annotations as a separate entity in metadata
-            instrCtx.addGeneralInstrumentation(stmt);
-
-            return [stmt, false];
-        }
-
-        const assertFailedExpr = gt(instrCtx.compilerVersion, "0.6.2")
-            ? instrCtx.getAssertionFailedEvent(contract)
-            : instrCtx.getAssertionFailedFun(contract);
-
-        return [emitAssert(ctx, predicate, annotation, assertFailedExpr, emitStmt), false];
-    });
+    );
 
     for (const [check, isOld] of checkStmts) {
-        ctx.insertStatement(check, isOld);
+        if (check instanceof Array) {
+            for (const stmt of check) {
+                ctx.insertStatement(stmt, isOld);
+            }
+        } else {
+            ctx.insertStatement(check, isOld);
+        }
     }
 }
 
@@ -527,6 +571,8 @@ function makeUserFunctions(
 
         const result = transpileAnnotation(funDefMD, transCtx);
 
+        assert(result instanceof Expression, `Expected single expression (got array)`);
+
         factory.addStmt(body, factory.makeReturn(userFun.vReturnParameters.id, result));
 
         userFuns.push(userFun);
@@ -575,6 +621,8 @@ function makeUserConstants(
         const transCtx = ctx.transCtxMap.get(ctor, InstrumentationSiteType.Custom);
 
         const constValue = transpileAnnotation(constDefMd, transCtx);
+
+        assert(constValue instanceof Expression, `Expected single expression (got array)`);
 
         contract.appendChild(userConst);
 
@@ -934,7 +982,10 @@ export function instrumentFunction(
     fn: FunctionDefinition,
     needsContractInvInstr: boolean
 ): void {
-    const annotations = filterByType(allAnnotations, PropertyMetaData);
+    const annotations = allAnnotations.filter(
+        (annot): annot is PropertyMetaData | TryAnnotationMetaData =>
+            annot instanceof PropertyMetaData || annot instanceof TryAnnotationMetaData
+    );
 
     assert(
         allAnnotations.length === annotations.length,

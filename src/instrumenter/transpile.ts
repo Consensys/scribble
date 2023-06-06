@@ -71,6 +71,7 @@ import { single } from "../util/misc";
 import {
     AnnotationMetaData,
     PropertyMetaData,
+    TryAnnotationMetaData,
     UserConstantDefinitionMetaData,
     UserFunctionDefinitionMetaData
 } from "./annotations";
@@ -1010,7 +1011,7 @@ function transpileForAll(expr: SForAll, ctx: TranspilingContext): Expression {
 export function transpileAnnotation(
     annotMD: AnnotationMetaData,
     ctx: TranspilingContext
-): Expression {
+): Expression | Expression[] {
     /**
      * Bit of a hack to keep track of the currrent annotation being transpiled.
      * Useful for adding metadata to the InstrumentationContext
@@ -1034,8 +1035,14 @@ export function transpileAnnotation(
         const rhsType = ctx.typeEnv.typeOf(rhs);
         const solRhs = transpile(rhs, ctx);
         const name = ctx.getLetAnnotationBinding(annotMD.parsedAnnot);
+
         ctx.addBinding(name, transpileType(rhsType, ctx.factory));
+
         return solRhs;
+    }
+
+    if (annotMD instanceof TryAnnotationMetaData) {
+        return annotMD.parsedAnnot.exprs.map((expr) => transpile(expr, ctx));
     }
 
     throw new Error(`NYI Annotation metadata type ${annotMD.constructor.name}`);

@@ -22,10 +22,11 @@ import {
     SMacro,
     SNode,
     SProperty,
+    STryAnnotation,
     SUserConstantDefinition,
     SUserFunctionDefinition
 } from "../spec-lang/ast";
-import { parseAnnotation, PeggySyntaxError as ExprPEGSSyntaxError } from "../spec-lang/expr_parser";
+import { PeggySyntaxError as ExprPEGSSyntaxError, parseAnnotation } from "../spec-lang/expr_parser";
 import { PPAbleError } from "../util/errors";
 import { makeRange, Range, rangeToLocRange } from "../util/location";
 import { getOr, getScopeUnit, zip } from "../util/misc";
@@ -139,6 +140,11 @@ export class PropertyMetaData extends AnnotationMetaData<SProperty> {}
  * Metadata specific to a ghost var definition (invariant, if_succeeds)
  */
 export class LetAnnotationMetaData extends AnnotationMetaData<SLetAnnotation> {}
+
+/**
+ * Metadata specific to external software hints (try)
+ */
+export class TryAnnotationMetaData extends AnnotationMetaData<STryAnnotation> {}
 
 export class MacroMetaData extends AnnotationMetaData<SMacro> {
     readonly macroDefinition: MacroDefinition;
@@ -260,6 +266,10 @@ function makeAnnotationFromMatch(
 
     if (annotation instanceof SLetAnnotation) {
         return new LetAnnotationMetaData(meta.node, meta.target, annotation, source);
+    }
+
+    if (annotation instanceof STryAnnotation) {
+        return new TryAnnotationMetaData(meta.node, meta.target, annotation, source);
     }
 
     throw new Error(`Unknown annotation ${annotation.pp()}`);
