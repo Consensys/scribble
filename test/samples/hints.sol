@@ -17,4 +17,12 @@ contract Foo {
     function boo() public {}
 
     function baz() internal {}
+
+    /// #try x == 1, y == 2;
+    function test(uint x, uint y) public returns (uint) {
+        uint a = 1;
+        uint b = 2;
+        /// #try a == 1, b == 2;
+        return x + y + z + a + b;
+    }
 }
