@@ -37,6 +37,7 @@ import {
     SProperty,
     SResult,
     SStringLiteral,
+    STryAnnotation,
     SUnaryOperation,
     SUserConstantDefinition,
     SUserFunctionDefinition
@@ -120,11 +121,19 @@ export function scAnnotation(
     ctx: SemCtx
 ): void {
     if (node instanceof SProperty) {
-        // #try and #require are implicitly evaluated in the old-state
-        if (node.type === AnnotationType.Try || node.type === AnnotationType.Require) {
+        // #require is implicitly evaluated in the old-state
+        if (node.type === AnnotationType.Require) {
             ctx.isOld = true;
         }
+
         sc(node.expression, ctx, typings, semMap);
+    } else if (node instanceof STryAnnotation) {
+        // #try is implicitly evaluated in the old-state
+        ctx.isOld = true;
+
+        for (const expr of node.exprs) {
+            sc(expr, ctx, typings, semMap);
+        }
     } else if (node instanceof SUserConstantDefinition) {
         const info = sc(node.value, ctx, typings, semMap);
 

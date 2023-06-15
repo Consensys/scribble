@@ -15,7 +15,7 @@ import {
 import { Range, SrcTriple } from "./location";
 import { getOr } from "./misc";
 import { dedup, MacroFile } from ".";
-import { PropertyMetaData } from "../instrumenter/annotations";
+import { PropertyMetaData, TryAnnotationMetaData } from "../instrumenter/annotations";
 import { InstrumentationContext } from "../instrumenter/instrumentation_context";
 import { AnnotationType } from "../spec-lang/ast/declarations/annotation";
 import { NodeLocation } from "../spec-lang/ast/node";
@@ -238,6 +238,64 @@ function generateSrcMap2SrcMap(
     return [src2SrcMap, dedup(otherInstrumentation)];
 }
 
+/**
+ * Given 1 or more NodeLocations merge them into a single location.
+ * This asserts that:
+ *
+ * 1. We are merging like locations (either Range with Range or InstantiatedMacroLoc with InstantiatedMacroLoc)
+ * 2. We are merging locations inside the same file
+ *
+ * When merging 2 ranges, we just return a range that encompases both. When
+ * merging two InstantiatedMacroLoc, we merge each of the two ranges.
+ */
+function mergeNodeLocs(...locs: NodeLocation[]): NodeLocation {
+    assert(locs.length > 0, `Can't merge 0 locs`);
+
+    if (locs.length === 1) {
+        return locs[0];
+    }
+
+    if (locs.length === 2) {
+        const a = locs[0];
+        const b = locs[1];
+
+        if (a instanceof Array && b instanceof Array) {
+            return [mergeNodeLocs(a[0], b[0]) as Range, mergeNodeLocs(a[1], b[1]) as Range];
+        }
+
+        assert(!(a instanceof Array || b instanceof Array), `Cant merge range and range pair`);
+        assert(
+            a.start.file === b.start.file && a.end.file === b.end.file,
+            `Cant merge things from different files`
+        );
+
+        const min = (x: number, y: number) => (x <= y ? x : y);
+        const max = (x: number, y: number) => (x >= y ? x : y);
+
+        return {
+            start: {
+                offset: min(a.start.offset, b.start.offset),
+                line: min(a.start.line, b.start.line),
+                column: min(a.start.column, b.start.column),
+                file: a.start.file
+            },
+            end: {
+                offset: max(a.end.offset, b.end.offset),
+                line: max(a.end.line, b.end.line),
+                column: max(a.end.column, b.end.column),
+                file: a.end.file
+            }
+        };
+    }
+
+    let res = locs[0];
+    for (let i = 1; i < locs.length; i++) {
+        res = mergeNodeLocs(res, locs[i]);
+    }
+
+    return res;
+}
+
 function generatePropertyMap(
     ctx: InstrumentationContext,
     newSrcMap: SrcRangeMap,
@@ -248,7 +306,9 @@ function generatePropertyMap(
 
     for (const annotation of ctx.annotations) {
         // Skip user functions and user constants from the property map.
-        if (!(annotation instanceof PropertyMetaData)) {
+        if (
+            !(annotation instanceof PropertyMetaData || annotation instanceof TryAnnotationMetaData)
+        ) {
             continue;
         }
 
@@ -298,10 +358,23 @@ function generatePropertyMap(
             srcEncoding.push([ids[0].name, srcMapList, generalizeType(type)[0].pp()]);
         }
 
-        const propertySource = nodeLocToJSONNodeLoc(
-            annotation.parsedAnnot.expression.src as NodeLocation,
-            originalSourceList
-        );
+        let propertySource: OriginalJSONLoc;
+
+        if (annotation instanceof PropertyMetaData) {
+            propertySource = nodeLocToJSONNodeLoc(
+                annotation.parsedAnnot.expression.src as NodeLocation,
+                originalSourceList
+            );
+        } else {
+            const propertyLocs = annotation.parsedAnnot.exprs.map(
+                (expr) => expr.src as NodeLocation
+            );
+
+            propertySource = nodeLocToJSONNodeLoc(
+                mergeNodeLocs(...propertyLocs),
+                originalSourceList
+            );
+        }
 
         const annotationSource = nodeLocToJSONNodeLoc(
             annotation.parsedAnnot.src as NodeLocation,

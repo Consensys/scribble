@@ -2,27 +2,18 @@
 import fse from "fs-extra";
 import { join, resolve } from "path";
 import {
-    assert,
     ASTContext,
     ASTReader,
     CompilationOutput,
     CompileFailedError,
-    compileJson,
-    compileJsonData,
     CompileResult,
     CompilerKind,
-    compileSol,
-    compileSourceString,
     ContractDefinition,
     ContractKind,
-    downloadSupportedCompilers,
     FunctionDefinition,
     FunctionKind,
     FunctionStateMutability,
-    getCompilerPrefixForOs,
     InferType,
-    isVisiblityExternallyCallable,
-    parsePathRemapping,
     PathOptions,
     PossibleCompilerKinds,
     Remapping,
@@ -30,7 +21,16 @@ import {
     SrcRangeMap,
     Statement,
     StatementWithChildren,
-    VariableDeclaration
+    VariableDeclaration,
+    assert,
+    compileJson,
+    compileJsonData,
+    compileSol,
+    compileSourceString,
+    downloadSupportedCompilers,
+    getCompilerPrefixForOs,
+    isVisiblityExternallyCallable,
+    parsePathRemapping
 } from "solc-typed-ast";
 import { rewriteImports } from "../ast_to_source_printer";
 import {
@@ -39,52 +39,53 @@ import {
     AnnotationMap,
     AnnotationMetaData,
     AnnotationTarget,
-    buildAnnotationMap,
-    gatherContractAnnotations,
-    gatherFunctionAnnotations,
     MacroError,
     PropertyMetaData,
     SyntaxError,
+    TryAnnotationMetaData,
     UnsupportedByTargetError,
     UserConstantDefinitionMetaData,
-    UserFunctionDefinitionMetaData
+    UserFunctionDefinitionMetaData,
+    buildAnnotationMap,
+    gatherContractAnnotations,
+    gatherFunctionAnnotations
 } from "../instrumenter/annotations";
 import { getCallGraph } from "../instrumenter/callgraph";
 import { CHA, getCHA } from "../instrumenter/cha";
 import { AbsDatastructurePath, interposeMap } from "../instrumenter/custom_maps";
-import { findDeprecatedAnnotations, Warning } from "../instrumenter/deprecated_warnings";
+import { Warning, findDeprecatedAnnotations } from "../instrumenter/deprecated_warnings";
 import {
+    UnsupportedConstruct,
     instrumentContract,
     instrumentFunction,
-    instrumentStatement,
-    UnsupportedConstruct
+    instrumentStatement
 } from "../instrumenter/instrument";
 import { InstrumentationContext } from "../instrumenter/instrumentation_context";
-import { findStateVarUpdates } from "../instrumenter/state_vars";
 import { instrumentStateVars } from "../instrumenter/state_var_instrumenter";
+import { findStateVarUpdates } from "../instrumenter/state_vars";
 import { ScribbleFactory } from "../instrumenter/utils";
 import { MacroDefinition, readMacroDefinitions } from "../macros";
 import { flattenUnits } from "../rewriter/flatten";
 import { AnnotationType, NodeLocation } from "../spec-lang/ast";
-import { scUnits, SemError, SemMap, STypeError, tcUnits, TypeEnv } from "../spec-lang/tc";
+import { STypeError, SemError, SemMap, TypeEnv, scUnits, tcUnits } from "../spec-lang/tc";
 import {
+    InstrumentationMetaData,
+    Location,
+    MacroFile,
+    Range,
+    SolFile,
+    SourceFile,
+    SourceMap,
     buildOutputJSON,
     dedup,
     detectProjectRoot,
     flatten,
     generateInstrumentationMetadata,
     getOr,
-    InstrumentationMetaData,
     isChangingState,
     isExternallyVisible,
-    Location,
-    MacroFile,
     ppLoc,
-    Range,
-    searchRecursive,
-    SolFile,
-    SourceFile,
-    SourceMap
+    searchRecursive
 } from "../util";
 import { YamlSchemaError } from "../util/yaml";
 import cli from "./scribble_cli.json";
@@ -369,12 +370,10 @@ function instrumentFiles(
             const allProperties = gatherContractAnnotations(contract, annotMap);
             const allowedFuncProp = allProperties.filter(
                 (annot) =>
-                    annot instanceof PropertyMetaData &&
-                    [
-                        AnnotationType.IfSucceeds,
-                        AnnotationType.Try,
-                        AnnotationType.Require
-                    ].includes(annot.parsedAnnot.type)
+                    (annot instanceof PropertyMetaData &&
+                        (annot.parsedAnnot.type === AnnotationType.IfSucceeds ||
+                            annot.parsedAnnot.type === AnnotationType.Require)) ||
+                    annot instanceof TryAnnotationMetaData
             );
 
             for (const fun of contract.vFunctions) {

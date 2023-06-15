@@ -7,3 +7,4 @@ export * from "./if_updated";
 export * from "./if_assigned";
 export * from "./macro";
 export * from "./let_annotation";
+export * from "./try_annotation";

@@ -88,6 +88,7 @@ import {
     SResult,
     SStateVarProp,
     SStringLiteral,
+    STryAnnotation,
     SUnaryOperation,
     SUserConstantDefinition,
     SUserFunctionDefinition,
@@ -644,6 +645,20 @@ export function tcAnnotation(
         const idType = tc(annot.expression, ctx, typeEnv);
 
         typeEnv.define(annot.name, idType);
+    } else if (annot instanceof STryAnnotation) {
+        for (const expr of annot.exprs) {
+            const exprType = tc(expr, ctx, typeEnv);
+
+            if (!(exprType instanceof BoolType)) {
+                throw new SWrongType(
+                    `${
+                        annot.type
+                    } expects one or more expressions of type bool not ${exprType.pp()}`,
+                    expr,
+                    exprType
+                );
+            }
+        }
     } else {
         throw new Error(`NYI type-checking of annotation ${annot.pp()}`);
     }

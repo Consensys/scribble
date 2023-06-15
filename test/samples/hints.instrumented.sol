@@ -17,6 +17,14 @@ contract Foo {
         uint256 __mstore_scratch__;
     }
 
+    struct vars3 {
+        uint256 __mstore_scratch__;
+    }
+
+    struct vars4 {
+        uint256 __mstore_scratch__;
+    }
+
     uint internal z;
 
     function bar(uint x) public {
@@ -31,7 +39,7 @@ contract Foo {
     }
 
     function _original_Foo_bar(uint x) private {
-        vars2 memory _v;
+        vars3 memory _v;
         unchecked {
             require(x > 10);
             if (x == 9) _v.__mstore_scratch__ = 42;
@@ -51,4 +59,26 @@ contract Foo {
     function _original_Foo_boo() private {}
 
     function baz() internal {}
+
+    function test(uint x, uint y) public returns (uint RET_0) {
+        vars2 memory _v;
+        unchecked {
+            if (x == 1) _v.__mstore_scratch__ = 42;
+            if (y == 2) _v.__mstore_scratch__ = 42;
+            require(z > 1);
+            if (msg.sender == address(0x0)) _v.__mstore_scratch__ = 42;
+        }
+        RET_0 = _original_Foo_test(x, y);
+    }
+
+    function _original_Foo_test(uint x, uint y) private returns (uint) {
+        vars4 memory _v;
+        uint a = 1;
+        uint b = 2;
+        unchecked {
+            if (a == 1) _v.__mstore_scratch__ = 42;
+            if (b == 2) _v.__mstore_scratch__ = 42;
+        }
+        return (((x + y) + z) + a) + b;
+    }
 }

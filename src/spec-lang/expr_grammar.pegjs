@@ -123,10 +123,10 @@ LetAnnotation =
     }
 
 Try =
-    type: TRY __ md: AnnotationMD? __ expr: Expression __ ";" {
-        return new SProperty (
+    type: TRY __ md: AnnotationMD? __ exprs: ArgumentList __ ";" {
+        return new STryAnnotation(
             type as AnnotationType,
-            expr,
+            exprs,
             md === null ? undefined : md,
             makeRange(location(), options as ExprParseOptions)
         );
