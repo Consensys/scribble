@@ -49,6 +49,8 @@ import { InstrumentationSiteType, TranspilingContext } from "./transpiling_conte
 import { FactoryMap, ScribbleFactory, StructMap } from "./utils";
 import { generateUtilsLibrary, makeEqBytesFun } from "./utils_library";
 
+export type AssertionMode = "log" | "mstore" | "hardhat";
+
 /**
  * Gather all named nodes in the provided source units.
  * @param units list of source units
@@ -378,7 +380,7 @@ export class InstrumentationContext {
     constructor(
         public readonly factory: ScribbleFactory,
         public readonly units: SourceUnit[],
-        public readonly assertionMode: "log" | "mstore",
+        public readonly assertionMode: AssertionMode,
         public readonly covAssertions: boolean,
         public readonly addAssert: boolean,
         public readonly callgraph: CallGraph,

@@ -20,7 +20,6 @@ import {
     IntType,
     Literal,
     LiteralKind,
-    MemberAccess,
     Mutability,
     OverrideSpecifier,
     SourceUnit,
@@ -130,8 +129,8 @@ export function findExternalCalls(node: ContractDefinition | FunctionDefinition)
 function getDebugInfoEmits(
     annotations: Array<PropertyMetaData | TryAnnotationMetaData>,
     transCtx: TranspilingContext
-): Array<Statement | undefined> {
-    const res: Array<Statement | undefined> = [];
+): Array<Statement | Statement[] | undefined> {
+    const res: Array<Statement | Statement[] | undefined> = [];
     const factory = transCtx.factory;
     const instrCtx = transCtx.instrCtx;
 
@@ -154,22 +153,32 @@ function getDebugInfoEmits(
             );
         }
 
-        const assertionFailedDataExpr = gt(instrCtx.compilerVersion, "0.6.2")
-            ? instrCtx.getAssertionFailedDataEvent(annot.target)
-            : instrCtx.getAssertionFailedDataFun(annot.target);
-
         // Finally construct the emit statement for the debug event.
-        const emitStmt = makeEmitStmt(instrCtx, assertionFailedDataExpr, [
-            factory.makeLiteral("int", LiteralKind.Number, "", String(annot.id)),
-            factory.makeFunctionCall(
-                "<missing>",
-                FunctionCallKind.FunctionCall,
-                factory.makeIdentifier("<missing>", "abi.encode", -1),
-                evtArgs
-            )
-        ]);
+        if (instrCtx.assertionMode === "hardhat") {
+            const emitStmts: Statement[] = [];
 
-        res.push(emitStmt);
+            for (const evtArg of evtArgs) {
+                emitStmts.push(makeHardHatConsoleLogCall(instrCtx, [evtArg]));
+            }
+
+            res.push(emitStmts.length === 0 ? undefined : emitStmts);
+        } else {
+            const assertionFailedDataExpr = gt(instrCtx.compilerVersion, "0.6.2")
+                ? instrCtx.getAssertionFailedDataEvent(annot.target)
+                : instrCtx.getAssertionFailedDataFun(annot.target);
+
+            const emitStmt = makeEmitStmt(instrCtx, assertionFailedDataExpr, [
+                factory.makeLiteral("int", LiteralKind.Number, "", String(annot.id)),
+                factory.makeFunctionCall(
+                    "<missing>",
+                    FunctionCallKind.FunctionCall,
+                    factory.makeIdentifier("<missing>", "abi.encode", -1),
+                    evtArgs
+                )
+            ]);
+
+            res.push(emitStmt);
+        }
     }
 
     return res;
@@ -183,6 +192,24 @@ function getBitPattern(factory: ASTNodeFactory, id: number): Literal {
         LiteralKind.Number,
         "",
         "0x" + "cafe".repeat(15) + hexId
+    );
+}
+
+function makeHardHatConsoleLogCall(ctx: InstrumentationContext, args: Expression[]): Statement {
+    const factory = ctx.factory;
+
+    return factory.makeExpressionStatement(
+        factory.makeFunctionCall(
+            "<missing>",
+            FunctionCallKind.FunctionCall,
+            factory.makeMemberAccess(
+                "<missing>",
+                factory.makeIdentifier("<missing>", "console", -1),
+                "log",
+                -1
+            ),
+            args
+        )
     );
 }
 
@@ -219,8 +246,8 @@ function emitAssert(
     transCtx: TranspilingContext,
     expr: Expression,
     annotation: PropertyMetaData | TryAnnotationMetaData,
-    event: MemberAccess,
-    emitStmt?: Statement
+    contract: ContractDefinition,
+    emitStmt?: Statement | Statement[]
 ): Statement {
     const instrCtx = transCtx.instrCtx;
     const factory = instrCtx.factory;
@@ -232,6 +259,10 @@ function emitAssert(
         const strMessage = `000000:0000:000 ${annotation.id}: ${annotation.message}`;
         const message = factory.makeLiteral("<missing>", LiteralKind.String, "", strMessage);
 
+        const event = gt(instrCtx.compilerVersion, "0.6.2")
+            ? instrCtx.getAssertionFailedEvent(contract)
+            : instrCtx.getAssertionFailedFun(contract);
+
         userAssertFailed = makeEmitStmt(instrCtx, event, [message]);
         instrCtx.addStringLiteralToAdjust(message, userAssertFailed);
 
@@ -240,6 +271,13 @@ function emitAssert(
                 factory.makeLiteral("<missing>", LiteralKind.String, "", `HIT: ${strMessage}`)
             ]);
         }
+    } else if (instrCtx.assertionMode === "hardhat") {
+        const strMessage = `000000:0000:000 ${annotation.id}: ${annotation.message}`;
+        const message = factory.makeLiteral("<missing>", LiteralKind.String, "", strMessage);
+
+        userAssertFailed = makeHardHatConsoleLogCall(instrCtx, [message]);
+
+        instrCtx.addStringLiteralToAdjust(message, userAssertFailed);
     } else {
         const failBitPattern = getBitPattern(factory, annotation.id);
 
@@ -274,8 +312,15 @@ function emitAssert(
     const ifBody: Statement[] = [userAssertFailed];
 
     if (emitStmt) {
-        instrCtx.addAnnotationInstrumentation(annotation, emitStmt);
-        ifBody.unshift(emitStmt);
+        if (!(emitStmt instanceof Array)) {
+            emitStmt = [emitStmt];
+        }
+
+        for (const stmt of emitStmt) {
+            instrCtx.addAnnotationInstrumentation(annotation, stmt);
+
+            ifBody.unshift(stmt);
+        }
     }
 
     if (instrCtx.addAssert) {
@@ -347,7 +392,7 @@ export function insertAnnotations(
     // defeats the purpose of mstore mode (to not emit additional events to
     // preserve interface compatibility)
     const debugInfos =
-        instrCtx.debugEvents && instrCtx.assertionMode === "log"
+        instrCtx.debugEvents && instrCtx.assertionMode !== "mstore"
             ? getDebugInfoEmits(annotations, ctx)
             : [];
 
@@ -444,11 +489,7 @@ export function insertAnnotations(
                 `Annotation type "${annotation.type}" expected single expression (got array)`
             );
 
-            const assertFailedExpr = gt(instrCtx.compilerVersion, "0.6.2")
-                ? instrCtx.getAssertionFailedEvent(contract)
-                : instrCtx.getAssertionFailedFun(contract);
-
-            return [emitAssert(ctx, predicate, annotation, assertFailedExpr, emitStmt), false];
+            return [emitAssert(ctx, predicate, annotation, contract, emitStmt), false];
         }
     );
 
