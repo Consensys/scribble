@@ -17,6 +17,7 @@ import {
     FunctionStateMutability,
     FunctionType,
     FunctionVisibility,
+    InferType,
     IntType,
     Literal,
     LiteralKind,
@@ -32,8 +33,7 @@ import {
     TypeNode,
     UncheckedBlock,
     VariableDeclaration,
-    assert,
-    isFunctionCallExternal
+    assert
 } from "solc-typed-ast";
 import { AnnotationType, SLetAnnotation, SNode } from "../spec-lang/ast";
 import {
@@ -107,14 +107,17 @@ export function changesMutability(ctx: InstrumentationContext): boolean {
  * Find all external calls in the `ContractDefinition`/`FunctionDefinition` `node`.
  * Ignore any calls that were inserted by instrumentation (we tell those appart by their `<missing>` typeString).
  */
-export function findExternalCalls(node: ContractDefinition | FunctionDefinition): FunctionCall[] {
+export function findExternalCalls(
+    node: ContractDefinition | FunctionDefinition,
+    inference: InferType
+): FunctionCall[] {
     const interestingExternalCallBuiltins = ["call", "delegatecall", "staticcall"];
 
     return node.getChildrenBySelector(
         (node) =>
             node instanceof FunctionCall &&
             node.vExpression.typeString !== "<missing>" &&
-            isFunctionCallExternal(node) &&
+            inference.isFunctionCallExternal(node) &&
             (node.vFunctionCallType === ExternalReferenceType.UserDefined ||
                 interestingExternalCallBuiltins.includes(node.vFunctionName))
     );
@@ -122,7 +125,7 @@ export function findExternalCalls(node: ContractDefinition | FunctionDefinition)
 
 /**
  * Build a debug event/debug event emission statement for each of the provided `annotations`. Return
- * an array of the computed tuples `[EventDefinition, `EmitStatement`].
+ * an array of the computed tuples `[EventDefinition, EmitStatement]`.
  *
  * If a given annotation doesn't have any identifiers to output for debugging purposes, return `undefined`
  * in that respective index.
@@ -885,7 +888,7 @@ function replaceExternalCallSites(
 ): void {
     const factory = ctx.factory;
 
-    for (const callSite of findExternalCalls(contract)) {
+    for (const callSite of findExternalCalls(contract, ctx.typeEnv.inference)) {
         const containingFun = callSite.getClosestParentByType(FunctionDefinition);
 
         if (
