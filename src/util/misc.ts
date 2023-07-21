@@ -16,13 +16,6 @@ import {
 } from "solc-typed-ast";
 import { AnnotationTarget } from "../instrumenter/annotations";
 
-export function nodeToSource(main: ASTNode, targetCompilerVersion = "0.6.0"): string {
-    const formatter = new PrettyFormatter(4);
-    const writer = new ASTWriter(DefaultASTWriterMapping, formatter, targetCompilerVersion);
-
-    return writer.write(main);
-}
-
 export function isChangingState(fn: FunctionDefinition): boolean {
     return ![
         FunctionStateMutability.Constant,
@@ -252,6 +245,16 @@ export function zip<T1 extends PPIsh, T2 extends PPIsh>(
     return res;
 }
 
+export function arrayChunk<T>(array: T[], size: number): T[][] {
+    const result: T[][] = [];
+
+    for (let i = 0, n = array.length; i < n; i += size) {
+        result.push(array.slice(i, i + size));
+    }
+
+    return result;
+}
+
 const writersCache = new Map<string, ASTWriter>();
 
 /**
@@ -261,7 +264,7 @@ export function print(n: ASTNode, version = LatestCompilerVersion): string {
     let writer = writersCache.get(version);
 
     if (writer === undefined) {
-        writer = new ASTWriter(DefaultASTWriterMapping, new PrettyFormatter(4), "0.8.0");
+        writer = new ASTWriter(DefaultASTWriterMapping, new PrettyFormatter(4), version);
 
         writersCache.set(version, writer);
     }

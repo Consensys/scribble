@@ -38,6 +38,7 @@ import { AnnotationType, SLetAnnotation, SNode } from "../spec-lang/ast";
 import {
     PPAbleError,
     SourceMap,
+    arrayChunk,
     filterByType,
     isChangingState,
     isExternallyVisible,
@@ -160,8 +161,23 @@ function getDebugInfoEmits(
         if (instrCtx.assertionMode === "hardhat") {
             const emitStmts: Statement[] = [];
 
-            for (const evtArg of evtArgs) {
-                emitStmts.push(makeHardHatConsoleLogCall(instrCtx, [evtArg]));
+            const chunks = arrayChunk(evtArgs, 2);
+
+            for (const chunk of chunks) {
+                const emitArgs: Expression[] = [];
+
+                for (const expr of chunk) {
+                    /**
+                     * @todo console.log() supports only simited primitive types,
+                     * so better to check expr type and wrap with abi.encode() any complex types.
+                     */
+                    emitArgs.push(
+                        factory.makeLiteral("str", LiteralKind.String, "", print(expr)),
+                        expr
+                    );
+                }
+
+                emitStmts.push(makeHardHatConsoleLogCall(instrCtx, emitArgs));
             }
 
             res.push(emitStmts.length === 0 ? undefined : emitStmts);
