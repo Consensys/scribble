@@ -668,17 +668,17 @@ contract Foo {
             const [contract, fun] = findContractAndFun(units, contractName, funName);
             const factory = new ScribbleFactory(compilerVersion, reader.context);
 
-            const callSite = single(
-                findExternalCalls(fun),
-                `Expect single external callsite per tested function`
-            );
-
             const ctx = makeInstrumentationCtx(
                 units,
                 factory,
                 files,
                 assertionMode,
                 compilerVersion
+            );
+
+            const callSite = single(
+                findExternalCalls(fun, ctx.typeEnv.inference),
+                `Expect single external callsite per tested function`
             );
 
             interposeCall(ctx, contract, callSite);
