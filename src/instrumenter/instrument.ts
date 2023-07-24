@@ -2,8 +2,10 @@ import { gt, gte } from "semver";
 import {
     ASTNode,
     ASTNodeFactory,
+    AddressType,
     ArrayType,
     Block,
+    BoolType,
     BuiltinFunctionType,
     ContractDefinition,
     ContractKind,
@@ -18,15 +20,19 @@ import {
     FunctionType,
     FunctionVisibility,
     InferType,
+    IntLiteralType,
     IntType,
     Literal,
     LiteralKind,
     Mutability,
     OverrideSpecifier,
+    PointerType,
     SourceUnit,
     StateVariableVisibility,
     Statement,
     StatementWithChildren,
+    StringLiteralType,
+    StringType,
     TryStatement,
     TypeName,
     TypeNode,
@@ -137,6 +143,7 @@ function getDebugInfoEmits(
     const res: Array<Statement | Statement[] | undefined> = [];
     const factory = transCtx.factory;
     const instrCtx = transCtx.instrCtx;
+    const inference = instrCtx.typeEnv.inference;
 
     for (const annot of annotations) {
         const dbgIdsMap = transCtx.annotationDebugMap.get(annot);
@@ -161,16 +168,27 @@ function getDebugInfoEmits(
         if (instrCtx.assertionMode === "hardhat") {
             const emitStmts: Statement[] = [];
 
+            const encoderVersion = inference.getUnitLevelAbiEncoderVersion(annot.target);
+
             const chunks = arrayChunk(evtArgs, 2);
 
             for (const chunk of chunks) {
                 const emitArgs: Expression[] = [];
 
-                for (const expr of chunk) {
-                    /**
-                     * @todo console.log() supports only simited primitive types,
-                     * so better to check expr type and wrap with abi.encode() any complex types.
-                     */
+                for (let expr of chunk) {
+                    const exprT = inference.typeOf(expr);
+
+                    if (!canConsoleLogDirectly(exprT)) {
+                        assert(
+                            inference.isABIEncodable(exprT, encoderVersion),
+                            "Can not wrap {0} of type {1} with abi.encode() - type is not encodable",
+                            expr,
+                            exprT
+                        );
+
+                        expr = abiEncodeWrap(factory, expr);
+                    }
+
                     emitArgs.push(
                         factory.makeLiteral("str", LiteralKind.String, "", print(expr)),
                         expr
@@ -188,12 +206,7 @@ function getDebugInfoEmits(
 
             const emitStmt = makeEmitStmt(instrCtx, assertionFailedDataExpr, [
                 factory.makeLiteral("int", LiteralKind.Number, "", String(annot.id)),
-                factory.makeFunctionCall(
-                    "<missing>",
-                    FunctionCallKind.FunctionCall,
-                    factory.makeIdentifier("<missing>", "abi.encode", -1),
-                    evtArgs
-                )
+                abiEncodeWrap(factory, ...evtArgs)
             ]);
 
             res.push(emitStmt);
@@ -211,6 +224,44 @@ function getBitPattern(factory: ASTNodeFactory, id: number): Literal {
         LiteralKind.Number,
         "",
         "0x" + "cafe".repeat(15) + hexId
+    );
+}
+
+/**
+ * Check if supplied type can be directly passed to HardHat's `console.log()`.
+ * Returs `true` when it can be and `false` otherwise.
+ *
+ * @see https://hardhat.org/hardhat-network/docs/reference#console.log
+ */
+function canConsoleLogDirectly(t: TypeNode): boolean {
+    if (
+        t instanceof IntType ||
+        t instanceof IntLiteralType ||
+        t instanceof BoolType ||
+        t instanceof AddressType ||
+        t instanceof StringLiteralType
+    ) {
+        return true;
+    }
+
+    if (t instanceof PointerType) {
+        return t.to instanceof StringType;
+    }
+
+    return false;
+}
+
+function abiEncodeWrap(factory: ASTNodeFactory, ...args: Expression[]): Expression {
+    return factory.makeFunctionCall(
+        "<missing>",
+        FunctionCallKind.FunctionCall,
+        factory.makeMemberAccess(
+            "<missing>",
+            factory.makeIdentifier("<missing>", "abi", -1),
+            "encode",
+            -1
+        ),
+        args
     );
 }
 
