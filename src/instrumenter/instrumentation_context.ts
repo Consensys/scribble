@@ -377,6 +377,8 @@ export class InstrumentationContext {
 
     private readonly litAdjustMap = new Map<Literal, ASTNode>();
 
+    private readonly unitsNeedsImports = new Map<SourceUnit, string>();
+
     constructor(
         public readonly factory: ScribbleFactory,
         public readonly units: SourceUnit[],
@@ -524,10 +526,31 @@ export class InstrumentationContext {
         return contents;
     }
 
+    needsImport(unit: SourceUnit, importPath: string): void {
+        this.unitsNeedsImports.set(unit, importPath);
+    }
+
     finalize(): void {
         // Finalize all TranspilingContexts
         for (const transCtx of this.transCtxMap.values()) {
             transCtx.finalize();
+        }
+
+        for (const [unit, importPath] of this.unitsNeedsImports) {
+            const importDirective = this.factory.makeImportDirective(
+                importPath,
+                importPath,
+                "",
+                [],
+                unit.id,
+                unit.id // A hack to make directive to refer to some existiong source unit
+            );
+
+            importDirective.raw = "$scribble_utility$";
+
+            unit.appendChild(importDirective);
+
+            this.addGeneralInstrumentation(importDirective);
         }
 
         // Finally scan all nodes in generalInsturmentation for any potential orphans, and remove them

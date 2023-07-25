@@ -178,7 +178,7 @@ function getDebugInfoEmits(
                 for (let expr of chunk) {
                     const exprT = inference.typeOf(expr);
 
-                    if (!canConsoleLogDirectly(exprT)) {
+                    if (!isSupportedByHardhatConsoleLog(exprT)) {
                         assert(
                             inference.isABIEncodable(exprT, encoderVersion),
                             "Can not wrap {0} of type {1} with abi.encode() - type is not encodable",
@@ -186,7 +186,7 @@ function getDebugInfoEmits(
                             exprT
                         );
 
-                        expr = abiEncodeWrap(factory, expr);
+                        expr = factory.abiEncode(expr);
                     }
 
                     emitArgs.push(
@@ -195,7 +195,7 @@ function getDebugInfoEmits(
                     );
                 }
 
-                emitStmts.push(makeHardHatConsoleLogCall(instrCtx, emitArgs));
+                emitStmts.push(makeHardHatConsoleLogCall(instrCtx, annot, emitArgs));
             }
 
             res.push(emitStmts.length === 0 ? undefined : emitStmts);
@@ -206,7 +206,7 @@ function getDebugInfoEmits(
 
             const emitStmt = makeEmitStmt(instrCtx, assertionFailedDataExpr, [
                 factory.makeLiteral("int", LiteralKind.Number, "", String(annot.id)),
-                abiEncodeWrap(factory, ...evtArgs)
+                factory.abiEncode(...evtArgs)
             ]);
 
             res.push(emitStmt);
@@ -229,58 +229,44 @@ function getBitPattern(factory: ASTNodeFactory, id: number): Literal {
 
 /**
  * Check if supplied type can be directly passed to HardHat's `console.log()`.
- * Returs `true` when it can be and `false` otherwise.
+ * Returns `true` when it can be and `false` otherwise.
  *
  * @see https://hardhat.org/hardhat-network/docs/reference#console.log
  */
-function canConsoleLogDirectly(t: TypeNode): boolean {
+function isSupportedByHardhatConsoleLog(type: TypeNode): boolean {
     if (
-        t instanceof IntType ||
-        t instanceof IntLiteralType ||
-        t instanceof BoolType ||
-        t instanceof AddressType ||
-        t instanceof StringLiteralType
+        type instanceof IntType ||
+        type instanceof IntLiteralType ||
+        type instanceof BoolType ||
+        type instanceof AddressType ||
+        type instanceof StringLiteralType
     ) {
         return true;
     }
 
-    if (t instanceof PointerType) {
-        return t.to instanceof StringType;
+    if (type instanceof PointerType) {
+        return type.to instanceof StringType;
     }
 
     return false;
 }
 
-function abiEncodeWrap(factory: ASTNodeFactory, ...args: Expression[]): Expression {
-    return factory.makeFunctionCall(
-        "<missing>",
-        FunctionCallKind.FunctionCall,
-        factory.makeMemberAccess(
-            "<missing>",
-            factory.makeIdentifier("<missing>", "abi", -1),
-            "encode",
-            -1
-        ),
-        args
-    );
-}
+function makeHardHatConsoleLogCall(
+    ctx: InstrumentationContext,
+    annotation: PropertyMetaData | TryAnnotationMetaData,
+    args: Expression[]
+): Statement {
+    const unit = annotation.target.getClosestParentByType(SourceUnit);
 
-function makeHardHatConsoleLogCall(ctx: InstrumentationContext, args: Expression[]): Statement {
-    const factory = ctx.factory;
-
-    return factory.makeExpressionStatement(
-        factory.makeFunctionCall(
-            "<missing>",
-            FunctionCallKind.FunctionCall,
-            factory.makeMemberAccess(
-                "<missing>",
-                factory.makeIdentifier("<missing>", "console", -1),
-                "log",
-                -1
-            ),
-            args
-        )
+    assert(
+        unit !== undefined,
+        "Unable to locate source unit for annotation {0}",
+        annotation.parsedAnnot
     );
+
+    ctx.needsImport(unit, "hardhat/console.sol");
+
+    return ctx.factory.consoleLogCall(...args);
 }
 
 function makeEmitStmt(
@@ -345,7 +331,7 @@ function emitAssert(
         const strMessage = `000000:0000:000 ${annotation.id}: ${annotation.message}`;
         const message = factory.makeLiteral("<missing>", LiteralKind.String, "", strMessage);
 
-        userAssertFailed = makeHardHatConsoleLogCall(instrCtx, [message]);
+        userAssertFailed = makeHardHatConsoleLogCall(instrCtx, annotation, [message]);
 
         instrCtx.addStringLiteralToAdjust(message, userAssertFailed);
     } else {
