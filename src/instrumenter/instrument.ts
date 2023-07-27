@@ -7,11 +7,13 @@ import {
     Block,
     BoolType,
     BuiltinFunctionType,
+    BytesType,
     ContractDefinition,
     ContractKind,
     DataLocation,
     Expression,
     ExternalReferenceType,
+    FixedBytesType,
     FunctionCall,
     FunctionCallKind,
     FunctionDefinition,
@@ -44,7 +46,6 @@ import { AnnotationType, SLetAnnotation, SNode } from "../spec-lang/ast";
 import {
     PPAbleError,
     SourceMap,
-    arrayChunk,
     filterByType,
     isChangingState,
     isExternallyVisible,
@@ -170,32 +171,31 @@ function getDebugInfoEmits(
 
             const encoderVersion = inference.getUnitLevelAbiEncoderVersion(annot.target);
 
-            const chunks = arrayChunk(evtArgs, 2);
+            for (let expr of evtArgs) {
+                const exprT = inference.typeOf(expr);
 
-            for (const chunk of chunks) {
-                const emitArgs: Expression[] = [];
+                let logFunc = getHardHatLogFuncName(exprT);
 
-                for (let expr of chunk) {
-                    const exprT = inference.typeOf(expr);
-
-                    if (!isSupportedByHardhatConsoleLog(exprT)) {
-                        assert(
-                            inference.isABIEncodable(exprT, encoderVersion),
-                            "Can not wrap {0} of type {1} with abi.encode() - type is not encodable",
-                            expr,
-                            exprT
-                        );
-
-                        expr = factory.abiEncode(expr);
-                    }
-
-                    emitArgs.push(
-                        factory.makeLiteral("str", LiteralKind.String, "", print(expr)),
-                        expr
+                if (logFunc === undefined) {
+                    assert(
+                        inference.isABIEncodable(exprT, encoderVersion),
+                        "Can not wrap {0} of type {1} with abi.encode() - type is not encodable",
+                        expr,
+                        exprT
                     );
+
+                    expr = factory.abiEncode(expr);
+                    logFunc = "logBytes";
                 }
 
-                emitStmts.push(makeHardHatConsoleLogCall(instrCtx, annot, emitArgs));
+                emitStmts.push(
+                    makeHardHatConsoleLogCall(instrCtx, annot, expr, logFunc),
+                    makeHardHatConsoleLogCall(
+                        instrCtx,
+                        annot,
+                        factory.makeLiteral("str", LiteralKind.String, "", print(expr))
+                    )
+                );
             }
 
             res.push(emitStmts.length === 0 ? undefined : emitStmts);
@@ -228,35 +228,62 @@ function getBitPattern(factory: ASTNodeFactory, id: number): Literal {
 }
 
 /**
- * Check if supplied type can be directly passed to HardHat's `console.log()`.
- * Returns `true` when it can be and `false` otherwise.
+ * Returns `log*` function name from HardHat console, that supports passed `type`.
+ * Returns `undefined` if none of the `log*` functions fit.
  *
  * @see https://hardhat.org/hardhat-network/docs/reference#console.log
+ * @see https://github.com/NomicFoundation/hardhat/blob/main/packages/hardhat-core/console.sol
  */
-function isSupportedByHardhatConsoleLog(type: TypeNode): boolean {
-    if (
-        type instanceof IntType ||
-        type instanceof IntLiteralType ||
-        type instanceof BoolType ||
-        type instanceof AddressType ||
-        type instanceof StringLiteralType
-    ) {
-        return true;
+function getHardHatLogFuncName(type: TypeNode): string | undefined {
+    if (type instanceof BoolType) {
+        return "logBool";
+    }
+
+    if (type instanceof AddressType) {
+        return "logAddress";
+    }
+
+    if (type instanceof StringLiteralType) {
+        return type.isHex ? "logBytes" : "logString";
+    }
+
+    if (type instanceof FixedBytesType) {
+        return "logBytes" + type.size;
+    }
+
+    if (type instanceof IntLiteralType) {
+        const fitT = type.smallestFittingType();
+
+        assert(fitT !== undefined, "Unable to compute fitting type for {0}", type);
+
+        type = fitT;
+    }
+
+    if (type instanceof IntType) {
+        return type.signed ? "logInt" : "logUint";
     }
 
     if (type instanceof PointerType) {
-        return type.to instanceof StringType;
+        if (type.to instanceof StringType) {
+            return "logString";
+        }
+
+        if (type.to instanceof BytesType) {
+            return "logBytes";
+        }
     }
 
-    return false;
+    return undefined;
 }
 
 function makeHardHatConsoleLogCall(
     ctx: InstrumentationContext,
     annotation: PropertyMetaData | TryAnnotationMetaData,
-    args: Expression[]
+    arg: Expression,
+    logFunc?: string
 ): Statement {
     const unit = annotation.target.getClosestParentByType(SourceUnit);
+    const factory = ctx.factory;
 
     assert(
         unit !== undefined,
@@ -266,7 +293,27 @@ function makeHardHatConsoleLogCall(
 
     ctx.needsImport(unit, "hardhat/console.sol");
 
-    return ctx.factory.consoleLogCall(...args);
+    if (logFunc === undefined) {
+        const argT = ctx.typeEnv.inference.typeOf(arg);
+
+        logFunc = getHardHatLogFuncName(argT);
+    }
+
+    assert(logFunc !== undefined, "Unable to pick specific log function for {0}", arg);
+
+    return factory.makeExpressionStatement(
+        factory.makeFunctionCall(
+            "<missing>",
+            FunctionCallKind.FunctionCall,
+            factory.makeMemberAccess(
+                "<missing>",
+                factory.makeIdentifier("<missing>", "console", -1),
+                logFunc,
+                -1
+            ),
+            [arg]
+        )
+    );
 }
 
 function makeEmitStmt(
@@ -331,7 +378,7 @@ function emitAssert(
         const strMessage = `000000:0000:000 ${annotation.id}: ${annotation.message}`;
         const message = factory.makeLiteral("<missing>", LiteralKind.String, "", strMessage);
 
-        userAssertFailed = makeHardHatConsoleLogCall(instrCtx, annotation, [message]);
+        userAssertFailed = makeHardHatConsoleLogCall(instrCtx, annotation, message);
 
         instrCtx.addStringLiteralToAdjust(message, userAssertFailed);
     } else {

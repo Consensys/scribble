@@ -381,22 +381,6 @@ export class ScribbleFactory extends ASTNodeFactory {
             args
         );
     }
-
-    consoleLogCall(...args: Expression[]): Statement {
-        return this.makeExpressionStatement(
-            this.makeFunctionCall(
-                "<missing>",
-                FunctionCallKind.FunctionCall,
-                this.makeMemberAccess(
-                    "<missing>",
-                    this.makeIdentifier("<missing>", "console", -1),
-                    "log",
-                    -1
-                ),
-                args
-            )
-        );
-    }
 }
 
 /**

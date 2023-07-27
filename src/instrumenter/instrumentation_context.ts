@@ -543,9 +543,17 @@ export class InstrumentationContext {
                 "",
                 [],
                 unit.id,
-                unit.id // A hack to make directive to refer to some existiong source unit
+                /**
+                 * A hack to make directive to refer to existing source unit.
+                 * Otherwise, AST-to-source writer would crash due to inability to check for exported symbols.
+                 */
+                unit.id
             );
 
+            /**
+             * Mark import directive as "created by Scribble"
+             * to preserve during flattening or during import rewrites.
+             */
             importDirective.raw = "$scribble_utility$";
 
             unit.appendChild(importDirective);

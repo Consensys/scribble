@@ -245,16 +245,6 @@ export function zip<T1 extends PPIsh, T2 extends PPIsh>(
     return res;
 }
 
-export function arrayChunk<T>(array: T[], size: number): T[][] {
-    const result: T[][] = [];
-
-    for (let i = 0, n = array.length; i < n; i += size) {
-        result.push(array.slice(i, i + size));
-    }
-
-    return result;
-}
-
 const writersCache = new Map<string, ASTWriter>();
 
 /**
