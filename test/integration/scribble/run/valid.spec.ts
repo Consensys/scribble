@@ -16,7 +16,17 @@ describe(`Command "scribble <filename>" is working properly`, () => {
         ["if_assigned_complex.sol", ["--debug-events", "--no-assert"]],
         ["contract_multi_arg_debug.sol", ["--debug-events", "--no-assert"]],
         ["dbg_event_tests.sol", ["--debug-events", "--no-assert"]],
-        ["macro_erc20_nested_vars.sol", ["--macro-path", "test/samples/macros"]]
+        ["macro_erc20_nested_vars.sol", ["--macro-path", "test/samples/macros"]],
+        [
+            "hardhat_test.sol",
+            [
+                "--user-assert-mode",
+                "hardhat",
+                "--debug-events",
+                "--path-remapping",
+                "hardhat/=test/samples/hardhat/"
+            ]
+        ]
     ]);
 
     it(`Instrumented source samples are present in ${samplesDir}`, () => {
