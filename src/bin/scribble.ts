@@ -1167,6 +1167,7 @@ function loadInstrMetaData(fileName: string): InstrumentationMetaData {
             );
 
             writeOut(JSON.stringify(metadata, undefined, 2), metaDataFile);
+            console.log(`Scribble metadata file generated.`);
         }
     }
 })();
