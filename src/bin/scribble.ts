@@ -1056,12 +1056,18 @@ function loadInstrMetaData(fileName: string): InstrumentationMetaData {
                 // 4. If the output mode is 'json' we have more work - need to re-compile the flattened code.
                 let flatCompiled: CompileResult;
 
+                const pathOptions: PathOptions = {
+                    remapping: rawPathRemappings,
+                    basePath: basePath,
+                    includePath: includePaths
+                };
+
                 try {
                     flatCompiled = await compileSourceString(
                         "flattened.sol",
                         flatContents,
                         compilerVersionUsed,
-                        undefined,
+                        pathOptions,
                         [CompilationOutput.ALL],
                         compilerSettings
                     );

@@ -82,11 +82,29 @@ function findPredicates(
     return res;
 }
 
-const assertionFailedRX =
+const rxSrc = /^([0-9]*):([0-9]*):([0-9]*)$/;
+
+function getSrcTripple(raw: string): [number, number, number] {
+    const m = raw.match(rxSrc);
+
+    assert(m !== null, "Expected regexp {0} to match string {1}", rxSrc.source, raw);
+
+    const start = parseInt(m[1]);
+    const len = parseInt(m[2]);
+    const fileInd = parseInt(m[3]);
+
+    return [start, len, fileInd];
+}
+
+const rxEmitEventLocation =
     /(emit )?__ScribbleUtilsLib__([0-9]*).[Aa]ssertionFailed\("([0-9]*:[0-9]*:[0-9]*) ([0-9]*).*"\)/;
 
-const assertionFailedDataRX =
+const rxEmitEventData =
     /(emit )?__ScribbleUtilsLib__([0-9]*).[Aa]ssertionFailedData\(([0-9]*), abi.encode\(.*\)\)/;
+
+const rxConsoleLogLocation = /console\.logString\("([0-9]*:[0-9]*:[0-9]*) ([0-9]*).*"\)/;
+
+const rxConsoleLogData = /console\.log[a-zA-Z0-9]+\(.+\)/;
 
 describe("Property map test", () => {
     const samplesDir = "test/samples/";
@@ -104,7 +122,11 @@ describe("Property map test", () => {
     ];
 
     const argMap = new Map<string, string[]>([
-        ["macro_erc20_nested_vars.sol", ["--macro-path", "test/samples/macros"]]
+        ["macro_erc20_nested_vars.sol", ["--macro-path", "test/samples/macros"]],
+        [
+            "hardhat_test.sol",
+            ["--user-assert-mode", "hardhat", "--path-remapping", "hardhat/=test/samples/hardhat/"]
+        ]
     ]);
 
     const samples = searchRecursive(samplesDir, (fileName) =>
@@ -112,20 +134,6 @@ describe("Property map test", () => {
     )
         .map((fileName) => removeProcWd(fileName).replace(".instrumented.sol", ".sol"))
         .filter((fileName) => !skip.some((needle) => fileName.includes(needle)));
-
-    const rx = /^([0-9]*):([0-9]*):([0-9]*)$/;
-
-    const getSrcTripple = (raw: string): [number, number, number] => {
-        const m = raw.match(rx);
-
-        assert(m !== null, "Expected regexp {0} to match string {1}", rx.source, raw);
-
-        const start = parseInt(m[1]);
-        const len = parseInt(m[2]);
-        const fileInd = parseInt(m[3]);
-
-        return [start, len, fileInd];
-    };
 
     it(`Source samples are present in ${samplesDir}`, () => {
         expect(samples.length).toBeGreaterThan(0);
@@ -167,6 +175,7 @@ describe("Property map test", () => {
 
                     // All the test samples have a single file
                     expect(fileInd).toBeLessThan(instrMetadata.originalSourceList.length);
+
                     const fileName = instrMetadata.originalSourceList[fileInd];
 
                     // Skip instantiated macros as they won't match exactly with the
@@ -210,6 +219,7 @@ describe("Property map test", () => {
                         // Check all srcLocs lie inside the annotation
                         for (const srcLoc of srcLocs) {
                             const [srcStart, srcLen, srcFileInd] = getSrcTripple(loc2Src(srcLoc));
+
                             expect(srcFileInd).toEqual(propFileInd);
                             expect(srcStart >= propStart).toBeTruthy();
                             expect(srcStart + srcLen <= propStart + propLen).toBeTruthy();
@@ -227,6 +237,7 @@ describe("Property map test", () => {
                         // All the test samples have a single file
                         expect(fileInd).toBe(0);
                         expect(instrMetadata.instrSourceList[fileInd]).toBe("--");
+
                         const contents = outJSON.sources["flattened.sol"]["source"];
                         const extracted = contents.slice(start, start + len).trim();
 
@@ -234,7 +245,7 @@ describe("Property map test", () => {
                             continue;
                         }
 
-                        let m = extracted.match(assertionFailedRX);
+                        let m = extracted.match(rxEmitEventLocation);
 
                         if (m) {
                             const strSrcRange = m[3];
@@ -243,10 +254,30 @@ describe("Property map test", () => {
                             expect(start).toEqual(srcStart);
                             expect(len).toEqual(srcLen);
                             expect(fileInd).toEqual(srcFileInd);
+
                             continue;
                         }
 
-                        m = extracted.match(assertionFailedDataRX);
+                        m = extracted.match(rxEmitEventData);
+
+                        if (m) {
+                            continue;
+                        }
+
+                        m = extracted.match(rxConsoleLogLocation);
+
+                        if (m) {
+                            const strSrcRange = m[1];
+                            const [srcStart, srcLen, srcFileInd] = getSrcTripple(strSrcRange);
+
+                            expect(start).toEqual(srcStart);
+                            expect(len).toEqual(srcLen);
+                            expect(fileInd).toEqual(srcFileInd);
+
+                            continue;
+                        }
+
+                        m = extracted.match(rxConsoleLogData);
 
                         if (m) {
                             continue;

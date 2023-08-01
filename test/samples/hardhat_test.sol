@@ -2,7 +2,7 @@ contract HardHatTest {
     uint8[] b = [1, 2, 3];
 
     /**
-     * #if_succeeds "test" 1 > 2;
+     * #if_succeeds 1 > 2;
      * #if_succeeds let a := uint8(1) in a < 2;
      * #if_succeeds let flag := false in !flag;
      * #if_succeeds let addr := address(0x0) in addr == 0x0000000000000000000000000000000000000000;

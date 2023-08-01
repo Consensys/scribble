@@ -163,31 +163,31 @@ contract HardHatTest {
             _v.b32 = bytes32(0xffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffff);
             _v.let_36 = _v.b32 > 0x0;
             if (!(1 > 2)) {
-                console.logString("005711:0044:000 0: test");
+                console.logString("005711:0040:000 0: ");
                 assert(false);
             }
             if (!(_v.let_0)) {
                 console.logString("_v.a");
                 console.logUint(_v.a);
-                console.logString("005931:0040:000 1: ");
+                console.logString("005927:0040:000 1: ");
                 assert(false);
             }
             if (!(_v.let_1)) {
                 console.logString("_v.flag");
                 console.logBool(_v.flag);
-                console.logString("006153:0040:000 2: ");
+                console.logString("006149:0040:000 2: ");
                 assert(false);
             }
             if (!(_v.let_2)) {
                 console.logString("_v.addr");
                 console.logAddress(_v.addr);
-                console.logString("006378:0040:000 3: ");
+                console.logString("006374:0040:000 3: ");
                 assert(false);
             }
             if (!(_v.let_3)) {
                 console.logString("_v.x");
                 console.logInt(_v.x);
-                console.logString("006593:0040:000 4: ");
+                console.logString("006589:0040:000 4: ");
                 assert(false);
             }
             if (!(_v.let_4)) {
@@ -195,211 +195,211 @@ contract HardHatTest {
                 console.logUint(_v.i);
                 console.logString("abi.encode(b)");
                 console.logBytes(abi.encode(b));
-                console.logString("006910:0040:000 5: ");
+                console.logString("006906:0040:000 5: ");
                 assert(false);
             }
             if (!(__ScribbleUtilsLib__18.eq_encoded(abi.encode(str), "abc"))) {
                 console.logString("str");
                 console.logString(str);
-                console.logString("007175:0040:000 6: ");
+                console.logString("007171:0040:000 6: ");
                 assert(false);
             }
             if (!(__ScribbleUtilsLib__18.eq_encoded(bts, hex"010203"))) {
                 console.logString("bts");
                 console.logBytes(bts);
-                console.logString("007433:0040:000 7: ");
+                console.logString("007429:0040:000 7: ");
                 assert(false);
             }
             if (!(_v.let_5)) {
                 console.logString("_v.b1");
                 console.logBytes1(_v.b1);
-                console.logString("007653:0040:000 8: ");
+                console.logString("007649:0040:000 8: ");
                 assert(false);
             }
             if (!(_v.let_6)) {
                 console.logString("_v.b2");
                 console.logBytes2(_v.b2);
-                console.logString("007873:0040:000 9: ");
+                console.logString("007869:0040:000 9: ");
                 assert(false);
             }
             if (!(_v.let_7)) {
                 console.logString("_v.b3");
                 console.logBytes3(_v.b3);
-                console.logString("008093:0041:000 10: ");
+                console.logString("008089:0041:000 10: ");
                 assert(false);
             }
             if (!(_v.let_8)) {
                 console.logString("_v.b4");
                 console.logBytes4(_v.b4);
-                console.logString("008314:0041:000 11: ");
+                console.logString("008310:0041:000 11: ");
                 assert(false);
             }
             if (!(_v.let_9)) {
                 console.logString("_v.b5");
                 console.logBytes5(_v.b5);
-                console.logString("008535:0041:000 12: ");
+                console.logString("008531:0041:000 12: ");
                 assert(false);
             }
             if (!(_v.let_10)) {
                 console.logString("_v.b6");
                 console.logBytes6(_v.b6);
-                console.logString("008757:0041:000 13: ");
+                console.logString("008753:0041:000 13: ");
                 assert(false);
             }
             if (!(_v.let_11)) {
                 console.logString("_v.b7");
                 console.logBytes7(_v.b7);
-                console.logString("008979:0041:000 14: ");
+                console.logString("008975:0041:000 14: ");
                 assert(false);
             }
             if (!(_v.let_12)) {
                 console.logString("_v.b8");
                 console.logBytes8(_v.b8);
-                console.logString("009201:0041:000 15: ");
+                console.logString("009197:0041:000 15: ");
                 assert(false);
             }
             if (!(_v.let_13)) {
                 console.logString("_v.b9");
                 console.logBytes9(_v.b9);
-                console.logString("009423:0041:000 16: ");
+                console.logString("009419:0041:000 16: ");
                 assert(false);
             }
             if (!(_v.let_14)) {
                 console.logString("_v.b10");
                 console.logBytes10(_v.b10);
-                console.logString("009648:0041:000 17: ");
+                console.logString("009644:0041:000 17: ");
                 assert(false);
             }
             if (!(_v.let_15)) {
                 console.logString("_v.b11");
                 console.logBytes11(_v.b11);
-                console.logString("009873:0041:000 18: ");
+                console.logString("009869:0041:000 18: ");
                 assert(false);
             }
             if (!(_v.let_16)) {
                 console.logString("_v.b12");
                 console.logBytes12(_v.b12);
-                console.logString("010098:0041:000 19: ");
+                console.logString("010094:0041:000 19: ");
                 assert(false);
             }
             if (!(_v.let_17)) {
                 console.logString("_v.b13");
                 console.logBytes13(_v.b13);
-                console.logString("010323:0041:000 20: ");
+                console.logString("010319:0041:000 20: ");
                 assert(false);
             }
             if (!(_v.let_18)) {
                 console.logString("_v.b14");
                 console.logBytes14(_v.b14);
-                console.logString("010548:0041:000 21: ");
+                console.logString("010544:0041:000 21: ");
                 assert(false);
             }
             if (!(_v.let_19)) {
                 console.logString("_v.b15");
                 console.logBytes15(_v.b15);
-                console.logString("010773:0041:000 22: ");
+                console.logString("010769:0041:000 22: ");
                 assert(false);
             }
             if (!(_v.let_20)) {
                 console.logString("_v.b16");
                 console.logBytes16(_v.b16);
-                console.logString("010998:0041:000 23: ");
+                console.logString("010994:0041:000 23: ");
                 assert(false);
             }
             if (!(_v.let_21)) {
                 console.logString("_v.b17");
                 console.logBytes17(_v.b17);
-                console.logString("011223:0041:000 24: ");
+                console.logString("011219:0041:000 24: ");
                 assert(false);
             }
             if (!(_v.let_22)) {
                 console.logString("_v.b18");
                 console.logBytes18(_v.b18);
-                console.logString("011448:0041:000 25: ");
+                console.logString("011444:0041:000 25: ");
                 assert(false);
             }
             if (!(_v.let_23)) {
                 console.logString("_v.b19");
                 console.logBytes19(_v.b19);
-                console.logString("011673:0041:000 26: ");
+                console.logString("011669:0041:000 26: ");
                 assert(false);
             }
             if (!(_v.let_24)) {
                 console.logString("_v.b20");
                 console.logBytes20(_v.b20);
-                console.logString("011898:0041:000 27: ");
+                console.logString("011894:0041:000 27: ");
                 assert(false);
             }
             if (!(_v.let_25)) {
                 console.logString("_v.b21");
                 console.logBytes21(_v.b21);
-                console.logString("012123:0041:000 28: ");
+                console.logString("012119:0041:000 28: ");
                 assert(false);
             }
             if (!(_v.let_26)) {
                 console.logString("_v.b22");
                 console.logBytes22(_v.b22);
-                console.logString("012348:0041:000 29: ");
+                console.logString("012344:0041:000 29: ");
                 assert(false);
             }
             if (!(_v.let_27)) {
                 console.logString("_v.b23");
                 console.logBytes23(_v.b23);
-                console.logString("012573:0041:000 30: ");
+                console.logString("012569:0041:000 30: ");
                 assert(false);
             }
             if (!(_v.let_28)) {
                 console.logString("_v.b24");
                 console.logBytes24(_v.b24);
-                console.logString("012798:0041:000 31: ");
+                console.logString("012794:0041:000 31: ");
                 assert(false);
             }
             if (!(_v.let_29)) {
                 console.logString("_v.b25");
                 console.logBytes25(_v.b25);
-                console.logString("013023:0041:000 32: ");
+                console.logString("013019:0041:000 32: ");
                 assert(false);
             }
             if (!(_v.let_30)) {
                 console.logString("_v.b26");
                 console.logBytes26(_v.b26);
-                console.logString("013248:0041:000 33: ");
+                console.logString("013244:0041:000 33: ");
                 assert(false);
             }
             if (!(_v.let_31)) {
                 console.logString("_v.b27");
                 console.logBytes27(_v.b27);
-                console.logString("013473:0041:000 34: ");
+                console.logString("013469:0041:000 34: ");
                 assert(false);
             }
             if (!(_v.let_32)) {
                 console.logString("_v.b28");
                 console.logBytes28(_v.b28);
-                console.logString("013698:0041:000 35: ");
+                console.logString("013694:0041:000 35: ");
                 assert(false);
             }
             if (!(_v.let_33)) {
                 console.logString("_v.b29");
                 console.logBytes29(_v.b29);
-                console.logString("013923:0041:000 36: ");
+                console.logString("013919:0041:000 36: ");
                 assert(false);
             }
             if (!(_v.let_34)) {
                 console.logString("_v.b30");
                 console.logBytes30(_v.b30);
-                console.logString("014148:0041:000 37: ");
+                console.logString("014144:0041:000 37: ");
                 assert(false);
             }
             if (!(_v.let_35)) {
                 console.logString("_v.b31");
                 console.logBytes31(_v.b31);
-                console.logString("014373:0041:000 38: ");
+                console.logString("014369:0041:000 38: ");
                 assert(false);
             }
             if (!(_v.let_36)) {
                 console.logString("_v.b32");
                 console.logBytes32(_v.b32);
-                console.logString("014598:0041:000 39: ");
+                console.logString("014594:0041:000 39: ");
                 assert(false);
             }
             if (!(keccak256(bytes(str)) == keccak256(bts))) {
@@ -407,7 +407,7 @@ contract HardHatTest {
                 console.logBytes(bts);
                 console.logString("str");
                 console.logString(str);
-                console.logString("014927:0041:000 40: ");
+                console.logString("014923:0041:000 40: ");
                 assert(false);
             }
         }
