@@ -1,5 +1,8 @@
 export abstract class SourceFile {
-    constructor(public fileName: string, public contents: string) {}
+    constructor(
+        public fileName: string,
+        public contents: string
+    ) {}
 }
 
 export class SolFile extends SourceFile {}
