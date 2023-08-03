@@ -28,7 +28,7 @@ import {
     SUserFunctionDefinition
 } from "../spec-lang/ast";
 import { SemMap, TypeEnv } from "../spec-lang/tc";
-import { dedup } from "../util/misc";
+import { dedup, getOrInit } from "../util/misc";
 import { NameGenerator } from "../util/name_generator";
 import { SourceMap } from "../util/sources";
 import { AnnotationFilterOptions, AnnotationMetaData } from "./annotations";
@@ -377,7 +377,7 @@ export class InstrumentationContext {
 
     private readonly litAdjustMap = new Map<Literal, ASTNode>();
 
-    private readonly unitsNeedsImports = new Map<SourceUnit, string>();
+    private readonly unitsNeedsImports = new Map<SourceUnit, Set<string>>();
 
     constructor(
         public readonly factory: ScribbleFactory,
@@ -527,7 +527,9 @@ export class InstrumentationContext {
     }
 
     needsImport(unit: SourceUnit, importPath: string): void {
-        this.unitsNeedsImports.set(unit, importPath);
+        const importPaths = getOrInit(unit, this.unitsNeedsImports, new Set());
+
+        importPaths.add(importPath);
     }
 
     finalize(): void {
@@ -536,29 +538,31 @@ export class InstrumentationContext {
             transCtx.finalize();
         }
 
-        for (const [unit, importPath] of this.unitsNeedsImports) {
-            const importDirective = this.factory.makeImportDirective(
-                importPath,
-                importPath,
-                "",
-                [],
-                unit.id,
+        for (const [unit, importPaths] of this.unitsNeedsImports) {
+            for (const importPath of importPaths) {
+                const importDirective = this.factory.makeImportDirective(
+                    importPath,
+                    importPath,
+                    "",
+                    [],
+                    unit.id,
+                    /**
+                     * A hack to make directive to refer to existing source unit.
+                     * Otherwise, AST-to-source writer would crash due to inability to check for exported symbols.
+                     */
+                    unit.id
+                );
+
                 /**
-                 * A hack to make directive to refer to existing source unit.
-                 * Otherwise, AST-to-source writer would crash due to inability to check for exported symbols.
+                 * Mark import directive as "created by Scribble"
+                 * to preserve during flattening or during import rewrites.
                  */
-                unit.id
-            );
+                importDirective.raw = "$scribble_utility$";
 
-            /**
-             * Mark import directive as "created by Scribble"
-             * to preserve during flattening or during import rewrites.
-             */
-            importDirective.raw = "$scribble_utility$";
+                unit.appendChild(importDirective);
 
-            unit.appendChild(importDirective);
-
-            this.addGeneralInstrumentation(importDirective);
+                this.addGeneralInstrumentation(importDirective);
+            }
         }
 
         // Finally scan all nodes in generalInsturmentation for any potential orphans, and remove them

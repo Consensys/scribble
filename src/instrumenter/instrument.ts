@@ -358,29 +358,35 @@ function emitAssert(
     let userAssertFailed: Statement;
     let userAssertionHit: Statement | undefined;
 
-    if (instrCtx.assertionMode === "log") {
-        const strMessage = `000000:0000:000 ${annotation.id}: ${annotation.message}`;
-        const message = factory.makeLiteral("<missing>", LiteralKind.String, "", strMessage);
+    const messageStr = `000000:0000:000 ${annotation.id}: ${annotation.message}`;
+    const messageLit = factory.makeLiteral("<missing>", LiteralKind.String, "", messageStr);
 
+    if (instrCtx.assertionMode === "log") {
         const event = gt(instrCtx.compilerVersion, "0.6.2")
             ? instrCtx.getAssertionFailedEvent(contract)
             : instrCtx.getAssertionFailedFun(contract);
 
-        userAssertFailed = makeEmitStmt(instrCtx, event, [message]);
-        instrCtx.addStringLiteralToAdjust(message, userAssertFailed);
+        userAssertFailed = makeEmitStmt(instrCtx, event, [messageLit]);
+
+        instrCtx.addStringLiteralToAdjust(messageLit, userAssertFailed);
 
         if (instrCtx.covAssertions) {
             userAssertionHit = makeEmitStmt(instrCtx, event, [
-                factory.makeLiteral("<missing>", LiteralKind.String, "", `HIT: ${strMessage}`)
+                factory.makeLiteral("<missing>", LiteralKind.String, "", `HIT: ${messageStr}`)
             ]);
         }
     } else if (instrCtx.assertionMode === "hardhat") {
-        const strMessage = `000000:0000:000 ${annotation.id}: ${annotation.message}`;
-        const message = factory.makeLiteral("<missing>", LiteralKind.String, "", strMessage);
+        userAssertFailed = makeHardHatConsoleLogCall(instrCtx, annotation, messageLit);
 
-        userAssertFailed = makeHardHatConsoleLogCall(instrCtx, annotation, message);
+        instrCtx.addStringLiteralToAdjust(messageLit, userAssertFailed);
 
-        instrCtx.addStringLiteralToAdjust(message, userAssertFailed);
+        if (instrCtx.covAssertions) {
+            userAssertionHit = makeHardHatConsoleLogCall(
+                instrCtx,
+                annotation,
+                factory.makeLiteral("<missing>", LiteralKind.String, "", `HIT: ${messageStr}`)
+            );
+        }
     } else {
         const failBitPattern = getBitPattern(factory, annotation.id);
 

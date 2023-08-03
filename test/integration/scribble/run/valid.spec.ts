@@ -24,7 +24,8 @@ describe(`Command "scribble <filename>" is working properly`, () => {
                 "hardhat",
                 "--debug-events",
                 "--path-remapping",
-                "hardhat/=test/samples/hardhat/"
+                "hardhat/=test/samples/hardhat/",
+                "--cov-assertions"
             ]
         ]
     ]);
