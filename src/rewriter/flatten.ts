@@ -194,33 +194,36 @@ export function flattenUnits(
         }
     }
 
-    for (const unit of units) {
-        for (const imp of unit.vImportDirectives) {
-            unit.removeChild(imp);
-        }
-    }
-
     const flatUnit = factory.makeSourceUnit(flatFileName, 0, flatFileName, new Map());
+
     let contracts: ContractDefinition[] = [];
+
     const pragmas = new Map<string, PragmaDirective[]>();
+    const imports = new Map<string, ImportDirective>();
 
     for (const unit of units) {
         for (const def of unit.children) {
-            // Skip import directives and compiler pragmas
-            if (
-                def instanceof ImportDirective ||
-                (def instanceof PragmaDirective && def.vIdentifier === "solidity")
-            ) {
+            // Skip non-utility import directives
+            if (def instanceof ImportDirective && def.raw !== "$scribble_utility$") {
+                continue;
+            }
+
+            // Skip compiler pragma directives
+            if (def instanceof PragmaDirective && def.vIdentifier === "solidity") {
                 continue;
             }
 
             if (def instanceof ContractDefinition) {
                 contracts.push(def);
             } else if (def instanceof PragmaDirective) {
-                if (!pragmas.has(def.vIdentifier)) {
-                    pragmas.set(def.vIdentifier, [def]);
-                } else {
+                if (pragmas.has(def.vIdentifier)) {
                     (pragmas.get(def.vIdentifier) as PragmaDirective[]).push(def);
+                } else {
+                    pragmas.set(def.vIdentifier, [def]);
+                }
+            } else if (def instanceof ImportDirective) {
+                if (!imports.has(def.file)) {
+                    imports.set(def.file, def);
                 }
             } else {
                 flatUnit.appendChild(def);
@@ -253,6 +256,10 @@ export function flattenUnits(
         if (nd.vScope instanceof SourceUnit && nd.vScope !== flatUnit) {
             nd.scope = flatUnit.id;
         }
+    }
+
+    for (const [, importDef] of imports) {
+        flatUnit.insertAtBeginning(importDef);
     }
 
     // Finally insert a single compiler version directive

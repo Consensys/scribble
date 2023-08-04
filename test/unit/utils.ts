@@ -2,7 +2,10 @@ import { InferType, SourceUnit } from "solc-typed-ast";
 import { ScribbleFactory, SourceMap } from "../../src";
 import { getCallGraph } from "../../src/instrumenter/callgraph";
 import { getCHA } from "../../src/instrumenter/cha";
-import { InstrumentationContext } from "../../src/instrumenter/instrumentation_context";
+import {
+    AssertionMode,
+    InstrumentationContext
+} from "../../src/instrumenter/instrumentation_context";
 import { TypeEnv } from "../../src/spec-lang/tc";
 import { SolFile } from "../../src/util/sources";
 
@@ -10,7 +13,7 @@ export function makeInstrumentationCtx(
     sources: SourceUnit[],
     factory: ScribbleFactory,
     files: Map<string, string>,
-    assertionMode: "log" | "mstore",
+    assertionMode: AssertionMode,
     compilerVersion: string
 ): InstrumentationContext {
     const inference = new InferType(compilerVersion);

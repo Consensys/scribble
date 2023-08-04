@@ -28,7 +28,7 @@ import {
     SUserFunctionDefinition
 } from "../spec-lang/ast";
 import { SemMap, TypeEnv } from "../spec-lang/tc";
-import { dedup } from "../util/misc";
+import { dedup, getOrInit } from "../util/misc";
 import { NameGenerator } from "../util/name_generator";
 import { SourceMap } from "../util/sources";
 import { AnnotationFilterOptions, AnnotationMetaData } from "./annotations";
@@ -48,6 +48,8 @@ import { findAliasedStateVars } from "./state_vars";
 import { InstrumentationSiteType, TranspilingContext } from "./transpiling_context";
 import { FactoryMap, ScribbleFactory, StructMap } from "./utils";
 import { generateUtilsLibrary, makeEqBytesFun } from "./utils_library";
+
+export type AssertionMode = "log" | "mstore" | "hardhat";
 
 /**
  * Gather all named nodes in the provided source units.
@@ -375,10 +377,12 @@ export class InstrumentationContext {
 
     private readonly litAdjustMap = new Map<Literal, ASTNode>();
 
+    private readonly unitsNeedsImports = new Map<SourceUnit, Set<string>>();
+
     constructor(
         public readonly factory: ScribbleFactory,
         public readonly units: SourceUnit[],
-        public readonly assertionMode: "log" | "mstore",
+        public readonly assertionMode: AssertionMode,
         public readonly covAssertions: boolean,
         public readonly addAssert: boolean,
         public readonly callgraph: CallGraph,
@@ -522,10 +526,43 @@ export class InstrumentationContext {
         return contents;
     }
 
+    needsImport(unit: SourceUnit, importPath: string): void {
+        const importPaths = getOrInit(unit, this.unitsNeedsImports, new Set());
+
+        importPaths.add(importPath);
+    }
+
     finalize(): void {
         // Finalize all TranspilingContexts
         for (const transCtx of this.transCtxMap.values()) {
             transCtx.finalize();
+        }
+
+        for (const [unit, importPaths] of this.unitsNeedsImports) {
+            for (const importPath of importPaths) {
+                const importDirective = this.factory.makeImportDirective(
+                    importPath,
+                    importPath,
+                    "",
+                    [],
+                    unit.id,
+                    /**
+                     * A hack to make directive to refer to existing source unit.
+                     * Otherwise, AST-to-source writer would crash due to inability to check for exported symbols.
+                     */
+                    unit.id
+                );
+
+                /**
+                 * Mark import directive as "created by Scribble"
+                 * to preserve during flattening or during import rewrites.
+                 */
+                importDirective.raw = "$scribble_utility$";
+
+                unit.appendChild(importDirective);
+
+                this.addGeneralInstrumentation(importDirective);
+            }
         }
 
         // Finally scan all nodes in generalInsturmentation for any potential orphans, and remove them

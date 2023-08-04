@@ -14,6 +14,7 @@ import {
     DataLocation,
     Expression,
     FixedBytesType,
+    FunctionCallKind,
     FunctionDefinition,
     FunctionKind,
     FunctionStateMutability,
@@ -364,6 +365,20 @@ export class ScribbleFactory extends ASTNodeFactory {
             generalTyp.pp(),
             undefined,
             this.generalizedTypeToTypeName(generalTyp, atUseSite)
+        );
+    }
+
+    abiEncode(...args: Expression[]): Expression {
+        return this.makeFunctionCall(
+            "<missing>",
+            FunctionCallKind.FunctionCall,
+            this.makeMemberAccess(
+                "<missing>",
+                this.makeIdentifier("<missing>", "abi", -1),
+                "encode",
+                -1
+            ),
+            args
         );
     }
 }

@@ -2,14 +2,18 @@ import { gt, gte } from "semver";
 import {
     ASTNode,
     ASTNodeFactory,
+    AddressType,
     ArrayType,
     Block,
+    BoolType,
     BuiltinFunctionType,
+    BytesType,
     ContractDefinition,
     ContractKind,
     DataLocation,
     Expression,
     ExternalReferenceType,
+    FixedBytesType,
     FunctionCall,
     FunctionCallKind,
     FunctionDefinition,
@@ -18,16 +22,19 @@ import {
     FunctionType,
     FunctionVisibility,
     InferType,
+    IntLiteralType,
     IntType,
     Literal,
     LiteralKind,
-    MemberAccess,
     Mutability,
     OverrideSpecifier,
+    PointerType,
     SourceUnit,
     StateVariableVisibility,
     Statement,
     StatementWithChildren,
+    StringLiteralType,
+    StringType,
     TryStatement,
     TypeName,
     TypeNode,
@@ -133,10 +140,11 @@ export function findExternalCalls(
 function getDebugInfoEmits(
     annotations: Array<PropertyMetaData | TryAnnotationMetaData>,
     transCtx: TranspilingContext
-): Array<Statement | undefined> {
-    const res: Array<Statement | undefined> = [];
+): Array<Statement | Statement[] | undefined> {
+    const res: Array<Statement | Statement[] | undefined> = [];
     const factory = transCtx.factory;
     const instrCtx = transCtx.instrCtx;
+    const inference = instrCtx.typeEnv.inference;
 
     for (const annot of annotations) {
         const dbgIdsMap = transCtx.annotationDebugMap.get(annot);
@@ -157,22 +165,52 @@ function getDebugInfoEmits(
             );
         }
 
-        const assertionFailedDataExpr = gt(instrCtx.compilerVersion, "0.6.2")
-            ? instrCtx.getAssertionFailedDataEvent(annot.target)
-            : instrCtx.getAssertionFailedDataFun(annot.target);
-
         // Finally construct the emit statement for the debug event.
-        const emitStmt = makeEmitStmt(instrCtx, assertionFailedDataExpr, [
-            factory.makeLiteral("int", LiteralKind.Number, "", String(annot.id)),
-            factory.makeFunctionCall(
-                "<missing>",
-                FunctionCallKind.FunctionCall,
-                factory.makeIdentifier("<missing>", "abi.encode", -1),
-                evtArgs
-            )
-        ]);
+        if (instrCtx.assertionMode === "hardhat") {
+            const emitStmts: Statement[] = [];
 
-        res.push(emitStmt);
+            const encoderVersion = inference.getUnitLevelAbiEncoderVersion(annot.target);
+
+            for (let expr of evtArgs) {
+                const exprT = inference.typeOf(expr);
+
+                let logFunc = getHardHatLogFuncName(exprT);
+
+                if (logFunc === undefined) {
+                    assert(
+                        inference.isABIEncodable(exprT, encoderVersion),
+                        "Can not wrap {0} of type {1} with abi.encode() - type is not encodable",
+                        expr,
+                        exprT
+                    );
+
+                    expr = factory.abiEncode(expr);
+                    logFunc = "logBytes";
+                }
+
+                emitStmts.push(
+                    makeHardHatConsoleLogCall(instrCtx, annot, expr, logFunc),
+                    makeHardHatConsoleLogCall(
+                        instrCtx,
+                        annot,
+                        factory.makeLiteral("str", LiteralKind.String, "", print(expr))
+                    )
+                );
+            }
+
+            res.push(emitStmts.length === 0 ? undefined : emitStmts);
+        } else {
+            const assertionFailedDataExpr = gt(instrCtx.compilerVersion, "0.6.2")
+                ? instrCtx.getAssertionFailedDataEvent(annot.target)
+                : instrCtx.getAssertionFailedDataFun(annot.target);
+
+            const emitStmt = makeEmitStmt(instrCtx, assertionFailedDataExpr, [
+                factory.makeLiteral("int", LiteralKind.Number, "", String(annot.id)),
+                factory.abiEncode(...evtArgs)
+            ]);
+
+            res.push(emitStmt);
+        }
     }
 
     return res;
@@ -186,6 +224,95 @@ function getBitPattern(factory: ASTNodeFactory, id: number): Literal {
         LiteralKind.Number,
         "",
         "0x" + "cafe".repeat(15) + hexId
+    );
+}
+
+/**
+ * Returns `log*` function name from HardHat console, that supports passed `type`.
+ * Returns `undefined` if none of the `log*` functions fit.
+ *
+ * @see https://hardhat.org/hardhat-network/docs/reference#console.log
+ * @see https://github.com/NomicFoundation/hardhat/blob/main/packages/hardhat-core/console.sol
+ */
+function getHardHatLogFuncName(type: TypeNode): string | undefined {
+    if (type instanceof BoolType) {
+        return "logBool";
+    }
+
+    if (type instanceof AddressType) {
+        return "logAddress";
+    }
+
+    if (type instanceof StringLiteralType) {
+        return type.isHex ? "logBytes" : "logString";
+    }
+
+    if (type instanceof FixedBytesType) {
+        return "logBytes" + type.size;
+    }
+
+    if (type instanceof IntLiteralType) {
+        const fitT = type.smallestFittingType();
+
+        assert(fitT !== undefined, "Unable to compute fitting type for {0}", type);
+
+        type = fitT;
+    }
+
+    if (type instanceof IntType) {
+        return type.signed ? "logInt" : "logUint";
+    }
+
+    if (type instanceof PointerType) {
+        if (type.to instanceof StringType) {
+            return "logString";
+        }
+
+        if (type.to instanceof BytesType) {
+            return "logBytes";
+        }
+    }
+
+    return undefined;
+}
+
+function makeHardHatConsoleLogCall(
+    ctx: InstrumentationContext,
+    annotation: PropertyMetaData | TryAnnotationMetaData,
+    arg: Expression,
+    logFunc?: string
+): Statement {
+    const unit = annotation.target.getClosestParentByType(SourceUnit);
+    const factory = ctx.factory;
+
+    assert(
+        unit !== undefined,
+        "Unable to locate source unit for annotation {0}",
+        annotation.parsedAnnot
+    );
+
+    ctx.needsImport(unit, "hardhat/console.sol");
+
+    if (logFunc === undefined) {
+        const argT = ctx.typeEnv.inference.typeOf(arg);
+
+        logFunc = getHardHatLogFuncName(argT);
+    }
+
+    assert(logFunc !== undefined, "Unable to pick specific log function for {0}", arg);
+
+    return factory.makeExpressionStatement(
+        factory.makeFunctionCall(
+            "<missing>",
+            FunctionCallKind.FunctionCall,
+            factory.makeMemberAccess(
+                "<missing>",
+                factory.makeIdentifier("<missing>", "console", -1),
+                logFunc,
+                -1
+            ),
+            [arg]
+        )
     );
 }
 
@@ -222,8 +349,8 @@ function emitAssert(
     transCtx: TranspilingContext,
     expr: Expression,
     annotation: PropertyMetaData | TryAnnotationMetaData,
-    event: MemberAccess,
-    emitStmt?: Statement
+    contract: ContractDefinition,
+    emitStmt?: Statement | Statement[]
 ): Statement {
     const instrCtx = transCtx.instrCtx;
     const factory = instrCtx.factory;
@@ -231,17 +358,34 @@ function emitAssert(
     let userAssertFailed: Statement;
     let userAssertionHit: Statement | undefined;
 
-    if (instrCtx.assertionMode === "log") {
-        const strMessage = `000000:0000:000 ${annotation.id}: ${annotation.message}`;
-        const message = factory.makeLiteral("<missing>", LiteralKind.String, "", strMessage);
+    const messageStr = `000000:0000:000 ${annotation.id}: ${annotation.message}`;
+    const messageLit = factory.makeLiteral("<missing>", LiteralKind.String, "", messageStr);
 
-        userAssertFailed = makeEmitStmt(instrCtx, event, [message]);
-        instrCtx.addStringLiteralToAdjust(message, userAssertFailed);
+    if (instrCtx.assertionMode === "log") {
+        const event = gt(instrCtx.compilerVersion, "0.6.2")
+            ? instrCtx.getAssertionFailedEvent(contract)
+            : instrCtx.getAssertionFailedFun(contract);
+
+        userAssertFailed = makeEmitStmt(instrCtx, event, [messageLit]);
+
+        instrCtx.addStringLiteralToAdjust(messageLit, userAssertFailed);
 
         if (instrCtx.covAssertions) {
             userAssertionHit = makeEmitStmt(instrCtx, event, [
-                factory.makeLiteral("<missing>", LiteralKind.String, "", `HIT: ${strMessage}`)
+                factory.makeLiteral("<missing>", LiteralKind.String, "", `HIT: ${messageStr}`)
             ]);
+        }
+    } else if (instrCtx.assertionMode === "hardhat") {
+        userAssertFailed = makeHardHatConsoleLogCall(instrCtx, annotation, messageLit);
+
+        instrCtx.addStringLiteralToAdjust(messageLit, userAssertFailed);
+
+        if (instrCtx.covAssertions) {
+            userAssertionHit = makeHardHatConsoleLogCall(
+                instrCtx,
+                annotation,
+                factory.makeLiteral("<missing>", LiteralKind.String, "", `HIT: ${messageStr}`)
+            );
         }
     } else {
         const failBitPattern = getBitPattern(factory, annotation.id);
@@ -277,8 +421,15 @@ function emitAssert(
     const ifBody: Statement[] = [userAssertFailed];
 
     if (emitStmt) {
-        instrCtx.addAnnotationInstrumentation(annotation, emitStmt);
-        ifBody.unshift(emitStmt);
+        if (!(emitStmt instanceof Array)) {
+            emitStmt = [emitStmt];
+        }
+
+        for (const stmt of emitStmt) {
+            instrCtx.addAnnotationInstrumentation(annotation, stmt);
+
+            ifBody.unshift(stmt);
+        }
     }
 
     if (instrCtx.addAssert) {
@@ -350,7 +501,7 @@ export function insertAnnotations(
     // defeats the purpose of mstore mode (to not emit additional events to
     // preserve interface compatibility)
     const debugInfos =
-        instrCtx.debugEvents && instrCtx.assertionMode === "log"
+        instrCtx.debugEvents && instrCtx.assertionMode !== "mstore"
             ? getDebugInfoEmits(annotations, ctx)
             : [];
 
@@ -447,11 +598,7 @@ export function insertAnnotations(
                 `Annotation type "${annotation.type}" expected single expression (got array)`
             );
 
-            const assertFailedExpr = gt(instrCtx.compilerVersion, "0.6.2")
-                ? instrCtx.getAssertionFailedEvent(contract)
-                : instrCtx.getAssertionFailedFun(contract);
-
-            return [emitAssert(ctx, predicate, annotation, assertFailedExpr, emitStmt), false];
+            return [emitAssert(ctx, predicate, annotation, contract, emitStmt), false];
         }
     );
 

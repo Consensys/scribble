@@ -140,10 +140,14 @@ export function scribble(fileName: string | string[], ...args: string[]): string
     // Scrub DEBUG_LEVEL and DEBUG_FILTER from subprocess environment.
     const scrubbedEnv = Object.entries(process.env)
         .filter(([name]) => name !== "DEBUG_LEVEL" && name !== "DEBUG_FILTER")
-        .reduce((env, [key, val]) => {
-            env[key] = val as string;
-            return env;
-        }, {} as { [key: string]: string });
+        .reduce(
+            (env, [key, val]) => {
+                env[key] = val as string;
+
+                return env;
+            },
+            {} as { [key: string]: string }
+        );
 
     const processArgs = (fileName instanceof Array ? fileName : [fileName]).concat(args);
 
@@ -153,7 +157,7 @@ export function scribble(fileName: string | string[], ...args: string[]): string
     const result = spawnSync("scribble", processArgs, {
         encoding: "utf8",
         env: scrubbedEnv,
-        maxBuffer: 8 * 1024 * 1024
+        maxBuffer: 16 * 1024 * 1024
     });
 
     if (result.stderr) {

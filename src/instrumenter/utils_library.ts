@@ -460,36 +460,38 @@ export function generateUtilsLibrary(
 
     lib.linearizedBaseContracts.push(lib.id);
 
-    const assertionFailedDef = makeAssertionFailedEventDef(ctx);
+    if (ctx.assertionMode !== "hardhat") {
+        const assertionFailedDef = makeAssertionFailedEventDef(ctx);
 
-    lib.appendChild(assertionFailedDef);
+        lib.appendChild(assertionFailedDef);
 
-    const assertionFailedDataDef = makeAssertionFailedDataEventDef(ctx);
+        const assertionFailedDataDef = makeAssertionFailedDataEventDef(ctx);
 
-    lib.appendChild(assertionFailedDataDef);
+        lib.appendChild(assertionFailedDataDef);
 
-    lib.appendChild(
-        makeEventEmitFun(
-            lib,
-            "assertionFailed",
-            assertionFailedDef,
-            [[factory.makeElementaryTypeName("<missing>", "string"), DataLocation.Memory]],
-            ctx
-        )
-    );
+        lib.appendChild(
+            makeEventEmitFun(
+                lib,
+                "assertionFailed",
+                assertionFailedDef,
+                [[factory.makeElementaryTypeName("<missing>", "string"), DataLocation.Memory]],
+                ctx
+            )
+        );
 
-    lib.appendChild(
-        makeEventEmitFun(
-            lib,
-            "assertionFailedData",
-            assertionFailedDataDef,
-            [
-                [factory.makeElementaryTypeName("<missing>", "int"), DataLocation.Default],
-                [factory.makeElementaryTypeName("<missing>", "bytes"), DataLocation.Memory]
-            ],
-            ctx
-        )
-    );
+        lib.appendChild(
+            makeEventEmitFun(
+                lib,
+                "assertionFailedData",
+                assertionFailedDataDef,
+                [
+                    [factory.makeElementaryTypeName("<missing>", "int"), DataLocation.Default],
+                    [factory.makeElementaryTypeName("<missing>", "bytes"), DataLocation.Memory]
+                ],
+                ctx
+            )
+        );
+    }
 
     lib.appendChild(makeIsInContractFun(lib, ctx));
     lib.appendChild(makeSetInContractFun(lib, ctx));

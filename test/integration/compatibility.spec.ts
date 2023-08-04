@@ -182,6 +182,23 @@ describe("Interface compatibility test", () => {
 
                 compareSourceUnits(inAst, result.units);
             });
+
+            it("Instrumented source in 'hardhat' mode has compatible external interface", async () => {
+                const result = await toAst(
+                    sample + ".hardhat.sol",
+                    scrSample(
+                        sample,
+                        "--user-assert-mode",
+                        "hardhat",
+                        "--debug-events",
+                        "--path-remapping",
+                        "hardhat/=test/samples/hardhat/",
+                        ...customArgs
+                    )
+                );
+
+                compareSourceUnits(inAst, result.units);
+            });
         });
     }
 });

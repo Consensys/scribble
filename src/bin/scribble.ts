@@ -60,7 +60,7 @@ import {
     instrumentFunction,
     instrumentStatement
 } from "../instrumenter/instrument";
-import { InstrumentationContext } from "../instrumenter/instrumentation_context";
+import { AssertionMode, InstrumentationContext } from "../instrumenter/instrumentation_context";
 import { instrumentStateVars } from "../instrumenter/state_var_instrumenter";
 import { findStateVarUpdates } from "../instrumenter/state_vars";
 import { ScribbleFactory } from "../instrumenter/utils";
@@ -700,10 +700,10 @@ function loadInstrMetaData(fileName: string): InstrumentationMetaData {
             filterOptions.message = options["filter-message"];
         }
 
-        const assertionMode: "log" | "mstore" = oneOf(
+        const assertionMode: AssertionMode = oneOf(
             options["user-assert-mode"],
-            ["log", "mstore"],
-            `Error: --user-assert-mode must be either log or mstore, not ${options["user-assert-mode"]}`
+            ["log", "mstore", "hardhat"],
+            `Error: --user-assert-mode must be "log", "mstore" or "hardhat", not ${options["user-assert-mode"]}`
         );
 
         const debugEvents: boolean =
@@ -1056,12 +1056,18 @@ function loadInstrMetaData(fileName: string): InstrumentationMetaData {
                 // 4. If the output mode is 'json' we have more work - need to re-compile the flattened code.
                 let flatCompiled: CompileResult;
 
+                const pathOptions: PathOptions = {
+                    remapping: rawPathRemappings,
+                    basePath: basePath,
+                    includePath: includePaths
+                };
+
                 try {
                     flatCompiled = await compileSourceString(
                         "flattened.sol",
                         flatContents,
                         compilerVersionUsed,
-                        undefined,
+                        pathOptions,
                         [CompilationOutput.ALL],
                         compilerSettings
                     );
