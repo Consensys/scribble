@@ -163,14 +163,14 @@ contract HardHatTest {
             _v.b32 = bytes32(0xffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffff);
             _v.let_36 = _v.b32 > 0x0;
             {
-                console.logString("HIT: 000000:0000:000 0: ");
+                console.logString("HIT: 005796:0040:000 0: ");
                 if (!(1 > 2)) {
                     console.logString("005796:0040:000 0: ");
                     assert(false);
                 }
             }
             {
-                console.logString("HIT: 000000:0000:000 1: ");
+                console.logString("HIT: 006127:0040:000 1: ");
                 if (!(_v.let_0)) {
                     console.logString("_v.a");
                     console.logUint(_v.a);
@@ -179,7 +179,7 @@ contract HardHatTest {
                 }
             }
             {
-                console.logString("HIT: 000000:0000:000 2: ");
+                console.logString("HIT: 006464:0040:000 2: ");
                 if (!(_v.let_1)) {
                     console.logString("_v.flag");
                     console.logBool(_v.flag);
@@ -188,7 +188,7 @@ contract HardHatTest {
                 }
             }
             {
-                console.logString("HIT: 000000:0000:000 3: ");
+                console.logString("HIT: 006804:0040:000 3: ");
                 if (!(_v.let_2)) {
                     console.logString("_v.addr");
                     console.logAddress(_v.addr);
@@ -197,7 +197,7 @@ contract HardHatTest {
                 }
             }
             {
-                console.logString("HIT: 000000:0000:000 4: ");
+                console.logString("HIT: 007134:0040:000 4: ");
                 if (!(_v.let_3)) {
                     console.logString("_v.x");
                     console.logInt(_v.x);
@@ -206,7 +206,7 @@ contract HardHatTest {
                 }
             }
             {
-                console.logString("HIT: 000000:0000:000 5: ");
+                console.logString("HIT: 007574:0040:000 5: ");
                 if (!(_v.let_4)) {
                     console.logString("_v.i");
                     console.logUint(_v.i);
@@ -217,7 +217,7 @@ contract HardHatTest {
                 }
             }
             {
-                console.logString("HIT: 000000:0000:000 6: ");
+                console.logString("HIT: 007954:0040:000 6: ");
                 if (!(__ScribbleUtilsLib__18.eq_encoded(abi.encode(str), "abc"))) {
                     console.logString("str");
                     console.logString(str);
@@ -226,7 +226,7 @@ contract HardHatTest {
                 }
             }
             {
-                console.logString("HIT: 000000:0000:000 7: ");
+                console.logString("HIT: 008327:0040:000 7: ");
                 if (!(__ScribbleUtilsLib__18.eq_encoded(bts, hex"010203"))) {
                     console.logString("bts");
                     console.logBytes(bts);
@@ -235,7 +235,7 @@ contract HardHatTest {
                 }
             }
             {
-                console.logString("HIT: 000000:0000:000 8: ");
+                console.logString("HIT: 008662:0040:000 8: ");
                 if (!(_v.let_5)) {
                     console.logString("_v.b1");
                     console.logBytes1(_v.b1);
@@ -244,7 +244,7 @@ contract HardHatTest {
                 }
             }
             {
-                console.logString("HIT: 000000:0000:000 9: ");
+                console.logString("HIT: 008997:0040:000 9: ");
                 if (!(_v.let_6)) {
                     console.logString("_v.b2");
                     console.logBytes2(_v.b2);
@@ -253,7 +253,7 @@ contract HardHatTest {
                 }
             }
             {
-                console.logString("HIT: 000000:0000:000 10: ");
+                console.logString("HIT: 009333:0041:000 10: ");
                 if (!(_v.let_7)) {
                     console.logString("_v.b3");
                     console.logBytes3(_v.b3);
@@ -262,7 +262,7 @@ contract HardHatTest {
                 }
             }
             {
-                console.logString("HIT: 000000:0000:000 11: ");
+                console.logString("HIT: 009670:0041:000 11: ");
                 if (!(_v.let_8)) {
                     console.logString("_v.b4");
                     console.logBytes4(_v.b4);
@@ -271,7 +271,7 @@ contract HardHatTest {
                 }
             }
             {
-                console.logString("HIT: 000000:0000:000 12: ");
+                console.logString("HIT: 010007:0041:000 12: ");
                 if (!(_v.let_9)) {
                     console.logString("_v.b5");
                     console.logBytes5(_v.b5);
@@ -280,7 +280,7 @@ contract HardHatTest {
                 }
             }
             {
-                console.logString("HIT: 000000:0000:000 13: ");
+                console.logString("HIT: 010345:0041:000 13: ");
                 if (!(_v.let_10)) {
                     console.logString("_v.b6");
                     console.logBytes6(_v.b6);
@@ -289,7 +289,7 @@ contract HardHatTest {
                 }
             }
             {
-                console.logString("HIT: 000000:0000:000 14: ");
+                console.logString("HIT: 010683:0041:000 14: ");
                 if (!(_v.let_11)) {
                     console.logString("_v.b7");
                     console.logBytes7(_v.b7);
@@ -298,7 +298,7 @@ contract HardHatTest {
                 }
             }
             {
-                console.logString("HIT: 000000:0000:000 15: ");
+                console.logString("HIT: 011021:0041:000 15: ");
                 if (!(_v.let_12)) {
                     console.logString("_v.b8");
                     console.logBytes8(_v.b8);
@@ -307,7 +307,7 @@ contract HardHatTest {
                 }
             }
             {
-                console.logString("HIT: 000000:0000:000 16: ");
+                console.logString("HIT: 011359:0041:000 16: ");
                 if (!(_v.let_13)) {
                     console.logString("_v.b9");
                     console.logBytes9(_v.b9);
@@ -316,7 +316,7 @@ contract HardHatTest {
                 }
             }
             {
-                console.logString("HIT: 000000:0000:000 17: ");
+                console.logString("HIT: 011700:0041:000 17: ");
                 if (!(_v.let_14)) {
                     console.logString("_v.b10");
                     console.logBytes10(_v.b10);
@@ -325,7 +325,7 @@ contract HardHatTest {
                 }
             }
             {
-                console.logString("HIT: 000000:0000:000 18: ");
+                console.logString("HIT: 012041:0041:000 18: ");
                 if (!(_v.let_15)) {
                     console.logString("_v.b11");
                     console.logBytes11(_v.b11);
@@ -334,7 +334,7 @@ contract HardHatTest {
                 }
             }
             {
-                console.logString("HIT: 000000:0000:000 19: ");
+                console.logString("HIT: 012382:0041:000 19: ");
                 if (!(_v.let_16)) {
                     console.logString("_v.b12");
                     console.logBytes12(_v.b12);
@@ -343,7 +343,7 @@ contract HardHatTest {
                 }
             }
             {
-                console.logString("HIT: 000000:0000:000 20: ");
+                console.logString("HIT: 012723:0041:000 20: ");
                 if (!(_v.let_17)) {
                     console.logString("_v.b13");
                     console.logBytes13(_v.b13);
@@ -352,7 +352,7 @@ contract HardHatTest {
                 }
             }
             {
-                console.logString("HIT: 000000:0000:000 21: ");
+                console.logString("HIT: 013064:0041:000 21: ");
                 if (!(_v.let_18)) {
                     console.logString("_v.b14");
                     console.logBytes14(_v.b14);
@@ -361,7 +361,7 @@ contract HardHatTest {
                 }
             }
             {
-                console.logString("HIT: 000000:0000:000 22: ");
+                console.logString("HIT: 013405:0041:000 22: ");
                 if (!(_v.let_19)) {
                     console.logString("_v.b15");
                     console.logBytes15(_v.b15);
@@ -370,7 +370,7 @@ contract HardHatTest {
                 }
             }
             {
-                console.logString("HIT: 000000:0000:000 23: ");
+                console.logString("HIT: 013746:0041:000 23: ");
                 if (!(_v.let_20)) {
                     console.logString("_v.b16");
                     console.logBytes16(_v.b16);
@@ -379,7 +379,7 @@ contract HardHatTest {
                 }
             }
             {
-                console.logString("HIT: 000000:0000:000 24: ");
+                console.logString("HIT: 014087:0041:000 24: ");
                 if (!(_v.let_21)) {
                     console.logString("_v.b17");
                     console.logBytes17(_v.b17);
@@ -388,7 +388,7 @@ contract HardHatTest {
                 }
             }
             {
-                console.logString("HIT: 000000:0000:000 25: ");
+                console.logString("HIT: 014428:0041:000 25: ");
                 if (!(_v.let_22)) {
                     console.logString("_v.b18");
                     console.logBytes18(_v.b18);
@@ -397,7 +397,7 @@ contract HardHatTest {
                 }
             }
             {
-                console.logString("HIT: 000000:0000:000 26: ");
+                console.logString("HIT: 014769:0041:000 26: ");
                 if (!(_v.let_23)) {
                     console.logString("_v.b19");
                     console.logBytes19(_v.b19);
@@ -406,7 +406,7 @@ contract HardHatTest {
                 }
             }
             {
-                console.logString("HIT: 000000:0000:000 27: ");
+                console.logString("HIT: 015110:0041:000 27: ");
                 if (!(_v.let_24)) {
                     console.logString("_v.b20");
                     console.logBytes20(_v.b20);
@@ -415,7 +415,7 @@ contract HardHatTest {
                 }
             }
             {
-                console.logString("HIT: 000000:0000:000 28: ");
+                console.logString("HIT: 015451:0041:000 28: ");
                 if (!(_v.let_25)) {
                     console.logString("_v.b21");
                     console.logBytes21(_v.b21);
@@ -424,7 +424,7 @@ contract HardHatTest {
                 }
             }
             {
-                console.logString("HIT: 000000:0000:000 29: ");
+                console.logString("HIT: 015792:0041:000 29: ");
                 if (!(_v.let_26)) {
                     console.logString("_v.b22");
                     console.logBytes22(_v.b22);
@@ -433,7 +433,7 @@ contract HardHatTest {
                 }
             }
             {
-                console.logString("HIT: 000000:0000:000 30: ");
+                console.logString("HIT: 016133:0041:000 30: ");
                 if (!(_v.let_27)) {
                     console.logString("_v.b23");
                     console.logBytes23(_v.b23);
@@ -442,7 +442,7 @@ contract HardHatTest {
                 }
             }
             {
-                console.logString("HIT: 000000:0000:000 31: ");
+                console.logString("HIT: 016474:0041:000 31: ");
                 if (!(_v.let_28)) {
                     console.logString("_v.b24");
                     console.logBytes24(_v.b24);
@@ -451,7 +451,7 @@ contract HardHatTest {
                 }
             }
             {
-                console.logString("HIT: 000000:0000:000 32: ");
+                console.logString("HIT: 016815:0041:000 32: ");
                 if (!(_v.let_29)) {
                     console.logString("_v.b25");
                     console.logBytes25(_v.b25);
@@ -460,7 +460,7 @@ contract HardHatTest {
                 }
             }
             {
-                console.logString("HIT: 000000:0000:000 33: ");
+                console.logString("HIT: 017156:0041:000 33: ");
                 if (!(_v.let_30)) {
                     console.logString("_v.b26");
                     console.logBytes26(_v.b26);
@@ -469,7 +469,7 @@ contract HardHatTest {
                 }
             }
             {
-                console.logString("HIT: 000000:0000:000 34: ");
+                console.logString("HIT: 017497:0041:000 34: ");
                 if (!(_v.let_31)) {
                     console.logString("_v.b27");
                     console.logBytes27(_v.b27);
@@ -478,7 +478,7 @@ contract HardHatTest {
                 }
             }
             {
-                console.logString("HIT: 000000:0000:000 35: ");
+                console.logString("HIT: 017838:0041:000 35: ");
                 if (!(_v.let_32)) {
                     console.logString("_v.b28");
                     console.logBytes28(_v.b28);
@@ -487,7 +487,7 @@ contract HardHatTest {
                 }
             }
             {
-                console.logString("HIT: 000000:0000:000 36: ");
+                console.logString("HIT: 018179:0041:000 36: ");
                 if (!(_v.let_33)) {
                     console.logString("_v.b29");
                     console.logBytes29(_v.b29);
@@ -496,7 +496,7 @@ contract HardHatTest {
                 }
             }
             {
-                console.logString("HIT: 000000:0000:000 37: ");
+                console.logString("HIT: 018520:0041:000 37: ");
                 if (!(_v.let_34)) {
                     console.logString("_v.b30");
                     console.logBytes30(_v.b30);
@@ -505,7 +505,7 @@ contract HardHatTest {
                 }
             }
             {
-                console.logString("HIT: 000000:0000:000 38: ");
+                console.logString("HIT: 018861:0041:000 38: ");
                 if (!(_v.let_35)) {
                     console.logString("_v.b31");
                     console.logBytes31(_v.b31);
@@ -514,7 +514,7 @@ contract HardHatTest {
                 }
             }
             {
-                console.logString("HIT: 000000:0000:000 39: ");
+                console.logString("HIT: 019202:0041:000 39: ");
                 if (!(_v.let_36)) {
                     console.logString("_v.b32");
                     console.logBytes32(_v.b32);
@@ -523,7 +523,7 @@ contract HardHatTest {
                 }
             }
             {
-                console.logString("HIT: 000000:0000:000 40: ");
+                console.logString("HIT: 019655:0041:000 40: ");
                 if (!(keccak256(bytes(str)) == keccak256(bts))) {
                     console.logString("bts");
                     console.logBytes(bts);

@@ -360,6 +360,7 @@ function emitAssert(
 
     const messageStr = `000000:0000:000 ${annotation.id}: ${annotation.message}`;
     const messageLit = factory.makeLiteral("<missing>", LiteralKind.String, "", messageStr);
+    const hitLit = factory.makeLiteral("<missing>", LiteralKind.String, "", `HIT: ${messageStr}`);
 
     if (instrCtx.assertionMode === "log") {
         const event = gt(instrCtx.compilerVersion, "0.6.2")
@@ -371,9 +372,9 @@ function emitAssert(
         instrCtx.addStringLiteralToAdjust(messageLit, userAssertFailed);
 
         if (instrCtx.covAssertions) {
-            userAssertionHit = makeEmitStmt(instrCtx, event, [
-                factory.makeLiteral("<missing>", LiteralKind.String, "", `HIT: ${messageStr}`)
-            ]);
+            userAssertionHit = makeEmitStmt(instrCtx, event, [hitLit]);
+
+            instrCtx.addStringLiteralToAdjust(hitLit, userAssertFailed);
         }
     } else if (instrCtx.assertionMode === "hardhat") {
         userAssertFailed = makeHardHatConsoleLogCall(instrCtx, annotation, messageLit);
@@ -381,11 +382,9 @@ function emitAssert(
         instrCtx.addStringLiteralToAdjust(messageLit, userAssertFailed);
 
         if (instrCtx.covAssertions) {
-            userAssertionHit = makeHardHatConsoleLogCall(
-                instrCtx,
-                annotation,
-                factory.makeLiteral("<missing>", LiteralKind.String, "", `HIT: ${messageStr}`)
-            );
+            userAssertionHit = makeHardHatConsoleLogCall(instrCtx, annotation, hitLit);
+
+            instrCtx.addStringLiteralToAdjust(hitLit, userAssertFailed);
         }
     } else {
         const failBitPattern = getBitPattern(factory, annotation.id);
