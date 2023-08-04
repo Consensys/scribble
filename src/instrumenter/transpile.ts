@@ -1059,18 +1059,11 @@ export function transpile(expr: SNode, ctx: TranspilingContext): Expression {
     const factory = ctx.factory;
 
     if (expr instanceof SNumber) {
-        const numStr = expr.num.toString(expr.radix);
-
-        return factory.makeLiteral(
-            "<missing>",
-            LiteralKind.Number,
-            "",
-            expr.radix === 16 ? "0x" + numStr : numStr
-        );
+        return factory.makeLiteral("<missing>", LiteralKind.Number, "", expr.pp());
     }
 
     if (expr instanceof SBooleanLiteral) {
-        return factory.makeLiteral("<missing>", LiteralKind.Bool, "", expr.val ? "true" : "false");
+        return factory.makeLiteral("<missing>", LiteralKind.Bool, "", expr.pp());
     }
 
     if (expr instanceof SStringLiteral) {
