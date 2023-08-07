@@ -40,16 +40,16 @@ contract UserDefinedValueTypes {
                 emit __ScribbleUtilsLib__32.AssertionFailed("001185:0066:000 3: ");
                 assert(false);
             }
-            if (!(keccak256(type(Boo).creationCode) == bytes32(0x0))) {
-                emit __ScribbleUtilsLib__32.AssertionFailed("001386:0066:000 4: ");
+            if (!(keccak256(type(Boo).creationCode) == bytes32(0x00))) {
+                emit __ScribbleUtilsLib__32.AssertionFailed("001387:0066:000 4: ");
                 assert(false);
             }
-            if (!(keccak256(type(Boo).runtimeCode) == bytes32(0x0))) {
-                emit __ScribbleUtilsLib__32.AssertionFailed("001586:0066:000 5: ");
+            if (!(keccak256(type(Boo).runtimeCode) == bytes32(0x00))) {
+                emit __ScribbleUtilsLib__32.AssertionFailed("001588:0066:000 5: ");
                 assert(false);
             }
-            if (!(type(IFace).interfaceId != bytes4(0x0))) {
-                emit __ScribbleUtilsLib__32.AssertionFailed("001776:0066:000 6: ");
+            if (!(type(IFace).interfaceId != bytes4(0x00))) {
+                emit __ScribbleUtilsLib__32.AssertionFailed("001779:0066:000 6: ");
                 assert(false);
             }
         }

@@ -5,12 +5,12 @@ pragma solidity 0.6.10;
 contract Foo {
     function foo(uint256 x) public returns (uint256 y) {
         y = _original_Foo_foo(x);
-        if (!(keccak256("ab;") != bytes32(0x0))) {
-            emit __ScribbleUtilsLib__16.AssertionFailed("000316:0068:000 0: P0");
+        if (!(keccak256("ab;") != bytes32(0x00))) {
+            emit __ScribbleUtilsLib__16.AssertionFailed("000317:0068:000 0: P0");
             assert(false);
         }
         if (!(y == (x + 1))) {
-            emit __ScribbleUtilsLib__16.AssertionFailed("000466:0068:000 1: P1");
+            emit __ScribbleUtilsLib__16.AssertionFailed("000467:0068:000 1: P1");
             assert(false);
         }
     }

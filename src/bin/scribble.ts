@@ -67,7 +67,7 @@ import { ScribbleFactory } from "../instrumenter/utils";
 import { MacroDefinition, readMacroDefinitions } from "../macros";
 import { flattenUnits } from "../rewriter/flatten";
 import { AnnotationType, NodeLocation } from "../spec-lang/ast";
-import { STypeError, SemError, SemMap, TypeEnv, scUnits, tcUnits } from "../spec-lang/tc";
+import { STypeError, SemError, SemMap, TypeEnv, scAnnotations, tcUnits } from "../spec-lang/tc";
 import {
     InstrumentationMetaData,
     Location,
@@ -941,7 +941,7 @@ function loadInstrMetaData(fileName: string): InstrumentationMetaData {
              *
              * @todo #const should have more restrictions, not allowing certain expressions to be used.
              */
-            interposingQueue = scUnits(units, annotMap, typeEnv, semMap);
+            interposingQueue = scAnnotations(annotMap, typeEnv, semMap);
         } catch (err: any) {
             if (err instanceof STypeError || err instanceof SemError) {
                 prettyError("TypeError", err.message, err.loc());
