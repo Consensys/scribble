@@ -4,19 +4,24 @@ pragma solidity 0.8.11;
 
 contract LetAnnotation {
     struct vars0 {
-        uint256 oldVal;
+        bytes1 y;
+        bool let_0;
     }
 
     struct vars1 {
-        uint256 oldVal1;
+        uint256 oldVal;
     }
 
     struct vars2 {
+        uint256 oldVal1;
+    }
+
+    struct vars3 {
         uint256 oldVal2;
     }
 
     function foo(uint amount) public {
-        vars0 memory _v;
+        vars1 memory _v;
         uint[] memory a;
         for (uint i = 0; i < a.length; i++) {
             unchecked {
@@ -25,7 +30,7 @@ contract LetAnnotation {
             a[i] += amount;
             unchecked {
                 if (!(_v.oldVal > 0)) {
-                    emit __ScribbleUtilsLib__100.AssertionFailed("000643:0067:000 1: ");
+                    emit __ScribbleUtilsLib__105.AssertionFailed("000707:0067:000 2: ");
                     assert(false);
                 }
             }
@@ -34,13 +39,13 @@ contract LetAnnotation {
     }
 
     function foo1(uint amount) public {
-        vars1 memory _v;
+        vars2 memory _v;
         uint[] memory a;
         for (uint i = 0; i < a.length; i++) {
             unchecked {
                 _v.oldVal1 = a[i];
                 if (!(_v.oldVal1 > 0)) {
-                    emit __ScribbleUtilsLib__100.AssertionFailed("001067:0067:000 3: ");
+                    emit __ScribbleUtilsLib__105.AssertionFailed("001131:0067:000 4: ");
                     assert(false);
                 }
             }
@@ -50,7 +55,7 @@ contract LetAnnotation {
     }
 
     function foo2(uint amount) public {
-        vars2 memory _v;
+        vars3 memory _v;
         uint[] memory a;
         unchecked {
             _v.oldVal2 = a[0];
@@ -58,16 +63,31 @@ contract LetAnnotation {
         for (uint i = 0; i < a.length; i++) {
             unchecked {
                 if (!(_v.oldVal2 > 0)) {
-                    emit __ScribbleUtilsLib__100.AssertionFailed("001545:0067:000 5: ");
+                    emit __ScribbleUtilsLib__105.AssertionFailed("001609:0067:000 6: ");
                     assert(false);
                 }
             }
             a[i] += amount;
         }
     }
+
+    function foo3() public {
+        vars0 memory _v;
+        _original_LetAnnotation_foo3();
+        unchecked {
+            _v.y = bytes1(0x0f);
+            _v.let_0 = _v.y > 0x01;
+            if (!(_v.let_0)) {
+                emit __ScribbleUtilsLib__105.AssertionFailed("002020:0067:000 0: ");
+                assert(false);
+            }
+        }
+    }
+
+    function _original_LetAnnotation_foo3() private {}
 }
 
-library __ScribbleUtilsLib__100 {
+library __ScribbleUtilsLib__105 {
     event AssertionFailed(string message);
 
     event AssertionFailedData(int eventId, bytes encodingData);

@@ -74,12 +74,12 @@ contract Foo {
     function Foo_m1_idx_address_ptr_string_memory_uint256_set(address ARG2, string memory ARG3, uint256 ARG4) internal {
         string_to_uint256_62.set(address_to_string_to_uint256_62_S_64_62.get_lhs(m1, ARG2), ARG3, ARG4);
         unchecked {
-            if (!(string_to_uint256_62.get(address_to_string_to_uint256_62_S_64_62.get(m1, address(0x0)), "abcd") < 5)) {
-                emit __ScribbleUtilsLib__62.AssertionFailed("002968:0066:000 1: ");
+            if (!(string_to_uint256_62.get(address_to_string_to_uint256_62_S_64_62.get(m1, address(0x00)), "abcd") < 5)) {
+                emit __ScribbleUtilsLib__62.AssertionFailed("002969:0066:000 1: ");
                 assert(false);
             }
-            if (!(ARG2 == address(0x0))) {
-                emit __ScribbleUtilsLib__62.AssertionFailed("003140:0066:000 4: ");
+            if (!(ARG2 == address(0x00))) {
+                emit __ScribbleUtilsLib__62.AssertionFailed("003142:0066:000 4: ");
                 assert(false);
             }
         }

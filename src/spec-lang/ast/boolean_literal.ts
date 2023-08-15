@@ -8,7 +8,7 @@ export class SBooleanLiteral extends SNode {
     }
 
     pp(): string {
-        return "" + this.val;
+        return String(this.val);
     }
 
     getFields(): any[] {

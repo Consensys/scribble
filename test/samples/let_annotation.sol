@@ -29,4 +29,7 @@ contract LetAnnotation {
 				a[i] += amount;
 		}
 	}
+
+	/// #if_succeeds let y := bytes1(0xf) in y > 0x1;
+    function foo3() public {}
 }

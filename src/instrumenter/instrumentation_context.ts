@@ -491,6 +491,8 @@ export class InstrumentationContext {
         fileInd: number,
         srcMap: SrcRangeMap
     ): string {
+        const replaceMarker = "000000:0000:000";
+
         for (const [lit, targetNode] of this.litAdjustMap) {
             if (lit.getClosestParentByType(SourceUnit) !== unit) {
                 continue;
@@ -501,17 +503,24 @@ export class InstrumentationContext {
 
             assert(newLoc !== undefined, `Missing loc for {0}`, targetNode);
             assert(strLoc !== undefined, `Missing loc for {0}`, lit);
+
+            const startAt = strLoc[0];
+            const endAt = strLoc[0] + strLoc[1];
+
+            let litStr = contents.slice(startAt, endAt);
+
             assert(
-                contents[strLoc[0]] === "'" || contents[strLoc[0]] === '"',
-                `Expected string start at {0} not {1}`,
-                strLoc[0],
-                contents[strLoc[0]]
+                litStr.startsWith("'") || litStr.startsWith('"'),
+                `Expected {0} (at {1}) to have a string start at the beginning`,
+                litStr,
+                startAt
             );
+
             assert(
-                contents.startsWith("000000:0000:000", strLoc[0] + 1),
-                `Expected 00000:000:00 at {0} not {1}`,
-                strLoc[0] + 1,
-                contents.slice(strLoc[0] + 1, strLoc[0] + 16)
+                litStr.includes(replaceMarker),
+                "Expected {0} to contain {1}",
+                litStr,
+                replaceMarker
             );
 
             const newLocStr = `${String(newLoc[0]).padStart(6, "0")}:${String(newLoc[1]).padStart(
@@ -519,8 +528,9 @@ export class InstrumentationContext {
                 "0"
             )}:${String(fileInd).padStart(3, "0")}`;
 
-            contents =
-                contents.slice(0, strLoc[0] + 1) + newLocStr + contents.slice(strLoc[0] + 16);
+            litStr = litStr.replace(replaceMarker, newLocStr);
+
+            contents = contents.slice(0, startAt) + litStr + contents.slice(endAt);
         }
 
         return contents;

@@ -7,7 +7,6 @@ import {
     FunctionType,
     MappingType,
     PointerType,
-    SourceUnit,
     StringType,
     TypeNameType,
     VariableDeclaration
@@ -83,8 +82,7 @@ export class SemError extends Error {
     }
 }
 
-export function scUnits(
-    units: SourceUnit[],
+export function scAnnotations(
     annotMap: AnnotationMap,
     typeEnv: TypeEnv,
     semMap: SemMap = new Map()

@@ -34,9 +34,17 @@ export class SNumber extends SNode {
     }
 
     pp(): string {
-        const prefix = this.radix === 16 ? "0x" : "";
+        let numStr = this.num.toString(this.radix);
 
-        return prefix + this.num.toString(this.radix);
+        if (this.radix === 16) {
+            if (numStr.length % 2 !== 0) {
+                numStr = "0" + numStr;
+            }
+
+            return "0x" + numStr;
+        }
+
+        return numStr;
     }
 
     getFields(): any[] {

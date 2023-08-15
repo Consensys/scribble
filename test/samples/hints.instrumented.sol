@@ -33,7 +33,7 @@ contract Foo {
             require(x > 2);
             if (x < 10) _v.__mstore_scratch__ = 42;
             require(z > 1);
-            if (msg.sender == address(0x0)) _v.__mstore_scratch__ = 42;
+            if (msg.sender == address(0x00)) _v.__mstore_scratch__ = 42;
         }
         _original_Foo_bar(x);
     }
@@ -51,7 +51,7 @@ contract Foo {
         vars1 memory _v;
         unchecked {
             require(z > 1);
-            if (msg.sender == address(0x0)) _v.__mstore_scratch__ = 42;
+            if (msg.sender == address(0x00)) _v.__mstore_scratch__ = 42;
         }
         _original_Foo_boo();
     }
@@ -66,7 +66,7 @@ contract Foo {
             if (x == 1) _v.__mstore_scratch__ = 42;
             if (y == 2) _v.__mstore_scratch__ = 42;
             require(z > 1);
-            if (msg.sender == address(0x0)) _v.__mstore_scratch__ = 42;
+            if (msg.sender == address(0x00)) _v.__mstore_scratch__ = 42;
         }
         RET_0 = _original_Foo_test(x, y);
     }

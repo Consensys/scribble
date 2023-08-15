@@ -92,12 +92,12 @@ contract OldInOld2 {
 
     function balanceOf() public returns (uint RET_0) {
         vars4 memory _v;
-        _v.t1 = OldInOld2(address(0x0));
+        _v.t1 = OldInOld2(address(0x00));
         _v.old_0 = _v.t1.balanceOf();
         RET_0 = _original_OldInOld2_balanceOf();
         _v.let_3 = _v.old_0 == 42;
         if (!(_v.let_3)) {
-            emit __ScribbleUtilsLib__268.AssertionFailed("002611:0067:000 4: ");
+            emit __ScribbleUtilsLib__268.AssertionFailed("002612:0067:000 4: ");
             assert(false);
         }
     }
@@ -125,7 +125,7 @@ contract OldTuple {
         _original_OldTuple_main(k);
         _v.let_4 = (x == (_v.oldX + k)) && (y == (_v.oldY + k));
         if (!(_v.let_4)) {
-            emit __ScribbleUtilsLib__268.AssertionFailed("003278:0067:000 5: ");
+            emit __ScribbleUtilsLib__268.AssertionFailed("003279:0067:000 5: ");
             assert(false);
         }
     }
@@ -151,7 +151,7 @@ contract Result {
     function a() public returns (uint RET_0) {
         RET_0 = _original_Result_a();
         if (!(RET_0 == 1)) {
-            emit __ScribbleUtilsLib__268.AssertionFailed("003783:0067:000 6: ");
+            emit __ScribbleUtilsLib__268.AssertionFailed("003784:0067:000 6: ");
             assert(false);
         }
     }
@@ -166,11 +166,11 @@ contract Result {
         _v.t2 = x;
         _v.let_5 = _v.t2 == x;
         if (!(x == x)) {
-            emit __ScribbleUtilsLib__268.AssertionFailed("004169:0067:000 7: ");
+            emit __ScribbleUtilsLib__268.AssertionFailed("004170:0067:000 7: ");
             assert(false);
         }
         if (!(_v.let_5)) {
-            emit __ScribbleUtilsLib__268.AssertionFailed("004314:0067:000 8: ");
+            emit __ScribbleUtilsLib__268.AssertionFailed("004315:0067:000 8: ");
             assert(false);
         }
     }
@@ -185,7 +185,7 @@ contract Result {
         (_v.a1, _v.b1) = (RET_0, t);
         _v.let_6 = ((_v.a1 == 1) && (_v.b1 == 2)) && (t == _v.b1);
         if (!(_v.let_6)) {
-            emit __ScribbleUtilsLib__268.AssertionFailed("004776:0067:000 9: ");
+            emit __ScribbleUtilsLib__268.AssertionFailed("004777:0067:000 9: ");
             assert(false);
         }
     }
@@ -209,7 +209,7 @@ contract UsingForRefType {
     function main(string memory mS) public {
         _original_UsingForRefType_main(mS);
         if (!(sS.len() == mS.len())) {
-            emit __ScribbleUtilsLib__268.AssertionFailed("005327:0069:000 10: F");
+            emit __ScribbleUtilsLib__268.AssertionFailed("005328:0069:000 10: F");
             assert(false);
         }
     }
@@ -221,7 +221,7 @@ contract ExternalCall {
     function process(bytes calldata _bytes) external returns (bool result) {
         result = _original_ExternalCall_process(_bytes);
         if (!(this.checkBytes(_bytes) == result)) {
-            emit __ScribbleUtilsLib__268.AssertionFailed("005740:0078:000 11: wrong byte");
+            emit __ScribbleUtilsLib__268.AssertionFailed("005741:0078:000 11: wrong byte");
             assert(false);
         }
     }
@@ -245,7 +245,7 @@ contract CallinInstrumentedFun {
     function getX() public returns (uint res) {
         res = _original_CallinInstrumentedFun_getX();
         if (!(res > 0)) {
-            emit __ScribbleUtilsLib__268.AssertionFailed("006421:0068:000 12: ");
+            emit __ScribbleUtilsLib__268.AssertionFailed("006422:0068:000 12: ");
             assert(false);
         }
     }
@@ -257,7 +257,7 @@ contract CallinInstrumentedFun {
     function inc(uint x) public returns (uint res) {
         res = _original_CallinInstrumentedFun_inc(x);
         if (!(res == (x + _original_CallinInstrumentedFun_getX()))) {
-            emit __ScribbleUtilsLib__268.AssertionFailed("006835:0068:000 13: ");
+            emit __ScribbleUtilsLib__268.AssertionFailed("006836:0068:000 13: ");
             assert(false);
         }
     }
@@ -271,7 +271,7 @@ contract IndexAccessOnResult {
     function foo() public returns (uint[] memory RET_0) {
         RET_0 = _original_IndexAccessOnResult_foo();
         if (!(RET_0[0] > 1)) {
-            emit __ScribbleUtilsLib__268.AssertionFailed("007256:0068:000 14: ");
+            emit __ScribbleUtilsLib__268.AssertionFailed("007257:0068:000 14: ");
             assert(false);
         }
     }
