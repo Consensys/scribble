@@ -14,6 +14,7 @@ import {
     FunctionKind,
     FunctionStateMutability,
     InferType,
+    Mutability,
     PathOptions,
     PossibleCompilerKinds,
     Remapping,
@@ -363,10 +364,25 @@ function instrumentFiles(
 
             for (const stateVar of contract.vStateVariables) {
                 const stateVarAnnots = getOr(annotMap, stateVar, []);
+
                 if (stateVarAnnots.length > 0) {
                     stateVarsWithAnnot.push(stateVar);
                 }
+
+                /**
+                 * Constructors may be interposed when several annotation types are attached.
+                 * See `allowedFuncProp` below.
+                 *
+                 * Tweak immutable state variables to be mutable
+                 * and do not cause compile issues after interposing,
+                 * as they can be assigned in interposed constructor function
+                 * (that actually is not a `constructor`).
+                 */
+                if (stateVar.mutability === Mutability.Immutable) {
+                    stateVar.mutability = Mutability.Mutable;
+                }
             }
+
             const allProperties = gatherContractAnnotations(contract, annotMap);
             const allowedFuncProp = allProperties.filter(
                 (annot) =>
