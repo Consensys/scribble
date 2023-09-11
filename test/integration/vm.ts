@@ -344,7 +344,7 @@ function processReturns(aliases: AliasMap, tasks: any[], values: any[]): void {
             } else {
                 const expected = task.expect;
 
-                expect(actual instanceof BN ? actual.toString() : actual).toEqual(expected);
+                expect(BN.isBN(actual) ? actual.toString() : actual).toEqual(expected);
             }
         }
     }
@@ -368,7 +368,9 @@ function processLogs(aliases: AliasMap, tasks: any[], logs: LogEntry[]): void {
                 expect(actual).toEqual(expected);
             } else {
                 const expected = expectations[v];
-                let actual = values[v] instanceof BN ? values[v].toString() : values[v];
+
+                let actual = BN.isBN(values[v]) ? values[v].toString() : values[v];
+
                 if (actual instanceof Buffer) {
                     actual = actual.toJSON().data;
                 }
