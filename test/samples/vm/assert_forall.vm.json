@@ -1,5 +1,5 @@
 {
-    "file": "test/samples/assert_forall.instrumented.sol",
+    "file": "test/samples/assert.instrumented.sol",
     "steps": [
         {
             "act": "createUser",
@@ -10,7 +10,7 @@
         },
         {
             "act": "deployContract",
-            "contract": "AssertForall",
+            "contract": "AssertForAll",
             "user": "owner",
             "alias": "instance1"
         },

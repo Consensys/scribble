@@ -1,5 +1,5 @@
 {
-    "file": "test/samples/assert_fun_call.instrumented.sol",
+    "file": "test/samples/assert.instrumented.sol",
     "steps": [
         {
             "act": "createUser",
@@ -23,7 +23,7 @@
             "returns": [],
 
             "args": {
-                "types": ["uint", "uint","uint"],
+                "types": ["uint", "uint", "uint"],
                 "values": ["5", "6", "1"]
             }
         },
@@ -36,7 +36,7 @@
             "returns": [],
 
             "args": {
-                "types": ["uint", "uint","uint"],
+                "types": ["uint", "uint", "uint"],
                 "values": ["5", "6", "2"]
             },
             "failure": "*"
