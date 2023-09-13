@@ -1,7 +1,38 @@
-// SPDX-License-Identifier: UNLICENSED
-pragma solidity ^0.8.19;
+/// #const uint256 H := 60 * 60;
+/// #const uint256 D := H * 24;
+contract A {
+    /// #if_succeeds D == H * 24;
+    function testHD() public {}
+}
 
-contract Sample {
+/// #const uint256 H := 60 * 60;
+/// #const uint256 D := H * 24;
+/// #const uint256 W := D * 7;
+contract B {
+    /// #if_succeeds W == D * 7 && D == H * 24 && H == 60 * 60;
+    function testWHD() public {}
+}
+
+contract C is B {
+    /// #if_succeeds old(W) == D * 7;
+    constructor() {}
+}
+
+// --------------------------------------------
+
+/// #define plus(uint x) uint = z + x;
+/// #define plus2(uint Foo) uint = z + Foo;
+/// #define plus3(uint plus2) uint = z + plus2;
+/// #define double(uint z) uint = z+z;
+/// #define quad(uint z) uint = let res := z+z in res + res;
+/// #define quad2(uint z) uint = double(double(z));
+contract UserDefinedFunctions {
+	uint z;
+}
+
+// --------------------------------------------
+
+contract EqEncoded {
     struct Some {
         uint a;
     }

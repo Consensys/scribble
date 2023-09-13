@@ -142,6 +142,7 @@ contract CallinInstrumentedFun {
 }
 
 // --------------------------------------------
+
 contract IndexAccessOnResult {
         /// #if_succeeds $result[0] > 1;
         function foo() public pure returns (uint[] memory) {
@@ -149,4 +150,33 @@ contract IndexAccessOnResult {
                 x[1] = 2;
                 return x;
         }
+}
+
+// --------------------------------------------
+
+contract SemicolonInString {
+    /// #if_succeeds {:msg "P0"} keccak256("ab;") != bytes32(0x0);
+    ///
+    /// #if_succeeds {:msg "P1"} y == x + 1;
+    function foo(uint256 x) public returns (uint256 y) {
+        return x + 1;
+    }
+}
+
+// --------------------------------------------
+
+contract Target {
+    function foo(uint x) public pure {}
+
+    function foo(uint x, uint y) public payable {}
+}
+
+/// #invariant true;
+contract Caller {
+
+    function main(Target t) public {
+        t.foo(1);
+
+        t.foo(2, 3);
+    }
 }
