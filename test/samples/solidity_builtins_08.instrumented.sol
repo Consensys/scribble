@@ -25,31 +25,31 @@ contract UserDefinedValueTypes {
         _original_UserDefinedValueTypes_main(a, b, c);
         unchecked {
             if (!((a >= type(uint32).min) && (a <= type(uint32).max))) {
-                emit __ScribbleUtilsLib__32.AssertionFailed("000578:0066:000 0: ");
+                emit __ScribbleUtilsLib__61.AssertionFailed("000578:0066:000 0: ");
                 assert(false);
             }
             if (!((b >= type(int64).min) && (b <= type(int64).max))) {
-                emit __ScribbleUtilsLib__32.AssertionFailed("000778:0066:000 1: ");
+                emit __ScribbleUtilsLib__61.AssertionFailed("000778:0066:000 1: ");
                 assert(false);
             }
             if (!((c != type(A).min) && (c != type(A).max))) {
-                emit __ScribbleUtilsLib__32.AssertionFailed("000970:0066:000 2: ");
+                emit __ScribbleUtilsLib__61.AssertionFailed("000970:0066:000 2: ");
                 assert(false);
             }
             if (!(keccak256(bytes(type(IFace).name)) == keccak256(bytes("IFace")))) {
-                emit __ScribbleUtilsLib__32.AssertionFailed("001185:0066:000 3: ");
+                emit __ScribbleUtilsLib__61.AssertionFailed("001185:0066:000 3: ");
                 assert(false);
             }
             if (!(keccak256(type(Boo).creationCode) == bytes32(0x00))) {
-                emit __ScribbleUtilsLib__32.AssertionFailed("001387:0066:000 4: ");
+                emit __ScribbleUtilsLib__61.AssertionFailed("001387:0066:000 4: ");
                 assert(false);
             }
             if (!(keccak256(type(Boo).runtimeCode) == bytes32(0x00))) {
-                emit __ScribbleUtilsLib__32.AssertionFailed("001588:0066:000 5: ");
+                emit __ScribbleUtilsLib__61.AssertionFailed("001588:0066:000 5: ");
                 assert(false);
             }
             if (!(type(IFace).interfaceId != bytes4(0x00))) {
-                emit __ScribbleUtilsLib__32.AssertionFailed("001779:0066:000 6: ");
+                emit __ScribbleUtilsLib__61.AssertionFailed("001779:0066:000 6: ");
                 assert(false);
             }
         }
@@ -58,7 +58,57 @@ contract UserDefinedValueTypes {
     function _original_UserDefinedValueTypes_main(uint32 a, int64 b, A c) private {}
 }
 
-library __ScribbleUtilsLib__32 {
+contract Foo {
+    function foo(uint v) public {
+        _original_Foo_foo(v);
+        unchecked {
+            if (!(abi.encode(v).length > 0)) {
+                emit __ScribbleUtilsLib__61.AssertionFailed("002159:0066:000 7: ");
+                assert(false);
+            }
+        }
+    }
+
+    function _original_Foo_foo(uint v) private {}
+
+    function foo1(uint v) public {
+        _original_Foo_foo1(v);
+        unchecked {
+            if (!(abi.encodePacked(v).length > 0)) {
+                emit __ScribbleUtilsLib__61.AssertionFailed("002495:0066:000 8: ");
+                assert(false);
+            }
+        }
+    }
+
+    function _original_Foo_foo1(uint v) private {}
+
+    function foo2(uint v) public {
+        _original_Foo_foo2(v);
+        unchecked {
+            if (!(abi.encodeWithSelector(bytes4(hex"01020304"), v).length > 0)) {
+                emit __ScribbleUtilsLib__61.AssertionFailed("002861:0066:000 9: ");
+                assert(false);
+            }
+        }
+    }
+
+    function _original_Foo_foo2(uint v) private {}
+
+    function foo3(uint v) public {
+        _original_Foo_foo3(v);
+        unchecked {
+            if (!(abi.encodeWithSignature("dummy", v).length > 0)) {
+                emit __ScribbleUtilsLib__61.AssertionFailed("003214:0067:000 10: ");
+                assert(false);
+            }
+        }
+    }
+
+    function _original_Foo_foo3(uint v) private {}
+}
+
+library __ScribbleUtilsLib__61 {
     event AssertionFailed(string message);
 
     event AssertionFailedData(int eventId, bytes encodingData);
