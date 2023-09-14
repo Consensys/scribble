@@ -47,7 +47,7 @@ jobs:
 
       - name: Test and generate coverage report
         run: |
-          npm run test
+          npm run test:ci
           npm run coverage
 
       - name: Upload coverage to CodeCov

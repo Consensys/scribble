@@ -1,5 +1,5 @@
 {
-    "file": "test/samples/contract_pos_ext_call_fail.instrumented.sol",
+    "file": "test/samples/contract_pos_edge_cases.instrumented.sol",
     "steps": [
         {
             "act": "createUser",
@@ -10,7 +10,7 @@
         },
         {
             "act": "deployContract",
-            "contract": "Foo",
+            "contract": "PosExtCallFail",
             "user": "owner",
             "alias": "instance1"
         },
