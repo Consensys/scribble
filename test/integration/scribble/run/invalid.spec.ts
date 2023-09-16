@@ -193,6 +193,10 @@ describe(`Command "scribble <filename>" is failing as expected`, () => {
         [
             ["test/samples/invalid/if_updated_fun_return_ptr_bad.sol"],
             /.*Error: Cannot instrument state var Foo.arr as it may be aliased by a storage pointer.*/g
+        ],
+        [
+            ["test/samples/invalid/immutables.sol"],
+            /.*TypeError: require annotation on constructor cannot use immutable state variable x*/g
         ]
     ];
 

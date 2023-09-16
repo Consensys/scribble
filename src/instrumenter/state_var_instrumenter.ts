@@ -310,7 +310,7 @@ function getWrapperName(
     updateNode: Assignment | FunctionCall | UnaryOperation | VariableDeclaration,
     varDecl: VariableDeclaration,
     path: Array<string | [TypeName, Expression]>,
-    additionalArgs: Array<[Expression, TypeName]>,
+    additionalArgTs: TypeNode[],
     inference: InferType
 ): string {
     const defContract = varDecl.vScope as ContractDefinition;
@@ -332,13 +332,7 @@ function getWrapperName(
         })
         .join("_");
 
-    const additionalArgsString = additionalArgs
-        .map(([expr, typ]) =>
-            getTypeDescriptor(
-                getMaterialExprType(inference, expr, inference.typeNameToTypeNode(typ))
-            )
-        )
-        .join("_");
+    const additionalArgsString = additionalArgTs.map(getTypeDescriptor).join("_");
 
     let suffix: string;
 
@@ -469,6 +463,7 @@ function makeWrapper(
     updateNode: Assignment | FunctionCall | UnaryOperation
 ): FunctionDefinition {
     const factory = ctx.factory;
+    const infer = ctx.typeEnv.inference;
     // Work on a copy of updateNode, as we will modify it destructively
     // and put it inside the body of the wrapper
     const rewrittenNode = factory.copy(updateNode);
@@ -483,11 +478,16 @@ function makeWrapper(
 
     const varDecl = baseExp.vReferencedDeclaration as VariableDeclaration;
     const definingContract = varDecl.vScope as ContractDefinition;
+
+    const [, origAdditionalArgs] = decomposeStateVarUpdated(updateNode, ctx);
+    const additionalArgTs = origAdditionalArgs.map(([expr, typ]) =>
+        getMaterialExprType(infer, expr, infer.typeNameToTypeNode(typ))
+    );
     const funName = getWrapperName(
         updateNode,
         varDecl,
         path,
-        additionalArgs,
+        additionalArgTs,
         ctx.typeEnv.inference
     );
 
@@ -522,16 +522,13 @@ function makeWrapper(
         formalParamTs.push(exprT);
     }
 
-    for (const [actual, formalT] of additionalArgs) {
+    for (let i = 0; i < additionalArgs.length; i++) {
+        const [actual] = additionalArgs[i];
+        const matType = additionalArgTs[i];
+
         replMap.set(actual.id, formalParamTs.length);
 
-        const exprT = getMaterialExprType(
-            ctx.typeEnv.inference,
-            actual,
-            ctx.typeEnv.inference.typeNameToTypeNode(formalT)
-        );
-
-        formalParamTs.push(exprT);
+        formalParamTs.push(matType);
     }
 
     const wrapperFun = factory.makeFunctionDefinition(
