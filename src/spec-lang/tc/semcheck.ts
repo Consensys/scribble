@@ -73,6 +73,7 @@ interface SemCtx {
 
 export class SemError extends Error {
     public annotationMetaData!: AnnotationMetaData;
+
     constructor(msg: string, public readonly node: SNode) {
         super(msg);
     }
