@@ -8,14 +8,14 @@ contract Foo {
         bool __scribble_check_invs_at_end;
     }
 
+    /// #if_succeeds false;
     constructor(uint x) {
         vars1 memory _v;
         _v.__scribble_check_invs_at_end = !__ScribbleUtilsLib__10.isInContract();
         __ScribbleUtilsLib__10.setInContract(true);
-        _original_Foo_constructor(x);
         unchecked {
             if (!(false)) {
-                emit __ScribbleUtilsLib__10.AssertionFailed("000539:0066:000 1: ");
+                emit __ScribbleUtilsLib__10.AssertionFailed("000529:0066:000 1: ");
                 assert(false);
             }
         }
@@ -23,13 +23,11 @@ contract Foo {
         __ScribbleUtilsLib__10.setInContract(!_v.__scribble_check_invs_at_end);
     }
 
-    function _original_Foo_constructor(uint x) private {}
-
     /// Check only the current contract's state invariants
     function __scribble_Foo_check_state_invariants_internal() internal {
         unchecked {
             if (!(true)) {
-                emit __ScribbleUtilsLib__10.AssertionFailed("001085:0066:000 0: ");
+                emit __ScribbleUtilsLib__10.AssertionFailed("001016:0066:000 0: ");
                 assert(false);
             }
         }

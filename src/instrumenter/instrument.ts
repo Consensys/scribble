@@ -1141,8 +1141,9 @@ export function instrumentFunction(
         `NYI: Non-property annotations on functions.`
     );
 
-    const stub = interpose(fn, ctx);
-    const transCtx = ctx.transCtxMap.get(stub, InstrumentationSiteType.TwoPointWrapper);
+    // Note: We don't interpose on constructors due to https://github.com/Consensys/scribble/issues/237
+    const targetFn = fn.isConstructor ? fn : interpose(fn, ctx);
+    const transCtx = ctx.transCtxMap.get(targetFn, InstrumentationSiteType.TwoPointWrapper);
 
     insertAnnotations(annotations, transCtx);
 
@@ -1153,13 +1154,13 @@ export function instrumentFunction(
     //      4) not the fallback() functions (since it may receive staticcalls)
     const checkStateInvs =
         needsContractInvInstr &&
-        isExternallyVisible(stub) &&
-        isChangingState(stub) &&
+        isExternallyVisible(targetFn) &&
+        isChangingState(targetFn) &&
         fn.kind !== FunctionKind.Fallback;
 
     if (checkStateInvs) {
-        insertEnterMarker(stub, transCtx);
-        insertExitMarker(stub, transCtx);
+        insertEnterMarker(targetFn, transCtx);
+        insertExitMarker(targetFn, transCtx);
     }
 }
 

@@ -4,73 +4,61 @@ pragma solidity 0.8.21;
 
 /// #if_succeeds x == 5;
 contract Example01 {
-    uint private x;
+    uint private immutable x;
 
     constructor() {
-        _original_Example01_constructor();
+        x = 5;
         unchecked {
             if (!(x == 5)) {
-                emit __ScribbleUtilsLib__49.AssertionFailed("000342:0066:000 0: ");
+                emit __ScribbleUtilsLib__55.AssertionFailed("000324:0066:000 0: ");
                 assert(false);
             }
         }
-    }
-
-    function _original_Example01_constructor() private {
-        x = 5;
     }
 }
 
 contract Example02 {
-    uint private x;
+    uint private immutable x;
 
+    /// #if_succeeds x == 5;
     constructor() {
-        _original_Example02_constructor();
+        x = 5;
         unchecked {
             if (!(x == 5)) {
-                emit __ScribbleUtilsLib__49.AssertionFailed("000723:0066:000 1: ");
+                emit __ScribbleUtilsLib__55.AssertionFailed("000637:0066:000 1: ");
                 assert(false);
             }
         }
     }
-
-    function _original_Example02_constructor() private {
-        x = 5;
-    }
 }
 
-/// #require x == 5;
+/// #require y == 1;
 contract Example03 {
-    uint private x;
+    uint private immutable x;
+    uint internal y = 1;
 
     constructor() {
         unchecked {
-            require(x == 5);
+            require(y == 1);
         }
-        _original_Example03_constructor();
-    }
-
-    function _original_Example03_constructor() private {
         x = 5;
     }
 }
 
 contract Example04 {
-    uint private x;
+    uint private immutable x;
+    uint internal y = 1;
 
+    /// #require y == 1;
     constructor() {
         unchecked {
-            require(x == 5);
+            require(y == 1);
         }
-        _original_Example04_constructor();
-    }
-
-    function _original_Example04_constructor() private {
         x = 5;
     }
 }
 
-library __ScribbleUtilsLib__49 {
+library __ScribbleUtilsLib__55 {
     event AssertionFailed(string message);
 
     event AssertionFailedData(int eventId, bytes encodingData);
