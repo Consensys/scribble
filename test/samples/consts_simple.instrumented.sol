@@ -90,15 +90,13 @@ library __ScribbleUtilsLib__23 {
 }
 
 contract C is B {
+    /// #if_succeeds old(W) == D * 7;
     constructor() {
-        _original_C_constructor();
         unchecked {
             if (!(W_14_0 == (D_14_0 * 7))) {
-                emit __ScribbleUtilsLib__23.AssertionFailed("002893:0066:000 7: ");
+                emit __ScribbleUtilsLib__23.AssertionFailed("002896:0066:000 7: ");
                 assert(false);
             }
         }
     }
-
-    function _original_C_constructor() private {}
 }
