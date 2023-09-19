@@ -1,5 +1,5 @@
 {
-    "file": "test/samples/assert_mixed.instrumented.sol",
+    "file": "test/samples/assert.instrumented.sol",
     "steps": [
         {
             "act": "createUser",
@@ -23,7 +23,7 @@
 
             "args": {
                 "types": ["uint[]"],
-                "values": [[4,5,6,7]]
+                "values": [[4, 5, 6, 7]]
             }
         },
         {
@@ -35,7 +35,7 @@
 
             "args": {
                 "types": ["uint[]"],
-                "values": [[50,50,50,50,50]]
+                "values": [[50, 50, 50, 50, 50]]
             },
             "failure": "*"
         },
@@ -48,7 +48,7 @@
 
             "args": {
                 "types": ["uint[]"],
-                "values": [[3,5,6,7]]
+                "values": [[3, 5, 6, 7]]
             },
             "failure": "*"
         },
@@ -61,7 +61,7 @@
 
             "args": {
                 "types": ["uint[]"],
-                "values": [[4,4,4,4,4,4,4,4,4,4]]
+                "values": [[4, 4, 4, 4, 4, 4, 4, 4, 4, 4]]
             },
             "failure": "*"
         },
@@ -74,7 +74,7 @@
 
             "args": {
                 "types": ["uint[]"],
-                "values": [[5,6,7,51]]
+                "values": [[5, 6, 7, 51]]
             },
             "failure": "*"
         },
@@ -87,7 +87,7 @@
 
             "args": {
                 "types": ["uint[]"],
-                "values": [[5,6,7,2]]
+                "values": [[5, 6, 7, 2]]
             },
             "failure": "*"
         }

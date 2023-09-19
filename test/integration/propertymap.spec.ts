@@ -21,7 +21,7 @@ function findPredicates(
 ): Map<number, Set<string>> {
     const res: Map<number, Set<string>> = new Map();
     const rx =
-        /\s*(if_succeeds|if_aborts|invariant|if_updated|if_assigned|assert|try|require|macro)[a-z0-9.[\])_]*\s*({:msg\s*"([^"]*)"\s*})?\s*([^;]*);/g;
+        /\s*(if_succeeds|if_aborts|invariant|if_updated|if_assigned|assert|try|require|macro)[a-z0-9.[\])_]*\s*({:msg\s*"([^"]*)"\s*})?\s*(.*);/g;
 
     for (const unit of inAST) {
         const targets: Array<VariableDeclaration | FunctionDefinition | ContractDefinition> =
@@ -164,7 +164,7 @@ describe("Property map test", () => {
                 );
             });
 
-            it("All predicates appear in the source map", () => {
+            it("All predicates appear in the source map", async () => {
                 const instrMetadata: InstrumentationMetaData = outJSON.instrumentationMetadata;
                 const preds = findPredicates(inAst, instrMetadata);
 
@@ -184,7 +184,7 @@ describe("Property map test", () => {
                         continue;
                     }
 
-                    const contents = fse.readFileSync(fileName, { encoding: "utf8" });
+                    const contents = await fse.readFile(fileName, { encoding: "utf8" });
 
                     let extracted = contents.slice(start, start + len).trim();
 

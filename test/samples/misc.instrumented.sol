@@ -6,7 +6,7 @@ contract AddrChecker {
     function checkAddr(address addr) external {
         _original_AddrChecker_checkAddr(addr);
         if (!(addr != address(0xAaaaAaAAaaaAAaAAaAaaaaAAAAAaAaaaAaAaaAA0))) {
-            emit __ScribbleUtilsLib__268.AssertionFailed("000355:0069:000 0: P1");
+            emit __ScribbleUtilsLib__318.AssertionFailed("000355:0069:000 0: P1");
             assert(false);
         }
     }
@@ -22,7 +22,7 @@ contract MapIdx {
     function main(string memory arg) public {
         _original_MapIdx_main(arg);
         if (!(a[arg] == 0)) {
-            emit __ScribbleUtilsLib__268.AssertionFailed("000808:0068:000 1: F");
+            emit __ScribbleUtilsLib__318.AssertionFailed("000808:0068:000 1: F");
             assert(false);
         }
     }
@@ -36,7 +36,7 @@ contract MemoryCast {
     function entry() external {
         _original_MemoryCast_entry();
         if (!(_isEvenLen(_nums))) {
-            emit __ScribbleUtilsLib__268.AssertionFailed("001161:0069:000 2: P1");
+            emit __ScribbleUtilsLib__318.AssertionFailed("001161:0069:000 2: P1");
             assert(false);
         }
     }
@@ -73,7 +73,7 @@ contract OldInOld {
         _v.let_1 = _v.let_0;
         _v.let_2 = _v.let_1;
         if (!(_v.let_2)) {
-            emit __ScribbleUtilsLib__268.AssertionFailed("002028:0067:000 3: ");
+            emit __ScribbleUtilsLib__318.AssertionFailed("002028:0067:000 3: ");
             assert(false);
         }
     }
@@ -97,7 +97,7 @@ contract OldInOld2 {
         RET_0 = _original_OldInOld2_balanceOf();
         _v.let_3 = _v.old_0 == 42;
         if (!(_v.let_3)) {
-            emit __ScribbleUtilsLib__268.AssertionFailed("002612:0067:000 4: ");
+            emit __ScribbleUtilsLib__318.AssertionFailed("002612:0067:000 4: ");
             assert(false);
         }
     }
@@ -125,7 +125,7 @@ contract OldTuple {
         _original_OldTuple_main(k);
         _v.let_4 = (x == (_v.oldX + k)) && (y == (_v.oldY + k));
         if (!(_v.let_4)) {
-            emit __ScribbleUtilsLib__268.AssertionFailed("003279:0067:000 5: ");
+            emit __ScribbleUtilsLib__318.AssertionFailed("003279:0067:000 5: ");
             assert(false);
         }
     }
@@ -151,7 +151,7 @@ contract Result {
     function a() public returns (uint RET_0) {
         RET_0 = _original_Result_a();
         if (!(RET_0 == 1)) {
-            emit __ScribbleUtilsLib__268.AssertionFailed("003784:0067:000 6: ");
+            emit __ScribbleUtilsLib__318.AssertionFailed("003784:0067:000 6: ");
             assert(false);
         }
     }
@@ -166,11 +166,11 @@ contract Result {
         _v.t2 = x;
         _v.let_5 = _v.t2 == x;
         if (!(x == x)) {
-            emit __ScribbleUtilsLib__268.AssertionFailed("004170:0067:000 7: ");
+            emit __ScribbleUtilsLib__318.AssertionFailed("004170:0067:000 7: ");
             assert(false);
         }
         if (!(_v.let_5)) {
-            emit __ScribbleUtilsLib__268.AssertionFailed("004315:0067:000 8: ");
+            emit __ScribbleUtilsLib__318.AssertionFailed("004315:0067:000 8: ");
             assert(false);
         }
     }
@@ -185,7 +185,7 @@ contract Result {
         (_v.a1, _v.b1) = (RET_0, t);
         _v.let_6 = ((_v.a1 == 1) && (_v.b1 == 2)) && (t == _v.b1);
         if (!(_v.let_6)) {
-            emit __ScribbleUtilsLib__268.AssertionFailed("004777:0067:000 9: ");
+            emit __ScribbleUtilsLib__318.AssertionFailed("004777:0067:000 9: ");
             assert(false);
         }
     }
@@ -209,7 +209,7 @@ contract UsingForRefType {
     function main(string memory mS) public {
         _original_UsingForRefType_main(mS);
         if (!(sS.len() == mS.len())) {
-            emit __ScribbleUtilsLib__268.AssertionFailed("005328:0069:000 10: F");
+            emit __ScribbleUtilsLib__318.AssertionFailed("005328:0069:000 10: F");
             assert(false);
         }
     }
@@ -221,7 +221,7 @@ contract ExternalCall {
     function process(bytes calldata _bytes) external returns (bool result) {
         result = _original_ExternalCall_process(_bytes);
         if (!(this.checkBytes(_bytes) == result)) {
-            emit __ScribbleUtilsLib__268.AssertionFailed("005741:0078:000 11: wrong byte");
+            emit __ScribbleUtilsLib__318.AssertionFailed("005741:0078:000 11: wrong byte");
             assert(false);
         }
     }
@@ -245,7 +245,7 @@ contract CallinInstrumentedFun {
     function getX() public returns (uint res) {
         res = _original_CallinInstrumentedFun_getX();
         if (!(res > 0)) {
-            emit __ScribbleUtilsLib__268.AssertionFailed("006422:0068:000 12: ");
+            emit __ScribbleUtilsLib__318.AssertionFailed("006422:0068:000 12: ");
             assert(false);
         }
     }
@@ -257,7 +257,7 @@ contract CallinInstrumentedFun {
     function inc(uint x) public returns (uint res) {
         res = _original_CallinInstrumentedFun_inc(x);
         if (!(res == (x + _original_CallinInstrumentedFun_getX()))) {
-            emit __ScribbleUtilsLib__268.AssertionFailed("006836:0068:000 13: ");
+            emit __ScribbleUtilsLib__318.AssertionFailed("006836:0068:000 13: ");
             assert(false);
         }
     }
@@ -271,7 +271,7 @@ contract IndexAccessOnResult {
     function foo() public returns (uint[] memory RET_0) {
         RET_0 = _original_IndexAccessOnResult_foo();
         if (!(RET_0[0] > 1)) {
-            emit __ScribbleUtilsLib__268.AssertionFailed("007257:0068:000 14: ");
+            emit __ScribbleUtilsLib__318.AssertionFailed("007257:0068:000 14: ");
             assert(false);
         }
     }
@@ -283,7 +283,78 @@ contract IndexAccessOnResult {
     }
 }
 
-library __ScribbleUtilsLib__268 {
+contract SemicolonInString {
+    function foo(uint256 x) public returns (uint256 y) {
+        y = _original_SemicolonInString_foo(x);
+        if (!(keccak256("ab;") != bytes32(0x00))) {
+            emit __ScribbleUtilsLib__318.AssertionFailed("007743:0070:000 15: P0");
+            assert(false);
+        }
+        if (!(y == (x + 1))) {
+            emit __ScribbleUtilsLib__318.AssertionFailed("007895:0070:000 16: P1");
+            assert(false);
+        }
+    }
+
+    function _original_SemicolonInString_foo(uint256 x) private returns (uint256 y) {
+        return x + 1;
+    }
+}
+
+contract Target {
+    function foo(uint x) public pure {}
+
+    function foo(uint x, uint y) public payable {}
+}
+
+/// #invariant true;
+contract Caller {
+    struct vars16 {
+        bool __scribble_check_invs_at_end;
+    }
+
+    function main(Target t) public {
+        vars16 memory _v;
+        _v.__scribble_check_invs_at_end = !__ScribbleUtilsLib__318.isInContract();
+        __ScribbleUtilsLib__318.setInContract(true);
+        _original_Caller_main(t);
+        if (_v.__scribble_check_invs_at_end) __scribble_check_state_invariants();
+        __ScribbleUtilsLib__318.setInContract(!_v.__scribble_check_invs_at_end);
+    }
+
+    function _original_Caller_main(Target t) private {
+        t.foo(1);
+        _callsite_313(t, 2, 3);
+    }
+
+    /// Check only the current contract's state invariants
+    function __scribble_Caller_check_state_invariants_internal() internal {
+        if (!(true)) {
+            emit __ScribbleUtilsLib__318.AssertionFailed("009035:0068:000 17: ");
+            assert(false);
+        }
+    }
+
+    /// Check the state invariant for the current contract and all its bases
+    function __scribble_check_state_invariants() virtual internal {
+        __scribble_Caller_check_state_invariants_internal();
+    }
+
+    constructor() public {
+        __ScribbleUtilsLib__318.setInContract(true);
+        __scribble_check_state_invariants();
+        __ScribbleUtilsLib__318.setInContract(false);
+    }
+
+    function _callsite_313(Target receiver, uint256 arg0, uint256 arg1) private {
+        __scribble_check_state_invariants();
+        __ScribbleUtilsLib__318.setInContract(false);
+        receiver.foo(arg0, arg1);
+        __ScribbleUtilsLib__318.setInContract(true);
+    }
+}
+
+library __ScribbleUtilsLib__318 {
     event AssertionFailed(string message);
 
     event AssertionFailedData(int eventId, bytes encodingData);

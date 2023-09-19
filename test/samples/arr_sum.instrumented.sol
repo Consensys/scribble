@@ -2,104 +2,201 @@
 /// Use --disarm prior to make any changes.
 pragma solidity 0.8.4;
 
-contract Foo {
+contract ArrSum {
     uint[] internal a = [10];
     int8[] internal b;
 
     function pushA(uint k) public {
-        _original_Foo_pushA(k);
+        _original_ArrSum_pushA(k);
         unchecked {
-            if (!((__ScribbleUtilsLib__91.sum_arr_uint256_arr_storage(a) > 10) && (__ScribbleUtilsLib__91.sum_arr_uint256_arr_storage(a) < 20))) {
-                emit __ScribbleUtilsLib__91.AssertionFailed("000466:0066:000 0: ");
+            if (!((__ScribbleUtilsLib__180.sum_arr_uint256_arr_storage(a) > 10) && (__ScribbleUtilsLib__180.sum_arr_uint256_arr_storage(a) < 20))) {
+                emit __ScribbleUtilsLib__180.AssertionFailed("000474:0067:000 0: ");
                 assert(false);
             }
         }
     }
 
-    function _original_Foo_pushA(uint k) private {
+    function _original_ArrSum_pushA(uint k) private {
         a.push(k);
     }
 
     function setA(uint k, uint v) public {
-        _original_Foo_setA(k, v);
+        _original_ArrSum_setA(k, v);
         unchecked {
-            if (!((__ScribbleUtilsLib__91.sum_arr_uint256_arr_storage(a) > 10) && (__ScribbleUtilsLib__91.sum_arr_uint256_arr_storage(a) < 20))) {
-                emit __ScribbleUtilsLib__91.AssertionFailed("000933:0066:000 1: ");
+            if (!((__ScribbleUtilsLib__180.sum_arr_uint256_arr_storage(a) > 10) && (__ScribbleUtilsLib__180.sum_arr_uint256_arr_storage(a) < 20))) {
+                emit __ScribbleUtilsLib__180.AssertionFailed("000950:0067:000 1: ");
                 assert(false);
             }
         }
     }
 
-    function _original_Foo_setA(uint k, uint v) private {
+    function _original_ArrSum_setA(uint k, uint v) private {
         a[k] = v;
     }
 
     function pushB(int8 k) public {
-        _original_Foo_pushB(k);
+        _original_ArrSum_pushB(k);
         unchecked {
-            if (!((__ScribbleUtilsLib__91.sum_arr_int8_arr_storage(b) > (-10)) && (__ScribbleUtilsLib__91.sum_arr_int8_arr_storage(b) < 10))) {
-                emit __ScribbleUtilsLib__91.AssertionFailed("001394:0066:000 2: ");
+            if (!((__ScribbleUtilsLib__180.sum_arr_int8_arr_storage(b) > (-10)) && (__ScribbleUtilsLib__180.sum_arr_int8_arr_storage(b) < 10))) {
+                emit __ScribbleUtilsLib__180.AssertionFailed("001420:0067:000 2: ");
                 assert(false);
             }
         }
     }
 
-    function _original_Foo_pushB(int8 k) private {
+    function _original_ArrSum_pushB(int8 k) private {
         b.push(k);
     }
 
     function setB(uint k, int8 v) public {
-        _original_Foo_setB(k, v);
+        _original_ArrSum_setB(k, v);
         unchecked {
-            if (!((__ScribbleUtilsLib__91.sum_arr_int8_arr_storage(b) > (-10)) && (__ScribbleUtilsLib__91.sum_arr_int8_arr_storage(b) < 10))) {
-                emit __ScribbleUtilsLib__91.AssertionFailed("001858:0066:000 3: ");
+            if (!((__ScribbleUtilsLib__180.sum_arr_int8_arr_storage(b) > (-10)) && (__ScribbleUtilsLib__180.sum_arr_int8_arr_storage(b) < 10))) {
+                emit __ScribbleUtilsLib__180.AssertionFailed("001893:0067:000 3: ");
                 assert(false);
             }
         }
     }
 
-    function _original_Foo_setB(uint k, int8 v) private {
+    function _original_ArrSum_setB(uint k, int8 v) private {
         b[k] = v;
     }
 
     function memArr(int16[] memory c) public {
-        _original_Foo_memArr(c);
+        _original_ArrSum_memArr(c);
         unchecked {
-            if (!((__ScribbleUtilsLib__91.sum_arr_int16_arr_memory(c) > (-10)) && (__ScribbleUtilsLib__91.sum_arr_int16_arr_memory(c) < 10))) {
-                emit __ScribbleUtilsLib__91.AssertionFailed("002331:0066:000 4: ");
+            if (!((__ScribbleUtilsLib__180.sum_arr_int16_arr_memory(c) > (-10)) && (__ScribbleUtilsLib__180.sum_arr_int16_arr_memory(c) < 10))) {
+                emit __ScribbleUtilsLib__180.AssertionFailed("002375:0067:000 4: ");
                 assert(false);
             }
         }
     }
 
-    function _original_Foo_memArr(int16[] memory c) private {}
+    function _original_ArrSum_memArr(int16[] memory c) private {}
 
     function calldataArr(int16[] calldata c) external {
-        _original_Foo_calldataArr(c);
+        _original_ArrSum_calldataArr(c);
         unchecked {
-            if (!((__ScribbleUtilsLib__91.sum_arr_int16_arr_calldata(c) > (-10)) && (__ScribbleUtilsLib__91.sum_arr_int16_arr_calldata(c) < 10))) {
-                emit __ScribbleUtilsLib__91.AssertionFailed("002803:0066:000 5: ");
+            if (!((__ScribbleUtilsLib__180.sum_arr_int16_arr_calldata(c) > (-10)) && (__ScribbleUtilsLib__180.sum_arr_int16_arr_calldata(c) < 10))) {
+                emit __ScribbleUtilsLib__180.AssertionFailed("002856:0067:000 5: ");
                 assert(false);
             }
         }
     }
 
-    function _original_Foo_calldataArr(int16[] calldata c) private {}
+    function _original_ArrSum_calldataArr(int16[] calldata c) private {}
 
     function overflowCheck(uint[] calldata c) external {
-        _original_Foo_overflowCheck(c);
+        _original_ArrSum_overflowCheck(c);
         unchecked {
-            if (!(__ScribbleUtilsLib__91.sum_arr_uint256_arr_calldata(c) < 10)) {
-                emit __ScribbleUtilsLib__91.AssertionFailed("003219:0066:000 6: ");
+            if (!(__ScribbleUtilsLib__180.sum_arr_uint256_arr_calldata(c) < 10)) {
+                emit __ScribbleUtilsLib__180.AssertionFailed("003280:0067:000 6: ");
                 assert(false);
             }
         }
     }
 
-    function _original_Foo_overflowCheck(uint[] calldata c) private {}
+    function _original_ArrSum_overflowCheck(uint[] calldata c) private {}
 }
 
-library __ScribbleUtilsLib__91 {
+contract ArrSumCustomTag {
+    uint[] internal a = [10];
+    int8[] internal b;
+
+    function pushA(uint k) public {
+        _original_ArrSumCustomTag_pushA(k);
+        unchecked {
+            if (!((__ScribbleUtilsLib__180.sum_arr_uint256_arr_storage(a) > 10) && (__ScribbleUtilsLib__180.sum_arr_uint256_arr_storage(a) < 20))) {
+                emit __ScribbleUtilsLib__180.AssertionFailed("003834:0067:000 7: ");
+                assert(false);
+            }
+        }
+    }
+
+    function _original_ArrSumCustomTag_pushA(uint k) private {
+        a.push(k);
+    }
+
+    function setA(uint k, uint v) public {
+        _original_ArrSumCustomTag_setA(k, v);
+        unchecked {
+            if (!((__ScribbleUtilsLib__180.sum_arr_uint256_arr_storage(a) > 10) && (__ScribbleUtilsLib__180.sum_arr_uint256_arr_storage(a) < 20))) {
+                emit __ScribbleUtilsLib__180.AssertionFailed("004328:0067:000 8: ");
+                assert(false);
+            }
+        }
+    }
+
+    function _original_ArrSumCustomTag_setA(uint k, uint v) private {
+        a[k] = v;
+    }
+
+    function pushB(int8 k) public {
+        _original_ArrSumCustomTag_pushB(k);
+        unchecked {
+            if (!((__ScribbleUtilsLib__180.sum_arr_int8_arr_storage(b) > (-10)) && (__ScribbleUtilsLib__180.sum_arr_int8_arr_storage(b) < 10))) {
+                emit __ScribbleUtilsLib__180.AssertionFailed("004816:0067:000 9: ");
+                assert(false);
+            }
+        }
+    }
+
+    function _original_ArrSumCustomTag_pushB(int8 k) private {
+        b.push(k);
+    }
+
+    function setB(uint k, int8 v) public {
+        _original_ArrSumCustomTag_setB(k, v);
+        unchecked {
+            if (!((__ScribbleUtilsLib__180.sum_arr_int8_arr_storage(b) > (-10)) && (__ScribbleUtilsLib__180.sum_arr_int8_arr_storage(b) < 10))) {
+                emit __ScribbleUtilsLib__180.AssertionFailed("005307:0068:000 10: ");
+                assert(false);
+            }
+        }
+    }
+
+    function _original_ArrSumCustomTag_setB(uint k, int8 v) private {
+        b[k] = v;
+    }
+
+    function memArr(int16[] memory c) public {
+        _original_ArrSumCustomTag_memArr(c);
+        unchecked {
+            if (!((__ScribbleUtilsLib__180.sum_arr_int16_arr_memory(c) > (-10)) && (__ScribbleUtilsLib__180.sum_arr_int16_arr_memory(c) < 10))) {
+                emit __ScribbleUtilsLib__180.AssertionFailed("005808:0068:000 11: ");
+                assert(false);
+            }
+        }
+    }
+
+    function _original_ArrSumCustomTag_memArr(int16[] memory c) private {}
+
+    function calldataArr(int16[] calldata c) external {
+        _original_ArrSumCustomTag_calldataArr(c);
+        unchecked {
+            if (!((__ScribbleUtilsLib__180.sum_arr_int16_arr_calldata(c) > (-10)) && (__ScribbleUtilsLib__180.sum_arr_int16_arr_calldata(c) < 10))) {
+                emit __ScribbleUtilsLib__180.AssertionFailed("006308:0068:000 12: ");
+                assert(false);
+            }
+        }
+    }
+
+    function _original_ArrSumCustomTag_calldataArr(int16[] calldata c) private {}
+
+    function overflowCheck(uint[] calldata c) external {
+        _original_ArrSumCustomTag_overflowCheck(c);
+        unchecked {
+            if (!(__ScribbleUtilsLib__180.sum_arr_uint256_arr_calldata(c) < 10)) {
+                emit __ScribbleUtilsLib__180.AssertionFailed("006751:0068:000 13: ");
+                assert(false);
+            }
+        }
+    }
+
+    function _original_ArrSumCustomTag_overflowCheck(uint[] calldata c) private {}
+}
+
+library __ScribbleUtilsLib__180 {
     event AssertionFailed(string message);
 
     event AssertionFailedData(int eventId, bytes encodingData);

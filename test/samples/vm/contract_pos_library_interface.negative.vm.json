@@ -1,5 +1,5 @@
 {
-    "file": "test/samples/contract_pos_library_interface.sol",
+    "file": "test/samples/contract_pos_edge_cases.sol",
     "steps": [
         {
             "act": "createUser",
@@ -10,7 +10,7 @@
         },
         {
             "act": "deployContract",
-            "contract": "Foo",
+            "contract": "PosLibInterface",
             "user": "owner",
             "alias": "instance1"
         },

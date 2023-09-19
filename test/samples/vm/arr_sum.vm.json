@@ -10,7 +10,7 @@
         },
         {
             "act": "deployContract",
-            "contract": "Foo",
+            "contract": "ArrSum",
             "user": "owner",
             "alias": "instance1"
         },

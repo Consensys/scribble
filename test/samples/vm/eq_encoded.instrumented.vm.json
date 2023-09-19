@@ -1,5 +1,5 @@
 {
-    "file": "test/samples/eq_encoded.instrumented.sol",
+    "file": "test/samples/predefined.sol",
     "steps": [
         {
             "act": "createUser",
@@ -10,7 +10,7 @@
         },
         {
             "act": "deployContract",
-            "contract": "Sample",
+            "contract": "EqEncoded",
             "user": "owner",
             "alias": "instance1"
         },

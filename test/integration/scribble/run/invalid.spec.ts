@@ -19,6 +19,14 @@ describe(`Command "scribble <filename>" is failing as expected`, () => {
             /^test\/samples\/invalid\/annotation_syntax_error.invalid.sol:5:35 SyntaxError: Expected .* but .* found/m
         ],
         [
+            ["test/samples/invalid/annotation_sem_error.invalid.sol"],
+            /^test\/samples\/invalid\/annotation_sem_error.invalid.sol:5:33 TypeError: if_succeeds expects an expression of type bool not uint256/m
+        ],
+        [
+            ["test/samples/invalid/annotation_type_error.invalid.sol"],
+            /^test\/samples\/invalid\/annotation_type_error.invalid.sol:5:34 TypeError: Operation '!' expectes bool not uint256 in \(!x\)/m
+        ],
+        [
             ["test/samples/invalid/type_error.invalid.sol"],
             /^test\/samples\/invalid\/type_error.invalid.sol:2:38 TypeError: Types of x \(uint256\) and y \(int256\) are incompatible/m
         ],

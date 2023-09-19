@@ -1,5 +1,5 @@
 {
-    "file": "test/samples/unnamed_lets.sol",
+    "file": "test/samples/let_annotation.sol",
     "steps": [
         {
             "act": "createUser",

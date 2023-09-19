@@ -2,6 +2,36 @@
 /// Use --disarm prior to make any changes.
 pragma solidity 0.8.21;
 
+enum A {
+    A,
+    B,
+    C
+}
+
+type Price is uint32;
+
+uint constant SOME = 10;
+
+function addSome(uint v) pure returns (uint) {
+    return v + SOME;
+}
+
+contract Errors {
+    error E();
+
+    function foo() public {
+        _original_Errors_foo();
+        unchecked {
+            if (!(true)) {
+                emit __ScribbleUtilsLib__92.AssertionFailed("000456:0066:000 0: ");
+                assert(false);
+            }
+        }
+    }
+
+    function _original_Errors_foo() private {}
+}
+
 contract RevertStmt {
     error E();
 
@@ -9,7 +39,7 @@ contract RevertStmt {
         _original_RevertStmt_foo();
         unchecked {
             if (!(false)) {
-                emit __ScribbleUtilsLib__13.AssertionFailed("000313:0066:000 0: ");
+                emit __ScribbleUtilsLib__92.AssertionFailed("000802:0066:000 1: ");
                 assert(false);
             }
         }
@@ -20,7 +50,57 @@ contract RevertStmt {
     }
 }
 
-library __ScribbleUtilsLib__13 {
+contract UserDefinedValueTypes {
+    type Quantity is uint32;
+
+    function orderPrice(Price p, Quantity q) public returns (Price RET_0) {
+        RET_0 = _original_UserDefinedValueTypes_orderPrice(p, q);
+        unchecked {
+            if (!((Price.unwrap(p) * Quantity.unwrap(q)) == Price.unwrap(RET_0))) {
+                emit __ScribbleUtilsLib__92.AssertionFailed("001336:0066:000 2: ");
+                assert(false);
+            }
+        }
+    }
+
+    function _original_UserDefinedValueTypes_orderPrice(Price p, Quantity q) private returns (Price) {
+        return Price.wrap(Price.unwrap(p) * Quantity.unwrap(q));
+    }
+}
+
+contract FreeFuncs {
+    uint internal num;
+
+    function operate() public {
+        _original_FreeFuncs_operate();
+        unchecked {
+            if (!(num == 25)) {
+                emit __ScribbleUtilsLib__92.AssertionFailed("001827:0068:000 3: P1");
+                assert(false);
+            }
+        }
+    }
+
+    function _original_FreeFuncs_operate() private {
+        num = addSome(15);
+    }
+}
+
+contract Foo {
+    function main() public {
+        _original_Foo_main();
+        unchecked {
+            if (!(1 > 0)) {
+                emit __ScribbleUtilsLib__92.AssertionFailed("002186:0066:000 4: ");
+                assert(false);
+            }
+        }
+    }
+
+    function _original_Foo_main() private {}
+}
+
+library __ScribbleUtilsLib__92 {
     event AssertionFailed(string message);
 
     event AssertionFailedData(int eventId, bytes encodingData);
