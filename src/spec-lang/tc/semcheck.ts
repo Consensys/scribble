@@ -3,9 +3,12 @@ import {
     assert,
     BuiltinFunctionType,
     BytesType,
+    ContractDefinition,
+    FunctionDefinition,
     FunctionStateMutability,
     FunctionType,
     MappingType,
+    Mutability,
     PointerType,
     StringType,
     TypeNameType,
@@ -70,6 +73,7 @@ interface SemCtx {
 
 export class SemError extends Error {
     public annotationMetaData!: AnnotationMetaData;
+
     constructor(
         msg: string,
         public readonly node: SNode
@@ -152,6 +156,36 @@ export function scAnnotation(
         sc(node.expression, ctx, typings, semMap);
     } else {
         throw new Error(`NYI annotation ${node.pp()}`);
+    }
+
+    // #try/#require annotations on constructors cannot mention immutable state variables
+    if (
+        node instanceof SProperty &&
+        (node.type === AnnotationType.Require || node.type === AnnotationType.Try) &&
+        (ctx.annotationTarget instanceof ContractDefinition ||
+            (ctx.annotationTarget instanceof FunctionDefinition &&
+                ctx.annotationTarget.isConstructor))
+    ) {
+        node.walk((child) => {
+            if (!(child instanceof SId || child instanceof SMemberAccess)) {
+                return;
+            }
+
+            const def = child.defSite;
+
+            if (!(def instanceof VariableDeclaration && def.stateVariable)) {
+                return;
+            }
+
+            if (def.mutability === Mutability.Immutable) {
+                throw new SemError(
+                    `${
+                        node.type
+                    } annotation on constructor cannot use immutable state variable ${child.pp()}`,
+                    child
+                );
+            }
+        });
     }
 }
 
