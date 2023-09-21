@@ -1,3 +1,4 @@
+pragma solidity 0.8.20;
 /**
  * The original constructor in this sample
  * SHOULD NOT be instrumented.

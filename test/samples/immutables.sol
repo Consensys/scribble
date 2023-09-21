@@ -1,3 +1,4 @@
+pragma solidity 0.8.20;
 /// #if_succeeds x == 5;
 contract Example01 {
     uint private immutable x;

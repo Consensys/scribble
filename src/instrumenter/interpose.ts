@@ -24,6 +24,7 @@ import {
     PointerType,
     specializeType,
     StateVariableVisibility,
+    SuperType,
     TypeName,
     TypeNode,
     UserDefinedType,
@@ -403,37 +404,42 @@ export function interposeCall(
     const params: VariableDeclaration[] = [];
     const returns: VariableDeclaration[] = [];
 
-    let receiver: Expression;
+    let receiver: Expression | undefined;
     let callOriginalExp: Expression;
 
     const baseT = ctx.typeEnv.inference.typeOf(callee.vExpression);
 
     if (call.vFunctionCallType === ExternalReferenceType.UserDefined) {
-        assert(
-            baseT instanceof UserDefinedType && baseT.definition instanceof ContractDefinition,
-            "Expected base to be a reference to a contract, not {0}",
-            baseT
-        );
-
-        params.push(
-            factory.makeVariableDeclaration(
-                false,
-                false,
-                "receiver",
-                wrapper.id,
-                false,
-                DataLocation.Default,
-                StateVariableVisibility.Default,
-                Mutability.Mutable,
-                baseT.pp(),
-                undefined,
-                factory.makeUserDefinedTypeName(
-                    "<missing>",
-                    getFQName(baseT.definition, call),
-                    baseT.definition.id
+        if (baseT instanceof UserDefinedType && baseT.definition instanceof ContractDefinition) {
+            params.push(
+                factory.makeVariableDeclaration(
+                    false,
+                    false,
+                    "receiver",
+                    wrapper.id,
+                    false,
+                    DataLocation.Default,
+                    StateVariableVisibility.Default,
+                    Mutability.Mutable,
+                    baseT.pp(),
+                    undefined,
+                    factory.makeUserDefinedTypeName(
+                        "<missing>",
+                        getFQName(baseT.definition, call),
+                        baseT.definition.id
+                    )
                 )
-            )
-        );
+            );
+
+            receiver = factory.copy(callee.vExpression);
+            copySrc(callee.vExpression, receiver);
+        } else {
+            assert(
+                baseT instanceof SuperType,
+                "Expected base to be a reference to a contract or super, not {0}",
+                baseT
+            );
+        }
 
         params.push(
             ...calleeT.parameters.map((paramT, idx) => {
@@ -459,12 +465,11 @@ export function interposeCall(
             )
         );
 
-        receiver = factory.copy(callee.vExpression);
-        copySrc(callee.vExpression, receiver);
-
         callOriginalExp = factory.makeMemberAccess(
             call.vExpression.typeString,
-            factory.makeIdentifierFor(params[0]),
+            baseT instanceof SuperType
+                ? factory.makeIdentifier("<missing>", "super", -1)
+                : factory.makeIdentifierFor(params[0]),
             callee.memberName,
             callee.referencedDeclaration
         );
@@ -554,7 +559,7 @@ export function interposeCall(
         );
     }
 
-    let nImplicitArgs = 1;
+    let nImplicitArgs = baseT instanceof SuperType ? 0 : 1;
 
     /**
      * If the original call had gas/value function call options, we need
@@ -644,7 +649,8 @@ export function interposeCall(
 
     contract.appendChild(wrapper);
     call.vExpression = newCallee;
-    call.vArguments.unshift(receiver);
+
+    if (receiver) call.vArguments.unshift(receiver);
 
     // If the call is in a pure/view function change its mutability
     const containingFun = getScopeFun(call);

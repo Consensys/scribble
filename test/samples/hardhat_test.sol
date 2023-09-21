@@ -1,3 +1,4 @@
+pragma solidity 0.8.21;
 contract HardHatTest {
     uint8[] b = [1, 2, 3];
 

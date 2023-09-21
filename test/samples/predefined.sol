@@ -1,3 +1,4 @@
+pragma solidity 0.8.20;
 /// #const uint256 H := 60 * 60;
 /// #const uint256 D := H * 24;
 contract A {
