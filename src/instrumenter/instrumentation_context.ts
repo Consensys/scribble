@@ -10,9 +10,12 @@ import {
     FunctionCallKind,
     FunctionDefinition,
     ImportDirective,
+    InferType,
     Literal,
     MemberAccess,
     ModifierDefinition,
+    NamedDefinition,
+    resolveAny,
     SourceUnit,
     SrcRangeMap,
     Statement,
@@ -379,6 +382,11 @@ export class InstrumentationContext {
 
     private readonly unitsNeedsImports = new Map<SourceUnit, Set<string>>();
 
+    /**
+     * A map from units to the sets of definitions they need imported due to instrumentation
+     */
+    private readonly unitNeedsDefs = new Map<SourceUnit, Set<NamedDefinition>>();
+
     constructor(
         public readonly factory: ScribbleFactory,
         public readonly units: SourceUnit[],
@@ -542,10 +550,28 @@ export class InstrumentationContext {
         importPaths.add(importPath);
     }
 
+    needsDefinition(unit: SourceUnit, def: NamedDefinition): void {
+        const defs = getOrInit(unit, this.unitNeedsDefs, new Set());
+
+        defs.add(def);
+    }
+
     finalize(): void {
         // Finalize all TranspilingContexts
         for (const transCtx of this.transCtxMap.values()) {
             transCtx.finalize();
+        }
+
+        const infer = new InferType(this.compilerVersion);
+        for (const [unit, neededDefs] of this.unitNeedsDefs) {
+            for (const def of neededDefs) {
+                const resolvedDef = resolveAny(def.name, unit, infer, true);
+                const defUnit = def.getClosestParentByType(SourceUnit);
+
+                if (resolvedDef.size === 0 && defUnit) {
+                    this.needsImport(unit, defUnit.sourceEntryKey);
+                }
+            }
         }
 
         for (const [unit, importPaths] of this.unitsNeedsImports) {
