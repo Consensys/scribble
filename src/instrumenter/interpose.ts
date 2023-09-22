@@ -431,6 +431,7 @@ export function interposeCall(
                 )
             );
 
+            ctx.needsDefinition(contract.vScope, baseT.definition);
             receiver = factory.copy(callee.vExpression);
             copySrc(callee.vExpression, receiver);
         } else {
