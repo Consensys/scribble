@@ -58,7 +58,7 @@ For more information on the Scribble specification language, and any other docum
 
 ### Prerequisites
 
-We suggest to use latest NodeJS LTS release `lts/gallium` (v16.14.0) and associated version of NPM. If there is a need to run different NodeJS versions, consider using [NVM](https://github.com/nvm-sh/nvm) or similar tool, that is available for your platform.
+Preinstall NodeJS of [compatible version](/.nvmrc). If there is a need to run different NodeJS versions, consider using [NVM](https://github.com/nvm-sh/nvm) or similar tool for your platform.
 
 ### Clone and build
 
