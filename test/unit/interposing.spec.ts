@@ -393,7 +393,7 @@ contract Foo {
     }
 
     function mainView(uint y) public view returns (uint) {
-        return _callsite_30(this) + this.pureF(y);
+        return this.viewF() + this.pureF(y);
     }
 
     /// Check only the current contract's state invariants
@@ -408,11 +408,6 @@ contract Foo {
         __ScribbleUtilsLib__40.setInContract(true);
         __scribble_check_state_invariants();
         __ScribbleUtilsLib__40.setInContract(false);
-    }
-
-    function _callsite_30(Foo receiver) private view returns (uint256 ret0) {
-        __scribble_check_state_invariants();
-        (ret0) = receiver.viewF();
     }
 }
 
