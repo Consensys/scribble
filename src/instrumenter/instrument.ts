@@ -1054,9 +1054,18 @@ function replaceExternalCallSites(
             callSite
         );
 
+        // We skip instrumenting external calls in pure and view functions to
+        // avoid changing their mutability. This should not result in missing
+        // any invariant violations since the external call can only call
+        // another view/pure function, and as such can only return information
+        // to the current context without any other side effects. Thus even if
+        // there is a callback to this contract, that sees inconsistent state,
+        // its still functionally equivalent to an internal call chain since
+        // there are no other side-effects outside of this contract.
         if (
             calleeType instanceof FunctionType &&
-            calleeType.mutability === FunctionStateMutability.Pure
+            (calleeType.mutability === FunctionStateMutability.Pure ||
+                calleeType.mutability === FunctionStateMutability.View)
         ) {
             continue;
         }
