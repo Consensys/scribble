@@ -58,3 +58,14 @@ contract Foo {
 	/// #if_succeeds old(1) > 0;
 	function main() public {}
 }
+
+// ---------------------------------------------
+
+event X(uint a);
+
+contract Ev {
+	/// #if_succeeds true;
+	function main() public {
+        emit X(1);
+    }
+}
