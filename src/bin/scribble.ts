@@ -106,11 +106,11 @@ function getSrcLine(l: Range | Location): string {
     const startLoc = "start" in l ? l.start : l;
     const lineStart = startLoc.offset - startLoc.column;
 
-    let lineEnd = startLoc.file.contents.indexOf("\n".charCodeAt(0), lineStart);
+    let lineEnd = startLoc.file.rawContents.indexOf("\n".charCodeAt(0), lineStart);
 
-    lineEnd = lineEnd == -1 ? startLoc.file.contents.length : lineEnd;
+    lineEnd = lineEnd == -1 ? startLoc.file.rawContents.length : lineEnd;
 
-    return toUTF8(startLoc.file.contents.slice(lineStart, lineEnd));
+    return toUTF8(startLoc.file.rawContents.slice(lineStart, lineEnd));
 }
 
 /// TODO: Eventually make this support underlining a range spanning multiple liens

@@ -104,7 +104,7 @@ export function rewriteImports(
 
         assert(source !== undefined, `Missing source for ${sourceUnit.absolutePath}`);
 
-        const importDirSrc = importDir.extractSourceFragment(source.contents);
+        const importDirSrc = importDir.extractSourceFragment(source.rawContents);
         const importDesc: ImportDirectiveDesc = parseImportDirective(toUTF8(importDirSrc));
 
         assert(

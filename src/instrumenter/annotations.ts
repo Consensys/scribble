@@ -102,7 +102,7 @@ export class AnnotationMetaData<T extends SAnnotation = SAnnotation> {
                 : target.name;
 
         this.original = parsedAnnot.getSourceFragment(
-            toUTF8(definitionSource ? definitionSource.contents : source.contents)
+            definitionSource ? definitionSource.contents : source.contents
         );
 
         this.id = numAnnotations++;
@@ -398,7 +398,7 @@ function findAnnotations(
     const meta: RawMetaData = {
         target: target,
         node: raw,
-        text: toUTF8(raw.extractSourceFragment(source.contents)),
+        text: toUTF8(raw.extractSourceFragment(source.rawContents)),
         docFileOffset: sourceInfo.offset
     };
 

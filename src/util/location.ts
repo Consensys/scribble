@@ -22,6 +22,7 @@ export type LocOptions = {
 
 function makeLocation(rawLoc: PegsLoc, options: LocOptions): Location {
     return {
+        // TODO: This is still wrong. We are adding baseOff (which is byte based) and rawLoc.offset (which is string index based)
         offset: rawLoc.offset + options.baseOff,
         line: rawLoc.line + options.baseLine,
         column: rawLoc.column + (rawLoc.line === 1 ? options.baseCol - 1 : 0),

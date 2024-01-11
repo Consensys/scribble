@@ -1,8 +1,13 @@
+import { toUTF8 } from "solc-typed-ast";
+
 export abstract class SourceFile {
+    public readonly contents;
     constructor(
         public fileName: string,
-        public contents: Uint8Array
-    ) {}
+        public rawContents: Uint8Array
+    ) {
+        this.contents = toUTF8(rawContents);
+    }
 }
 
 export class SolFile extends SourceFile {}
