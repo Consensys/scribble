@@ -1,7 +1,7 @@
 export abstract class SourceFile {
     constructor(
         public fileName: string,
-        public contents: string
+        public contents: Uint8Array
     ) {}
 }
 
@@ -10,13 +10,13 @@ export class MacroFile extends SourceFile {}
 
 export class UtilsSolFile extends SourceFile {
     constructor(fileName: string) {
-        super(fileName, "");
+        super(fileName, new Uint8Array());
     }
 }
 
 export class DummySourceFile extends SourceFile {
     constructor() {
-        super("", "");
+        super("", new Uint8Array());
     }
 }
 

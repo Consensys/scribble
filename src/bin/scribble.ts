@@ -10,6 +10,7 @@ import {
     CompilerKind,
     ContractDefinition,
     ContractKind,
+    FileMap,
     FunctionDefinition,
     FunctionKind,
     FunctionStateMutability,
@@ -30,7 +31,8 @@ import {
     downloadSupportedCompilers,
     getCompilerPrefixForOs,
     isVisiblityExternallyCallable,
-    parsePathRemapping
+    parsePathRemapping,
+    toUTF8
 } from "solc-typed-ast";
 import { rewriteImports } from "../ast_to_source_printer";
 import {
@@ -103,10 +105,12 @@ function error(msg: string): never {
 function getSrcLine(l: Range | Location): string {
     const startLoc = "start" in l ? l.start : l;
     const lineStart = startLoc.offset - startLoc.column;
-    let lineEnd = startLoc.file.contents.indexOf("\n", lineStart);
+
+    let lineEnd = startLoc.file.contents.indexOf("\n".charCodeAt(0), lineStart);
+
     lineEnd = lineEnd == -1 ? startLoc.file.contents.length : lineEnd;
 
-    return startLoc.file.contents.slice(lineStart, lineEnd);
+    return toUTF8(startLoc.file.contents.slice(lineStart, lineEnd));
 }
 
 /// TODO: Eventually make this support underlining a range spanning multiple liens
@@ -303,7 +307,7 @@ function detectMacroDefinitions(
     const fileNames = searchRecursive(path, (fileName) => fileName.endsWith(".scribble.yaml"));
 
     for (const fileName of fileNames) {
-        const data = fse.readFileSync(fileName, { encoding: "utf-8" });
+        const data = fse.readFileSync(fileName);
         const macroFile = new MacroFile(fileName, data);
 
         sources.set(fileName, macroFile);
@@ -778,7 +782,7 @@ function loadInstrMetaData(fileName: string): InstrumentationMetaData {
         let units: SourceUnit[];
         let astCtx: ASTContext;
         let compilerVersionUsed: string;
-        let files: Map<string, string>;
+        let files: FileMap;
         let resolvedFilesMap: Map<string, string>;
 
         /**
@@ -895,7 +899,7 @@ function loadInstrMetaData(fileName: string): InstrumentationMetaData {
 
                 contentsMap.set(
                     unit.absolutePath,
-                    new SolFile(resolvedPath, files.get(unit.sourceEntryKey) as string)
+                    new SolFile(resolvedPath, files.get(unit.sourceEntryKey) as Uint8Array)
                 );
             }
         }

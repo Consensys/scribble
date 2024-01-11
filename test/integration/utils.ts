@@ -16,6 +16,7 @@ import {
     PossibleCompilerKinds,
     SourceUnit,
     Statement,
+    toUTF8,
     VariableDeclaration,
     XPath
 } from "solc-typed-ast";
@@ -70,7 +71,7 @@ export function makeArtefact(result: CompileResult): string {
             delete entry.legacyAST;
         }
 
-        artefact.sources[removeProcWd(name)] = { ...entry, source };
+        artefact.sources[removeProcWd(name)] = { ...entry, source: toUTF8(source) };
     }
 
     return removeProcWd(JSON.stringify(artefact));

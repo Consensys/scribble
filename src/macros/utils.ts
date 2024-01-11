@@ -2,6 +2,7 @@ import YAML from "yaml";
 import { Scalar, YAMLMap, YAMLSeq } from "yaml/types";
 import { SourceFile } from "../util/sources";
 import { checkYamlSchema, makeYamlRange, YamlSchemaError } from "../util/yaml";
+import { toUTF8 } from "solc-typed-ast";
 
 export interface MacroVariable {
     name: string;
@@ -37,7 +38,7 @@ const yamlMacroSchema = {
 };
 
 export function readMacroDefinitions(source: SourceFile, defs: Map<string, MacroDefinition>): void {
-    const document = YAML.parseDocument(source.contents);
+    const document = YAML.parseDocument(toUTF8(source.contents));
 
     if (document.contents === null) {
         throw new YamlSchemaError(

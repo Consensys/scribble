@@ -1,5 +1,4 @@
 import {
-    assert,
     ASTNodeFactory,
     ASTWriter,
     DefaultASTWriterMapping,
@@ -8,7 +7,9 @@ import {
     PrettyFormatter,
     SourceUnit,
     SrcRangeMap,
-    SymbolAlias
+    SymbolAlias,
+    assert,
+    toUTF8
 } from "solc-typed-ast";
 import { ImportDirectiveDesc } from "./rewriter/import_directive_header";
 import { parse as parseImportDirective } from "./rewriter/import_directive_parser";
@@ -104,7 +105,7 @@ export function rewriteImports(
         assert(source !== undefined, `Missing source for ${sourceUnit.absolutePath}`);
 
         const importDirSrc = importDir.extractSourceFragment(source.contents);
-        const importDesc: ImportDirectiveDesc = parseImportDirective(importDirSrc);
+        const importDesc: ImportDirectiveDesc = parseImportDirective(toUTF8(importDirSrc));
 
         assert(
             importDesc.symbolAliases.length === importDir.symbolAliases.length,
