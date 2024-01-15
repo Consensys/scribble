@@ -382,13 +382,15 @@ describe("SemanticChecker Expression Unit Tests", () => {
                         target instanceof ContractDefinition
                             ? AnnotationType.Invariant
                             : target instanceof FunctionDefinition
-                            ? AnnotationType.IfSucceeds
-                            : AnnotationType.IfUpdated;
+                              ? AnnotationType.IfSucceeds
+                              : AnnotationType.IfUpdated;
 
                     const annotation = new SProperty(annotationType, parsed);
                     const typeEnv = new TypeEnv(inference);
                     const type = tc(parsed, ctx, typeEnv);
+
                     expect(eq(type, expectedType)).toEqual(true);
+
                     const semInfo = sc(
                         parsed,
                         {
@@ -399,7 +401,9 @@ describe("SemanticChecker Expression Unit Tests", () => {
                         },
                         typeEnv
                     );
+
                     Logger.debug(`[${parsed.pp()}] sem info: ${JSON.stringify(semInfo)}`);
+
                     expect(eq(semInfo, expectedInfo)).toEqual(true);
                 });
             }
@@ -430,12 +434,15 @@ describe("SemanticChecker Expression Unit Tests", () => {
                         target instanceof ContractDefinition
                             ? AnnotationType.Invariant
                             : target instanceof FunctionDefinition
-                            ? AnnotationType.IfSucceeds
-                            : AnnotationType.IfUpdated;
+                              ? AnnotationType.IfSucceeds
+                              : AnnotationType.IfUpdated;
+
                     const annotation = new SProperty(annotationType, parsed);
                     // Type-checking should succeed
                     const typeEnv = new TypeEnv(inference);
+
                     tc(parsed, ctx, typeEnv);
+
                     expect(
                         sc.bind(
                             sc,

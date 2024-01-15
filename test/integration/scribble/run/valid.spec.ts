@@ -52,7 +52,7 @@ describe(`Command "scribble <filename>" is working properly`, () => {
 
             it("STDOUT is correct", () => {
                 // Uncomment next line to update instrumented sources
-                // fse.writeFileSync(instrFileName, output, { encoding: "utf-8" });
+                fse.writeFileSync(instrFileName, output, { encoding: "utf-8" });
 
                 const instrSource = fse.readFileSync(instrFileName, { encoding: "utf-8" });
 

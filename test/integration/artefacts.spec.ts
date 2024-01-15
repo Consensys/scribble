@@ -24,7 +24,7 @@ describe("Artefacts validation", () => {
             const expected = makeArtefact(await toAst(sample));
 
             // Uncomment next line to update all of the artefacts
-            fse.writeFileSync(artefact, expected);
+            // fse.writeFileSync(artefact, expected);
 
             const stored = fse.readFileSync(artefact, { encoding: "utf-8" });
 
