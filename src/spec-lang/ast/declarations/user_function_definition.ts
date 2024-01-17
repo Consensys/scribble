@@ -25,7 +25,7 @@ export class SUserFunctionDefinition extends SAnnotation {
     }
 
     getFields(): any[] {
-        return [this.name, ...this.parameters, this.returnType, this.body];
+        return [this.name, ...this.parameters.map((x) => x[0]), this.returnType, this.body];
     }
 
     pp(): string {

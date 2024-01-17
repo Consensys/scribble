@@ -14,6 +14,7 @@ import {
 import { ImportDirectiveDesc } from "./rewriter/import_directive_header";
 import { parse as parseImportDirective } from "./rewriter/import_directive_parser";
 import { SourceMap } from "./util/sources";
+import { strUTF8Len } from "./util";
 
 /**
  * Find an import named `name` imported from source unit `from`. This will
@@ -165,6 +166,7 @@ export function print(
 ): Map<SourceUnit, string> {
     const writer = getWriter(compilerVersion);
     const result = new Map<SourceUnit, string>();
+    const markerLen = instrumentationMarker === undefined ? 0 : strUTF8Len(instrumentationMarker);
 
     for (const unit of sourceUnits) {
         const source = writer.write(unit, srcMap);
@@ -184,7 +186,7 @@ export function print(
                 const src = srcMap.get(node);
 
                 if (src !== undefined) {
-                    src[0] += instrumentationMarker.length;
+                    src[0] += markerLen;
                 }
             }
 
@@ -194,7 +196,7 @@ export function print(
             const src = srcMap.get(unit);
 
             if (src !== undefined) {
-                src[1] += instrumentationMarker.length;
+                src[1] += markerLen;
             }
         }
     }

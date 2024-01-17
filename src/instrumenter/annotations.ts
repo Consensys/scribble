@@ -29,7 +29,14 @@ import {
 } from "../spec-lang/ast";
 import { PeggySyntaxError as ExprPEGSSyntaxError, parseAnnotation } from "../spec-lang/expr_parser";
 import { PPAbleError } from "../util/errors";
-import { makeRange, Range, rangeToLocRange } from "../util/location";
+import {
+    adjustRange,
+    makeIdxToOffMap,
+    makeRange,
+    Range,
+    rangeToLocRange,
+    strUTF16IndexToUTF8Offset
+} from "../util";
 import { getOr, getScopeUnit, zip } from "../util/misc";
 import { SourceFile, SourceMap } from "../util/sources";
 
@@ -102,7 +109,7 @@ export class AnnotationMetaData<T extends SAnnotation = SAnnotation> {
                 : target.name;
 
         this.original = parsedAnnot.getSourceFragment(
-            definitionSource ? definitionSource.contents : source.contents
+            definitionSource ? definitionSource.rawContents : source.rawContents
         );
 
         this.id = numAnnotations++;
@@ -216,6 +223,7 @@ function makeAnnotationFromMatch(
     let matchIdx = match.index;
     while (meta.text[matchIdx].match(/[\n\r]/)) matchIdx++;
 
+    const matchUTF8Offset = strUTF16IndexToUTF8Offset(meta.text, matchIdx);
     const slice = meta.text.slice(matchIdx);
 
     let annotation: SAnnotation;
@@ -226,12 +234,12 @@ function makeAnnotationFromMatch(
             meta.target,
             ctx.inference,
             source,
-            meta.docFileOffset + matchIdx
+            meta.docFileOffset + matchUTF8Offset
         );
     } catch (e) {
         if (e instanceof ExprPEGSSyntaxError) {
             // Compute the syntax error offset relative to the start of the file
-            const errStartOff = e.location.start.offset + meta.docFileOffset + matchIdx;
+            const errStartOff = e.location.start.offset + meta.docFileOffset + matchUTF8Offset;
             const errLength = e.location.end.offset - e.location.start.offset;
 
             const errRange = rangeToLocRange(errStartOff, errLength, source);
@@ -655,18 +663,17 @@ function processMacroAnnotations(
                                 offset
                             );
 
-                            throw new SyntaxError(
-                                e.message,
-                                expression,
-                                /// TODO: Remove or fix
-                                makeRange(e.location, {
-                                    file: meta.definitionFile,
-                                    baseOff: offset,
-                                    baseLine: line - 1,
-                                    baseCol: column
-                                }),
-                                target
-                            );
+                            const locOpts = {
+                                file: meta.definitionFile,
+                                baseOff: offset,
+                                baseLine: line - 1,
+                                baseCol: column,
+                                idxToOffMap: makeIdxToOffMap(expression)
+                            };
+                            const range = makeRange(e.location);
+                            adjustRange(range, locOpts);
+
+                            throw new SyntaxError(e.message, expression, range, target);
                         }
 
                         throw e;

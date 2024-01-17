@@ -533,3 +533,12 @@ export function getTypeDesc(type: TypeNode): string {
 
     throw new Error(`Unknown type ${type.pp()} in getTypeDesc`);
 }
+
+export function isASCII(s: string): boolean {
+    for (let i = 0; i < s.length; i++) {
+        if (s.charCodeAt(i) > 127) {
+            return false;
+        }
+    }
+    return true;
+}

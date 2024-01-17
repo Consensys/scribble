@@ -3,11 +3,13 @@ import fse from "fs-extra";
 import {
     assert,
     ContractDefinition,
+    fromUTF8,
     FunctionDefinition,
     SourceUnit,
     Statement,
     StatementWithChildren,
     StructuredDocumentation,
+    toUTF8,
     VariableDeclaration
 } from "solc-typed-ast";
 import { getOr, InstrumentationMetaData, searchRecursive } from "../../src/util";
@@ -21,7 +23,7 @@ function findPredicates(
 ): Map<number, Set<string>> {
     const res: Map<number, Set<string>> = new Map();
     const rx =
-        /\s*(if_succeeds|if_aborts|invariant|if_updated|if_assigned|assert|try|require|macro)[a-z0-9.[\])_]*\s*({:msg\s*"([^"]*)"\s*})?\s*(.*);/g;
+        /\s*(if_succeeds|if_aborts|invariant|if_updated|if_assigned|assert|try|require|macro)[a-z0-9.[\])_]*\s*({:msg\s*"([^"]*)"\s*}|"([^"]*)")?\s*(.*);/g;
 
     for (const unit of inAST) {
         const targets: Array<VariableDeclaration | FunctionDefinition | ContractDefinition> =
@@ -49,7 +51,7 @@ function findPredicates(
             let m: RegExpExecArray | null;
 
             while ((m = rx.exec(text)) !== null) {
-                preds.add((m[4] as string).trim());
+                preds.add((m[5] as string).trim());
             }
         }
 
@@ -97,12 +99,12 @@ function getSrcTripple(raw: string): [number, number, number] {
 }
 
 const rxEmitEventLocation =
-    /(emit )?__ScribbleUtilsLib__([0-9]*).[Aa]ssertionFailed\("([0-9]*:[0-9]*:[0-9]*) ([0-9]*).*"\)/;
+    /(emit )?__ScribbleUtilsLib__([0-9]*).[Aa]ssertionFailed\((unicode)?"([0-9]*:[0-9]*:[0-9]*) ([0-9]*).*"\)/;
 
 const rxEmitEventData =
     /(emit )?__ScribbleUtilsLib__([0-9]*).[Aa]ssertionFailedData\(([0-9]*), abi.encode\(.*\)\)/;
 
-const rxConsoleLogLocation = /console\.logString\("([0-9]*:[0-9]*:[0-9]*) ([0-9]*).*"\)/;
+const rxConsoleLogLocation = /console\.logString\((unicode)?"([0-9]*:[0-9]*:[0-9]*) ([0-9]*).*"\)/;
 
 const rxConsoleLogData = /console\.log[a-zA-Z0-9]+\(.+\)/;
 
@@ -184,9 +186,9 @@ describe("Property map test", () => {
                         continue;
                     }
 
-                    const contents = await fse.readFile(fileName, { encoding: "utf8" });
+                    const contents = await fse.readFile(fileName);
 
-                    let extracted = contents.slice(start, start + len).trim();
+                    let extracted = toUTF8(contents.slice(start, start + len)).trim();
 
                     if (extracted.endsWith(";")) {
                         extracted = extracted.slice(0, -1);
@@ -238,8 +240,8 @@ describe("Property map test", () => {
                         expect(fileInd).toBe(0);
                         expect(instrMetadata.instrSourceList[fileInd]).toBe("--");
 
-                        const contents = outJSON.sources["flattened.sol"]["source"];
-                        const extracted = contents.slice(start, start + len).trim();
+                        const contents = fromUTF8(outJSON.sources["flattened.sol"]["source"]);
+                        const extracted = toUTF8(contents.slice(start, start + len)).trim();
 
                         if (extracted === "assert(false)") {
                             continue;
@@ -248,7 +250,7 @@ describe("Property map test", () => {
                         let m = extracted.match(rxEmitEventLocation);
 
                         if (m) {
-                            const strSrcRange = m[3];
+                            const strSrcRange = m[4];
                             const [srcStart, srcLen, srcFileInd] = getSrcTripple(strSrcRange);
 
                             expect(start).toEqual(srcStart);
@@ -267,7 +269,7 @@ describe("Property map test", () => {
                         m = extracted.match(rxConsoleLogLocation);
 
                         if (m) {
-                            const strSrcRange = m[1];
+                            const strSrcRange = m[2];
                             const [srcStart, srcLen, srcFileInd] = getSrcTripple(strSrcRange);
 
                             expect(start).toEqual(srcStart);

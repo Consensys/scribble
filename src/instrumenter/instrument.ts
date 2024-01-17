@@ -67,7 +67,7 @@ import { interpose, interposeCall } from "./interpose";
 import { ensureStmtInBlock } from "./state_var_instrumenter";
 import { transpileAnnotation, transpileType } from "./transpile";
 import { InstrumentationSiteType, TranspilingContext } from "./transpiling_context";
-import { getTypeDesc, getTypeLocation } from "./utils";
+import { getTypeDesc, getTypeLocation, isASCII } from "./utils";
 
 export type SBinding = [string | string[], TypeNode, SNode, boolean];
 export type SBindings = SBinding[];
@@ -359,8 +359,9 @@ function emitAssert(
     let userAssertionHit: Statement | undefined;
 
     const messageStr = `000000:0000:000 ${annotation.id}: ${annotation.message}`;
-    const messageLit = factory.makeLiteral("<missing>", LiteralKind.String, "", messageStr);
-    const hitLit = factory.makeLiteral("<missing>", LiteralKind.String, "", `HIT: ${messageStr}`);
+    const litKind = isASCII(annotation.message) ? LiteralKind.String : LiteralKind.UnicodeString;
+    const messageLit = factory.makeLiteral("<missing>", litKind, "", messageStr);
+    const hitLit = factory.makeLiteral("<missing>", litKind, "", `HIT: ${messageStr}`);
 
     if (instrCtx.assertionMode === "log") {
         const event = gt(instrCtx.compilerVersion, "0.6.2")
