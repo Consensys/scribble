@@ -1,5 +1,5 @@
 import { Chain, Common, Hardfork } from "@ethereumjs/common";
-import { Transaction } from "@ethereumjs/tx";
+import { TransactionFactory } from "@ethereumjs/tx";
 import { Account, Address, privateToAddress } from "@ethereumjs/util";
 import { RunTxResult, VM } from "@ethereumjs/vm";
 import bigInt from "big-integer";
@@ -13,8 +13,8 @@ import { gte } from "semver";
 const abi = require("ethereumjs-abi");
 
 export type AliasMap = Map<string, any>;
-export type ContractBytecodeMap = Map<string, Buffer>;
-export type LogEntry = [Buffer[], any[]];
+export type ContractBytecodeMap = Map<string, Uint8Array>;
+export type LogEntry = [Uint8Array[], any[]];
 
 export interface Environment {
     vm: VM;
@@ -74,7 +74,11 @@ class User {
     }
 
     async getAccount(vm: VM): Promise<Account> {
-        return vm.stateManager.getAccount(this.address);
+        const account = await vm.stateManager.getAccount(this.address);
+
+        assert(account !== undefined, `Unable to get account for address ${this.address}`);
+
+        return account;
     }
 }
 
@@ -102,7 +106,7 @@ async function compileSource(
 
     assert(compilerVersion !== undefined, "Expected compiler version to be defined");
 
-    const bytecodes = new Map<string, Buffer>();
+    const bytecodes = new Map<string, Uint8Array>();
     const contracts: { [name: string]: any } = data.contracts[fileName];
 
     for (const [name, meta] of Object.entries(contracts)) {
@@ -117,7 +121,24 @@ async function compileSource(
 }
 
 function encodeCallArgs(args: CallArgs): Buffer {
-    return abi.rawEncode(args.types, args.values);
+    const ts: any[] = [];
+    const vs: any[] = [];
+
+    assert(args.types.length === args.values.length, `Length mismatch for types and values`);
+
+    for (let i = 0; i < args.values.length; i++) {
+        const t = args.types[i];
+        let v = args.values[i];
+
+        if (t === "address" && v instanceof Uint8Array) {
+            v = "0x" + [...v].map((b) => b.toString(16).padStart(2, "0")).join("");
+        }
+
+        ts.push(t);
+        vs.push(v);
+    }
+
+    return abi.rawEncode(ts, vs);
 }
 
 function createCallPayload(options: CallOptions): Buffer {
@@ -139,7 +160,7 @@ function extractTxLogs(specifications: string[][], result: RunTxResult): LogEntr
             const types = specifications[i];
             const log = result.execResult.logs[i];
 
-            const topics: Buffer[] = log[1];
+            const topics: Uint8Array[] = log[1];
             const values: any[] = abi.rawDecode(types, log[2]);
 
             logs.push([topics, values]);
@@ -152,11 +173,23 @@ function extractTxLogs(specifications: string[][], result: RunTxResult): LogEntr
 async function deployContract(
     vm: VM,
     sender: User,
-    bytecode: Buffer,
+    bytecode: Uint8Array,
     args?: CallArgs,
     logs?: string[][]
-): Promise<[Buffer | undefined, LogEntry[]]> {
-    const payload = args ? Buffer.concat([bytecode, encodeCallArgs(args)]) : bytecode;
+): Promise<[Uint8Array | undefined, LogEntry[]]> {
+    let payload: Uint8Array;
+
+    if (args) {
+        const encodedArgs = encodeCallArgs(args);
+
+        payload = new Uint8Array(bytecode.length + encodedArgs.length);
+
+        payload.set(bytecode);
+        payload.set(encodedArgs, bytecode.length);
+    } else {
+        payload = bytecode;
+    }
+
     const txData = {
         value: 0,
         gasLimit: 200000000,
@@ -165,7 +198,7 @@ async function deployContract(
         nonce: (await sender.getAccount(vm)).nonce
     };
 
-    const tx = Transaction.fromTxData(txData).sign(sender.privateKey);
+    const tx = TransactionFactory.fromTxData(txData).sign(sender.privateKey);
     const result = await vm.runTx({ tx });
     const exception = result.execResult.exceptionError;
 
@@ -175,13 +208,13 @@ async function deployContract(
 
     const emittedLogs = logs ? extractTxLogs(logs, result) : [];
 
-    return [result.createdAddress ? result.createdAddress.buf : undefined, emittedLogs];
+    return [result.createdAddress ? result.createdAddress.bytes : undefined, emittedLogs];
 }
 
 async function txCall(
     vm: VM,
     sender: User,
-    contractAddress: Buffer,
+    contractAddress: Uint8Array,
     options: CallOptions
 ): Promise<[any[], LogEntry[]]> {
     const txData = {
@@ -193,7 +226,7 @@ async function txCall(
         nonce: (await sender.getAccount(vm)).nonce
     };
 
-    const tx = Transaction.fromTxData(txData).sign(sender.privateKey);
+    const tx = TransactionFactory.fromTxData(txData).sign(sender.privateKey);
 
     const result = await vm.runTx({ tx });
     const exception = result.execResult.exceptionError;
@@ -215,7 +248,7 @@ async function txCall(
 async function staticCall(
     vm: VM,
     caller: User,
-    contractAddress: Buffer,
+    contractAddress: Uint8Array,
     options: CallOptions
 ): Promise<any[]> {
     const result = await vm.evm.runCall({
@@ -239,7 +272,7 @@ async function staticCall(
     return values;
 }
 
-function getContractByteCode(contracts: ContractBytecodeMap, name: string): Buffer {
+function getContractByteCode(contracts: ContractBytecodeMap, name: string): Uint8Array {
     const bytecode = contracts.get(name);
 
     if (bytecode === undefined) {
@@ -277,10 +310,10 @@ function resolveUserAlias(aliases: AliasMap, key: string): User {
     throw new Error(`Aliased value for key "${key}" is not a user`);
 }
 
-function resolveAddressAlias(aliases: AliasMap, key: string): Buffer {
+function resolveAddressAlias(aliases: AliasMap, key: string): Uint8Array {
     const value = resolveAlias(aliases, key);
 
-    if (value instanceof Buffer && value.length === 20) {
+    if (value instanceof Uint8Array && value.length === 20) {
         return value;
     }
 
@@ -306,7 +339,7 @@ function patchCallValues(values: any[], aliases: AliasMap): any[] {
             let resolved = resolveAlias(aliases, value.alias);
 
             if (resolved instanceof User) {
-                resolved = resolved.address.buf;
+                resolved = resolved.address.bytes;
             }
 
             if (resolved instanceof Buffer) {
