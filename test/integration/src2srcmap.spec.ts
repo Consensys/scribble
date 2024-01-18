@@ -26,7 +26,10 @@ import {
     TupleExpression,
     TypeName,
     UnaryOperation,
-    VariableDeclaration
+    VariableDeclaration,
+    FileMap,
+    fromUTF8,
+    toUTF8
 } from "solc-typed-ast";
 import {
     contains,
@@ -83,10 +86,10 @@ function buildSrc2NodeMap(units: SourceUnit[], newSrcList?: string[]): Src2NodeM
     return res;
 }
 
-function fragment(src: string, contents: string) {
+function fragment(src: string, contents: Uint8Array) {
     const [off, len] = parseSrcTriple(src);
 
-    return contents.slice(off, off + len);
+    return toUTF8(contents.slice(off, off + len));
 }
 
 describe("Src2src map test", () => {
@@ -107,8 +110,8 @@ describe("Src2src map test", () => {
     for (const sample of samples) {
         describe(sample, () => {
             let inAst: SourceUnit[];
-            let contents: string;
-            let instrContents: string;
+            let contents: Uint8Array;
+            let instrContents: Uint8Array;
             let outJSON: any;
             let propMap: PropertyMap;
             let outAST: SourceUnit;
@@ -125,7 +128,7 @@ describe("Src2src map test", () => {
                 }
 
                 inAst = result.units;
-                contents = result.files.get(sample) as string;
+                contents = result.files.get(sample) as Uint8Array;
 
                 const args = [sample, "--output-mode", "json"];
 
@@ -134,9 +137,9 @@ describe("Src2src map test", () => {
                 }
                 outJSON = JSON.parse(scrSample(args[0], ...args.slice(1)));
 
-                instrContents = outJSON["sources"]["flattened.sol"]["source"];
+                instrContents = fromUTF8(outJSON["sources"]["flattened.sol"]["source"]);
 
-                const contentsMap = new Map<string, string>([["flattened.sol", instrContents]]);
+                const contentsMap: FileMap = new Map([["flattened.sol", instrContents]]);
                 const reader = new ASTReader();
 
                 [outAST] = reader.read(outJSON, ASTKind.Modern, contentsMap);

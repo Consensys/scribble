@@ -7,6 +7,7 @@ import {
     EnumDefinition,
     EventDefinition,
     Expression,
+    fromUTF8,
     FunctionCallKind,
     FunctionDefinition,
     ImportDirective,
@@ -20,6 +21,7 @@ import {
     SrcRangeMap,
     Statement,
     StructDefinition,
+    toUTF8,
     TypeNode,
     VariableDeclaration
 } from "solc-typed-ast";
@@ -53,6 +55,8 @@ import { FactoryMap, ScribbleFactory, StructMap } from "./utils";
 import { generateUtilsLibrary, makeEqBytesFun } from "./utils_library";
 
 export type AssertionMode = "log" | "mstore" | "hardhat";
+
+const utf8enc = new TextEncoder();
 
 /**
  * Gather all named nodes in the provided source units.
@@ -500,6 +504,7 @@ export class InstrumentationContext {
         srcMap: SrcRangeMap
     ): string {
         const replaceMarker = "000000:0000:000";
+        const byteContents = fromUTF8(contents);
 
         for (const [lit, targetNode] of this.litAdjustMap) {
             if (lit.getClosestParentByType(SourceUnit) !== unit) {
@@ -515,10 +520,10 @@ export class InstrumentationContext {
             const startAt = strLoc[0];
             const endAt = strLoc[0] + strLoc[1];
 
-            let litStr = contents.slice(startAt, endAt);
+            let litStr = toUTF8(byteContents.slice(startAt, endAt));
 
             assert(
-                litStr.startsWith("'") || litStr.startsWith('"'),
+                litStr.startsWith("'") || litStr.startsWith('"') || litStr.startsWith("unicode"),
                 `Expected {0} (at {1}) to have a string start at the beginning`,
                 litStr,
                 startAt
@@ -538,10 +543,10 @@ export class InstrumentationContext {
 
             litStr = litStr.replace(replaceMarker, newLocStr);
 
-            contents = contents.slice(0, startAt) + litStr + contents.slice(endAt);
+            utf8enc.encodeInto(litStr, byteContents.subarray(startAt));
         }
 
-        return contents;
+        return toUTF8(byteContents);
     }
 
     needsImport(unit: SourceUnit, importPath: string): void {

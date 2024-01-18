@@ -1,35 +1,30 @@
 {
-  "compilerOptions": {
-    "target": "ES2018",
-    "module": "commonjs",
-    "lib": [
-      "es5",
-      "es6",
-      "esnext"
-    ],
-    "declaration": true,
-    "declarationMap": true,
-    "sourceMap": true,
-    "outDir": "dist",
-    "removeComments": false,
+    "compilerOptions": {
+        "target": "ES2018",
+        "module": "commonjs",
+        "lib": ["es5", "es6", "esnext"],
+        "declaration": true,
+        "declarationMap": true,
+        "sourceMap": true,
+        "outDir": "dist",
+        "removeComments": false,
 
-    "strict": true,
-    "noImplicitAny": true,
-    "strictNullChecks": true,
-    "strictFunctionTypes": true,
-    "strictBindCallApply": true,
-    "strictPropertyInitialization": true,
-    "noImplicitThis": true,
-    "alwaysStrict": true,
+        "strict": true,
+        "noImplicitAny": true,
+        "strictNullChecks": true,
+        "strictFunctionTypes": true,
+        "strictBindCallApply": true,
+        "strictPropertyInitialization": true,
+        "noImplicitThis": true,
+        "alwaysStrict": true,
 
-    "noUnusedLocals": true,
-    "noImplicitReturns": true,
+        "noUnusedLocals": true,
+        "noImplicitReturns": true,
 
-    "esModuleInterop": true,
-    "forceConsistentCasingInFileNames": true,
-    "resolveJsonModule": true
-  },
-  "include": [
-    "src/**/*"
-  ]
+        "esModuleInterop": true,
+        "forceConsistentCasingInFileNames": true,
+        "resolveJsonModule": true
+    },
+    "include": ["src/**/*"],
+    "exclude": ["src/rewriter/import_directive_header.ts", "src/spec-lang/expr_parser_header.ts"]
 }

@@ -6,3 +6,4 @@ export * from "./arming";
 export * from "./location";
 export * from "./sources";
 export * from "./errors";
+export * from "./unicode";

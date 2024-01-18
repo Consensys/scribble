@@ -8,6 +8,7 @@ import {
     Statement,
     StatementWithChildren,
     StructuredDocumentation,
+    toUTF8,
     VariableDeclaration
 } from "solc-typed-ast";
 import { SAnnotation } from "../spec-lang/ast/declarations/annotation";
@@ -34,8 +35,10 @@ function findAnnotationsInStr(
     fixer: (match: RegExpExecArray, text: string) => string
 ): Array<Range | Location> {
     const res: Array<Range | Location> = [];
-    const text = doc.extractSourceFragment(file.contents);
+    const text = toUTF8(doc.extractSourceFragment(file.rawContents));
+
     let match = rx.exec(text);
+
     const nodeOff = doc.sourceInfo.offset;
 
     while (match !== null) {

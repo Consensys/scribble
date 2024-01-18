@@ -12,7 +12,7 @@ import { SolFile } from "../../src/util/sources";
 export function makeInstrumentationCtx(
     sources: SourceUnit[],
     factory: ScribbleFactory,
-    files: Map<string, string>,
+    files: Map<string, Uint8Array>,
     assertionMode: AssertionMode,
     compilerVersion: string
 ): InstrumentationContext {

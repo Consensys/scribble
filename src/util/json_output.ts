@@ -10,6 +10,7 @@ import {
     SourceUnit,
     SrcRangeMap,
     StructuredDocumentation,
+    toUTF8,
     VariableDeclaration
 } from "solc-typed-ast";
 import { Range, SrcTriple } from "./location";
@@ -530,7 +531,9 @@ export function generateInstrumentationMetadata(
  */
 function addSrcToContext(r: CompileResult): any {
     for (const [fileName] of Object.entries(r.data["sources"])) {
-        r.data["sources"][fileName]["source"] = r.files.get(fileName);
+        const contentsBuf = r.files.get(fileName);
+        r.data["sources"][fileName]["source"] =
+            contentsBuf !== undefined ? toUTF8(contentsBuf) : undefined;
     }
 
     return r.data["sources"];

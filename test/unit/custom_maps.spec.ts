@@ -1177,13 +1177,7 @@ describe("Interposing on a map", () => {
             version = res.compilerVersion;
 
             const factory = new ScribbleFactory(version, ctx);
-            const instrCtx = makeInstrumentationCtx(
-                [unit],
-                factory,
-                new Map([[name, sample]]),
-                "log",
-                version
-            );
+            const instrCtx = makeInstrumentationCtx([unit], factory, res.files, "log", version);
 
             const writer: ASTWriter = new ASTWriter(
                 DefaultASTWriterMapping,

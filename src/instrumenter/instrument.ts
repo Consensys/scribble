@@ -47,6 +47,7 @@ import {
     PPAbleError,
     SourceMap,
     filterByType,
+    isASCII,
     isChangingState,
     isExternallyVisible,
     parseSrcTriple,
@@ -359,8 +360,9 @@ function emitAssert(
     let userAssertionHit: Statement | undefined;
 
     const messageStr = `000000:0000:000 ${annotation.id}: ${annotation.message}`;
-    const messageLit = factory.makeLiteral("<missing>", LiteralKind.String, "", messageStr);
-    const hitLit = factory.makeLiteral("<missing>", LiteralKind.String, "", `HIT: ${messageStr}`);
+    const litKind = isASCII(annotation.message) ? LiteralKind.String : LiteralKind.UnicodeString;
+    const messageLit = factory.makeLiteral("<missing>", litKind, "", messageStr);
+    const hitLit = factory.makeLiteral("<missing>", litKind, "", `HIT: ${messageStr}`);
 
     if (instrCtx.assertionMode === "log") {
         const event = gt(instrCtx.compilerVersion, "0.6.2")

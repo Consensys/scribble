@@ -3,6 +3,7 @@ import {
     BoolType,
     ContractDefinition,
     eq,
+    fromUTF8,
     FunctionDefinition,
     InferType,
     IntLiteralType,
@@ -370,7 +371,7 @@ describe("SemanticChecker Expression Unit Tests", () => {
 
                 units = result.units;
                 inference = new InferType(compilerVersion);
-                sourceFile = new SolFile(fileName, content);
+                sourceFile = new SolFile(fileName, fromUTF8(content));
             });
 
             for (const [specString, loc, expectedType, expectedInfo] of testCases) {
@@ -381,13 +382,15 @@ describe("SemanticChecker Expression Unit Tests", () => {
                         target instanceof ContractDefinition
                             ? AnnotationType.Invariant
                             : target instanceof FunctionDefinition
-                            ? AnnotationType.IfSucceeds
-                            : AnnotationType.IfUpdated;
+                              ? AnnotationType.IfSucceeds
+                              : AnnotationType.IfUpdated;
 
                     const annotation = new SProperty(annotationType, parsed);
                     const typeEnv = new TypeEnv(inference);
                     const type = tc(parsed, ctx, typeEnv);
+
                     expect(eq(type, expectedType)).toEqual(true);
+
                     const semInfo = sc(
                         parsed,
                         {
@@ -398,7 +401,9 @@ describe("SemanticChecker Expression Unit Tests", () => {
                         },
                         typeEnv
                     );
+
                     Logger.debug(`[${parsed.pp()}] sem info: ${JSON.stringify(semInfo)}`);
+
                     expect(eq(semInfo, expectedInfo)).toEqual(true);
                 });
             }
@@ -418,7 +423,7 @@ describe("SemanticChecker Expression Unit Tests", () => {
 
                 units = result.units;
                 inference = new InferType(compilerVersion);
-                sourceFile = new SolFile(fileName, content);
+                sourceFile = new SolFile(fileName, fromUTF8(content));
             });
 
             for (const [specString, loc] of testCases) {
@@ -429,12 +434,15 @@ describe("SemanticChecker Expression Unit Tests", () => {
                         target instanceof ContractDefinition
                             ? AnnotationType.Invariant
                             : target instanceof FunctionDefinition
-                            ? AnnotationType.IfSucceeds
-                            : AnnotationType.IfUpdated;
+                              ? AnnotationType.IfSucceeds
+                              : AnnotationType.IfUpdated;
+
                     const annotation = new SProperty(annotationType, parsed);
                     // Type-checking should succeed
                     const typeEnv = new TypeEnv(inference);
+
                     tc(parsed, ctx, typeEnv);
+
                     expect(
                         sc.bind(
                             sc,
@@ -531,7 +539,7 @@ describe("SemanticChecker Annotation Unit Tests", () => {
 
                 units = result.units;
                 inference = new InferType(compilerVersion);
-                sourceFile = new SolFile(fileName, content);
+                sourceFile = new SolFile(fileName, fromUTF8(content));
             });
 
             for (const [specString, loc] of testCases) {
@@ -573,7 +581,7 @@ describe("SemanticChecker Annotation Unit Tests", () => {
 
                 units = result.units;
                 inference = new InferType(compilerVersion);
-                sourceFile = new SolFile(fileName, content);
+                sourceFile = new SolFile(fileName, fromUTF8(content));
             });
 
             for (const [specString, loc] of testCases) {

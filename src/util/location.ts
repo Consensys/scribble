@@ -1,4 +1,5 @@
 import { SourceFile } from "./sources";
+import { IdxToOffMap } from "./unicode";
 
 const srcLocation = require("src-location");
 
@@ -10,29 +11,57 @@ export type Range = { start: Location; end: Location };
 /// A src tripple as represented in the solidity AST: (start, length, fileIndex)
 export type SrcTriple = [number, number, number];
 
-type PegsLoc = { offset: number; line: number; column: number };
-type PegsRange = { start: PegsLoc; end: PegsLoc };
+export type PegsLoc = { offset: number; line: number; column: number };
+export type PegsRange = { start: PegsLoc; end: PegsLoc };
 
 export type LocOptions = {
     file: SourceFile;
     baseOff: number;
     baseLine: number;
     baseCol: number;
+    idxToOffMap: IdxToOffMap;
 };
 
-function makeLocation(rawLoc: PegsLoc, options: LocOptions): Location {
+/**
+ * Given a location relative to the start of some string (in UTF-16 offsets)
+ * adjust it to be relative to the start of the file (in UTF-8 byte offsets)
+ */
+export function adjustLocation(l: Location, options: LocOptions): void {
+    const byteOff = options.idxToOffMap.get(l.offset);
+    l.offset = (byteOff as number) + options.baseOff;
+    l.column = l.column + (l.line === 1 ? options.baseCol - 1 : 0);
+    l.line += options.baseLine;
+    l.file = options.file;
+}
+
+/**
+ * Given a range relative to the start of some string (in UTF-16 offsets)
+ * adjust it to be relative to the start of the file (in UTF-8 byte offsets)
+ */
+export function adjustRange(r: Range, options: LocOptions): void {
+    adjustLocation(r.start, options);
+    adjustLocation(r.end, options);
+}
+
+/**
+ * Build the Location struct from a PegsLoc. This is called during parsing,
+ * and it temporarily uses offsets/line/columns relative to the start of the comment.
+ * Also offsets are in terms of UTF-16 indices, not UTF-8 byte offsets. This is fixed
+ * after parsing by adjustRange/adjustLocation
+ */
+function makeLocation(rawLoc: PegsLoc): Location {
     return {
-        offset: rawLoc.offset + options.baseOff,
-        line: rawLoc.line + options.baseLine,
-        column: rawLoc.column + (rawLoc.line === 1 ? options.baseCol - 1 : 0),
-        file: options.file
+        offset: rawLoc.offset,
+        line: rawLoc.line,
+        column: rawLoc.column,
+        file: undefined as unknown as any
     };
 }
 
-export function makeRange(rawRange: PegsRange, options: LocOptions): Range {
+export function makeRange(rawRange: PegsRange): Range {
     return {
-        start: makeLocation(rawRange.start, options),
-        end: makeLocation(rawRange.end, options)
+        start: makeLocation(rawRange.start),
+        end: makeLocation(rawRange.end)
     };
 }
 

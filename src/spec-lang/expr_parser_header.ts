@@ -63,8 +63,9 @@ import {
     UserDefinedValueTypeDefinition,
     InferType
 } from "solc-typed-ast"
-import { makeRange, Range } from "../util/location"
+import { makeRange, adjustRange, PegsRange, LocOptions } from "../util/location"
 import { SourceFile } from "../util/sources";
+import { IdxToOffMap, makeIdxToOffMap } from "../util";
 
 const srcloc = require("src-location")
 
@@ -75,24 +76,78 @@ export type ExprParseOptions = {
     file: SourceFile,
     baseOff: number,
     baseLine: number,
-    baseCol: number
+    baseCol: number,
+    idxToOffMap: IdxToOffMap
 }
 
-function buildBinaryExpression(head: SNode, tail: Array<[string | undefined, BinaryOperator, string | undefined, SNode]>, src?: Range): SNode {
-    return tail.reduce((acc, [whiteSp, curOp, whiteSP, curVal]) =>
-        new SBinaryOperation(acc, curOp, curVal, src), head);
+function buildBinaryExpression(
+    head: SNode,
+    tail: Array<[BinaryOperator, SNode, PegsRange]>,
+    headRange: PegsRange,
+    opts: ExprParseOptions): SNode
+{
+    return tail.reduce((acc, [curOp, curVal, curLoc]) =>
+        new SBinaryOperation(acc, curOp, curVal, makeRange({start: headRange.start, end: curLoc.end})), head);
 }
 
-export function parseAnnotation(str: string, ctx: ASTNode, inference: InferType, file: SourceFile, baseOff: number): SAnnotation {
+function adjustNodeSrcs(nd: SNode, opts: LocOptions) {
+    nd.walk((child) => {
+        if (child.src === undefined || child.src instanceof Array) {
+            return;
+        }
+
+        adjustRange(child.src, opts)
+    })
+}
+
+export function parseAnnotation(
+    str: string,
+    ctx: ASTNode,
+    inference: InferType,
+    file: SourceFile,
+    baseOff: number): SAnnotation
+{
     const { line, column } = srcloc.indexToLocation(file.contents, baseOff);
     // @ts-ignore
-    return parse(str, { startRule: "Annotation", ctx, inference, file, baseOff, baseLine: line - 1, baseCol: column});
+    const parseOpts = { startRule: "Annotation", ctx, inference };
+    const nd = parse(str, parseOpts);
+
+    const locOpts: LocOptions = {
+        file, 
+        baseOff,
+        baseLine: line - 1,
+        baseCol: column,
+        idxToOffMap: makeIdxToOffMap(str)
+    }
+
+    adjustNodeSrcs(nd, locOpts);
+
+    return nd;
 }
 
-export function parseExpression(str: string, ctx: ASTNode, inference: InferType, file: SourceFile, baseOff: number): SNode {
+export function parseExpression(
+    str: string,
+    ctx: ASTNode,
+    inference: InferType,
+    file: SourceFile,
+    baseOff: number): SNode
+{
     const { line, column } = srcloc.indexToLocation(file.contents, baseOff);
     // @ts-ignore
-    return parse(str, { startRule: "Expression", ctx, inference, file, baseOff, baseLine: line - 1, baseCol: column});
+    const parseOpts = { startRule: "Expression", ctx, inference }
+    const nd = parse(str, parseOpts);
+
+    const locOpts: LocOptions = {
+        file,
+        baseOff,
+        baseLine: line - 1,
+        baseCol: column,
+        idxToOffMap: makeIdxToOffMap(str)
+    }
+
+    adjustNodeSrcs(nd, locOpts);
+
+    return nd;
 }
 
 function makeUserDefinedType(
