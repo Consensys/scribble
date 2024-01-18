@@ -15,17 +15,17 @@ jobs:
     strategy:
       matrix:
         # See https://nodejs.org/en/about/releases/
-        node-version: [ 16.x ]
+        node-version: [ 20.x ]
 
     env:
       SOL_AST_COMPILER_CACHE: ${{ github.workspace }}/.compiler_cache
 
     steps:
       - name: Checkout
-        uses: actions/checkout@v3
+        uses: actions/checkout@v4
 
       - name: Use NodeJS ${{ matrix.node-version }}
-        uses: actions/setup-node@v3
+        uses: actions/setup-node@v4
         with:
           node-version: ${{ matrix.node-version }}
           cache: "npm"
@@ -63,7 +63,7 @@ jobs:
     runs-on: ubuntu-latest
     if: github.ref == 'refs/heads/master' || github.ref == 'refs/heads/develop'
     steps:
-      - uses: actions/checkout@v3
+      - uses: actions/checkout@v4
         with:
           ref: ${{ github.event.pull_request.head.sha }}
       - id: non_merge_commit_message
