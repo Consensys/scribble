@@ -10,9 +10,10 @@ import {
     Statement,
     StatementWithChildren,
     StructuredDocumentation,
-    toUTF8,
+    bytesToString,
     TryCatchClause,
-    VariableDeclaration
+    VariableDeclaration,
+    strUTF16IndexToUTF8Offset
 } from "solc-typed-ast";
 import { MacroDefinition, parseMacroMethodSignature } from "../macros";
 import {
@@ -29,14 +30,7 @@ import {
 } from "../spec-lang/ast";
 import { PeggySyntaxError as ExprPEGSSyntaxError, parseAnnotation } from "../spec-lang/expr_parser";
 import { PPAbleError } from "../util/errors";
-import {
-    adjustRange,
-    makeIdxToOffMap,
-    makeRange,
-    Range,
-    rangeToLocRange,
-    strUTF16IndexToUTF8Offset
-} from "../util";
+import { adjustRange, makeIdxToOffMap, makeRange, Range, rangeToLocRange } from "../util";
 import { getOr, getScopeUnit, zip } from "../util/misc";
 import { SourceFile, SourceMap } from "../util/sources";
 
@@ -410,7 +404,7 @@ function findAnnotations(
     const meta: RawMetaData = {
         target: target,
         node: raw,
-        text: toUTF8(raw.extractSourceFragment(source.rawContents)),
+        text: bytesToString(raw.extractSourceFragment(source.rawContents)),
         docFileOffset: sourceInfo.offset
     };
 

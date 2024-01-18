@@ -11,7 +11,7 @@ import {
     EnumDefinition,
     eq,
     FixedBytesType,
-    fromUTF8,
+    stringToBytes,
     FunctionStateMutability,
     FunctionType,
     FunctionVisibility,
@@ -988,7 +988,7 @@ contract UserDefinedValueTypes {
                 compilerVersion = result.compilerVersion;
 
                 inference = new InferType(compilerVersion);
-                sourceFile = new SolFile(fileName, fromUTF8(content));
+                sourceFile = new SolFile(fileName, stringToBytes(content));
             });
 
             for (const [specString, loc, expected] of testCases) {
@@ -1025,7 +1025,7 @@ contract UserDefinedValueTypes {
                 const inference = new InferType(compilerVersion);
 
                 typeEnv = new TypeEnv(inference);
-                sourceFile = new SolFile(fileName, fromUTF8(content));
+                sourceFile = new SolFile(fileName, stringToBytes(content));
             });
 
             for (const [specString, loc] of testCases) {
@@ -1694,7 +1694,7 @@ contract Statements08 {
 
                 inference = new InferType(compilerVersion);
                 typeEnv = new TypeEnv(inference);
-                sourceFile = new SolFile(fileName, fromUTF8(content));
+                sourceFile = new SolFile(fileName, stringToBytes(content));
             });
 
             for (const [specString, loc, expectedType, clearFunsBefore] of testCases) {
@@ -1744,7 +1744,7 @@ contract Statements08 {
                 const inference = new InferType(compilerVersion);
 
                 typeEnv = new TypeEnv(inference);
-                sourceFile = new SolFile(fileName, fromUTF8(content));
+                sourceFile = new SolFile(fileName, stringToBytes(content));
 
                 // Setup any definitions
                 for (const [specString, loc] of setupSteps) {

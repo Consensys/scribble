@@ -9,12 +9,12 @@ import {
     SrcRangeMap,
     SymbolAlias,
     assert,
-    toUTF8
+    bytesToString,
+    strUTF8Len
 } from "solc-typed-ast";
 import { ImportDirectiveDesc } from "./rewriter/import_directive_header";
 import { parse as parseImportDirective } from "./rewriter/import_directive_parser";
 import { SourceMap } from "./util/sources";
-import { strUTF8Len } from "./util";
 
 /**
  * Find an import named `name` imported from source unit `from`. This will
@@ -106,7 +106,7 @@ export function rewriteImports(
         assert(source !== undefined, `Missing source for ${sourceUnit.absolutePath}`);
 
         const importDirSrc = importDir.extractSourceFragment(source.rawContents);
-        const importDesc: ImportDirectiveDesc = parseImportDirective(toUTF8(importDirSrc));
+        const importDesc: ImportDirectiveDesc = parseImportDirective(bytesToString(importDirSrc));
 
         assert(
             importDesc.symbolAliases.length === importDir.symbolAliases.length,

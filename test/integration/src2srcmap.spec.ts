@@ -28,8 +28,8 @@ import {
     UnaryOperation,
     VariableDeclaration,
     FileMap,
-    fromUTF8,
-    toUTF8
+    stringToBytes,
+    bytesToString
 } from "solc-typed-ast";
 import {
     contains,
@@ -89,7 +89,7 @@ function buildSrc2NodeMap(units: SourceUnit[], newSrcList?: string[]): Src2NodeM
 function fragment(src: string, contents: Uint8Array) {
     const [off, len] = parseSrcTriple(src);
 
-    return toUTF8(contents.slice(off, off + len));
+    return bytesToString(contents.slice(off, off + len));
 }
 
 describe("Src2src map test", () => {
@@ -137,7 +137,7 @@ describe("Src2src map test", () => {
                 }
                 outJSON = JSON.parse(scrSample(args[0], ...args.slice(1)));
 
-                instrContents = fromUTF8(outJSON["sources"]["flattened.sol"]["source"]);
+                instrContents = stringToBytes(outJSON["sources"]["flattened.sol"]["source"]);
 
                 const contentsMap: FileMap = new Map([["flattened.sol", instrContents]]);
                 const reader = new ASTReader();

@@ -1,4 +1,4 @@
-import { toUTF8 } from "solc-typed-ast";
+import { bytesToString } from "solc-typed-ast";
 
 export abstract class SourceFile {
     public readonly contents;
@@ -6,7 +6,7 @@ export abstract class SourceFile {
         public fileName: string,
         public rawContents: Uint8Array
     ) {
-        this.contents = toUTF8(rawContents);
+        this.contents = bytesToString(rawContents);
     }
 }
 

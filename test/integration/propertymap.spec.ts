@@ -3,13 +3,13 @@ import fse from "fs-extra";
 import {
     assert,
     ContractDefinition,
-    fromUTF8,
+    stringToBytes,
     FunctionDefinition,
     SourceUnit,
     Statement,
     StatementWithChildren,
     StructuredDocumentation,
-    toUTF8,
+    bytesToString,
     VariableDeclaration
 } from "solc-typed-ast";
 import { getOr, InstrumentationMetaData, searchRecursive } from "../../src/util";
@@ -188,7 +188,7 @@ describe("Property map test", () => {
 
                     const contents = await fse.readFile(fileName);
 
-                    let extracted = toUTF8(contents.slice(start, start + len)).trim();
+                    let extracted = bytesToString(contents.slice(start, start + len)).trim();
 
                     if (extracted.endsWith(";")) {
                         extracted = extracted.slice(0, -1);
@@ -240,8 +240,8 @@ describe("Property map test", () => {
                         expect(fileInd).toBe(0);
                         expect(instrMetadata.instrSourceList[fileInd]).toBe("--");
 
-                        const contents = fromUTF8(outJSON.sources["flattened.sol"]["source"]);
-                        const extracted = toUTF8(contents.slice(start, start + len)).trim();
+                        const contents = stringToBytes(outJSON.sources["flattened.sol"]["source"]);
+                        const extracted = bytesToString(contents.slice(start, start + len)).trim();
 
                         if (extracted === "assert(false)") {
                             continue;
