@@ -90,17 +90,12 @@ function buildBinaryExpression(
         new SBinaryOperation(acc, curOp, curVal, makeRange({start: headRange.start, end: curLoc.end})), head);
 }
 
-const seen = new Set();
 function adjustNodeSrcs(nd: SNode, opts: LocOptions) {
     nd.walk((child) => {
         if (child.src === undefined || child.src instanceof Array) {
             return;
         }
 
-        if (seen.has(child)) {
-            assert(false, ``)
-        }
-        seen.add(child);
         adjustRange(child.src, opts)
     })
 }

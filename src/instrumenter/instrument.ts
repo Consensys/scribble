@@ -47,6 +47,7 @@ import {
     PPAbleError,
     SourceMap,
     filterByType,
+    isASCII,
     isChangingState,
     isExternallyVisible,
     parseSrcTriple,
@@ -67,7 +68,7 @@ import { interpose, interposeCall } from "./interpose";
 import { ensureStmtInBlock } from "./state_var_instrumenter";
 import { transpileAnnotation, transpileType } from "./transpile";
 import { InstrumentationSiteType, TranspilingContext } from "./transpiling_context";
-import { getTypeDesc, getTypeLocation, isASCII } from "./utils";
+import { getTypeDesc, getTypeLocation } from "./utils";
 
 export type SBinding = [string | string[], TypeNode, SNode, boolean];
 export type SBindings = SBinding[];

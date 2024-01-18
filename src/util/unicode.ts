@@ -66,3 +66,8 @@ export function makeIdxToOffMap(s: string): IdxToOffMap {
 
     return res;
 }
+
+export function isASCII(str: string): boolean {
+    // eslint-disable-next-line no-control-regex
+    return /^[\x00-\x7F]*$/.test(str);
+}

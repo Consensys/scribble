@@ -239,7 +239,11 @@ function makeAnnotationFromMatch(
     } catch (e) {
         if (e instanceof ExprPEGSSyntaxError) {
             // Compute the syntax error offset relative to the start of the file
-            const errStartOff = e.location.start.offset + meta.docFileOffset + matchUTF8Offset;
+            const errStartOff =
+                meta.docFileOffset +
+                matchUTF8Offset +
+                strUTF16IndexToUTF8Offset(slice, e.location.start.offset);
+
             const errLength = e.location.end.offset - e.location.start.offset;
 
             const errRange = rangeToLocRange(errStartOff, errLength, source);
