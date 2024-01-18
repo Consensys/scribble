@@ -3,7 +3,7 @@ import {
     BoolType,
     ContractDefinition,
     eq,
-    fromUTF8,
+    stringToBytes,
     FunctionDefinition,
     InferType,
     IntLiteralType,
@@ -371,7 +371,7 @@ describe("SemanticChecker Expression Unit Tests", () => {
 
                 units = result.units;
                 inference = new InferType(compilerVersion);
-                sourceFile = new SolFile(fileName, fromUTF8(content));
+                sourceFile = new SolFile(fileName, stringToBytes(content));
             });
 
             for (const [specString, loc, expectedType, expectedInfo] of testCases) {
@@ -423,7 +423,7 @@ describe("SemanticChecker Expression Unit Tests", () => {
 
                 units = result.units;
                 inference = new InferType(compilerVersion);
-                sourceFile = new SolFile(fileName, fromUTF8(content));
+                sourceFile = new SolFile(fileName, stringToBytes(content));
             });
 
             for (const [specString, loc] of testCases) {
@@ -539,7 +539,7 @@ describe("SemanticChecker Annotation Unit Tests", () => {
 
                 units = result.units;
                 inference = new InferType(compilerVersion);
-                sourceFile = new SolFile(fileName, fromUTF8(content));
+                sourceFile = new SolFile(fileName, stringToBytes(content));
             });
 
             for (const [specString, loc] of testCases) {
@@ -581,7 +581,7 @@ describe("SemanticChecker Annotation Unit Tests", () => {
 
                 units = result.units;
                 inference = new InferType(compilerVersion);
-                sourceFile = new SolFile(fileName, fromUTF8(content));
+                sourceFile = new SolFile(fileName, stringToBytes(content));
             });
 
             for (const [specString, loc] of testCases) {

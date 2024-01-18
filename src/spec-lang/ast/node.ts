@@ -1,4 +1,4 @@
-import { assert, PPAble, StructEqualityComparable, toUTF8 } from "solc-typed-ast";
+import { assert, PPAble, StructEqualityComparable, bytesToString } from "solc-typed-ast";
 import { Range } from "../../util/location";
 
 let nNodes = 0;
@@ -57,6 +57,6 @@ export abstract class SNode implements StructEqualityComparable, PPAble {
     getSourceFragment(src: Uint8Array): string {
         const rng = this.requiredRange;
 
-        return toUTF8(src.slice(rng.start.offset, rng.end.offset));
+        return bytesToString(src.slice(rng.start.offset, rng.end.offset));
     }
 }

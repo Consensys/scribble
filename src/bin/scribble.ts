@@ -32,7 +32,7 @@ import {
     getCompilerPrefixForOs,
     isVisiblityExternallyCallable,
     parsePathRemapping,
-    toUTF8
+    bytesToString
 } from "solc-typed-ast";
 import { rewriteImports } from "../ast_to_source_printer";
 import {
@@ -110,7 +110,7 @@ function getSrcLine(l: Range | Location): string {
 
     lineEnd = lineEnd == -1 ? startLoc.file.rawContents.length : lineEnd;
 
-    return toUTF8(startLoc.file.rawContents.slice(lineStart, lineEnd));
+    return bytesToString(startLoc.file.rawContents.slice(lineStart, lineEnd));
 }
 
 /// TODO: Eventually make this support underlining a range spanning multiple liens

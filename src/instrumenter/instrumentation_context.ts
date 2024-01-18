@@ -7,7 +7,7 @@ import {
     EnumDefinition,
     EventDefinition,
     Expression,
-    fromUTF8,
+    stringToBytes,
     FunctionCallKind,
     FunctionDefinition,
     ImportDirective,
@@ -21,7 +21,7 @@ import {
     SrcRangeMap,
     Statement,
     StructDefinition,
-    toUTF8,
+    bytesToString,
     TypeNode,
     VariableDeclaration
 } from "solc-typed-ast";
@@ -504,7 +504,7 @@ export class InstrumentationContext {
         srcMap: SrcRangeMap
     ): string {
         const replaceMarker = "000000:0000:000";
-        const byteContents = fromUTF8(contents);
+        const byteContents = stringToBytes(contents);
 
         for (const [lit, targetNode] of this.litAdjustMap) {
             if (lit.getClosestParentByType(SourceUnit) !== unit) {
@@ -520,7 +520,7 @@ export class InstrumentationContext {
             const startAt = strLoc[0];
             const endAt = strLoc[0] + strLoc[1];
 
-            let litStr = toUTF8(byteContents.slice(startAt, endAt));
+            let litStr = bytesToString(byteContents.slice(startAt, endAt));
 
             assert(
                 litStr.startsWith("'") || litStr.startsWith('"') || litStr.startsWith("unicode"),
@@ -546,7 +546,7 @@ export class InstrumentationContext {
             utf8enc.encodeInto(litStr, byteContents.subarray(startAt));
         }
 
-        return toUTF8(byteContents);
+        return bytesToString(byteContents);
     }
 
     needsImport(unit: SourceUnit, importPath: string): void {

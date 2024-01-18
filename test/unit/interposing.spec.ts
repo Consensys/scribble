@@ -4,7 +4,7 @@ import {
     ASTContext,
     ASTNodeFactory,
     ContractDefinition,
-    fromUTF8,
+    stringToBytes,
     FunctionDefinition,
     SourceUnit,
     TupleExpression,
@@ -31,7 +31,7 @@ function print(units: SourceUnit[], contents: string[], version: string): Map<So
     const contentMap = new Map(
         units.map((unit, idx) => [
             unit.absolutePath,
-            new SolFile(unit.absolutePath, fromUTF8(contents[idx]))
+            new SolFile(unit.absolutePath, stringToBytes(contents[idx]))
         ])
     );
     const context = new ASTContext(...units);
