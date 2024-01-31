@@ -222,7 +222,7 @@ export function interpose(
 
     fun.documentation = undefined;
     stub.documentation = undefined;
-    fun.visibility = FunctionVisibility.Private;
+    fun.visibility = FunctionVisibility.Internal;
     fun.isConstructor = false;
     renameReturns(stub);
 

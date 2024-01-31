@@ -1,0 +1,26 @@
+erc1155:
+    variables:
+    properties:
+        safeTransferFrom(from, to, tokenId, value, data):
+            - msg: "Cannot transfer to 0 address"
+              prop: "#if_succeeds to != address(0);"
+            - msg: "sender must have sufficient balance"
+              prop: "#if_succeeds old(balanceOf(from, tokenId)) >= value;"
+            - msg: "Sender must be properly authorized to transfer"
+              prop: "#if_succeeds msg.sender == from || old(isApprovedForAll(from, msg.sender));"
+            - msg: "Sender lost value tokens"
+              prop: "#if_succeeds balanceOf(from, tokenId) == old(balanceOf(from, tokenId)) - value;"
+            - msg: "Recipient gained value tokens (assuming non-deflationary tokens)"
+              prop: "#if_succeeds balanceOf(to, tokenId) == old(balanceOf(to, tokenId)) + value;"
+        safeBatchTransferFrom(from, to, ids, values, data):
+            - msg: "Cannot transfer to 0 address"
+              prop: "#if_succeeds to != address(0);"
+            - msg: "Ids and values must have equal length"
+              prop: "#if_succeeds values.length == ids.length;"
+            - msg: "sender must have sufficient balance"
+              prop: "#if_succeeds old(forall(uint i in ids) balanceOf(from, ids[i]) >= values[i]);"
+            - msg: "Sender must be properly authorized to transfer"
+              prop: "#if_succeeds msg.sender == from || old(isApprovedForAll(from, msg.sender));"
+        setApprovalForAll(operator, approved):
+            - msg: "setApprovalForAll worked correctly"
+              prop: "#if_succeeds approved == isApprovedForAll(msg.sender, operator);"
