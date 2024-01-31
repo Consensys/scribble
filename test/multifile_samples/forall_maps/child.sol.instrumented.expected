@@ -92,7 +92,7 @@ contract Foo is Base {
         }
     }
 
-    function _original_Foo_setA(uint key, uint val) private {
+    function _original_Foo_setA(uint key, uint val) internal {
         uint256_to_uint256_61.set(a, key, val);
     }
 
@@ -107,13 +107,13 @@ contract Foo is Base {
                 if (!_v.forall_1) break;
             }
             if (!(_v.forall_1)) {
-                emit __ScribbleUtilsLib__293.AssertionFailed("002365:0067:001 1: ");
+                emit __ScribbleUtilsLib__293.AssertionFailed("002366:0067:001 1: ");
                 assert(false);
             }
         }
     }
 
-    function _original_Foo_decA(uint key) private {
+    function _original_Foo_decA(uint key) internal {
         uint256_to_uint256_61.dec(a, key);
     }
 
@@ -128,13 +128,13 @@ contract Foo is Base {
                 if (!_v.forall_2) break;
             }
             if (!(_v.forall_2)) {
-                emit __ScribbleUtilsLib__293.AssertionFailed("003042:0067:001 2: ");
+                emit __ScribbleUtilsLib__293.AssertionFailed("003044:0067:001 2: ");
                 assert(false);
             }
         }
     }
 
-    function _original_Foo_setC(string memory s, int16 v) private {
+    function _original_Foo_setC(string memory s, int16 v) internal {
         string_to_int16_61.set(c0, s, v);
     }
 
@@ -155,13 +155,13 @@ contract Foo is Base {
                 if (!_v.forall_3) break;
             }
             if (!(_v.forall_3)) {
-                emit __ScribbleUtilsLib__293.AssertionFailed("004136:0067:001 3: ");
+                emit __ScribbleUtilsLib__293.AssertionFailed("004139:0067:001 3: ");
                 assert(false);
             }
         }
     }
 
-    function _original_Foo_setD(string memory s, uint8 k, int8 v) private {
+    function _original_Foo_setD(string memory s, uint8 k, int8 v) internal {
         uint8_to_int8_61.set(string_to_uint8_to_int8_61_S_472_61.get_lhs(d, s), k, v);
     }
 
@@ -176,13 +176,13 @@ contract Foo is Base {
                 if (!_v.forall_5) break;
             }
             if (!(_v.forall_5)) {
-                emit __ScribbleUtilsLib__293.AssertionFailed("004888:0067:001 4: ");
+                emit __ScribbleUtilsLib__293.AssertionFailed("004892:0067:001 4: ");
                 assert(false);
             }
         }
     }
 
-    function _original_Foo_setE(uint k, uint[] memory v) private {
+    function _original_Foo_setE(uint k, uint[] memory v) internal {
         uint256_to_uint256_arr_61.set(e, k, v);
     }
 
@@ -200,13 +200,13 @@ contract Foo is Base {
                 if (!_v.forall_6) break;
             }
             if (!(_v.forall_6)) {
-                emit __ScribbleUtilsLib__293.AssertionFailed("005570:0067:001 5: ");
+                emit __ScribbleUtilsLib__293.AssertionFailed("005575:0067:001 5: ");
                 assert(false);
             }
         }
     }
 
-    function _original_Foo_setF(uint i, uint j, uint v) private {
+    function _original_Foo_setF(uint i, uint j, uint v) internal {
         f[i][j] = v;
     }
 
@@ -225,13 +225,13 @@ contract Foo is Base {
                 if (!_v.forall_7) break;
             }
             if (!(_v.forall_7)) {
-                emit __ScribbleUtilsLib__293.AssertionFailed("006301:0067:001 6: ");
+                emit __ScribbleUtilsLib__293.AssertionFailed("006307:0067:001 6: ");
                 assert(false);
             }
         }
     }
 
-    function _original_Foo_setG(uint i, uint j, uint v) private {
+    function _original_Foo_setG(uint i, uint j, uint v) internal {
         uint256_to_uint256_61.set(g[i], j, v);
     }
 
@@ -246,13 +246,13 @@ contract Foo is Base {
                 if (!_v.forall_8) break;
             }
             if (!(_v.forall_8)) {
-                emit __ScribbleUtilsLib__293.AssertionFailed("007020:0067:001 7: ");
+                emit __ScribbleUtilsLib__293.AssertionFailed("007027:0067:001 7: ");
                 assert(false);
             }
         }
     }
 
-    function _original_Foo_setH(string memory s, uint8 k, int8 v) private {
+    function _original_Foo_setH(string memory s, uint8 k, int8 v) internal {
         string_to_mapping_uint8_to_int8_61.get_lhs(h, s)[k] = v;
     }
 
@@ -267,13 +267,13 @@ contract Foo is Base {
                 if (!_v.forall_9) break;
             }
             if (!(_v.forall_9)) {
-                emit __ScribbleUtilsLib__293.AssertionFailed("007755:0067:001 8: ");
+                emit __ScribbleUtilsLib__293.AssertionFailed("007763:0067:001 8: ");
                 assert(false);
             }
         }
     }
 
-    function _original_Foo_setI(string memory s, uint8 k, int8 v) private {
+    function _original_Foo_setI(string memory s, uint8 k, int8 v) internal {
         uint8_to_int8_61.set(i[s], k, v);
     }
 
@@ -292,13 +292,13 @@ contract Foo is Base {
                 if (!_v.forall_10) break;
             }
             if (!(_v.forall_10)) {
-                emit __ScribbleUtilsLib__293.AssertionFailed("008565:0067:001 9: ");
+                emit __ScribbleUtilsLib__293.AssertionFailed("008574:0067:001 9: ");
                 assert(false);
             }
         }
     }
 
-    function _original_Foo_setJ(uint saI, string memory x, uint v) private {
+    function _original_Foo_setJ(uint saI, string memory x, uint v) internal {
         string_to_uint256_61.set(j.sas[saI].m, x, v);
     }
 
@@ -318,13 +318,13 @@ contract Foo is Base {
                 if (!_v.forall_11) break;
             }
             if (!(_v.forall_11)) {
-                emit __ScribbleUtilsLib__293.AssertionFailed("009563:0068:001 10: ");
+                emit __ScribbleUtilsLib__293.AssertionFailed("009573:0068:001 10: ");
                 assert(false);
             }
         }
     }
 
-    function _original_Foo_setJ2(uint saI, string memory x, uint v) private {
+    function _original_Foo_setJ2(uint saI, string memory x, uint v) internal {
         string_to_uint256_61.set(j.sas[saI].m, x, v);
     }
 }

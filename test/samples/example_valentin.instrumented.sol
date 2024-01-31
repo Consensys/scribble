@@ -42,7 +42,7 @@ contract FooToken {
         }
     }
 
-    function _original_FooToken_transfer(address _to, uint256 _value) private returns (bool) {
+    function _original_FooToken_transfer(address _to, uint256 _value) internal returns (bool) {
         address from = msg.sender;
         require(_value <= _balances[from]);
         uint256 newBalanceFrom = _balances[from] - _value;

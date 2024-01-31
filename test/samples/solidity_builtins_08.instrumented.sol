@@ -55,7 +55,7 @@ contract UserDefinedValueTypes {
         }
     }
 
-    function _original_UserDefinedValueTypes_main(uint32 a, int64 b, A c) private {}
+    function _original_UserDefinedValueTypes_main(uint32 a, int64 b, A c) internal {}
 }
 
 contract Foo {
@@ -63,49 +63,49 @@ contract Foo {
         _original_Foo_foo(v);
         unchecked {
             if (!(abi.encode(v).length > 0)) {
-                emit __ScribbleUtilsLib__61.AssertionFailed("002159:0066:000 7: ");
+                emit __ScribbleUtilsLib__61.AssertionFailed("002160:0066:000 7: ");
                 assert(false);
             }
         }
     }
 
-    function _original_Foo_foo(uint v) private {}
+    function _original_Foo_foo(uint v) internal {}
 
     function foo1(uint v) public {
         _original_Foo_foo1(v);
         unchecked {
             if (!(abi.encodePacked(v).length > 0)) {
-                emit __ScribbleUtilsLib__61.AssertionFailed("002495:0066:000 8: ");
+                emit __ScribbleUtilsLib__61.AssertionFailed("002497:0066:000 8: ");
                 assert(false);
             }
         }
     }
 
-    function _original_Foo_foo1(uint v) private {}
+    function _original_Foo_foo1(uint v) internal {}
 
     function foo2(uint v) public {
         _original_Foo_foo2(v);
         unchecked {
             if (!(abi.encodeWithSelector(bytes4(hex"01020304"), v).length > 0)) {
-                emit __ScribbleUtilsLib__61.AssertionFailed("002861:0066:000 9: ");
+                emit __ScribbleUtilsLib__61.AssertionFailed("002864:0066:000 9: ");
                 assert(false);
             }
         }
     }
 
-    function _original_Foo_foo2(uint v) private {}
+    function _original_Foo_foo2(uint v) internal {}
 
     function foo3(uint v) public {
         _original_Foo_foo3(v);
         unchecked {
             if (!(abi.encodeWithSignature("dummy", v).length > 0)) {
-                emit __ScribbleUtilsLib__61.AssertionFailed("003214:0067:000 10: ");
+                emit __ScribbleUtilsLib__61.AssertionFailed("003218:0067:000 10: ");
                 assert(false);
             }
         }
     }
 
-    function _original_Foo_foo3(uint v) private {}
+    function _original_Foo_foo3(uint v) internal {}
 }
 
 library __ScribbleUtilsLib__61 {

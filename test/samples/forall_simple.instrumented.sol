@@ -90,7 +90,7 @@ contract ForallSimple {
         __ScribbleUtilsLib__106.setInContract(false);
     }
 
-    function _original_ForallSimple_push(uint x) private {
+    function _original_ForallSimple_push(uint x) internal {
         a.push(x);
     }
 
@@ -110,7 +110,7 @@ contract ForallSimple {
                 if (!_v.forall_1) break;
             }
             if (!(_v.forall_1)) {
-                emit __ScribbleUtilsLib__106.AssertionFailed("002683:0067:000 1: ");
+                emit __ScribbleUtilsLib__106.AssertionFailed("002684:0067:000 1: ");
                 assert(false);
             }
         }
@@ -118,7 +118,7 @@ contract ForallSimple {
         __ScribbleUtilsLib__106.setInContract(!_v.__scribble_check_invs_at_end);
     }
 
-    function _original_ForallSimple_test1(uint[] memory a, uint x) private {}
+    function _original_ForallSimple_test1(uint[] memory a, uint x) internal {}
 
     function test2(uint[] memory a, uint x) public {
         vars3 memory _v;
@@ -135,7 +135,7 @@ contract ForallSimple {
                 if (!_v.forall_2) break;
             }
             if (!(_v.forall_2)) {
-                emit __ScribbleUtilsLib__106.AssertionFailed("003635:0067:000 2: ");
+                emit __ScribbleUtilsLib__106.AssertionFailed("003637:0067:000 2: ");
                 assert(false);
             }
         }
@@ -143,7 +143,7 @@ contract ForallSimple {
         __ScribbleUtilsLib__106.setInContract(!_v.__scribble_check_invs_at_end);
     }
 
-    function _original_ForallSimple_test2(uint[] memory a, uint x) private {
+    function _original_ForallSimple_test2(uint[] memory a, uint x) internal {
         t = x;
     }
 
@@ -166,7 +166,7 @@ contract ForallSimple {
         _original_ForallSimple_test3(a, x);
         unchecked {
             if (!(_v.old_1)) {
-                emit __ScribbleUtilsLib__106.AssertionFailed("004742:0067:000 3: ");
+                emit __ScribbleUtilsLib__106.AssertionFailed("004745:0067:000 3: ");
                 assert(false);
             }
         }
@@ -174,7 +174,7 @@ contract ForallSimple {
         __ScribbleUtilsLib__106.setInContract(!_v.__scribble_check_invs_at_end);
     }
 
-    function _original_ForallSimple_test3(uint[] memory a, uint x) private {
+    function _original_ForallSimple_test3(uint[] memory a, uint x) internal {
         t1 = x;
     }
 
@@ -198,7 +198,7 @@ contract ForallSimple {
                 if (!_v.forall_4) break;
             }
             if (!(_v.forall_4)) {
-                emit __ScribbleUtilsLib__106.AssertionFailed("005939:0067:000 4: ");
+                emit __ScribbleUtilsLib__106.AssertionFailed("005943:0067:000 4: ");
                 assert(false);
             }
         }
@@ -206,7 +206,7 @@ contract ForallSimple {
         __ScribbleUtilsLib__106.setInContract(!_v.__scribble_check_invs_at_end);
     }
 
-    function _original_ForallSimple_test4(uint[][] memory a, uint x) private {
+    function _original_ForallSimple_test4(uint[][] memory a, uint x) internal {
         t2 = x;
     }
 
@@ -222,7 +222,7 @@ contract ForallSimple {
                 if (!_v.forall_6) break;
             }
             if (!(_v.forall_6)) {
-                emit __ScribbleUtilsLib__106.AssertionFailed("006832:0067:000 5: ");
+                emit __ScribbleUtilsLib__106.AssertionFailed("006837:0067:000 5: ");
                 assert(false);
             }
         }
@@ -230,7 +230,7 @@ contract ForallSimple {
         __ScribbleUtilsLib__106.setInContract(!_v.__scribble_check_invs_at_end);
     }
 
-    function _original_ForallSimple_test5() private {}
+    function _original_ForallSimple_test5() internal {}
 
     function test6() public {
         vars7 memory _v;
@@ -244,7 +244,7 @@ contract ForallSimple {
                 if (!_v.forall_7) break;
             }
             if (!(_v.forall_7)) {
-                emit __ScribbleUtilsLib__106.AssertionFailed("007661:0067:000 6: ");
+                emit __ScribbleUtilsLib__106.AssertionFailed("007667:0067:000 6: ");
                 assert(false);
             }
         }
@@ -252,7 +252,7 @@ contract ForallSimple {
         __ScribbleUtilsLib__106.setInContract(!_v.__scribble_check_invs_at_end);
     }
 
-    function _original_ForallSimple_test6() private {}
+    function _original_ForallSimple_test6() internal {}
 
     function test7() public {
         vars8 memory _v;
@@ -266,7 +266,7 @@ contract ForallSimple {
                 if (!_v.forall_8) break;
             }
             if (!(_v.forall_8)) {
-                emit __ScribbleUtilsLib__106.AssertionFailed("008490:0067:000 7: ");
+                emit __ScribbleUtilsLib__106.AssertionFailed("008497:0067:000 7: ");
                 assert(false);
             }
         }
@@ -274,7 +274,7 @@ contract ForallSimple {
         __ScribbleUtilsLib__106.setInContract(!_v.__scribble_check_invs_at_end);
     }
 
-    function _original_ForallSimple_test7() private {}
+    function _original_ForallSimple_test7() internal {}
 
     function test11() public {
         vars9 memory _v;
@@ -288,7 +288,7 @@ contract ForallSimple {
                 if (!_v.forall_9) break;
             }
             if (!(_v.forall_9)) {
-                emit __ScribbleUtilsLib__106.AssertionFailed("009317:0067:000 8: ");
+                emit __ScribbleUtilsLib__106.AssertionFailed("009325:0067:000 8: ");
                 assert(false);
             }
         }
@@ -296,7 +296,7 @@ contract ForallSimple {
         __ScribbleUtilsLib__106.setInContract(!_v.__scribble_check_invs_at_end);
     }
 
-    function _original_ForallSimple_test11() private {}
+    function _original_ForallSimple_test11() internal {}
 
     function test12() public {
         vars10 memory _v;
@@ -312,7 +312,7 @@ contract ForallSimple {
             }
             _v.let_4 = _v.forall_10;
             if (!(_v.let_4)) {
-                emit __ScribbleUtilsLib__106.AssertionFailed("010266:0067:000 9: ");
+                emit __ScribbleUtilsLib__106.AssertionFailed("010275:0067:000 9: ");
                 assert(false);
             }
         }
@@ -320,7 +320,7 @@ contract ForallSimple {
         __ScribbleUtilsLib__106.setInContract(!_v.__scribble_check_invs_at_end);
     }
 
-    function _original_ForallSimple_test12() private {}
+    function _original_ForallSimple_test12() internal {}
 
     /// Check only the current contract's state invariants
     function __scribble_ForallSimple_check_state_invariants_internal() internal {
@@ -332,7 +332,7 @@ contract ForallSimple {
                 if (!_v.forall_0) break;
             }
             if (!(_v.forall_0)) {
-                emit __ScribbleUtilsLib__106.AssertionFailed("011042:0067:000 0: ");
+                emit __ScribbleUtilsLib__106.AssertionFailed("011052:0067:000 0: ");
                 assert(false);
             }
         }

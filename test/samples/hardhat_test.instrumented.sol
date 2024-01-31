@@ -536,7 +536,7 @@ contract HardHatTest {
         }
     }
 
-    function _original_HardHatTest_main(string memory str, bytes memory bts) private {}
+    function _original_HardHatTest_main(string memory str, bytes memory bts) internal {}
 }
 
 library __ScribbleUtilsLib__19 {

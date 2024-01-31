@@ -26,7 +26,7 @@ contract Foo {
         }
     }
 
-    function _original_Foo_foo() private {}
+    function _original_Foo_foo() internal {}
 }
 
 library address_to_uint256_11 {

@@ -45,7 +45,7 @@ contract Base {
         __ScribbleUtilsLib__59.setInContract(!_v.__scribble_check_invs_at_end);
     }
 
-    function _original_Base_main(uint[] memory n) private {
+    function _original_Base_main(uint[] memory n) internal {
         vars4 memory _v;
         unchecked {
             _v.forall_0 = true;
@@ -54,14 +54,14 @@ contract Base {
                 if (!_v.forall_0) break;
             }
             if (!(_v.forall_0)) {
-                emit __ScribbleUtilsLib__59.AssertionFailed("001483:0066:000 3: ");
+                emit __ScribbleUtilsLib__59.AssertionFailed("001484:0066:000 3: ");
                 assert(false);
             }
         }
         for (uint i = 0; i < n.length; i++) {
             unchecked {
                 if (!(n[i] > X)) {
-                    emit __ScribbleUtilsLib__59.AssertionFailed("001731:0066:000 4: ");
+                    emit __ScribbleUtilsLib__59.AssertionFailed("001732:0066:000 4: ");
                     assert(false);
                 }
             }
@@ -73,7 +73,7 @@ contract Base {
     function __scribble_Base_check_state_invariants_internal() internal {
         unchecked {
             if (!(sum < 200)) {
-                emit __ScribbleUtilsLib__59.AssertionFailed("002132:0066:000 0: ");
+                emit __ScribbleUtilsLib__59.AssertionFailed("002133:0066:000 0: ");
                 assert(false);
             }
         }
@@ -99,7 +99,7 @@ contract Base {
         RET0 = sum;
         unchecked {
             if (!((sum - _v.old_0) > (X + 1))) {
-                emit __ScribbleUtilsLib__59.AssertionFailed("002949:0066:000 1: ");
+                emit __ScribbleUtilsLib__59.AssertionFailed("002950:0066:000 1: ");
                 assert(false);
             }
         }
@@ -172,10 +172,10 @@ contract Child is Base {
         __ScribbleUtilsLib__100.setInContract(!_v.__scribble_check_invs_at_end);
     }
 
-    function _original_Child_main1(uint t) private {
+    function _original_Child_main1(uint t) internal {
         unchecked {
             if (!(((((X == 2) && (X == 2)) && (X == 2)) && (X == 2)) && (t == X))) {
-                emit __ScribbleUtilsLib__100.AssertionFailed("005227:0067:000 5: ");
+                emit __ScribbleUtilsLib__100.AssertionFailed("005229:0067:000 5: ");
                 assert(false);
             }
         }
@@ -185,7 +185,7 @@ contract Child is Base {
         p.y = 2;
         unchecked {
             if (!(foo(p) == 3)) {
-                emit __ScribbleUtilsLib__100.AssertionFailed("005492:0067:000 6: ");
+                emit __ScribbleUtilsLib__100.AssertionFailed("005494:0067:000 6: ");
                 assert(false);
             }
         }

@@ -24,7 +24,7 @@ contract Child2 is Base {
         __ScribbleUtilsLib__41.setInContract(!_v.__scribble_check_invs_at_end);
     }
 
-    function _original_Child2_double() private {
+    function _original_Child2_double() internal {
         x *= 2;
     }
 

@@ -33,7 +33,7 @@ contract Baz {
         __ScribbleUtilsLib__78.setInContract(!_v.__scribble_check_invs_at_end);
     }
 
-    function _original_Baz_getX() private view returns (uint) {
+    function _original_Baz_getX() internal view returns (uint) {
         return x;
     }
 
@@ -47,21 +47,21 @@ contract Baz {
         __ScribbleUtilsLib__78.setInContract(true);
         RET_0 = _original_Baz_getXPlus2();
         if (!(x > 2)) {
-            emit __ScribbleUtilsLib__78.AssertionFailed("001475:0066:000 3: ");
+            emit __ScribbleUtilsLib__78.AssertionFailed("001476:0066:000 3: ");
             assert(false);
         }
         if (_v.__scribble_check_invs_at_end) __scribble_check_state_invariants();
         __ScribbleUtilsLib__78.setInContract(!_v.__scribble_check_invs_at_end);
     }
 
-    function _original_Baz_getXPlus2() private returns (uint) {
+    function _original_Baz_getXPlus2() internal returns (uint) {
         return getXPlus1() + 1;
     }
 
     /// Check only the current contract's state invariants
     function __scribble_Baz_check_state_invariants_internal() internal {
         if (!(x > 0)) {
-            emit __ScribbleUtilsLib__78.AssertionFailed("002020:0066:000 1: ");
+            emit __ScribbleUtilsLib__78.AssertionFailed("002022:0066:000 1: ");
             assert(false);
         }
     }
@@ -110,12 +110,12 @@ contract Foo is Base {
     function getX() virtual override public returns (uint RET_0) {
         RET_0 = _original_Foo_getX();
         if (!(x > 0)) {
-            emit __ScribbleUtilsLib__78.AssertionFailed("003456:0066:000 0: ");
+            emit __ScribbleUtilsLib__78.AssertionFailed("003458:0066:000 0: ");
             assert(false);
         }
     }
 
-    function _original_Foo_getX() private view returns (uint) {
+    function _original_Foo_getX() internal view returns (uint) {
         return x;
     }
 }
@@ -124,12 +124,12 @@ contract Child is Foo {
     function getX() virtual override public returns (uint RET_0) {
         RET_0 = _original_Child_getX();
         if (!(x > 0)) {
-            emit __ScribbleUtilsLib__78.AssertionFailed("003826:0066:000 0: ");
+            emit __ScribbleUtilsLib__78.AssertionFailed("003829:0066:000 0: ");
             assert(false);
         }
     }
 
-    function _original_Child_getX() private returns (uint) {
+    function _original_Child_getX() internal returns (uint) {
         return x + 1;
     }
 }

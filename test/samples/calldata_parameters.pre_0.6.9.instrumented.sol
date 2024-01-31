@@ -11,14 +11,14 @@ contract Test {
         __ScribbleUtilsLib__15.setInContract(false);
     }
 
-    function _original_Test_foo(bytes memory x) private returns (uint) {
+    function _original_Test_foo(bytes memory x) internal returns (uint) {
         return x.length;
     }
 
     /// Check only the current contract's state invariants
     function __scribble_Test_check_state_invariants_internal() internal {
         if (!(true)) {
-            emit __ScribbleUtilsLib__15.AssertionFailed("000731:0068:000 0: P1");
+            emit __ScribbleUtilsLib__15.AssertionFailed("000732:0068:000 0: P1");
             assert(false);
         }
     }

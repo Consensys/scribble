@@ -24,13 +24,13 @@ contract Foo {
         __ScribbleUtilsLib__8.setInContract(!_v.__scribble_check_invs_at_end);
     }
 
-    function _original_Foo_main() private {}
+    function _original_Foo_main() internal {}
 
     /// Check only the current contract's state invariants
     function __scribble_Foo_check_state_invariants_internal() internal {
         unchecked {
             if (!(true)) {
-                emit __ScribbleUtilsLib__8.AssertionFailed(unicode"001163:0100:000 0: 😀😀😀😀😀😀😀");
+                emit __ScribbleUtilsLib__8.AssertionFailed(unicode"001164:0100:000 0: 😀😀😀😀😀😀😀");
                 assert(false);
             }
         }

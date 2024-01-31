@@ -73,7 +73,7 @@ contract ERC721 {
         }
     }
 
-    function _original_ERC721_balanceOf(address owner) private view returns (uint256) {
+    function _original_ERC721_balanceOf(address owner) internal view returns (uint256) {
         require(owner != address(0), "ERC721: balance query for the zero address");
         return _balances[owner];
     }
@@ -82,17 +82,17 @@ contract ERC721 {
         RET_0 = _original_ERC721_ownerOf(tokenId);
         unchecked {
             if (!(RET_0 != address(0))) {
-                emit __ScribbleUtilsLib__826.AssertionFailed("003121:0104:000 2: NFTs cannot be owned by the 0 address");
+                emit __ScribbleUtilsLib__826.AssertionFailed("003122:0104:000 2: NFTs cannot be owned by the 0 address");
                 assert(false);
             }
             if (!(_original_ERC721_balanceOf(RET_0) > 0)) {
-                emit __ScribbleUtilsLib__826.AssertionFailed("003348:0108:000 3: ownerOf() should not contradict balanceOf");
+                emit __ScribbleUtilsLib__826.AssertionFailed("003349:0108:000 3: ownerOf() should not contradict balanceOf");
                 assert(false);
             }
         }
     }
 
-    function _original_ERC721_ownerOf(uint256 tokenId) private view returns (address) {
+    function _original_ERC721_ownerOf(uint256 tokenId) internal view returns (address) {
         address owner = _owners[tokenId];
         require(owner != address(0), "ERC721: owner query for nonexistent token");
         return owner;
@@ -130,21 +130,21 @@ contract ERC721 {
         _original_ERC721_approve(to, tokenId);
         unchecked {
             if (!((msg.sender == _original_ERC721_ownerOf(tokenId)) || isApprovedForAll(_original_ERC721_ownerOf(tokenId), msg.sender))) {
-                emit __ScribbleUtilsLib__826.AssertionFailed("005060:0113:000 16: Sender must be properly authorized to approve");
+                emit __ScribbleUtilsLib__826.AssertionFailed("005062:0113:000 16: Sender must be properly authorized to approve");
                 assert(false);
             }
             if (!(getApproved(tokenId) == to)) {
-                emit __ScribbleUtilsLib__826.AssertionFailed("005285:0091:000 17: Approve works correctly");
+                emit __ScribbleUtilsLib__826.AssertionFailed("005287:0091:000 17: Approve works correctly");
                 assert(false);
             }
             if (!(_original_ERC721_ownerOf(tokenId) == _v.old_0)) {
-                emit __ScribbleUtilsLib__826.AssertionFailed("005507:0100:000 18: Approve doesn't change ownership");
+                emit __ScribbleUtilsLib__826.AssertionFailed("005509:0100:000 18: Approve doesn't change ownership");
                 assert(false);
             }
         }
     }
 
-    function _original_ERC721_approve(address to, uint256 tokenId) private {
+    function _original_ERC721_approve(address to, uint256 tokenId) internal {
         address owner = ERC721.ownerOf(tokenId);
         require(to != owner, "ERC721: approval to current owner");
         require((msg.sender == owner) || isApprovedForAll(owner, msg.sender), "ERC721: approve caller is not owner nor approved for all");
@@ -161,13 +161,13 @@ contract ERC721 {
         _original_ERC721_setApprovalForAll(operator, approved);
         unchecked {
             if (!(approved == isApprovedForAll(msg.sender, operator))) {
-                emit __ScribbleUtilsLib__826.AssertionFailed("006549:0102:000 19: setApprovalForAll worked correctly");
+                emit __ScribbleUtilsLib__826.AssertionFailed("006552:0102:000 19: setApprovalForAll worked correctly");
                 assert(false);
             }
         }
     }
 
-    function _original_ERC721_setApprovalForAll(address operator, bool approved) private {
+    function _original_ERC721_setApprovalForAll(address operator, bool approved) internal {
         _setApprovalForAll(msg.sender, operator, approved);
     }
 
@@ -187,25 +187,25 @@ contract ERC721 {
         _original_ERC721_transferFrom(from, to, tokenId);
         unchecked {
             if (!(to != address(0))) {
-                emit __ScribbleUtilsLib__826.AssertionFailed("007601:0096:000 12: Cannot transfer to 0 address");
+                emit __ScribbleUtilsLib__826.AssertionFailed("007605:0096:000 12: Cannot transfer to 0 address");
                 assert(false);
             }
             if (!(_v.old_1 == from)) {
-                emit __ScribbleUtilsLib__826.AssertionFailed("007799:0098:000 13: from must be the current owner");
+                emit __ScribbleUtilsLib__826.AssertionFailed("007803:0098:000 13: from must be the current owner");
                 assert(false);
             }
             if (!(((msg.sender == _v.old_2) || _v.old_3) || (_v.old_4 == msg.sender))) {
-                emit __ScribbleUtilsLib__826.AssertionFailed("008049:0114:000 14: Sender must be properly authorized to transfer");
+                emit __ScribbleUtilsLib__826.AssertionFailed("008053:0114:000 14: Sender must be properly authorized to transfer");
                 assert(false);
             }
             if (!(_original_ERC721_ownerOf(tokenId) == to)) {
-                emit __ScribbleUtilsLib__826.AssertionFailed("008288:0083:000 15: Transfer worked");
+                emit __ScribbleUtilsLib__826.AssertionFailed("008292:0083:000 15: Transfer worked");
                 assert(false);
             }
         }
     }
 
-    function _original_ERC721_transferFrom(address from, address to, uint256 tokenId) private {
+    function _original_ERC721_transferFrom(address from, address to, uint256 tokenId) internal {
         require(_isApprovedOrOwner(msg.sender, tokenId), "ERC721: transfer caller is not owner nor approved");
         _transfer(from, to, tokenId);
     }
@@ -221,25 +221,25 @@ contract ERC721 {
         _original_ERC721_safeTransferFrom(from, to, tokenId);
         unchecked {
             if (!(to != address(0))) {
-                emit __ScribbleUtilsLib__826.AssertionFailed("009218:0095:000 8: Cannot transfer to 0 address");
+                emit __ScribbleUtilsLib__826.AssertionFailed("009223:0095:000 8: Cannot transfer to 0 address");
                 assert(false);
             }
             if (!(_v.old_5 == from)) {
-                emit __ScribbleUtilsLib__826.AssertionFailed("009415:0097:000 9: from must be the current owner");
+                emit __ScribbleUtilsLib__826.AssertionFailed("009420:0097:000 9: from must be the current owner");
                 assert(false);
             }
             if (!(((msg.sender == _v.old_6) || _v.old_7) || (_v.old_8 == msg.sender))) {
-                emit __ScribbleUtilsLib__826.AssertionFailed("009664:0114:000 10: Sender must be properly authorized to transfer");
+                emit __ScribbleUtilsLib__826.AssertionFailed("009669:0114:000 10: Sender must be properly authorized to transfer");
                 assert(false);
             }
             if (!(_original_ERC721_ownerOf(tokenId) == to)) {
-                emit __ScribbleUtilsLib__826.AssertionFailed("009903:0083:000 11: Transfer worked");
+                emit __ScribbleUtilsLib__826.AssertionFailed("009908:0083:000 11: Transfer worked");
                 assert(false);
             }
         }
     }
 
-    function _original_ERC721_safeTransferFrom(address from, address to, uint256 tokenId) private {
+    function _original_ERC721_safeTransferFrom(address from, address to, uint256 tokenId) internal {
         safeTransferFrom(from, to, tokenId, "");
     }
 
@@ -254,25 +254,25 @@ contract ERC721 {
         _original_ERC721_safeTransferFrom1(from, to, tokenId, _data);
         unchecked {
             if (!(to != address(0))) {
-                emit __ScribbleUtilsLib__826.AssertionFailed("010768:0095:000 4: Cannot transfer to 0 address");
+                emit __ScribbleUtilsLib__826.AssertionFailed("010774:0095:000 4: Cannot transfer to 0 address");
                 assert(false);
             }
             if (!(_v.old_9 == from)) {
-                emit __ScribbleUtilsLib__826.AssertionFailed("010965:0097:000 5: from must be the current owner");
+                emit __ScribbleUtilsLib__826.AssertionFailed("010971:0097:000 5: from must be the current owner");
                 assert(false);
             }
             if (!(((msg.sender == _v.old_10) || _v.old_11) || (_v.old_12 == msg.sender))) {
-                emit __ScribbleUtilsLib__826.AssertionFailed("011217:0113:000 6: Sender must be properly authorized to transfer");
+                emit __ScribbleUtilsLib__826.AssertionFailed("011223:0113:000 6: Sender must be properly authorized to transfer");
                 assert(false);
             }
             if (!(_original_ERC721_ownerOf(tokenId) == to)) {
-                emit __ScribbleUtilsLib__826.AssertionFailed("011455:0082:000 7: Transfer worked");
+                emit __ScribbleUtilsLib__826.AssertionFailed("011461:0082:000 7: Transfer worked");
                 assert(false);
             }
         }
     }
 
-    function _original_ERC721_safeTransferFrom1(address from, address to, uint256 tokenId, bytes memory _data) private {
+    function _original_ERC721_safeTransferFrom1(address from, address to, uint256 tokenId, bytes memory _data) internal {
         require(_isApprovedOrOwner(msg.sender, tokenId), "ERC721: transfer caller is not owner nor approved");
         _safeTransfer(from, to, tokenId, _data);
     }

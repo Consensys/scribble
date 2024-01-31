@@ -27,7 +27,7 @@ contract Foo {
         __ScribbleUtilsLib__89.setInContract(!_v.__scribble_check_invs_at_end);
     }
 
-    function _original_Foo_inc() private {
+    function _original_Foo_inc() internal {
         x++;
     }
 
@@ -49,7 +49,7 @@ contract Foo {
         __ScribbleUtilsLib__89.setInContract(!_v.__scribble_check_invs_at_end);
     }
 
-    function _original_Foo_fail() private {
+    function _original_Foo_fail() internal {
         fail_int();
     }
 
@@ -62,7 +62,7 @@ contract Foo {
         __ScribbleUtilsLib__89.setInContract(!_v.__scribble_check_invs_at_end);
     }
 
-    function _original_Foo_withdraw(uint _amount) private {
+    function _original_Foo_withdraw(uint _amount) internal {
         (bool success, bytes memory retval) = _callsite_80(msg.sender, _amount, "");
         require(success);
     }
@@ -70,7 +70,7 @@ contract Foo {
     /// Check only the current contract's state invariants
     function __scribble_Foo_check_state_invariants_internal() internal {
         if (!(x > 0)) {
-            __ScribbleUtilsLib__89.assertionFailed("002289:0061:000 0: ");
+            __ScribbleUtilsLib__89.assertionFailed("002292:0061:000 0: ");
             assert(false);
         }
     }

@@ -24,7 +24,7 @@ contract Foo {
         }
     }
 
-    function _original_Foo_inc(uint x) private returns (uint y) {
+    function _original_Foo_inc(uint x) internal returns (uint y) {
         return x + 1;
     }
 

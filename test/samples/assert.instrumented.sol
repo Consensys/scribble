@@ -128,7 +128,7 @@ contract AssertMixed {
         __ScribbleUtilsLib__235.setInContract(!_v.__scribble_check_invs_at_end);
     }
 
-    function _original_AssertMixed_main(uint[] memory n) private {
+    function _original_AssertMixed_main(uint[] memory n) internal {
         vars6 memory _v;
         unchecked {
             _v.forall_1 = true;
@@ -137,14 +137,14 @@ contract AssertMixed {
                 if (!_v.forall_1) break;
             }
             if (!(_v.forall_1)) {
-                emit __ScribbleUtilsLib__235.AssertionFailed("003641:0067:000 7: ");
+                emit __ScribbleUtilsLib__235.AssertionFailed("003642:0067:000 7: ");
                 assert(false);
             }
         }
         for (uint i = 0; i < n.length; i++) {
             unchecked {
                 if (!(n[i] > 2)) {
-                    emit __ScribbleUtilsLib__235.AssertionFailed("003890:0067:000 8: ");
+                    emit __ScribbleUtilsLib__235.AssertionFailed("003891:0067:000 8: ");
                     assert(false);
                 }
             }
@@ -156,7 +156,7 @@ contract AssertMixed {
     function __scribble_AssertMixed_check_state_invariants_internal() internal {
         unchecked {
             if (!(sum < 200)) {
-                emit __ScribbleUtilsLib__235.AssertionFailed("004306:0067:000 0: ");
+                emit __ScribbleUtilsLib__235.AssertionFailed("004307:0067:000 0: ");
                 assert(false);
             }
         }
@@ -182,7 +182,7 @@ contract AssertMixed {
         RET0 = sum;
         unchecked {
             if (!((sum - _v.old_0) > 3)) {
-                emit __ScribbleUtilsLib__235.AssertionFailed("005134:0067:000 1: ");
+                emit __ScribbleUtilsLib__235.AssertionFailed("005135:0067:000 1: ");
                 assert(false);
             }
         }
@@ -193,35 +193,35 @@ contract SimpleAsserts {
     function main(uint a1, uint a2, uint a3, bool b1, uint a4, uint a5, uint a6, uint a7, uint a8) public {
         unchecked {
             if (!(a1 == 1)) {
-                emit __ScribbleUtilsLib__235.AssertionFailed("005466:0067:000 9: ");
+                emit __ScribbleUtilsLib__235.AssertionFailed("005467:0067:000 9: ");
                 assert(false);
             }
         }
         uint x = 2;
         unchecked {
             if (!(a2 == x)) {
-                emit __ScribbleUtilsLib__235.AssertionFailed("005676:0068:000 10: ");
+                emit __ScribbleUtilsLib__235.AssertionFailed("005677:0068:000 10: ");
                 assert(false);
             }
         }
         x++;
         unchecked {
             if (!(a3 == x)) {
-                emit __ScribbleUtilsLib__235.AssertionFailed("005880:0068:000 11: ");
+                emit __ScribbleUtilsLib__235.AssertionFailed("005881:0068:000 11: ");
                 assert(false);
             }
         }
         if (b1) {
             unchecked {
                 if (!(a4 == (x + 1))) {
-                    emit __ScribbleUtilsLib__235.AssertionFailed("006107:0068:000 12: ");
+                    emit __ScribbleUtilsLib__235.AssertionFailed("006108:0068:000 12: ");
                     assert(false);
                 }
             }
             {
                 unchecked {
                     if (!(a5 == (x + 2))) {
-                        emit __ScribbleUtilsLib__235.AssertionFailed("006354:0068:000 13: ");
+                        emit __ScribbleUtilsLib__235.AssertionFailed("006355:0068:000 13: ");
                         assert(false);
                     }
                 }
@@ -231,7 +231,7 @@ contract SimpleAsserts {
             x++;
             unchecked {
                 if (!(a6 == (x + 2))) {
-                    emit __ScribbleUtilsLib__235.AssertionFailed("006656:0068:000 14: ");
+                    emit __ScribbleUtilsLib__235.AssertionFailed("006657:0068:000 14: ");
                     assert(false);
                 }
             }
@@ -240,7 +240,7 @@ contract SimpleAsserts {
         while (a6 > 0) {
             unchecked {
                 if (!(a7 >= (a6 + 1))) {
-                    emit __ScribbleUtilsLib__235.AssertionFailed("006932:0068:000 15: ");
+                    emit __ScribbleUtilsLib__235.AssertionFailed("006933:0068:000 15: ");
                     assert(false);
                 }
             }
@@ -248,7 +248,7 @@ contract SimpleAsserts {
         }
         unchecked {
             if (!(a8 == (x + 4))) {
-                emit __ScribbleUtilsLib__235.AssertionFailed("007169:0068:000 16: ");
+                emit __ScribbleUtilsLib__235.AssertionFailed("007170:0068:000 16: ");
                 assert(false);
             }
         }

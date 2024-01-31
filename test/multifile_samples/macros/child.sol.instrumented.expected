@@ -14,7 +14,7 @@ contract Foo {
         }
     }
 
-    function _original_Foo_foo(uint z, uint w) private {}
+    function _original_Foo_foo(uint z, uint w) internal {}
 }
 
 library __ScribbleUtilsLib__69 {

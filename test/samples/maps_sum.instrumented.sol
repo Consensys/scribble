@@ -44,7 +44,7 @@ contract Foo {
         }
     }
 
-    function _original_Foo_setA(uint k, uint v) private {
+    function _original_Foo_setA(uint k, uint v) internal {
         uint256_to_uint256_227.set(a, k, v);
     }
 
@@ -52,13 +52,13 @@ contract Foo {
         _original_Foo_incA(k);
         unchecked {
             if (!((a.sum > 10) && (a.sum < 20))) {
-                emit __ScribbleUtilsLib__227.AssertionFailed("001345:0067:000 1: ");
+                emit __ScribbleUtilsLib__227.AssertionFailed("001346:0067:000 1: ");
                 assert(false);
             }
         }
     }
 
-    function _original_Foo_incA(uint k) private {
+    function _original_Foo_incA(uint k) internal {
         uint256_to_uint256_227.inc(a, k);
     }
 
@@ -66,13 +66,13 @@ contract Foo {
         _original_Foo_decA(k);
         unchecked {
             if (!((a.sum > 10) && (a.sum < 20))) {
-                emit __ScribbleUtilsLib__227.AssertionFailed("001728:0067:000 2: ");
+                emit __ScribbleUtilsLib__227.AssertionFailed("001730:0067:000 2: ");
                 assert(false);
             }
         }
     }
 
-    function _original_Foo_decA(uint k) private {
+    function _original_Foo_decA(uint k) internal {
         uint256_to_uint256_227.dec(a, k);
     }
 
@@ -80,13 +80,13 @@ contract Foo {
         _original_Foo_setB(k, v);
         unchecked {
             if (!(b.sum > 128)) {
-                emit __ScribbleUtilsLib__227.AssertionFailed("002105:0067:000 3: ");
+                emit __ScribbleUtilsLib__227.AssertionFailed("002108:0067:000 3: ");
                 assert(false);
             }
         }
     }
 
-    function _original_Foo_setB(uint k, int8 v) private {
+    function _original_Foo_setB(uint k, int8 v) internal {
         uint256_to_int8_227.set(b, k, v);
     }
 
@@ -94,13 +94,13 @@ contract Foo {
         _original_Foo_decB(k);
         unchecked {
             if (!(b.sum > 128)) {
-                emit __ScribbleUtilsLib__227.AssertionFailed("002479:0067:000 4: ");
+                emit __ScribbleUtilsLib__227.AssertionFailed("002483:0067:000 4: ");
                 assert(false);
             }
         }
     }
 
-    function _original_Foo_decB(uint k) private {
+    function _original_Foo_decB(uint k) internal {
         uint256_to_int8_227.dec_pre(b, k);
     }
 
@@ -149,13 +149,13 @@ contract Foo {
                 if (!_v.forall_0) break;
             }
             if (!(_v.forall_0)) {
-                emit __ScribbleUtilsLib__227.AssertionFailed("004032:0067:000 5: ");
+                emit __ScribbleUtilsLib__227.AssertionFailed("004037:0067:000 5: ");
                 assert(false);
             }
         }
     }
 
-    function _original_Foo_setC(string memory k1, uint k2, int16 v) private {
+    function _original_Foo_setC(string memory k1, uint k2, int16 v) internal {
         uint256_to_int16_227.set(string_to_uint256_to_int16_227_S_229_227.get_lhs(c, k1), k2, v);
     }
 
@@ -170,13 +170,13 @@ contract Foo {
                 if (!_v.forall_1) break;
             }
             if (!(_v.forall_1)) {
-                emit __ScribbleUtilsLib__227.AssertionFailed("004813:0067:000 6: ");
+                emit __ScribbleUtilsLib__227.AssertionFailed("004819:0067:000 6: ");
                 assert(false);
             }
         }
     }
 
-    function _original_Foo_decC(string memory k1, uint k2) private {
+    function _original_Foo_decC(string memory k1, uint k2) internal {
         unchecked {
             uint256_to_int16_227.dec_unch(string_to_uint256_to_int16_227_S_229_227.get_lhs(c, k1), k2);
         }
@@ -193,13 +193,13 @@ contract Foo {
                 if (!_v.forall_2) break;
             }
             if (!(_v.forall_2)) {
-                emit __ScribbleUtilsLib__227.AssertionFailed("005621:0067:000 7: ");
+                emit __ScribbleUtilsLib__227.AssertionFailed("005628:0067:000 7: ");
                 assert(false);
             }
         }
     }
 
-    function _original_Foo_incC(string memory k1, uint k2) private {
+    function _original_Foo_incC(string memory k1, uint k2) internal {
         unchecked {
             uint256_to_int16_227.inc_unch(string_to_uint256_to_int16_227_S_229_227.get_lhs(c, k1), k2);
         }

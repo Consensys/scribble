@@ -22,7 +22,7 @@ contract TokenSale {
         }
     }
 
-    function _original_TokenSale_buy(uint256 numTokens) private {
+    function _original_TokenSale_buy(uint256 numTokens) internal {
         require(msg.value == (numTokens * PRICE_PER_TOKEN));
         balanceOf[msg.sender] += numTokens;
     }
@@ -30,12 +30,12 @@ contract TokenSale {
     function sell(uint256 numTokens) public {
         _original_TokenSale_sell(numTokens);
         if (!(address(this).balance >= 1)) {
-            __ScribbleUtilsLib__88.assertionFailed("001056:0063:000 1: P1");
+            __ScribbleUtilsLib__88.assertionFailed("001057:0063:000 1: P1");
             assert(false);
         }
     }
 
-    function _original_TokenSale_sell(uint256 numTokens) private {
+    function _original_TokenSale_sell(uint256 numTokens) internal {
         require(balanceOf[msg.sender] >= numTokens);
         balanceOf[msg.sender] -= numTokens;
         msg.sender.transfer(numTokens * PRICE_PER_TOKEN);

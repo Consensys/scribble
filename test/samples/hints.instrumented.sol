@@ -38,7 +38,7 @@ contract Foo {
         _original_Foo_bar(x);
     }
 
-    function _original_Foo_bar(uint x) private {
+    function _original_Foo_bar(uint x) internal {
         vars3 memory _v;
         unchecked {
             require(x > 10);
@@ -56,7 +56,7 @@ contract Foo {
         _original_Foo_boo();
     }
 
-    function _original_Foo_boo() private {}
+    function _original_Foo_boo() internal {}
 
     function baz() internal {}
 
@@ -71,7 +71,7 @@ contract Foo {
         RET_0 = _original_Foo_test(x, y);
     }
 
-    function _original_Foo_test(uint x, uint y) private returns (uint) {
+    function _original_Foo_test(uint x, uint y) internal returns (uint) {
         vars4 memory _v;
         uint a = 1;
         uint b = 2;

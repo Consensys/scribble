@@ -23,7 +23,7 @@ contract Foo {
         }
     }
 
-    function _original_Foo_div(uint a, uint b) private pure returns (uint c) {
+    function _original_Foo_div(uint a, uint b) internal pure returns (uint c) {
         return a / b;
     }
 }

@@ -124,7 +124,7 @@ contract Child1 is Base {
         __ScribbleUtilsLib__25.setInContract(!_v.__scribble_check_invs_at_end);
     }
 
-    function _original_Child1_add(uint y) private {
+    function _original_Child1_add(uint y) internal {
         x += y;
     }
 
@@ -157,14 +157,14 @@ contract Child2 is Base {
         _v.old_1 = x;
         _original_Child2_double();
         if (!(x == (2 * _v.old_1))) {
-            emit __ScribbleUtilsLib__41.AssertionFailed("004899:0068:000 2: P2");
+            emit __ScribbleUtilsLib__41.AssertionFailed("004900:0068:000 2: P2");
             assert(false);
         }
         if (_v.__scribble_check_invs_at_end) __scribble_check_state_invariants();
         __ScribbleUtilsLib__41.setInContract(!_v.__scribble_check_invs_at_end);
     }
 
-    function _original_Child2_double() private {
+    function _original_Child2_double() internal {
         x *= 2;
     }
 

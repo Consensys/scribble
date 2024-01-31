@@ -37,7 +37,7 @@ contract Test {
         }
     }
 
-    function _original_Test_main() private returns (X) {
+    function _original_Test_main() internal returns (X) {
         X a = X.wrap(1);
         X b = X.wrap(2);
         return a.add_1(b);

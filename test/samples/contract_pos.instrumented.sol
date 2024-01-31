@@ -23,7 +23,7 @@ contract Foo {
         __ScribbleUtilsLib__32.setInContract(!_v.__scribble_check_invs_at_end);
     }
 
-    function _original_Foo_inc() private {
+    function _original_Foo_inc() internal {
         x++;
     }
 
@@ -40,7 +40,7 @@ contract Foo {
         __ScribbleUtilsLib__32.setInContract(!_v.__scribble_check_invs_at_end);
     }
 
-    function _original_Foo_fail() private {
+    function _original_Foo_fail() internal {
         add(0x7fffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffff);
     }
 
@@ -48,7 +48,7 @@ contract Foo {
     function __scribble_Foo_check_state_invariants_internal() internal {
         if (!(x > 0)) {
             emit __ScribbleUtilsLib__32.AssertionFailedData(0, abi.encode(x));
-            emit __ScribbleUtilsLib__32.AssertionFailed("001627:0066:000 0: ");
+            emit __ScribbleUtilsLib__32.AssertionFailed("001629:0066:000 0: ");
         }
     }
 

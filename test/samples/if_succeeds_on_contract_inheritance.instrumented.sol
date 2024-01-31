@@ -15,19 +15,19 @@ contract Foo {
         }
     }
 
-    function _original_Foo_inc(uint x) private returns (uint y) {
+    function _original_Foo_inc(uint x) internal returns (uint y) {
         return x + 1;
     }
 
     function inc2(uint x) virtual public returns (uint y) {
         y = _original_Foo_inc2(x);
         if (!(b == (a + 1))) {
-            emit __ScribbleUtilsLib__56.AssertionFailed("000717:0066:000 0: ");
+            emit __ScribbleUtilsLib__56.AssertionFailed("000718:0066:000 0: ");
             assert(false);
         }
     }
 
-    function _original_Foo_inc2(uint x) private returns (uint y) {}
+    function _original_Foo_inc2(uint x) internal returns (uint y) {}
 }
 
 library __ScribbleUtilsLib__56 {
@@ -60,12 +60,12 @@ contract Bar is Foo {
     function inc2(uint x) override public returns (uint y) {
         y = _original_Bar_inc2(x);
         if (!(b == (a + 1))) {
-            emit __ScribbleUtilsLib__56.AssertionFailed("001799:0066:000 0: ");
+            emit __ScribbleUtilsLib__56.AssertionFailed("001801:0066:000 0: ");
             assert(false);
         }
     }
 
-    function _original_Bar_inc2(uint x) private returns (uint y) {
+    function _original_Bar_inc2(uint x) internal returns (uint y) {
         return x + 3;
     }
 

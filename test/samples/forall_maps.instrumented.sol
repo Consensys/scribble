@@ -118,7 +118,7 @@ contract Foo {
         }
     }
 
-    function _original_Foo_setA(uint key, uint val) private {
+    function _original_Foo_setA(uint key, uint val) internal {
         uint256_to_uint256_326.set(a, key, val);
     }
 
@@ -133,13 +133,13 @@ contract Foo {
                 if (!_v.forall_1) break;
             }
             if (!(_v.forall_1)) {
-                emit __ScribbleUtilsLib__326.AssertionFailed("003017:0067:000 1: ");
+                emit __ScribbleUtilsLib__326.AssertionFailed("003018:0067:000 1: ");
                 assert(false);
             }
         }
     }
 
-    function _original_Foo_decA(uint key) private {
+    function _original_Foo_decA(uint key) internal {
         uint256_to_uint256_326.dec(a, key);
     }
 
@@ -154,13 +154,13 @@ contract Foo {
                 if (!_v.forall_2) break;
             }
             if (!(_v.forall_2)) {
-                emit __ScribbleUtilsLib__326.AssertionFailed("003696:0067:000 2: ");
+                emit __ScribbleUtilsLib__326.AssertionFailed("003698:0067:000 2: ");
                 assert(false);
             }
         }
     }
 
-    function _original_Foo_setC(string memory s, int16 v) private {
+    function _original_Foo_setC(string memory s, int16 v) internal {
         string_to_int16_326.set(c0, s, v);
     }
 
@@ -181,13 +181,13 @@ contract Foo {
                 if (!_v.forall_3) break;
             }
             if (!(_v.forall_3)) {
-                emit __ScribbleUtilsLib__326.AssertionFailed("004798:0067:000 3: ");
+                emit __ScribbleUtilsLib__326.AssertionFailed("004801:0067:000 3: ");
                 assert(false);
             }
         }
     }
 
-    function _original_Foo_setD(string memory s, uint8 k, int8 v) private {
+    function _original_Foo_setD(string memory s, uint8 k, int8 v) internal {
         uint8_to_int8_326.set(string_to_uint8_to_int8_326_S_506_326.get_lhs(d, s), k, v);
     }
 
@@ -202,13 +202,13 @@ contract Foo {
                 if (!_v.forall_5) break;
             }
             if (!(_v.forall_5)) {
-                emit __ScribbleUtilsLib__326.AssertionFailed("005554:0067:000 4: ");
+                emit __ScribbleUtilsLib__326.AssertionFailed("005558:0067:000 4: ");
                 assert(false);
             }
         }
     }
 
-    function _original_Foo_setE(uint k, uint[] memory v) private {
+    function _original_Foo_setE(uint k, uint[] memory v) internal {
         uint256_to_uint256_arr_326.set(e, k, v);
     }
 
@@ -226,13 +226,13 @@ contract Foo {
                 if (!_v.forall_6) break;
             }
             if (!(_v.forall_6)) {
-                emit __ScribbleUtilsLib__326.AssertionFailed("006237:0067:000 5: ");
+                emit __ScribbleUtilsLib__326.AssertionFailed("006242:0067:000 5: ");
                 assert(false);
             }
         }
     }
 
-    function _original_Foo_setF(uint i, uint j, uint v) private {
+    function _original_Foo_setF(uint i, uint j, uint v) internal {
         f[i][j] = v;
     }
 
@@ -251,13 +251,13 @@ contract Foo {
                 if (!_v.forall_7) break;
             }
             if (!(_v.forall_7)) {
-                emit __ScribbleUtilsLib__326.AssertionFailed("006969:0067:000 6: ");
+                emit __ScribbleUtilsLib__326.AssertionFailed("006975:0067:000 6: ");
                 assert(false);
             }
         }
     }
 
-    function _original_Foo_setG(uint i, uint j, uint v) private {
+    function _original_Foo_setG(uint i, uint j, uint v) internal {
         uint256_to_uint256_326.set(g[i], j, v);
     }
 
@@ -272,13 +272,13 @@ contract Foo {
                 if (!_v.forall_8) break;
             }
             if (!(_v.forall_8)) {
-                emit __ScribbleUtilsLib__326.AssertionFailed("007690:0067:000 7: ");
+                emit __ScribbleUtilsLib__326.AssertionFailed("007697:0067:000 7: ");
                 assert(false);
             }
         }
     }
 
-    function _original_Foo_setH(string memory s, uint8 k, int8 v) private {
+    function _original_Foo_setH(string memory s, uint8 k, int8 v) internal {
         string_to_mapping_uint8_to_int8_326.get_lhs(h, s)[k] = v;
     }
 
@@ -293,13 +293,13 @@ contract Foo {
                 if (!_v.forall_9) break;
             }
             if (!(_v.forall_9)) {
-                emit __ScribbleUtilsLib__326.AssertionFailed("008427:0067:000 8: ");
+                emit __ScribbleUtilsLib__326.AssertionFailed("008435:0067:000 8: ");
                 assert(false);
             }
         }
     }
 
-    function _original_Foo_setI(string memory s, uint8 k, int8 v) private {
+    function _original_Foo_setI(string memory s, uint8 k, int8 v) internal {
         uint8_to_int8_326.set(i[s], k, v);
     }
 
@@ -318,13 +318,13 @@ contract Foo {
                 if (!_v.forall_10) break;
             }
             if (!(_v.forall_10)) {
-                emit __ScribbleUtilsLib__326.AssertionFailed("009239:0067:000 9: ");
+                emit __ScribbleUtilsLib__326.AssertionFailed("009248:0067:000 9: ");
                 assert(false);
             }
         }
     }
 
-    function _original_Foo_setJ(uint saI, string memory x, uint v) private {
+    function _original_Foo_setJ(uint saI, string memory x, uint v) internal {
         string_to_uint256_326.set(j.sas[saI].m, x, v);
     }
 
@@ -344,13 +344,13 @@ contract Foo {
                 if (!_v.forall_11) break;
             }
             if (!(_v.forall_11)) {
-                emit __ScribbleUtilsLib__326.AssertionFailed("010239:0068:000 10: ");
+                emit __ScribbleUtilsLib__326.AssertionFailed("010249:0068:000 10: ");
                 assert(false);
             }
         }
     }
 
-    function _original_Foo_setJ2(uint saI, string memory x, uint v) private {
+    function _original_Foo_setJ2(uint saI, string memory x, uint v) internal {
         string_to_uint256_326.set(j.sas[saI].m, x, v);
     }
 
@@ -372,13 +372,13 @@ contract Foo {
         _original_Foo_setK1(i, v);
         unchecked {
             if (!(_v.old_0)) {
-                emit __ScribbleUtilsLib__326.AssertionFailed("011114:0068:000 11: ");
+                emit __ScribbleUtilsLib__326.AssertionFailed("011125:0068:000 11: ");
                 assert(false);
             }
         }
     }
 
-    function _original_Foo_setK1(uint i, uint v) private {
+    function _original_Foo_setK1(uint i, uint v) internal {
         uint256_to_uint256_326.set(k, i, v);
     }
 
