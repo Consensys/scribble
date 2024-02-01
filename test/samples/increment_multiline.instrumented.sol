@@ -11,19 +11,19 @@ contract Foo {
         }
     }
 
-    function _original_Foo_foo(uint256 x) private returns (uint256 y) {
+    function _original_Foo_foo(uint256 x) internal returns (uint256 y) {
         return x + 1;
     }
 
     function boo(uint256 x) public returns (uint256 y) {
         y = _original_Foo_boo(x);
         if (!(y == (x + 1))) {
-            emit __ScribbleUtilsLib__29.AssertionFailed("000645:0068:000 1: P0");
+            emit __ScribbleUtilsLib__29.AssertionFailed("000646:0068:000 1: P0");
             assert(false);
         }
     }
 
-    function _original_Foo_boo(uint256 x) private returns (uint256 y) {
+    function _original_Foo_boo(uint256 x) internal returns (uint256 y) {
         return x + 1;
     }
 }

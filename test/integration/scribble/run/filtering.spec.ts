@@ -27,7 +27,7 @@ contract Foo {
         }
     }
 
-    function _original_Foo_foo(uint256 a) private returns (uint256 b) {
+    function _original_Foo_foo(uint256 a) internal returns (uint256 b) {
         return a + 1;
     }
 }
@@ -87,14 +87,14 @@ contract Foo {
         __ScribbleUtilsLib__29.setInContract(!_v.__scribble_check_invs_at_end);
     }
 
-    function _original_Foo_foo(uint256 a) private returns (uint256 b) {
+    function _original_Foo_foo(uint256 a) internal returns (uint256 b) {
         return a + 1;
     }
 
     /// Check only the current contract's state invariants
     function __scribble_Foo_check_state_invariants_internal() internal {
         if (!(x == 0)) {
-            emit __ScribbleUtilsLib__29.AssertionFailed("001274:0075:000 1: Medium.P1");
+            emit __ScribbleUtilsLib__29.AssertionFailed("001275:0075:000 1: Medium.P1");
             assert(false);
         }
     }
@@ -137,14 +137,14 @@ contract Foo {
         __ScribbleUtilsLib__29.setInContract(!_v.__scribble_check_invs_at_end);
     }
 
-    function _original_Foo_foo(uint256 a) private returns (uint256 b) {
+    function _original_Foo_foo(uint256 a) internal returns (uint256 b) {
         return a + 1;
     }
 
     /// Check only the current contract's state invariants
     function __scribble_Foo_check_state_invariants_internal() internal {
         if (!(x < 0)) {
-            emit __ScribbleUtilsLib__29.AssertionFailed("001432:0077:000 2: Critical.P2");
+            emit __ScribbleUtilsLib__29.AssertionFailed("001433:0077:000 2: Critical.P2");
             assert(false);
         }
     }

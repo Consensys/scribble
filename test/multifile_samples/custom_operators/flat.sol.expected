@@ -32,7 +32,7 @@ contract Test {
         }
     }
 
-    function _original_Test_main() private {
+    function _original_Test_main() internal {
         Custom a = Custom.wrap(1);
         Custom b = Custom.wrap(2);
         a + b;

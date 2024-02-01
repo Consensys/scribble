@@ -49,7 +49,7 @@ contract Foo {
         }
     }
 
-    function _original_Foo_assign_m1(address a, string memory s, uint v) private returns (uint) {
+    function _original_Foo_assign_m1(address a, string memory s, uint v) internal returns (uint) {
         Foo_m1_idx_address_ptr_string_memory_uint256_set(a, s, v);
         return string_to_uint256_62.get(address_to_string_to_uint256_62_S_64_62.get(m1, a), s);
     }
@@ -65,7 +65,7 @@ contract Foo {
                 if (!_v.forall_2) break;
             }
             if (!(_v.forall_2)) {
-                emit __ScribbleUtilsLib__62.AssertionFailed("002454:0066:000 0: ");
+                emit __ScribbleUtilsLib__62.AssertionFailed("002455:0066:000 0: ");
                 assert(false);
             }
         }
@@ -75,11 +75,11 @@ contract Foo {
         string_to_uint256_62.set(address_to_string_to_uint256_62_S_64_62.get_lhs(m1, ARG2), ARG3, ARG4);
         unchecked {
             if (!(string_to_uint256_62.get(address_to_string_to_uint256_62_S_64_62.get(m1, address(0x00)), "abcd") < 5)) {
-                emit __ScribbleUtilsLib__62.AssertionFailed("002969:0066:000 1: ");
+                emit __ScribbleUtilsLib__62.AssertionFailed("002970:0066:000 1: ");
                 assert(false);
             }
             if (!(ARG2 == address(0x00))) {
-                emit __ScribbleUtilsLib__62.AssertionFailed("003142:0066:000 4: ");
+                emit __ScribbleUtilsLib__62.AssertionFailed("003143:0066:000 4: ");
                 assert(false);
             }
         }

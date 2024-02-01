@@ -11,7 +11,7 @@ contract Base {
         }
     }
 
-    function _original_Base_foo(uint256 x) private returns (uint256 y) {
+    function _original_Base_foo(uint256 x) internal returns (uint256 y) {
         return x + 2;
     }
 }
@@ -46,16 +46,16 @@ contract Foo is Base {
     function foo(uint256 x) override public returns (uint256 y) {
         y = _original_Foo_foo(x);
         if (!(y > x)) {
-            emit __ScribbleUtilsLib__33.AssertionFailed("001414:0068:000 0: P0");
+            emit __ScribbleUtilsLib__33.AssertionFailed("001415:0068:000 0: P0");
             assert(false);
         }
         if (!(y == (x + 1))) {
-            emit __ScribbleUtilsLib__33.AssertionFailed("001564:0068:000 1: P0");
+            emit __ScribbleUtilsLib__33.AssertionFailed("001565:0068:000 1: P0");
             assert(false);
         }
     }
 
-    function _original_Foo_foo(uint256 x) private returns (uint256 y) {
+    function _original_Foo_foo(uint256 x) internal returns (uint256 y) {
         return x + 1;
     }
 }

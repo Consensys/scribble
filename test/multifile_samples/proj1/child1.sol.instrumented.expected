@@ -24,7 +24,7 @@ contract Child1 is Base {
         __ScribbleUtilsLib__25.setInContract(!_v.__scribble_check_invs_at_end);
     }
 
-    function _original_Child1_add(uint y) private {
+    function _original_Child1_add(uint y) internal {
         x += y;
     }
 

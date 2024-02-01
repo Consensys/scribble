@@ -68,7 +68,7 @@ contract Base is Foo {
         __ScribbleUtilsLib__46.setInContract(false);
     }
 
-    function _original_Base_inc3(uint x) private returns (uint y) {
+    function _original_Base_inc3(uint x) internal returns (uint y) {
         a += x + 1;
         return x + 1;
     }

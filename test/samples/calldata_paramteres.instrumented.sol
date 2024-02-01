@@ -15,7 +15,7 @@ contract Test {
         __ScribbleUtilsLib__55.setInContract(false);
     }
 
-    function _original_Test_foo(bytes calldata x) private returns (bytes calldata y) {
+    function _original_Test_foo(bytes calldata x) internal returns (bytes calldata y) {
         y = x;
     }
 
@@ -28,7 +28,7 @@ contract Test {
         __ScribbleUtilsLib__55.setInContract(!_v.__scribble_check_invs_at_end);
     }
 
-    function _original_Test_moo() private {
+    function _original_Test_moo() internal {
         bytes memory m = "abc";
         bytes memory n = _callsite_26(this, m);
         assert(n[0] == "a");
@@ -39,7 +39,7 @@ contract Test {
     /// Check only the current contract's state invariants
     function __scribble_Test_check_state_invariants_internal() internal {
         if (!(true)) {
-            emit __ScribbleUtilsLib__55.AssertionFailed("001411:0068:000 0: P1");
+            emit __ScribbleUtilsLib__55.AssertionFailed("001413:0068:000 0: P1");
             assert(false);
         }
     }

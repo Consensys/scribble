@@ -84,7 +84,7 @@ contract LetAnnotation {
         }
     }
 
-    function _original_LetAnnotation_foo3() private {}
+    function _original_LetAnnotation_foo3() internal {}
 }
 
 contract Foo {
@@ -105,13 +105,13 @@ contract Foo {
             (_v.dummy_, _v.x) = snd(v);
             _v.let_1 = _v.x == 2;
             if (!(_v.let_1)) {
-                emit __ScribbleUtilsLib__127.AssertionFailed("002635:0069:000 1: P0");
+                emit __ScribbleUtilsLib__127.AssertionFailed("002636:0069:000 1: P0");
                 assert(false);
             }
         }
     }
 
-    function _original_Foo_foo(uint v) private {}
+    function _original_Foo_foo(uint v) internal {}
 }
 
 library __ScribbleUtilsLib__127 {

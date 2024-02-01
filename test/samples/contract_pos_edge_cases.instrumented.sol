@@ -19,14 +19,14 @@ contract PosConstructorFail {
         __ScribbleUtilsLib__108.setInContract(!_v.__scribble_check_invs_at_end);
     }
 
-    function _original_PosConstructorFail_inc() private {
+    function _original_PosConstructorFail_inc() internal {
         x++;
     }
 
     /// Check only the current contract's state invariants
     function __scribble_PosConstructorFail_check_state_invariants_internal() internal {
         if (!(x > 0)) {
-            emit __ScribbleUtilsLib__108.AssertionFailed("000965:0067:000 0: ");
+            emit __ScribbleUtilsLib__108.AssertionFailed("000966:0067:000 0: ");
             assert(false);
         }
     }
@@ -64,7 +64,7 @@ contract PosExtCallFail {
         __ScribbleUtilsLib__108.setInContract(!_v.__scribble_check_invs_at_end);
     }
 
-    function _original_PosExtCallFail_inc() private {
+    function _original_PosExtCallFail_inc() internal {
         x++;
     }
 
@@ -82,14 +82,14 @@ contract PosExtCallFail {
         __ScribbleUtilsLib__108.setInContract(!_v.__scribble_check_invs_at_end);
     }
 
-    function _original_PosExtCallFail_fail() private {
+    function _original_PosExtCallFail_fail() internal {
         fail_int();
     }
 
     /// Check only the current contract's state invariants
     function __scribble_PosExtCallFail_check_state_invariants_internal() internal {
         if (!(x > 0)) {
-            emit __ScribbleUtilsLib__108.AssertionFailed("002930:0067:000 1: ");
+            emit __ScribbleUtilsLib__108.AssertionFailed("002933:0067:000 1: ");
             assert(false);
         }
     }
@@ -170,7 +170,7 @@ contract PosLibInterface is IPosLibInterface {
         __ScribbleUtilsLib__108.setInContract(false);
     }
 
-    function _original_PosLibInterface_boo() private {}
+    function _original_PosLibInterface_boo() internal {}
 
     function inc() public {
         vars7 memory _v;
@@ -181,7 +181,7 @@ contract PosLibInterface is IPosLibInterface {
         __ScribbleUtilsLib__108.setInContract(!_v.__scribble_check_invs_at_end);
     }
 
-    function _original_PosLibInterface_inc() private {
+    function _original_PosLibInterface_inc() internal {
         x++;
     }
 
@@ -198,14 +198,14 @@ contract PosLibInterface is IPosLibInterface {
         __ScribbleUtilsLib__108.setInContract(!_v.__scribble_check_invs_at_end);
     }
 
-    function _original_PosLibInterface_fail() private {
+    function _original_PosLibInterface_fail() internal {
         add(0x7fffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffff);
     }
 
     /// Check only the current contract's state invariants
     function __scribble_PosLibInterface_check_state_invariants_internal() internal {
         if (!(x > 0)) {
-            emit __ScribbleUtilsLib__108.AssertionFailed("006432:0067:000 2: ");
+            emit __ScribbleUtilsLib__108.AssertionFailed("006438:0067:000 2: ");
             assert(false);
         }
     }

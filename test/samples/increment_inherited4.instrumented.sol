@@ -51,7 +51,7 @@ contract Foo is Base {
         }
     }
 
-    function _original_Foo_foo(uint256 x) private returns (uint256 y) {
+    function _original_Foo_foo(uint256 x) internal returns (uint256 y) {
         return x + 1;
     }
 }

@@ -42,14 +42,14 @@ contract Token is ERC20 {
         __ScribbleUtilsLib__30.setInContract(!_v.__scribble_check_invs_at_end);
     }
 
-    function _original_Token_allowance(address owner, address delegate) private returns (uint) {
+    function _original_Token_allowance(address owner, address delegate) internal returns (uint) {
         return ERC20.allowance(owner, delegate);
     }
 
     /// Check only the current contract's state invariants
     function __scribble_Token_check_state_invariants_internal() internal {
         if (!(balances.sum == _totalSupply)) {
-            emit __ScribbleUtilsLib__30.AssertionFailed("002206:0121:000 1: The sum of balances is always equal to the total supply");
+            emit __ScribbleUtilsLib__30.AssertionFailed("002207:0121:000 1: The sum of balances is always equal to the total supply");
             assert(false);
         }
     }

@@ -11,7 +11,7 @@ contract Base {
         }
     }
 
-    function _original_Base_foo(uint256 x) private returns (uint256 y) {
+    function _original_Base_foo(uint256 x) internal returns (uint256 y) {
         return x + 2;
     }
 }
@@ -46,16 +46,16 @@ contract Foo is Base {
     function foo(uint256 x) public returns (uint256 y) {
         y = _original_Foo_foo(x);
         if (!(y > x)) {
-            __ScribbleUtilsLib__30.assertionFailed("001392:0063:000 0: P0");
+            __ScribbleUtilsLib__30.assertionFailed("001393:0063:000 0: P0");
             assert(false);
         }
         if (!(y == (x + 1))) {
-            __ScribbleUtilsLib__30.assertionFailed("001537:0063:000 1: P0");
+            __ScribbleUtilsLib__30.assertionFailed("001538:0063:000 1: P0");
             assert(false);
         }
     }
 
-    function _original_Foo_foo(uint256 x) private returns (uint256 y) {
+    function _original_Foo_foo(uint256 x) internal returns (uint256 y) {
         return x + 1;
     }
 }

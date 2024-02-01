@@ -11,7 +11,7 @@ contract A {
         __ScribbleUtilsLib__16.setInContract(false);
     }
 
-    function _original_A_a(B b) private returns (B) {
+    function _original_A_a(B b) internal returns (B) {
         return b;
     }
 
@@ -19,7 +19,7 @@ contract A {
     function __scribble_A_check_state_invariants_internal() internal {
         unchecked {
             if (!(true)) {
-                emit __ScribbleUtilsLib__16.AssertionFailed("000687:0066:000 0: ");
+                emit __ScribbleUtilsLib__16.AssertionFailed("000688:0066:000 0: ");
                 assert(false);
             }
         }

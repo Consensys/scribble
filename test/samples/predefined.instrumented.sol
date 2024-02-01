@@ -20,7 +20,7 @@ contract A {
         }
     }
 
-    function _original_A_testHD() private {}
+    function _original_A_testHD() internal {}
 
     constructor() {
         /// Value assignment for const uint256 H := (60 * 60)
@@ -45,13 +45,13 @@ contract B {
         _original_B_testWHD();
         unchecked {
             if (!(((W_15_0 == (D_15_0 * 7)) && (D_15_0 == (H_15_0 * 24))) && (H_15_0 == (60 * 60)))) {
-                emit __ScribbleUtilsLib__98.AssertionFailed("001527:0066:000 6: ");
+                emit __ScribbleUtilsLib__98.AssertionFailed("001528:0066:000 6: ");
                 assert(false);
             }
         }
     }
 
-    function _original_B_testWHD() private {}
+    function _original_B_testWHD() internal {}
 
     constructor() {
         /// Value assignment for const uint256 H := (60 * 60)
@@ -147,53 +147,53 @@ contract EqEncoded {
         RET_0 = _original_EqEncoded_positive();
         unchecked {
             if (!(__ScribbleUtilsLib__98.eq_encoded("abc", hex"616263"))) {
-                emit __ScribbleUtilsLib__98.AssertionFailed("004445:0067:000 14: ");
+                emit __ScribbleUtilsLib__98.AssertionFailed("004447:0067:000 14: ");
                 assert(false);
             }
             if (!(__ScribbleUtilsLib__98.eq_encoded(abi.encode(bytes2(0xffcc)), abi.encode(bytes2(0xffcc))))) {
-                emit __ScribbleUtilsLib__98.AssertionFailed("004687:0067:000 15: ");
+                emit __ScribbleUtilsLib__98.AssertionFailed("004689:0067:000 15: ");
                 assert(false);
             }
             if (!(__ScribbleUtilsLib__98.eq_encoded(abi.encode(0xC0FfEec0ffeeC0FfEec0fFEec0FfeEc0fFEe0000), abi.encode(0xC0FfEec0ffeeC0FfEec0fFEec0FfeEc0fFEe0000)))) {
-                emit __ScribbleUtilsLib__98.AssertionFailed("004985:0067:000 16: ");
+                emit __ScribbleUtilsLib__98.AssertionFailed("004987:0067:000 16: ");
                 assert(false);
             }
             if (!(__ScribbleUtilsLib__98.eq_encoded(abi.encode(uint256(512)), abi.encode(uint16(512))))) {
-                emit __ScribbleUtilsLib__98.AssertionFailed("005222:0067:000 17: ");
+                emit __ScribbleUtilsLib__98.AssertionFailed("005224:0067:000 17: ");
                 assert(false);
             }
             if (!(__ScribbleUtilsLib__98.eq_encoded(abi.encode(int256(-512)), abi.encode(int256(-512))))) {
-                emit __ScribbleUtilsLib__98.AssertionFailed("005460:0067:000 18: ");
+                emit __ScribbleUtilsLib__98.AssertionFailed("005462:0067:000 18: ");
                 assert(false);
             }
             if (!(__ScribbleUtilsLib__98.eq_encoded(abi.encode(true), abi.encode(true)))) {
-                emit __ScribbleUtilsLib__98.AssertionFailed("005682:0067:000 19: ");
+                emit __ScribbleUtilsLib__98.AssertionFailed("005684:0067:000 19: ");
                 assert(false);
             }
             if (!(__ScribbleUtilsLib__98.eq_encoded(abi.encode(false), abi.encode(false)))) {
-                emit __ScribbleUtilsLib__98.AssertionFailed("005906:0067:000 20: ");
+                emit __ScribbleUtilsLib__98.AssertionFailed("005908:0067:000 20: ");
                 assert(false);
             }
             if (!(__ScribbleUtilsLib__98.eq_encoded(abi.encode(Some(1)), abi.encode(s)))) {
-                emit __ScribbleUtilsLib__98.AssertionFailed("006128:0067:000 21: ");
+                emit __ScribbleUtilsLib__98.AssertionFailed("006130:0067:000 21: ");
                 assert(false);
             }
             if (!(__ScribbleUtilsLib__98.eq_encoded(abi.encode(Other.A), abi.encode(Other.A)))) {
-                emit __ScribbleUtilsLib__98.AssertionFailed("006356:0067:000 22: ");
+                emit __ScribbleUtilsLib__98.AssertionFailed("006358:0067:000 22: ");
                 assert(false);
             }
             if (!(__ScribbleUtilsLib__98.eq_encoded(abi.encode(a), abi.encode(b)))) {
-                emit __ScribbleUtilsLib__98.AssertionFailed("006572:0067:000 23: ");
+                emit __ScribbleUtilsLib__98.AssertionFailed("006574:0067:000 23: ");
                 assert(false);
             }
             if (!(__ScribbleUtilsLib__98.eq_encoded(abi.encode(d), abi.encode(e)))) {
-                emit __ScribbleUtilsLib__98.AssertionFailed("006788:0067:000 24: ");
+                emit __ScribbleUtilsLib__98.AssertionFailed("006790:0067:000 24: ");
                 assert(false);
             }
         }
     }
 
-    function _original_EqEncoded_positive() private returns (bool) {
+    function _original_EqEncoded_positive() internal returns (bool) {
         return true;
     }
 
@@ -201,57 +201,57 @@ contract EqEncoded {
         RET_0 = _original_EqEncoded_negative();
         unchecked {
             if (!(!__ScribbleUtilsLib__98.eq_encoded("abc", "abcd"))) {
-                emit __ScribbleUtilsLib__98.AssertionFailed("007226:0067:000 25: ");
+                emit __ScribbleUtilsLib__98.AssertionFailed("007229:0067:000 25: ");
                 assert(false);
             }
             if (!(!__ScribbleUtilsLib__98.eq_encoded("abc", "def"))) {
-                emit __ScribbleUtilsLib__98.AssertionFailed("007427:0067:000 26: ");
+                emit __ScribbleUtilsLib__98.AssertionFailed("007430:0067:000 26: ");
                 assert(false);
             }
             if (!(!__ScribbleUtilsLib__98.eq_encoded(hex"616263", hex"616264"))) {
-                emit __ScribbleUtilsLib__98.AssertionFailed("007640:0067:000 27: ");
+                emit __ScribbleUtilsLib__98.AssertionFailed("007643:0067:000 27: ");
                 assert(false);
             }
             if (!(!__ScribbleUtilsLib__98.eq_encoded(abi.encode(bytes2(0xffcc)), abi.encode(bytes2(0xffff))))) {
-                emit __ScribbleUtilsLib__98.AssertionFailed("007883:0067:000 28: ");
+                emit __ScribbleUtilsLib__98.AssertionFailed("007886:0067:000 28: ");
                 assert(false);
             }
             if (!(!__ScribbleUtilsLib__98.eq_encoded(abi.encode(0xDeaDbeefdEAdbeefdEadbEEFdeadbeEFdEaDbeeF), abi.encode(0xC0FfEec0ffeeC0FfEec0fFEec0FfeEc0fFEe0000)))) {
-                emit __ScribbleUtilsLib__98.AssertionFailed("008182:0067:000 29: ");
+                emit __ScribbleUtilsLib__98.AssertionFailed("008185:0067:000 29: ");
                 assert(false);
             }
             if (!(!__ScribbleUtilsLib__98.eq_encoded(abi.encode(uint256(512)), abi.encode(uint16(1024))))) {
-                emit __ScribbleUtilsLib__98.AssertionFailed("008421:0067:000 30: ");
+                emit __ScribbleUtilsLib__98.AssertionFailed("008424:0067:000 30: ");
                 assert(false);
             }
             if (!(!__ScribbleUtilsLib__98.eq_encoded(abi.encode(int256(-512)), abi.encode(int256(-1024))))) {
-                emit __ScribbleUtilsLib__98.AssertionFailed("008661:0067:000 31: ");
+                emit __ScribbleUtilsLib__98.AssertionFailed("008664:0067:000 31: ");
                 assert(false);
             }
             if (!(!__ScribbleUtilsLib__98.eq_encoded(abi.encode(true), abi.encode(false)))) {
-                emit __ScribbleUtilsLib__98.AssertionFailed("008885:0067:000 32: ");
+                emit __ScribbleUtilsLib__98.AssertionFailed("008888:0067:000 32: ");
                 assert(false);
             }
             if (!(!__ScribbleUtilsLib__98.eq_encoded(abi.encode(Some(2)), abi.encode(s)))) {
-                emit __ScribbleUtilsLib__98.AssertionFailed("009108:0067:000 33: ");
+                emit __ScribbleUtilsLib__98.AssertionFailed("009111:0067:000 33: ");
                 assert(false);
             }
             if (!(!__ScribbleUtilsLib__98.eq_encoded(abi.encode(Other.A), abi.encode(Other.B)))) {
-                emit __ScribbleUtilsLib__98.AssertionFailed("009337:0067:000 34: ");
+                emit __ScribbleUtilsLib__98.AssertionFailed("009340:0067:000 34: ");
                 assert(false);
             }
             if (!(!__ScribbleUtilsLib__98.eq_encoded(abi.encode(a), abi.encode(d)))) {
-                emit __ScribbleUtilsLib__98.AssertionFailed("009554:0067:000 35: ");
+                emit __ScribbleUtilsLib__98.AssertionFailed("009557:0067:000 35: ");
                 assert(false);
             }
             if (!(!__ScribbleUtilsLib__98.eq_encoded(abi.encode(c), abi.encode(f)))) {
-                emit __ScribbleUtilsLib__98.AssertionFailed("009771:0067:000 36: ");
+                emit __ScribbleUtilsLib__98.AssertionFailed("009774:0067:000 36: ");
                 assert(false);
             }
         }
     }
 
-    function _original_EqEncoded_negative() private returns (bool) {
+    function _original_EqEncoded_negative() internal returns (bool) {
         return true;
     }
 }
@@ -292,7 +292,7 @@ contract C is B {
     constructor() {
         unchecked {
             if (!(W_15_0 == (D_15_0 * 7))) {
-                emit __ScribbleUtilsLib__98.AssertionFailed("011083:0066:000 7: ");
+                emit __ScribbleUtilsLib__98.AssertionFailed("011087:0066:000 7: ");
                 assert(false);
             }
         }

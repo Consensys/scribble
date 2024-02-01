@@ -61,7 +61,7 @@ contract Foo {
         add = _original_Foo_add(x, y);
     }
 
-    function _original_Foo_add(int8 x, uint64 y) private returns (uint64 add) {
+    function _original_Foo_add(int8 x, uint64 y) internal returns (uint64 add) {
         return uint64(x) + y;
     }
 }`
@@ -103,7 +103,7 @@ contract Foo {
         add = _original_Foo_add(x, y);
     }
 
-    function _original_Foo_add(int8 x, uint64 y) private returns (uint64 add) {
+    function _original_Foo_add(int8 x, uint64 y) internal returns (uint64 add) {
         return uint64(x) + y;
     }
 }
@@ -134,7 +134,7 @@ contract Foo {
         _original_Foo_add(x, y);
     }
 
-    function _original_Foo_add(int8 x, uint64 y) private {
+    function _original_Foo_add(int8 x, uint64 y) internal {
         uint64(x) + y;
     }
 }`
@@ -157,7 +157,7 @@ contract Foo {
         (RET_0, RET_1, RET_2) = _original_Foo_swap(x, y, a);
     }
 
-    function _original_Foo_swap(int8 x, uint64 y, address a) private returns (address, int8, uint64) {
+    function _original_Foo_swap(int8 x, uint64 y, address a) internal returns (address, int8, uint64) {
         return (a, x, y);
     }
 }`
@@ -185,7 +185,7 @@ contract Foo {
         (RET_0, RET_1, RET_2) = _original_Foo_swap(x, y, a);
     }
 
-    function _original_Foo_swap(int8 x, uint64 y, address a) private Dummy() returns (address, int8, uint64) {
+    function _original_Foo_swap(int8 x, uint64 y, address a) internal Dummy() returns (address, int8, uint64) {
         return (a, x, y);
     }
 }`
@@ -208,7 +208,7 @@ contract Foo {
         RET_0 = _original_Foo_pureF(x);
     }
 
-    function _original_Foo_pureF(uint x) private pure returns (uint) {
+    function _original_Foo_pureF(uint x) internal pure returns (uint) {
         return x;
     }
 }`
@@ -229,7 +229,7 @@ contract Foo {
         _original_Foo_foo(x);
     }
 
-    function _original_Foo_foo(uint[] memory x) private {}
+    function _original_Foo_foo(uint[] memory x) internal {}
 }`
         ],
         [
@@ -249,7 +249,7 @@ contract Foo {
         RET_0 = _original_Foo_foo(x);
     }
 
-    function _original_Foo_foo(uint[] calldata x) private returns (uint[] calldata) {
+    function _original_Foo_foo(uint[] calldata x) internal returns (uint[] calldata) {
         return x;
     }
 }`
@@ -272,7 +272,7 @@ contract Foo {
         RET_0 = _original_Foo_add(_DUMMY_ARG_0, y);
     }
 
-    function _original_Foo_add(int8, uint64 y) private returns (uint64) {
+    function _original_Foo_add(int8, uint64 y) internal returns (uint64) {
         return y + 1;
     }
 }`

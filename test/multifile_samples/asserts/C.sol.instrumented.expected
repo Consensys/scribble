@@ -21,10 +21,10 @@ contract Child is B.Base {
         __ScribbleUtilsLib__100.setInContract(!_v.__scribble_check_invs_at_end);
     }
 
-    function _original_Child_main1(uint t) private {
+    function _original_Child_main1(uint t) internal {
         unchecked {
             if (!(((((XA == 2) && (XB == 2)) && (A.X == 2)) && (B.X == 2)) && (t == B.X))) {
-                emit __ScribbleUtilsLib__100.AssertionFailed("000942:0067:001 5: ");
+                emit __ScribbleUtilsLib__100.AssertionFailed("000943:0067:001 5: ");
                 assert(false);
             }
         }
@@ -34,7 +34,7 @@ contract Child is B.Base {
         p.y = 2;
         unchecked {
             if (!(B.foo(p) == 3)) {
-                emit __ScribbleUtilsLib__100.AssertionFailed("001211:0067:001 6: ");
+                emit __ScribbleUtilsLib__100.AssertionFailed("001212:0067:001 6: ");
                 assert(false);
             }
         }

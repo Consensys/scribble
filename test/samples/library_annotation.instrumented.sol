@@ -13,7 +13,7 @@ library Foo {
         }
     }
 
-    function _original_Foo_foo() private returns (uint) {
+    function _original_Foo_foo() internal returns (uint) {
         return 1;
     }
 }

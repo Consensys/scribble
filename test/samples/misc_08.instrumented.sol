@@ -31,7 +31,7 @@ contract Errors {
         }
     }
 
-    function _original_Errors_foo() private {}
+    function _original_Errors_foo() internal {}
 }
 
 contract RevertStmt {
@@ -41,13 +41,13 @@ contract RevertStmt {
         _original_RevertStmt_foo();
         unchecked {
             if (!(false)) {
-                emit __ScribbleUtilsLib__106.AssertionFailed("000821:0067:000 1: ");
+                emit __ScribbleUtilsLib__106.AssertionFailed("000822:0067:000 1: ");
                 assert(false);
             }
         }
     }
 
-    function _original_RevertStmt_foo() private {
+    function _original_RevertStmt_foo() internal {
         revert E();
     }
 }
@@ -59,13 +59,13 @@ contract UserDefinedValueTypes {
         RET_0 = _original_UserDefinedValueTypes_orderPrice(p, q);
         unchecked {
             if (!((Price.unwrap(p) * Quantity.unwrap(q)) == Price.unwrap(RET_0))) {
-                emit __ScribbleUtilsLib__106.AssertionFailed("001356:0067:000 2: ");
+                emit __ScribbleUtilsLib__106.AssertionFailed("001358:0067:000 2: ");
                 assert(false);
             }
         }
     }
 
-    function _original_UserDefinedValueTypes_orderPrice(Price p, Quantity q) private returns (Price) {
+    function _original_UserDefinedValueTypes_orderPrice(Price p, Quantity q) internal returns (Price) {
         return Price.wrap(Price.unwrap(p) * Quantity.unwrap(q));
     }
 }
@@ -77,13 +77,13 @@ contract FreeFuncs {
         _original_FreeFuncs_operate();
         unchecked {
             if (!(num == 25)) {
-                emit __ScribbleUtilsLib__106.AssertionFailed("001848:0069:000 3: P1");
+                emit __ScribbleUtilsLib__106.AssertionFailed("001851:0069:000 3: P1");
                 assert(false);
             }
         }
     }
 
-    function _original_FreeFuncs_operate() private {
+    function _original_FreeFuncs_operate() internal {
         num = addSome(15);
     }
 }
@@ -93,13 +93,13 @@ contract Foo {
         _original_Foo_main();
         unchecked {
             if (!(1 > 0)) {
-                emit __ScribbleUtilsLib__106.AssertionFailed("002208:0067:000 4: ");
+                emit __ScribbleUtilsLib__106.AssertionFailed("002212:0067:000 4: ");
                 assert(false);
             }
         }
     }
 
-    function _original_Foo_main() private {}
+    function _original_Foo_main() internal {}
 }
 
 contract Ev {
@@ -107,13 +107,13 @@ contract Ev {
         _original_Ev_main();
         unchecked {
             if (!(true)) {
-                emit __ScribbleUtilsLib__106.AssertionFailed("002522:0067:000 5: ");
+                emit __ScribbleUtilsLib__106.AssertionFailed("002527:0067:000 5: ");
                 assert(false);
             }
         }
     }
 
-    function _original_Ev_main() private {
+    function _original_Ev_main() internal {
         emit X(1);
     }
 }

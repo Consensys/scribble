@@ -39,7 +39,7 @@ contract VulnerableToken {
         __ScribbleUtilsLib__222.setInContract(false);
     }
 
-    function _original_VulnerableToken_transfer(address _to, uint256 _value) private returns (bool) {
+    function _original_VulnerableToken_transfer(address _to, uint256 _value) internal returns (bool) {
         address from = msg.sender;
         require(_value <= address_to_uint256_222.get(_balances, from));
         address_to_uint256_222.set(_balances, from, address_to_uint256_222.get(_balances, from) - _value);
@@ -55,7 +55,7 @@ contract VulnerableToken {
         __ScribbleUtilsLib__222.setInContract(false);
     }
 
-    function _original_VulnerableToken_approve(address _spender, uint256 _value) private returns (bool) {
+    function _original_VulnerableToken_approve(address _spender, uint256 _value) internal returns (bool) {
         address owner = msg.sender;
         _allowances[owner][_spender] = _value;
         emit Approval(owner, _spender, _value);
@@ -69,7 +69,7 @@ contract VulnerableToken {
         __ScribbleUtilsLib__222.setInContract(false);
     }
 
-    function _original_VulnerableToken_transferFrom(address _from, address _to, uint256 _value) private returns (bool) {
+    function _original_VulnerableToken_transferFrom(address _from, address _to, uint256 _value) internal returns (bool) {
         uint256 allowed = _allowances[_from][msg.sender];
         require(_value <= allowed);
         require(_value <= address_to_uint256_222.get(_balances, _from));
@@ -84,7 +84,7 @@ contract VulnerableToken {
     function __scribble_VulnerableToken_check_state_invariants_internal() internal {
         unchecked {
             if (!(_balances.sum == _totalSupply)) {
-                emit __ScribbleUtilsLib__222.AssertionFailed("003781:0098:000 1: Sum of balances is total supply");
+                emit __ScribbleUtilsLib__222.AssertionFailed("003784:0098:000 1: Sum of balances is total supply");
                 assert(false);
             }
         }
