@@ -11,6 +11,13 @@
 
 A Solidity runtime verification tool for property based testing.
 
+> [!TIP] Scribble is useful to prepare smart contracts for behavior verification with [Diligence Fuzzing](https://consensys.io/diligence/fuzzing/) or with tools, such as [Mythril](https://github.com/ConsenSys/mythril).
+>
+> Here are some related videos:
+>
+> -   [Test security properties for smart contracts & Detect vulnerabilities](https://www.youtube.com/watch?v=qn98UjcxXcQ)
+> -   [Web3 Tutorial 23: Next level smart contract security with Diligence Fuzzing](https://www.youtube.com/watch?v=PmRLTXpvmMI)
+
 ## Principles and Design Goals
 
 The design of the Scribble specification language takes inspiration from several existing
