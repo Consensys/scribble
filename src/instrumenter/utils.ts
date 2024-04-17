@@ -504,7 +504,8 @@ export function getTypeDesc(type: TypeNode): string {
         type instanceof IntType ||
         type instanceof StringType ||
         type instanceof BytesType ||
-        type instanceof BoolType
+        type instanceof BoolType ||
+        type instanceof FixedBytesType
     ) {
         return type.pp();
     }
