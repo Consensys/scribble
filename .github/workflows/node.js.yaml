@@ -51,12 +51,13 @@ jobs:
           npm run coverage
 
       - name: Upload coverage to CodeCov
-        uses: codecov/codecov-action@v3
+        uses: codecov/codecov-action@v4
         with:
           name: codecov-umbrella
           directory: ./coverage/
           fail_ci_if_error: true
           verbose: true
+          token: ${{ secrets.CODECOV_TOKEN }}
 
   notify-slack:
     needs: build
