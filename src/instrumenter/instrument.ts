@@ -132,10 +132,11 @@ export function findExternalCalls(
 }
 
 /**
- * Build a debug event/debug event emission statement for the provided `annotation`. Return
- * an a tuples `[EventDefinition, EmitStatement]`.
+ * Build a debug event and debug event emission statement for the provided
+ * `annotation`. Return a tuple `[EventDefinition, EmitStatement]`.
  *
- * If a given annotation doesn't have any identifiers to output for debugging purposes, return `undefined`.
+ * If the given annotation doesn't have any identifiers to output for debugging
+ * purposes, return `undefined`.
  */
 function getDebugInfoEmit(
     annotation: PropertyMetaData | TryAnnotationMetaData,
