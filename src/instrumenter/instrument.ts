@@ -132,89 +132,82 @@ export function findExternalCalls(
 }
 
 /**
- * Build a debug event/debug event emission statement for each of the provided `annotations`. Return
- * an array of the computed tuples `[EventDefinition, EmitStatement]`.
+ * Build a debug event/debug event emission statement for the provided `annotation`. Return
+ * an a tuples `[EventDefinition, EmitStatement]`.
  *
- * If a given annotation doesn't have any identifiers to output for debugging purposes, return `undefined`
- * in that respective index.
+ * If a given annotation doesn't have any identifiers to output for debugging purposes, return `undefined`.
  */
-function getDebugInfoEmits(
-    annotations: Array<PropertyMetaData | TryAnnotationMetaData>,
+function getDebugInfoEmit(
+    annotation: PropertyMetaData | TryAnnotationMetaData,
     transCtx: TranspilingContext
-): Array<Statement | Statement[] | undefined> {
-    const res: Array<Statement | Statement[] | undefined> = [];
+): Statement | Statement[] | undefined {
     const factory = transCtx.factory;
     const instrCtx = transCtx.instrCtx;
     const inference = instrCtx.typeEnv.inference;
 
-    for (const annot of annotations) {
-        const dbgIdsMap = transCtx.annotationDebugMap.get(annot);
+    const dbgIdsMap = transCtx.annotationDebugMap.get(annotation);
 
-        // If there are no debug ids for the current annotation, there is no debug event to build
-        if (dbgIdsMap.size() == 0) {
-            res.push(undefined);
+    // If there are no debug ids for the current annotation, there is no debug event to build
+    if (dbgIdsMap.size() == 0) {
+        return undefined;
+    }
 
-            continue;
-        }
+    const evtArgs: Expression[] = [...dbgIdsMap.values()].map((v) => v[1]);
 
-        const evtArgs: Expression[] = [...dbgIdsMap.values()].map((v) => v[1]);
+    if (!instrCtx.debugEventsDescMap.has(annotation)) {
+        instrCtx.debugEventsDescMap.set(
+            annotation,
+            [...dbgIdsMap.values()].map((v) => [v[0], v[2]])
+        );
+    }
 
-        if (!instrCtx.debugEventsDescMap.has(annot)) {
-            instrCtx.debugEventsDescMap.set(
-                annot,
-                [...dbgIdsMap.values()].map((v) => [v[0], v[2]])
+    // Finally construct the emit statement for the debug event.
+    if (instrCtx.assertionMode === "hardhat") {
+        const emitStmts: Statement[] = [];
+
+        const encoderVersion = inference.getUnitLevelAbiEncoderVersion(annotation.target);
+
+        for (let expr of evtArgs) {
+            const exprT = inference.typeOf(expr);
+
+            let logFunc = getHardHatLogFuncName(exprT);
+
+            if (logFunc === undefined) {
+                assert(
+                    inference.isABIEncodable(exprT, encoderVersion),
+                    "Can not wrap {0} of type {1} with abi.encode() - type is not encodable",
+                    expr,
+                    exprT
+                );
+
+                expr = factory.abiEncode(expr);
+                logFunc = "logBytes";
+            }
+
+            emitStmts.push(
+                makeHardHatConsoleLogCall(instrCtx, annotation, expr, logFunc),
+                makeHardHatConsoleLogCall(
+                    instrCtx,
+                    annotation,
+                    factory.makeLiteral("str", LiteralKind.String, "", print(expr))
+                )
             );
         }
 
-        // Finally construct the emit statement for the debug event.
-        if (instrCtx.assertionMode === "hardhat") {
-            const emitStmts: Statement[] = [];
 
-            const encoderVersion = inference.getUnitLevelAbiEncoderVersion(annot.target);
-
-            for (let expr of evtArgs) {
-                const exprT = inference.typeOf(expr);
-
-                let logFunc = getHardHatLogFuncName(exprT);
-
-                if (logFunc === undefined) {
-                    assert(
-                        inference.isABIEncodable(exprT, encoderVersion),
-                        "Can not wrap {0} of type {1} with abi.encode() - type is not encodable",
-                        expr,
-                        exprT
-                    );
-
-                    expr = factory.abiEncode(expr);
-                    logFunc = "logBytes";
-                }
-
-                emitStmts.push(
-                    makeHardHatConsoleLogCall(instrCtx, annot, expr, logFunc),
-                    makeHardHatConsoleLogCall(
-                        instrCtx,
-                        annot,
-                        factory.makeLiteral("str", LiteralKind.String, "", print(expr))
-                    )
-                );
-            }
-
-            res.push(emitStmts.length === 0 ? undefined : emitStmts);
-        } else {
-            const assertionFailedDataExpr = gt(instrCtx.compilerVersion, "0.6.2")
-                ? instrCtx.getAssertionFailedDataEvent(annot.target)
-                : instrCtx.getAssertionFailedDataFun(annot.target);
-
-            const emitStmt = makeEmitStmt(instrCtx, assertionFailedDataExpr, [
-                factory.makeLiteral("int", LiteralKind.Number, "", String(annot.id)),
-                factory.abiEncode(...evtArgs)
-            ]);
-
-            res.push(emitStmt);
-        }
+        return emitStmts.length === 0 ? undefined : emitStmts;
     }
 
-    return res;
+    const assertionFailedDataExpr = gt(instrCtx.compilerVersion, "0.6.2")
+        ? instrCtx.getAssertionFailedDataEvent(annotation.target)
+        : instrCtx.getAssertionFailedDataFun(annotation.target);
+
+    const emitStmt = makeEmitStmt(instrCtx, assertionFailedDataExpr, [
+        factory.makeLiteral("int", LiteralKind.Number, "", String(annotation.id)),
+        factory.abiEncode(...evtArgs)
+    ]);
+
+    return emitStmt;
 }
 
 function getBitPattern(factory: ASTNodeFactory, id: number): Literal {
@@ -491,119 +484,123 @@ export function insertAnnotations(
     const factory = ctx.factory;
     const contract = ctx.containerContract;
     const instrCtx = ctx.instrCtx;
-    const predicates: Array<[PropertyMetaData | TryAnnotationMetaData, Expression | Expression[]]> =
-        [];
 
-    for (const annotation of annotations) {
-        predicates.push([annotation, transpileAnnotation(annotation, ctx)]);
-    }
+    // Re-sort the annotations so that #try and #require are always instrumented first.
+    // This makes sure they are hit before any old() statements in subsequent properties,
+    // that the fuzzer may get stuck on.
+    let isTryOrReq = (md: any) =>
+        md instanceof TryAnnotationMetaData ||
+        (md instanceof PropertyMetaData && md.type === AnnotationType.Require);
 
-    // Note: we don't emit assertion failed debug events in mstore mode, as that
-    // defeats the purpose of mstore mode (to not emit additional events to
-    // preserve interface compatibility)
-    const debugInfos =
-        instrCtx.debugEvents && instrCtx.assertionMode !== "mstore"
-            ? getDebugInfoEmits(annotations, ctx)
-            : [];
+    const sortedAnnotations = [
+        ...annotations.filter((md) => isTryOrReq(md)),
+        ...annotations.filter((md) => !isTryOrReq(md))
+    ]
 
-    const checkStmts: Array<[Statement | Statement[], boolean]> = predicates.map(
-        ([annotation, predicate], i) => {
-            const emitStmt = debugInfos[i];
-            const targetIsStmt =
-                annotation.target instanceof Statement ||
-                annotation.target instanceof StatementWithChildren;
+    for (let i = 0; i < sortedAnnotations.length; i++) {
+        const annotation = sortedAnnotations[i];
+        const predicate = transpileAnnotation(annotation, ctx);
 
-            if (annotation.type === AnnotationType.Require) {
-                assert(
-                    predicate instanceof Expression,
-                    `Annotation type "${annotation.type}" expected single expression (got array)`
-                );
+        let check: Statement | Statement[];
+        let isOld: boolean;
 
-                const reqStmt = factory.makeExpressionStatement(
-                    factory.makeFunctionCall(
-                        "<missing>",
-                        FunctionCallKind.FunctionCall,
-                        factory.makeIdentifier("<missing>", "require", -1),
-                        [predicate]
-                    )
-                );
+        // Note: we don't emit assertion failed debug events in mstore mode, as that
+        // defeats the purpose of mstore mode (to not emit additional events to
+        // preserve interface compatibility)
+        const emitStmt = instrCtx.debugEvents && instrCtx.assertionMode !== "mstore" ?
+            getDebugInfoEmit(annotation, ctx) : undefined;
 
-                instrCtx.addAnnotationInstrumentation(annotation, reqStmt);
-                instrCtx.addAnnotationCheck(annotation, predicate);
+        const targetIsStmt =
+            annotation.target instanceof Statement ||
+            annotation.target instanceof StatementWithChildren;
 
-                return [reqStmt, !targetIsStmt];
-            }
-
-            if (annotation.type === AnnotationType.Try) {
-                assert(
-                    predicate instanceof Array,
-                    `Annotation type "${annotation.type}" expected array of expressions (got expression instance)`
-                );
-
-                if (!ctx.hasBinding(ctx.instrCtx.scratchField)) {
-                    ctx.addBinding(
-                        ctx.instrCtx.scratchField,
-                        factory.makeElementaryTypeName("<missing>", "uint256")
-                    );
-                }
-
-                return [
-                    predicate.map((expr) => {
-                        const lhs = ctx.refBinding(ctx.instrCtx.scratchField);
-                        const scratchAssign = factory.makeExpressionStatement(
-                            factory.makeAssignment(
-                                "<missing>",
-                                "=",
-                                lhs,
-                                factory.makeLiteral("uint256", LiteralKind.Number, "", "42")
-                            )
-                        );
-
-                        const stmt = factory.makeIfStatement(expr, scratchAssign);
-
-                        instrCtx.addAnnotationInstrumentation(annotation, stmt);
-                        instrCtx.addAnnotationCheck(annotation, expr);
-
-                        return stmt;
-                    }),
-                    !targetIsStmt
-                ];
-            }
-
-            if (annotation.type === AnnotationType.LetAnnotation) {
-                assert(
-                    predicate instanceof Expression,
-                    `Annotation type "${annotation.type}" expected single expression (got array)`
-                );
-
-                const parsedAnnot = annotation.parsedAnnot as SLetAnnotation;
-                const name = ctx.getLetAnnotationBinding(parsedAnnot);
-                const stmt = factory.makeAssignment(
-                    "<missing>",
-                    "=",
-                    ctx.refBinding(name),
-                    predicate
-                );
-
-                /// For now keep #let annotations as 'general' annotation, as to not
-                /// confuse consumers of the instrumentation metadata (they only
-                /// expect actual "check" annotations). This however is hacky.
-                /// TODO: Separate src mapping information for all annotations as a separate entity in metadata
-                instrCtx.addGeneralInstrumentation(stmt);
-
-                return [stmt, false];
-            }
-
+        if (annotation.type === AnnotationType.Require) {
             assert(
                 predicate instanceof Expression,
                 `Annotation type "${annotation.type}" expected single expression (got array)`
             );
 
-            return [emitAssert(ctx, predicate, annotation, contract, emitStmt), false];
-        }
-    );
+            const reqStmt = factory.makeExpressionStatement(
+                factory.makeFunctionCall(
+                    "<missing>",
+                    FunctionCallKind.FunctionCall,
+                    factory.makeIdentifier("<missing>", "require", -1),
+                    [predicate]
+                )
+            );
 
-    for (const [check, isOld] of checkStmts) {
+            instrCtx.addAnnotationInstrumentation(annotation, reqStmt);
+            instrCtx.addAnnotationCheck(annotation, predicate);
+
+            check = reqStmt;
+            isOld = !targetIsStmt;
+        } else if (annotation.type === AnnotationType.Try) {
+            assert(
+                predicate instanceof Array,
+                `Annotation type "${annotation.type}" expected array of expressions (got expression instance)`
+            );
+
+            if (!ctx.hasBinding(ctx.instrCtx.scratchField)) {
+                ctx.addBinding(
+                    ctx.instrCtx.scratchField,
+                    factory.makeElementaryTypeName("<missing>", "uint256")
+                );
+            }
+
+            check = 
+                predicate.map((expr) => {
+                    const lhs = ctx.refBinding(ctx.instrCtx.scratchField);
+                    const scratchAssign = factory.makeExpressionStatement(
+                        factory.makeAssignment(
+                            "<missing>",
+                            "=",
+                            lhs,
+                            factory.makeLiteral("uint256", LiteralKind.Number, "", "42")
+                        )
+                    );
+
+                    const stmt = factory.makeIfStatement(expr, scratchAssign);
+
+                    instrCtx.addAnnotationInstrumentation(annotation, stmt);
+                    instrCtx.addAnnotationCheck(annotation, expr);
+
+                    return stmt;
+                });
+            isOld = !targetIsStmt
+            ;
+        } else if (annotation.type === AnnotationType.LetAnnotation) {
+            assert(
+                predicate instanceof Expression,
+                `Annotation type "${annotation.type}" expected single expression (got array)`
+            );
+
+            const parsedAnnot = annotation.parsedAnnot as SLetAnnotation;
+            const name = ctx.getLetAnnotationBinding(parsedAnnot);
+            const stmt = factory.makeAssignment(
+                "<missing>",
+                "=",
+                ctx.refBinding(name),
+                predicate
+            );
+
+            /// For now keep #let annotations as 'general' annotation, as to not
+            /// confuse consumers of the instrumentation metadata (they only
+            /// expect actual "check" annotations). This however is hacky.
+            /// TODO: Separate src mapping information for all annotations as a separate entity in metadata
+            instrCtx.addGeneralInstrumentation(stmt);
+
+            check = stmt;
+            isOld = false;
+        } else {
+            assert(
+                predicate instanceof Expression,
+                `Annotation type "${annotation.type}" expected single expression (got array)`
+            );
+
+            check = emitAssert(ctx, predicate, annotation, contract, emitStmt);
+            isOld = false;
+        }
+
         if (check instanceof Array) {
             for (const stmt of check) {
                 ctx.insertStatement(stmt, isOld);
