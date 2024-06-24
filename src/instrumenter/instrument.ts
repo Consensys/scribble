@@ -195,7 +195,6 @@ function getDebugInfoEmit(
             );
         }
 
-
         return emitStmts.length === 0 ? undefined : emitStmts;
     }
 
@@ -489,14 +488,14 @@ export function insertAnnotations(
     // Re-sort the annotations so that #try and #require are always instrumented first.
     // This makes sure they are hit before any old() statements in subsequent properties,
     // that the fuzzer may get stuck on.
-    let isTryOrReq = (md: any) =>
+    const isTryOrReq = (md: any) =>
         md instanceof TryAnnotationMetaData ||
         (md instanceof PropertyMetaData && md.type === AnnotationType.Require);
 
     const sortedAnnotations = [
         ...annotations.filter((md) => isTryOrReq(md)),
         ...annotations.filter((md) => !isTryOrReq(md))
-    ]
+    ];
 
     for (let i = 0; i < sortedAnnotations.length; i++) {
         const annotation = sortedAnnotations[i];
@@ -508,8 +507,10 @@ export function insertAnnotations(
         // Note: we don't emit assertion failed debug events in mstore mode, as that
         // defeats the purpose of mstore mode (to not emit additional events to
         // preserve interface compatibility)
-        const emitStmt = instrCtx.debugEvents && instrCtx.assertionMode !== "mstore" ?
-            getDebugInfoEmit(annotation, ctx) : undefined;
+        const emitStmt =
+            instrCtx.debugEvents && instrCtx.assertionMode !== "mstore"
+                ? getDebugInfoEmit(annotation, ctx)
+                : undefined;
 
         const targetIsStmt =
             annotation.target instanceof Statement ||
@@ -548,27 +549,25 @@ export function insertAnnotations(
                 );
             }
 
-            check = 
-                predicate.map((expr) => {
-                    const lhs = ctx.refBinding(ctx.instrCtx.scratchField);
-                    const scratchAssign = factory.makeExpressionStatement(
-                        factory.makeAssignment(
-                            "<missing>",
-                            "=",
-                            lhs,
-                            factory.makeLiteral("uint256", LiteralKind.Number, "", "42")
-                        )
-                    );
+            check = predicate.map((expr) => {
+                const lhs = ctx.refBinding(ctx.instrCtx.scratchField);
+                const scratchAssign = factory.makeExpressionStatement(
+                    factory.makeAssignment(
+                        "<missing>",
+                        "=",
+                        lhs,
+                        factory.makeLiteral("uint256", LiteralKind.Number, "", "42")
+                    )
+                );
 
-                    const stmt = factory.makeIfStatement(expr, scratchAssign);
+                const stmt = factory.makeIfStatement(expr, scratchAssign);
 
-                    instrCtx.addAnnotationInstrumentation(annotation, stmt);
-                    instrCtx.addAnnotationCheck(annotation, expr);
+                instrCtx.addAnnotationInstrumentation(annotation, stmt);
+                instrCtx.addAnnotationCheck(annotation, expr);
 
-                    return stmt;
-                });
-            isOld = !targetIsStmt
-            ;
+                return stmt;
+            });
+            isOld = !targetIsStmt;
         } else if (annotation.type === AnnotationType.LetAnnotation) {
             assert(
                 predicate instanceof Expression,
@@ -577,12 +576,7 @@ export function insertAnnotations(
 
             const parsedAnnot = annotation.parsedAnnot as SLetAnnotation;
             const name = ctx.getLetAnnotationBinding(parsedAnnot);
-            const stmt = factory.makeAssignment(
-                "<missing>",
-                "=",
-                ctx.refBinding(name),
-                predicate
-            );
+            const stmt = factory.makeAssignment("<missing>", "=", ctx.refBinding(name), predicate);
 
             /// For now keep #let annotations as 'general' annotation, as to not
             /// confuse consumers of the instrumentation metadata (they only
