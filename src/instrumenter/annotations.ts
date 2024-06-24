@@ -139,7 +139,7 @@ export class UserFunctionDefinitionMetaData extends AnnotationMetaData<SUserFunc
 export class PropertyMetaData extends AnnotationMetaData<SProperty> {}
 
 /**
- * Metadata specific to a ghost var definition (invariant, if_succeeds)
+ * Metadata specific to a ghost var definition (let)
  */
 export class LetAnnotationMetaData extends AnnotationMetaData<SLetAnnotation> {}
 

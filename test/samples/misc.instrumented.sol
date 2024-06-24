@@ -163,12 +163,12 @@ contract Result {
     function b() public returns (uint x) {
         vars7 memory _v;
         x = _original_Result_b();
-        _v.t2 = x;
-        _v.let_5 = _v.t2 == x;
         if (!(x == x)) {
-            emit __ScribbleUtilsLib__318.AssertionFailed("004177:0067:000 7: ");
+            emit __ScribbleUtilsLib__318.AssertionFailed("004127:0067:000 7: ");
             assert(false);
         }
+        _v.t2 = x;
+        _v.let_5 = _v.t2 == x;
         if (!(_v.let_5)) {
             emit __ScribbleUtilsLib__318.AssertionFailed("004322:0067:000 8: ");
             assert(false);

@@ -88,431 +88,431 @@ contract HardHatTest {
         vars0 memory _v;
         _original_HardHatTest_main(str, bts);
         unchecked {
-            _v.a = uint8(1);
-            _v.let_0 = _v.a < 2;
-            _v.flag = false;
-            _v.let_1 = !_v.flag;
-            _v.addr = address(0x00);
-            _v.let_2 = _v.addr == 0x0000000000000000000000000000000000000000;
-            _v.x = int128(-1);
-            _v.let_3 = _v.x < 0;
-            _v.i = uint256(1);
-            _v.let_4 = ((b[0] == 1) && (b[_v.i] == 2)) && (b[2] == 3);
-            _v.b1 = bytes1(0xff);
-            _v.let_5 = _v.b1 > 0x00;
-            _v.b2 = bytes2(0xffff);
-            _v.let_6 = _v.b2 > 0x00;
-            _v.b3 = bytes3(0xffffff);
-            _v.let_7 = _v.b3 > 0x00;
-            _v.b4 = bytes4(0xffffffff);
-            _v.let_8 = _v.b4 > 0x00;
-            _v.b5 = bytes5(0xffffffffff);
-            _v.let_9 = _v.b5 > 0x00;
-            _v.b6 = bytes6(0xffffffffffff);
-            _v.let_10 = _v.b6 > 0x00;
-            _v.b7 = bytes7(0xffffffffffffff);
-            _v.let_11 = _v.b7 > 0x00;
-            _v.b8 = bytes8(0xffffffffffffffff);
-            _v.let_12 = _v.b8 > 0x00;
-            _v.b9 = bytes9(0xffffffffffffffffff);
-            _v.let_13 = _v.b9 > 0x00;
-            _v.b10 = bytes10(0xffffffffffffffffffff);
-            _v.let_14 = _v.b10 > 0x00;
-            _v.b11 = bytes11(0xffffffffffffffffffffff);
-            _v.let_15 = _v.b11 > 0x00;
-            _v.b12 = bytes12(0xffffffffffffffffffffffff);
-            _v.let_16 = _v.b12 > 0x00;
-            _v.b13 = bytes13(0xffffffffffffffffffffffffff);
-            _v.let_17 = _v.b13 > 0x00;
-            _v.b14 = bytes14(0xffffffffffffffffffffffffffff);
-            _v.let_18 = _v.b14 > 0x00;
-            _v.b15 = bytes15(0xffffffffffffffffffffffffffffff);
-            _v.let_19 = _v.b15 > 0x00;
-            _v.b16 = bytes16(0xffffffffffffffffffffffffffffffff);
-            _v.let_20 = _v.b16 > 0x00;
-            _v.b17 = bytes17(0xffffffffffffffffffffffffffffffffff);
-            _v.let_21 = _v.b17 > 0x00;
-            _v.b18 = bytes18(0xffffffffffffffffffffffffffffffffffff);
-            _v.let_22 = _v.b18 > 0x00;
-            _v.b19 = bytes19(0xffffffffffffffffffffffffffffffffffffff);
-            _v.let_23 = _v.b19 > 0x00;
-            _v.b20 = bytes20(0xFFfFfFffFFfffFFfFFfFFFFFffFFFffffFfFFFfF);
-            _v.let_24 = _v.b20 > 0x00;
-            _v.b21 = bytes21(0xffffffffffffffffffffffffffffffffffffffffff);
-            _v.let_25 = _v.b21 > 0x00;
-            _v.b22 = bytes22(0xffffffffffffffffffffffffffffffffffffffffffff);
-            _v.let_26 = _v.b22 > 0x00;
-            _v.b23 = bytes23(0xffffffffffffffffffffffffffffffffffffffffffffff);
-            _v.let_27 = _v.b23 > 0x00;
-            _v.b24 = bytes24(0xffffffffffffffffffffffffffffffffffffffffffffffff);
-            _v.let_28 = _v.b24 > 0x00;
-            _v.b25 = bytes25(0xffffffffffffffffffffffffffffffffffffffffffffffffff);
-            _v.let_29 = _v.b25 > 0x00;
-            _v.b26 = bytes26(0xffffffffffffffffffffffffffffffffffffffffffffffffffff);
-            _v.let_30 = _v.b26 > 0x00;
-            _v.b27 = bytes27(0xffffffffffffffffffffffffffffffffffffffffffffffffffffff);
-            _v.let_31 = _v.b27 > 0x00;
-            _v.b28 = bytes28(0xffffffffffffffffffffffffffffffffffffffffffffffffffffffff);
-            _v.let_32 = _v.b28 > 0x00;
-            _v.b29 = bytes29(0xffffffffffffffffffffffffffffffffffffffffffffffffffffffffff);
-            _v.let_33 = _v.b29 > 0x00;
-            _v.b30 = bytes30(0xffffffffffffffffffffffffffffffffffffffffffffffffffffffffffff);
-            _v.let_34 = _v.b30 > 0x00;
-            _v.b31 = bytes31(0xffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffff);
-            _v.let_35 = _v.b31 > 0x00;
-            _v.b32 = bytes32(0xffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffff);
-            _v.let_36 = _v.b32 > 0x00;
             {
-                console.logString("HIT: 005829:0040:000 0: ");
+                console.logString("HIT: 002064:0040:000 0: ");
                 if (!(1 > 2)) {
-                    console.logString("005829:0040:000 0: ");
+                    console.logString("002064:0040:000 0: ");
                     assert(false);
                 }
             }
+            _v.a = uint8(1);
+            _v.let_0 = _v.a < 2;
             {
-                console.logString("HIT: 006160:0040:000 1: ");
+                console.logString("HIT: 002457:0040:000 1: ");
                 if (!(_v.let_0)) {
                     console.logString("_v.a");
                     console.logUint(_v.a);
-                    console.logString("006160:0040:000 1: ");
+                    console.logString("002457:0040:000 1: ");
                     assert(false);
                 }
             }
+            _v.flag = false;
+            _v.let_1 = !_v.flag;
             {
-                console.logString("HIT: 006497:0040:000 2: ");
+                console.logString("HIT: 002856:0040:000 2: ");
                 if (!(_v.let_1)) {
                     console.logString("_v.flag");
                     console.logBool(_v.flag);
-                    console.logString("006497:0040:000 2: ");
+                    console.logString("002856:0040:000 2: ");
                     assert(false);
                 }
             }
+            _v.addr = address(0x00);
+            _v.let_2 = _v.addr == 0x0000000000000000000000000000000000000000;
             {
-                console.logString("HIT: 006837:0040:000 3: ");
+                console.logString("HIT: 003311:0040:000 3: ");
                 if (!(_v.let_2)) {
                     console.logString("_v.addr");
                     console.logAddress(_v.addr);
-                    console.logString("006837:0040:000 3: ");
+                    console.logString("003311:0040:000 3: ");
                     assert(false);
                 }
             }
+            _v.x = int128(-1);
+            _v.let_3 = _v.x < 0;
             {
-                console.logString("HIT: 007167:0040:000 4: ");
+                console.logString("HIT: 003705:0040:000 4: ");
                 if (!(_v.let_3)) {
                     console.logString("_v.x");
                     console.logInt(_v.x);
-                    console.logString("007167:0040:000 4: ");
+                    console.logString("003705:0040:000 4: ");
                     assert(false);
                 }
             }
+            _v.i = uint256(1);
+            _v.let_4 = ((b[0] == 1) && (b[_v.i] == 2)) && (b[2] == 3);
             {
-                console.logString("HIT: 007607:0040:000 5: ");
+                console.logString("HIT: 004247:0040:000 5: ");
                 if (!(_v.let_4)) {
                     console.logString("_v.i");
                     console.logUint(_v.i);
                     console.logString("abi.encode(b)");
                     console.logBytes(abi.encode(b));
-                    console.logString("007607:0040:000 5: ");
+                    console.logString("004247:0040:000 5: ");
                     assert(false);
                 }
             }
             {
-                console.logString("HIT: 007987:0040:000 6: ");
+                console.logString("HIT: 004627:0040:000 6: ");
                 if (!(__ScribbleUtilsLib__19.eq_encoded(abi.encode(str), "abc"))) {
                     console.logString("str");
                     console.logString(str);
-                    console.logString("007987:0040:000 6: ");
+                    console.logString("004627:0040:000 6: ");
                     assert(false);
                 }
             }
             {
-                console.logString("HIT: 008360:0040:000 7: ");
+                console.logString("HIT: 005000:0040:000 7: ");
                 if (!(__ScribbleUtilsLib__19.eq_encoded(bts, hex"010203"))) {
                     console.logString("bts");
                     console.logBytes(bts);
-                    console.logString("008360:0040:000 7: ");
+                    console.logString("005000:0040:000 7: ");
                     assert(false);
                 }
             }
+            _v.b1 = bytes1(0xff);
+            _v.let_5 = _v.b1 > 0x00;
             {
-                console.logString("HIT: 008695:0040:000 8: ");
+                console.logString("HIT: 005406:0040:000 8: ");
                 if (!(_v.let_5)) {
                     console.logString("_v.b1");
                     console.logBytes1(_v.b1);
-                    console.logString("008695:0040:000 8: ");
+                    console.logString("005406:0040:000 8: ");
                     assert(false);
                 }
             }
+            _v.b2 = bytes2(0xffff);
+            _v.let_6 = _v.b2 > 0x00;
             {
-                console.logString("HIT: 009030:0040:000 9: ");
+                console.logString("HIT: 005814:0040:000 9: ");
                 if (!(_v.let_6)) {
                     console.logString("_v.b2");
                     console.logBytes2(_v.b2);
-                    console.logString("009030:0040:000 9: ");
+                    console.logString("005814:0040:000 9: ");
                     assert(false);
                 }
             }
+            _v.b3 = bytes3(0xffffff);
+            _v.let_7 = _v.b3 > 0x00;
             {
-                console.logString("HIT: 009366:0041:000 10: ");
+                console.logString("HIT: 006225:0041:000 10: ");
                 if (!(_v.let_7)) {
                     console.logString("_v.b3");
                     console.logBytes3(_v.b3);
-                    console.logString("009366:0041:000 10: ");
+                    console.logString("006225:0041:000 10: ");
                     assert(false);
                 }
             }
+            _v.b4 = bytes4(0xffffffff);
+            _v.let_8 = _v.b4 > 0x00;
             {
-                console.logString("HIT: 009703:0041:000 11: ");
+                console.logString("HIT: 006639:0041:000 11: ");
                 if (!(_v.let_8)) {
                     console.logString("_v.b4");
                     console.logBytes4(_v.b4);
-                    console.logString("009703:0041:000 11: ");
+                    console.logString("006639:0041:000 11: ");
                     assert(false);
                 }
             }
+            _v.b5 = bytes5(0xffffffffff);
+            _v.let_9 = _v.b5 > 0x00;
             {
-                console.logString("HIT: 010040:0041:000 12: ");
+                console.logString("HIT: 007055:0041:000 12: ");
                 if (!(_v.let_9)) {
                     console.logString("_v.b5");
                     console.logBytes5(_v.b5);
-                    console.logString("010040:0041:000 12: ");
+                    console.logString("007055:0041:000 12: ");
                     assert(false);
                 }
             }
+            _v.b6 = bytes6(0xffffffffffff);
+            _v.let_10 = _v.b6 > 0x00;
             {
-                console.logString("HIT: 010378:0041:000 13: ");
+                console.logString("HIT: 007475:0041:000 13: ");
                 if (!(_v.let_10)) {
                     console.logString("_v.b6");
                     console.logBytes6(_v.b6);
-                    console.logString("010378:0041:000 13: ");
+                    console.logString("007475:0041:000 13: ");
                     assert(false);
                 }
             }
+            _v.b7 = bytes7(0xffffffffffffff);
+            _v.let_11 = _v.b7 > 0x00;
             {
-                console.logString("HIT: 010716:0041:000 14: ");
+                console.logString("HIT: 007897:0041:000 14: ");
                 if (!(_v.let_11)) {
                     console.logString("_v.b7");
                     console.logBytes7(_v.b7);
-                    console.logString("010716:0041:000 14: ");
+                    console.logString("007897:0041:000 14: ");
                     assert(false);
                 }
             }
+            _v.b8 = bytes8(0xffffffffffffffff);
+            _v.let_12 = _v.b8 > 0x00;
             {
-                console.logString("HIT: 011054:0041:000 15: ");
+                console.logString("HIT: 008321:0041:000 15: ");
                 if (!(_v.let_12)) {
                     console.logString("_v.b8");
                     console.logBytes8(_v.b8);
-                    console.logString("011054:0041:000 15: ");
+                    console.logString("008321:0041:000 15: ");
                     assert(false);
                 }
             }
+            _v.b9 = bytes9(0xffffffffffffffffff);
+            _v.let_13 = _v.b9 > 0x00;
             {
-                console.logString("HIT: 011392:0041:000 16: ");
+                console.logString("HIT: 008747:0041:000 16: ");
                 if (!(_v.let_13)) {
                     console.logString("_v.b9");
                     console.logBytes9(_v.b9);
-                    console.logString("011392:0041:000 16: ");
+                    console.logString("008747:0041:000 16: ");
                     assert(false);
                 }
             }
+            _v.b10 = bytes10(0xffffffffffffffffffff);
+            _v.let_14 = _v.b10 > 0x00;
             {
-                console.logString("HIT: 011733:0041:000 17: ");
+                console.logString("HIT: 009181:0041:000 17: ");
                 if (!(_v.let_14)) {
                     console.logString("_v.b10");
                     console.logBytes10(_v.b10);
-                    console.logString("011733:0041:000 17: ");
+                    console.logString("009181:0041:000 17: ");
                     assert(false);
                 }
             }
+            _v.b11 = bytes11(0xffffffffffffffffffffff);
+            _v.let_15 = _v.b11 > 0x00;
             {
-                console.logString("HIT: 012074:0041:000 18: ");
+                console.logString("HIT: 009617:0041:000 18: ");
                 if (!(_v.let_15)) {
                     console.logString("_v.b11");
                     console.logBytes11(_v.b11);
-                    console.logString("012074:0041:000 18: ");
+                    console.logString("009617:0041:000 18: ");
                     assert(false);
                 }
             }
+            _v.b12 = bytes12(0xffffffffffffffffffffffff);
+            _v.let_16 = _v.b12 > 0x00;
             {
-                console.logString("HIT: 012415:0041:000 19: ");
+                console.logString("HIT: 010055:0041:000 19: ");
                 if (!(_v.let_16)) {
                     console.logString("_v.b12");
                     console.logBytes12(_v.b12);
-                    console.logString("012415:0041:000 19: ");
+                    console.logString("010055:0041:000 19: ");
                     assert(false);
                 }
             }
+            _v.b13 = bytes13(0xffffffffffffffffffffffffff);
+            _v.let_17 = _v.b13 > 0x00;
             {
-                console.logString("HIT: 012756:0041:000 20: ");
+                console.logString("HIT: 010495:0041:000 20: ");
                 if (!(_v.let_17)) {
                     console.logString("_v.b13");
                     console.logBytes13(_v.b13);
-                    console.logString("012756:0041:000 20: ");
+                    console.logString("010495:0041:000 20: ");
                     assert(false);
                 }
             }
+            _v.b14 = bytes14(0xffffffffffffffffffffffffffff);
+            _v.let_18 = _v.b14 > 0x00;
             {
-                console.logString("HIT: 013097:0041:000 21: ");
+                console.logString("HIT: 010937:0041:000 21: ");
                 if (!(_v.let_18)) {
                     console.logString("_v.b14");
                     console.logBytes14(_v.b14);
-                    console.logString("013097:0041:000 21: ");
+                    console.logString("010937:0041:000 21: ");
                     assert(false);
                 }
             }
+            _v.b15 = bytes15(0xffffffffffffffffffffffffffffff);
+            _v.let_19 = _v.b15 > 0x00;
             {
-                console.logString("HIT: 013438:0041:000 22: ");
+                console.logString("HIT: 011381:0041:000 22: ");
                 if (!(_v.let_19)) {
                     console.logString("_v.b15");
                     console.logBytes15(_v.b15);
-                    console.logString("013438:0041:000 22: ");
+                    console.logString("011381:0041:000 22: ");
                     assert(false);
                 }
             }
+            _v.b16 = bytes16(0xffffffffffffffffffffffffffffffff);
+            _v.let_20 = _v.b16 > 0x00;
             {
-                console.logString("HIT: 013779:0041:000 23: ");
+                console.logString("HIT: 011827:0041:000 23: ");
                 if (!(_v.let_20)) {
                     console.logString("_v.b16");
                     console.logBytes16(_v.b16);
-                    console.logString("013779:0041:000 23: ");
+                    console.logString("011827:0041:000 23: ");
                     assert(false);
                 }
             }
+            _v.b17 = bytes17(0xffffffffffffffffffffffffffffffffff);
+            _v.let_21 = _v.b17 > 0x00;
             {
-                console.logString("HIT: 014120:0041:000 24: ");
+                console.logString("HIT: 012275:0041:000 24: ");
                 if (!(_v.let_21)) {
                     console.logString("_v.b17");
                     console.logBytes17(_v.b17);
-                    console.logString("014120:0041:000 24: ");
+                    console.logString("012275:0041:000 24: ");
                     assert(false);
                 }
             }
+            _v.b18 = bytes18(0xffffffffffffffffffffffffffffffffffff);
+            _v.let_22 = _v.b18 > 0x00;
             {
-                console.logString("HIT: 014461:0041:000 25: ");
+                console.logString("HIT: 012725:0041:000 25: ");
                 if (!(_v.let_22)) {
                     console.logString("_v.b18");
                     console.logBytes18(_v.b18);
-                    console.logString("014461:0041:000 25: ");
+                    console.logString("012725:0041:000 25: ");
                     assert(false);
                 }
             }
+            _v.b19 = bytes19(0xffffffffffffffffffffffffffffffffffffff);
+            _v.let_23 = _v.b19 > 0x00;
             {
-                console.logString("HIT: 014802:0041:000 26: ");
+                console.logString("HIT: 013177:0041:000 26: ");
                 if (!(_v.let_23)) {
                     console.logString("_v.b19");
                     console.logBytes19(_v.b19);
-                    console.logString("014802:0041:000 26: ");
+                    console.logString("013177:0041:000 26: ");
                     assert(false);
                 }
             }
+            _v.b20 = bytes20(0xFFfFfFffFFfffFFfFFfFFFFFffFFFffffFfFFFfF);
+            _v.let_24 = _v.b20 > 0x00;
             {
-                console.logString("HIT: 015143:0041:000 27: ");
+                console.logString("HIT: 013631:0041:000 27: ");
                 if (!(_v.let_24)) {
                     console.logString("_v.b20");
                     console.logBytes20(_v.b20);
-                    console.logString("015143:0041:000 27: ");
+                    console.logString("013631:0041:000 27: ");
                     assert(false);
                 }
             }
+            _v.b21 = bytes21(0xffffffffffffffffffffffffffffffffffffffffff);
+            _v.let_25 = _v.b21 > 0x00;
             {
-                console.logString("HIT: 015484:0041:000 28: ");
+                console.logString("HIT: 014087:0041:000 28: ");
                 if (!(_v.let_25)) {
                     console.logString("_v.b21");
                     console.logBytes21(_v.b21);
-                    console.logString("015484:0041:000 28: ");
+                    console.logString("014087:0041:000 28: ");
                     assert(false);
                 }
             }
+            _v.b22 = bytes22(0xffffffffffffffffffffffffffffffffffffffffffff);
+            _v.let_26 = _v.b22 > 0x00;
             {
-                console.logString("HIT: 015825:0041:000 29: ");
+                console.logString("HIT: 014545:0041:000 29: ");
                 if (!(_v.let_26)) {
                     console.logString("_v.b22");
                     console.logBytes22(_v.b22);
-                    console.logString("015825:0041:000 29: ");
+                    console.logString("014545:0041:000 29: ");
                     assert(false);
                 }
             }
+            _v.b23 = bytes23(0xffffffffffffffffffffffffffffffffffffffffffffff);
+            _v.let_27 = _v.b23 > 0x00;
             {
-                console.logString("HIT: 016166:0041:000 30: ");
+                console.logString("HIT: 015005:0041:000 30: ");
                 if (!(_v.let_27)) {
                     console.logString("_v.b23");
                     console.logBytes23(_v.b23);
-                    console.logString("016166:0041:000 30: ");
+                    console.logString("015005:0041:000 30: ");
                     assert(false);
                 }
             }
+            _v.b24 = bytes24(0xffffffffffffffffffffffffffffffffffffffffffffffff);
+            _v.let_28 = _v.b24 > 0x00;
             {
-                console.logString("HIT: 016507:0041:000 31: ");
+                console.logString("HIT: 015467:0041:000 31: ");
                 if (!(_v.let_28)) {
                     console.logString("_v.b24");
                     console.logBytes24(_v.b24);
-                    console.logString("016507:0041:000 31: ");
+                    console.logString("015467:0041:000 31: ");
                     assert(false);
                 }
             }
+            _v.b25 = bytes25(0xffffffffffffffffffffffffffffffffffffffffffffffffff);
+            _v.let_29 = _v.b25 > 0x00;
             {
-                console.logString("HIT: 016848:0041:000 32: ");
+                console.logString("HIT: 015931:0041:000 32: ");
                 if (!(_v.let_29)) {
                     console.logString("_v.b25");
                     console.logBytes25(_v.b25);
-                    console.logString("016848:0041:000 32: ");
+                    console.logString("015931:0041:000 32: ");
                     assert(false);
                 }
             }
+            _v.b26 = bytes26(0xffffffffffffffffffffffffffffffffffffffffffffffffffff);
+            _v.let_30 = _v.b26 > 0x00;
             {
-                console.logString("HIT: 017189:0041:000 33: ");
+                console.logString("HIT: 016397:0041:000 33: ");
                 if (!(_v.let_30)) {
                     console.logString("_v.b26");
                     console.logBytes26(_v.b26);
-                    console.logString("017189:0041:000 33: ");
+                    console.logString("016397:0041:000 33: ");
                     assert(false);
                 }
             }
+            _v.b27 = bytes27(0xffffffffffffffffffffffffffffffffffffffffffffffffffffff);
+            _v.let_31 = _v.b27 > 0x00;
             {
-                console.logString("HIT: 017530:0041:000 34: ");
+                console.logString("HIT: 016865:0041:000 34: ");
                 if (!(_v.let_31)) {
                     console.logString("_v.b27");
                     console.logBytes27(_v.b27);
-                    console.logString("017530:0041:000 34: ");
+                    console.logString("016865:0041:000 34: ");
                     assert(false);
                 }
             }
+            _v.b28 = bytes28(0xffffffffffffffffffffffffffffffffffffffffffffffffffffffff);
+            _v.let_32 = _v.b28 > 0x00;
             {
-                console.logString("HIT: 017871:0041:000 35: ");
+                console.logString("HIT: 017335:0041:000 35: ");
                 if (!(_v.let_32)) {
                     console.logString("_v.b28");
                     console.logBytes28(_v.b28);
-                    console.logString("017871:0041:000 35: ");
+                    console.logString("017335:0041:000 35: ");
                     assert(false);
                 }
             }
+            _v.b29 = bytes29(0xffffffffffffffffffffffffffffffffffffffffffffffffffffffffff);
+            _v.let_33 = _v.b29 > 0x00;
             {
-                console.logString("HIT: 018212:0041:000 36: ");
+                console.logString("HIT: 017807:0041:000 36: ");
                 if (!(_v.let_33)) {
                     console.logString("_v.b29");
                     console.logBytes29(_v.b29);
-                    console.logString("018212:0041:000 36: ");
+                    console.logString("017807:0041:000 36: ");
                     assert(false);
                 }
             }
+            _v.b30 = bytes30(0xffffffffffffffffffffffffffffffffffffffffffffffffffffffffffff);
+            _v.let_34 = _v.b30 > 0x00;
             {
-                console.logString("HIT: 018553:0041:000 37: ");
+                console.logString("HIT: 018281:0041:000 37: ");
                 if (!(_v.let_34)) {
                     console.logString("_v.b30");
                     console.logBytes30(_v.b30);
-                    console.logString("018553:0041:000 37: ");
+                    console.logString("018281:0041:000 37: ");
                     assert(false);
                 }
             }
+            _v.b31 = bytes31(0xffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffff);
+            _v.let_35 = _v.b31 > 0x00;
             {
-                console.logString("HIT: 018894:0041:000 38: ");
+                console.logString("HIT: 018757:0041:000 38: ");
                 if (!(_v.let_35)) {
                     console.logString("_v.b31");
                     console.logBytes31(_v.b31);
-                    console.logString("018894:0041:000 38: ");
+                    console.logString("018757:0041:000 38: ");
                     assert(false);
                 }
             }
+            _v.b32 = bytes32(0xffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffff);
+            _v.let_36 = _v.b32 > 0x00;
             {
                 console.logString("HIT: 019235:0041:000 39: ");
                 if (!(_v.let_36)) {
