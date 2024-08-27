@@ -9,9 +9,9 @@ erc1155:
             - msg: "Sender must be properly authorized to transfer"
               prop: "#if_succeeds msg.sender == from || old(isApprovedForAll(from, msg.sender));"
             - msg: "Sender lost value tokens"
-              prop: "#if_succeeds balanceOf(from, tokenId) == old(balanceOf(from, tokenId)) - value;"
+              prop: "#if_succeeds from != to ==> balanceOf(from, tokenId) == old(balanceOf(from, tokenId)) - value;"
             - msg: "Recipient gained value tokens (assuming non-deflationary tokens)"
-              prop: "#if_succeeds balanceOf(to, tokenId) == old(balanceOf(to, tokenId)) + value;"
+              prop: "#if_succeeds from != to ==> balanceOf(to, tokenId) == old(balanceOf(to, tokenId)) + value;"
         safeBatchTransferFrom(from, to, ids, values, data):
             - msg: "Cannot transfer to 0 address"
               prop: "#if_succeeds to != address(0);"
